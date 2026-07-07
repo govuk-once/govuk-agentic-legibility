@@ -14,6 +14,7 @@ dependencies = [
     { name = "boto3" },
     { name = "dotenv" },
     { name = "mypy" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -32,6 +33,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.40" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "mypy", specifier = ">=2.1.0" },
+    { name = "requests", specifier = ">=2.34.2" },
 ]
 
 [package.metadata.requires-dev]

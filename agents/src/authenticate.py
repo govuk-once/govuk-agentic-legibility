@@ -5,6 +5,7 @@ import logging
 import base64
 import hashlib
 import secrets
+import requests
 
 
 logger = logging.getLogger(__name__)
@@ -88,3 +89,40 @@ def generate_pkce_pair() -> tuple[str, str]:
     digest = hashlib.sha256(verifier.encode("utf-8")).digest()
     challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
     return verifier, challenge
+
+
+def make_session(config: JwtAuthConfig) -> requests.Session:
+    "Makes HTTP session capable of holding persistent cookies."
+    session = requests.Session()
+    session.headers.update(
+        {"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    if config.attestation_token:
+        session.headers.update(
+            {"X-Firebase-App-Check": config.attestation_token}
+        )
+    return session
+
+
+def make_initial_request(config: JwtAuthConfig, challenge: str) -> requests.Response:
+    session = make_session(config=config)
+    query_params = {
+        "client_id": config.client_id,
+        "response_type": "code",
+        "redirect_uri": REDIRECT_URI,
+        "scope": "openid email",
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+        "state": "smoke-test",
+        "idpidentifier": "onelogin"
+    }
+
+    auth_url = f"https://{config.auth_url}/oauth2/authorize"
+    
+    init = session.get(url=auth_url, params=query_params)
+    init.raise_for_status()
+    return init
+
+
+
+
