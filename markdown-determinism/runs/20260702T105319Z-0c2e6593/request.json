@@ -1,0 +1,138 @@
+{
+  "messages": [
+    {
+      "content": "You complete government forms using only information explicitly stated in the case description.\n\nRead the entire case description before completing the form.\n\nCall the submit_contact_details tool exactly once.\n\nProvide every required field.\n\nDo not omit information that is explicitly provided.\n\nDo not invent, assume or correct information.\n\nApply only the normalisation rules stated in the tool schema and field descriptions.\n\nDo not provide a prose answer.\n",
+      "role": "system"
+    },
+    {
+      "content": "Alex Morgan has confirmed that the information supplied is accurate and is happy to be contacted about this application, but does not consent to being contacted for research. Alex would prefer any contact to be by email and, where possible, during the afternoon. Their current address is Flat 4B, 18 Orchard Lane, Bristol, BS1 4QA, and they have no previous address to declare. They were born on 14 February 1988 and prefer to communicate in English. Their mobile number is 07700 900123. Correspondence should use the email address alex.morgan@example.com.\n",
+      "role": "user"
+    }
+  ],
+  "model": "bedrock/converse/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "model_parameters": {},
+  "tool_choice": {
+    "function": {
+      "name": "submit_contact_details"
+    },
+    "type": "function"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Submit the completed contact-details form. Call this exactly once after populating every required field using only information explicitly stated in the case description.",
+        "name": "submit_contact_details",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "additionalProperties": false,
+              "properties": {
+                "address_line_1": {
+                  "description": "The primary street-address line.",
+                  "type": "string"
+                },
+                "address_line_2": {
+                  "description": "The secondary address line, such as a flat or apartment.",
+                  "type": "string"
+                },
+                "postcode": {
+                  "description": "The postcode, copied exactly as stated.",
+                  "type": "string"
+                },
+                "town_or_city": {
+                  "description": "The town or city.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "address_line_1",
+                "address_line_2",
+                "town_or_city",
+                "postcode"
+              ],
+              "type": "object"
+            },
+            "application_contact_consent": {
+              "description": "Whether the person consents to being contacted about this application.",
+              "type": "boolean"
+            },
+            "date_of_birth": {
+              "description": "The person's date of birth, normalised to YYYY-MM-DD.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "declaration_confirmed": {
+              "description": "Whether the person has confirmed that the supplied information is accurate.",
+              "type": "boolean"
+            },
+            "email_address": {
+              "description": "The person's email address, copied exactly as stated.",
+              "format": "email",
+              "type": "string"
+            },
+            "full_name": {
+              "description": "The person's full name, copied exactly as stated.",
+              "type": "string"
+            },
+            "has_previous_address": {
+              "description": "Whether the person has a previous address to declare.",
+              "type": "boolean"
+            },
+            "phone_number": {
+              "description": "The person's telephone number, preserving the spacing used in the case description.",
+              "type": "string"
+            },
+            "preferred_contact_method": {
+              "description": "The person's explicitly stated preferred contact method.",
+              "enum": [
+                "email",
+                "phone",
+                "post"
+              ],
+              "type": "string"
+            },
+            "preferred_contact_time": {
+              "description": "The person's explicitly stated preferred time for contact.",
+              "enum": [
+                "morning",
+                "afternoon",
+                "evening",
+                "no_preference"
+              ],
+              "type": "string"
+            },
+            "preferred_language": {
+              "description": "The person's explicitly stated preferred language.",
+              "enum": [
+                "English",
+                "Welsh"
+              ],
+              "type": "string"
+            },
+            "research_contact_consent": {
+              "description": "Whether the person consents to being contacted for research.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "full_name",
+            "date_of_birth",
+            "email_address",
+            "phone_number",
+            "address",
+            "has_previous_address",
+            "preferred_contact_method",
+            "preferred_contact_time",
+            "preferred_language",
+            "application_contact_consent",
+            "research_contact_consent",
+            "declaration_confirmed"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

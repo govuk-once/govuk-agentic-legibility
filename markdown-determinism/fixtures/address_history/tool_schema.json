@@ -1,0 +1,98 @@
+{
+  "type": "function",
+  "function": {
+    "name": "submit_address_history",
+    "description": "Submit the completed address-history form. Call this exactly once after populating every required field using only information explicitly stated in the case description.",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "full_name": {
+          "type": "string",
+          "description": "The person's full name, copied exactly as stated."
+        },
+        "current_address": {
+          "type": "object",
+          "description": "The person's current address and the month in which they moved there.",
+          "additionalProperties": false,
+          "properties": {
+            "address_line_1": {
+              "type": "string",
+              "description": "The house number or name and street, copied exactly as stated."
+            },
+            "town_or_city": {
+              "type": "string",
+              "description": "The town or city, copied exactly as stated."
+            },
+            "postcode": {
+              "type": "string",
+              "description": "The postcode, copied exactly as stated."
+            },
+            "moved_in_month": {
+              "type": "string",
+              "description": "The month in which the person moved to this address, normalised to YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          "required": [
+            "address_line_1",
+            "town_or_city",
+            "postcode",
+            "moved_in_month"
+          ]
+        },
+        "previous_addresses": {
+          "type": "array",
+          "description": "Every previous address stated in the case description, ordered from most recent to oldest.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "address_line_1": {
+                "type": "string",
+                "description": "The house number or name and street, copied exactly as stated."
+              },
+              "town_or_city": {
+                "type": "string",
+                "description": "The town or city, copied exactly as stated."
+              },
+              "postcode": {
+                "type": "string",
+                "description": "The postcode, copied exactly as stated."
+              },
+              "moved_in_month": {
+                "type": "string",
+                "description": "The month in which the person moved to this address, normalised to YYYY-MM.",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              "moved_out_month": {
+                "type": "string",
+                "description": "The month in which the person moved out of this address, normalised to YYYY-MM.",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              }
+            },
+            "required": [
+              "address_line_1",
+              "town_or_city",
+              "postcode",
+              "moved_in_month",
+              "moved_out_month"
+            ]
+          }
+        },
+        "declaration_confirmed": {
+          "type": "boolean",
+          "description": "Whether the person has confirmed that the address history is complete and accurate."
+        }
+      },
+      "required": [
+        "full_name",
+        "current_address",
+        "previous_addresses",
+        "declaration_confirmed"
+      ]
+    }
+  }
+}

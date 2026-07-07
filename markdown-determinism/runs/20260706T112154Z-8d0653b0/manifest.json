@@ -1,0 +1,33 @@
+{
+  "completed_runs": 1000,
+  "concurrency": 10,
+  "expected_tool_name": "submit_five_year_address_history",
+  "finished_at_utc": "2026-07-06T11:30:48.948495+00:00",
+  "fixture_path": "/Users/sam.rickman/Projects/govuk-agentic-legibility/markdown-determinism/fixtures/address_history_five_year",
+  "jsonschema_version": "4.26.0",
+  "litellm_version": "1.90.0",
+  "model_parameters": {},
+  "os": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "release": "25.5.0",
+    "system": "Darwin"
+  },
+  "package_version": "0.1.0",
+  "providers": [
+    "bedrock"
+  ],
+  "pydantic_version": "2.13.4",
+  "python_version": "3.14.6",
+  "requested_model": "bedrock/converse/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  "requested_runs": 1000,
+  "retry_configuration": {
+    "max_retries": 10
+  },
+  "returned_model_identifiers": [
+    "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  ],
+  "run_id": "20260706T112154Z-8d0653b0",
+  "started_at_utc": "2026-07-06T11:21:54.886698+00:00",
+  "stop_reason": "completed"
+}

@@ -1,0 +1,219 @@
+{
+  "messages": [
+    {
+      "content": "You complete government forms using only the information and service rules in the\ncase and these instructions.\n\nThe case contains information from a FLEX record followed by a labelled transcript\nof an earlier conversation. The form has not yet been submitted.\n\nRead the entire case before completing the form.\n\nSource rules:\n\n- The FLEX record is authoritative for identity verification and the person's full\n  name.\n- FLEX employment information may be stale. For employment facts, use the latest\n  information explicitly confirmed by USER.\n- Statements made by USER are authoritative about their course, work, duties, pay\n  and hours.\n- ASSISTANT turns may ask questions, repeat information, or make tentative\n  interpretations. Do not treat an ASSISTANT interpretation as authoritative.\n\nThe service chooses exactly one route. Apply the routes in this order.\n\n1. Identity rule\n\nIf identity_verified is false, select manual_review. Do not assess the education or\nemployment routes.\n\n2. Approved education route\n\nEducation is approved only if all of the following are true:\n\n- the provider is a recognised college, university, or registered training provider\n- the course leads to a qualification at level 3 or above, or is a regulated\n  apprenticeship\n- there are at least 12 scheduled hours of supervised teaching each week\n- the course lasts at least 12 weeks\n- the course is not employer-required internal training\n\nFor this service, a course is employer-required internal training when both of the\nfollowing are true:\n\n- attendance is mandatory for the person's current job\n- access to the course is restricted to employees of the same employer\n\nA course can be employer-required internal training even when an external\nrecognised college delivers it and it leads to a formal qualification.\n\nIf education is approved:\n\n- select education\n- populate education_details\n- set employment_details to null\n- set not_eligible_reasons to an empty array\n- do not assess the employment route\n\n3. Qualifying employment route\n\nAssess employment only if education is not approved.\n\nEmployment qualifies only if all of the following are true:\n\n- the contract is permanent, or a fixed-term contract with a total scheduled\n  duration of at least 26 weeks\n- average paid hours are at least 16 hours per week\n- average gross weekly pay is at least the market-rate floor for the person's job\n  group\n\nUse the latest 8 completed calendar weeks before the application week to calculate\naverage paid hours and average gross weekly pay.\n\nExclude a whole week from both averages if USER explicitly says the entire week was\nunpaid sickness or unpaid leave. Do not replace an excluded week with an earlier\nweek. Use the remaining weeks from the 8-week period as the denominator.\n\nRound calculated averages to 2 decimal places.\n\nClassify the job group from the person's primary duties, not their job title. If\nduties cover more than one group, use the group accounting for the largest share of\ntheir typical working time.\n\nJob groups and market-rate floors:\n\n- data_analysis: £650 gross per week. Primary duties are querying or analysing data,\n  statistical analysis, or producing analytical dashboards and reports.\n- technical_support: £510 gross per week. Primary duties are resolving user\n  incidents, access or account problems, device support, or technical service desk\n  work.\n- administration: £420 gross per week. Primary duties are scheduling, maintaining\n  records, correspondence, or general administrative support.\n\nIf employment qualifies:\n\n- select employment\n- set education_details to null\n- populate employment_details\n- set not_eligible_reasons to an empty array\n\n4. Not eligible route\n\nIf identity is verified but neither education nor employment qualifies:\n\n- select not_eligible\n- set education_details to null\n- set employment_details to null\n- populate not_eligible_reasons with every failed route condition that affected the\n  decision\n\nCall the submit_skills_support_route tool exactly once.\n\nDo not invent or correct information that is not stated.\n\nDo not provide a prose answer.\n",
+      "role": "system"
+    },
+    {
+      "content": "APPLICATION DATE: 15 July 2026\n\n--- FLEX RECORD ---\n\nIdentity status: verified\nFull name: Priya Shah\n\nCurrent employment record:\nEmployer: Northborough Digital Services\nJob title: Junior Data Analyst\nContract type: fixed term\nContract start date: 2 December 2025\nScheduled contract end date: 31 August 2026\n\nThe employment record was last checked in December 2025 and may not describe the\nperson's current duties or working pattern.\n\n--- END FLEX RECORD ---\n\n--- BEGIN TRANSCRIPT ---\n\nUSER:\nI'm applying for the skills support thing because my manager said the course I'm\ndoing might count. I should warn you that my job title is a bit grander than the\nactual job.\n\nASSISTANT:\nLet's start with the course. Who provides it, what qualification does it lead to,\nand how much scheduled teaching is there?\n\nUSER:\nIt's the Level 4 Certificate in Applied Data Skills at Northborough College. The\ncollege runs the teaching and assessment. It's a 16-week course and there are 14\nhours of scheduled classes and supervised workshops each week.\n\nThere is homework too, but the 14 hours is the actual timetabled teaching.\n\nASSISTANT:\nThat sounds like it may be approved education. Did you choose to enrol yourself?\n\nUSER:\nNot really. Northborough Digital Services arranged the whole thing. Everyone in\nmy team at my grade has to complete it to keep doing the job. My manager was very\nclear that it is mandatory.\n\nThe college only opens this particular course cohort to Northborough Digital\nServices employees. My friend asked whether she could apply independently and the\ncollege said no, because this intake is part of the employer's training agreement.\n\nIt is still a real Level 4 certificate from the college though. That's why I was\nnot sure whether the employer involvement mattered.\n\nASSISTANT:\nI see. The qualification and teaching hours sound substantial. If the education\nroute does not apply, we may need to look at your employment. FLEX says your job\ntitle is Junior Data Analyst. Is that a fair description of what you mainly do?\n\nUSER:\nHonestly, no. The title came from a reorganisation.\n\nMost of my time is on the internal service desk. Roughly 60% of a normal week is\nresetting accounts, sorting permissions and working through access incidents.\nAnother 20% is setting up laptops and helping people with device problems.\n\nI spend about 10% of my time pulling ticket numbers into a weekly spreadsheet and\nsending a summary to my manager. The remaining 10% is team admin and meetings.\n\nI don't do statistical analysis. I don't build dashboards. I sometimes run a\nsaved query in the ticket system for the weekly numbers, but I didn't write it and\nI don't analyse the results beyond saying how many tickets there were.\n\nFour days out of five I'm basically doing account, access, incident and device support.\nThe title is a bit misleading.\n\nASSISTANT:\nUnderstood. What are your contract dates and working hours now?\n\nUSER:\nThe FLEX dates are still right: I started on 2 December 2025 and the fixed-term\ncontract is scheduled to finish on 31 August 2026.\n\nMy hours vary a bit. I have the last eight completed weekly records in front of\nme. These are the weeks immediately before this application week.\n\nWeek ending 24 May: 18 paid hours, £520 gross pay.\nWeek ending 31 May: 17 paid hours, £500 gross pay.\nWeek ending 7 June: zero hours and £0. I was off for that entire week on unpaid\nsickness. There was no sick pay.\nWeek ending 14 June: 19 paid hours, £530 gross pay.\nWeek ending 21 June: 16 paid hours, £490 gross pay.\nWeek ending 28 June: 18 paid hours, £515 gross pay.\nWeek ending 5 July: 17 paid hours, £505 gross pay.\nWeek ending 12 July: 18 paid hours, £525 gross pay.\n\nThose pay figures are gross, before tax or any other deductions.\n\nASSISTANT:\nYou mentioned £680 a week earlier when we spoke. Is that relevant to these eight\nweeks?\n\nUSER:\nNo. That was my old job before Northborough Digital Services. I was earning about\n£680 a week there, but I left that job before this contract started. None of the\neight weekly figures I just gave you is missing or estimated.\n\nASSISTANT:\nAnything else about the course or current job that you think changes the\napplication?\n\nUSER:\nNo. The course details I gave you are current. It is mandatory for my job and\nthis cohort is only available to employees of Northborough Digital Services.\n\nFor the job, please use what I told you about what I actually do rather than the\njob title. The FLEX employer and contract dates are right.\n\n--- END TRANSCRIPT ---\n",
+      "role": "user"
+    }
+  ],
+  "model": "bedrock/converse/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  "model_parameters": {},
+  "tool_choice": {
+    "function": {
+      "name": "submit_skills_support_route"
+    },
+    "type": "function"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Submit the selected skills-support route and the fields required for that route after applying the service rules.",
+        "name": "submit_skills_support_route",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "education_assessment": {
+              "additionalProperties": false,
+              "description": "The result of applying the approved-education rules.",
+              "properties": {
+                "approved": {
+                  "type": "boolean"
+                },
+                "reason_code": {
+                  "enum": [
+                    "provider_not_recognised",
+                    "qualification_below_level_3",
+                    "insufficient_supervised_hours",
+                    "course_too_short",
+                    "employer_required_internal_training",
+                    null
+                  ],
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "approved",
+                "reason_code"
+              ],
+              "type": "object"
+            },
+            "education_details": {
+              "additionalProperties": false,
+              "description": "Education-route fields. Must be null unless the education route is selected.",
+              "properties": {
+                "course_duration_weeks": {
+                  "type": "integer"
+                },
+                "provider_name": {
+                  "type": "string"
+                },
+                "qualification_level": {
+                  "type": "integer"
+                },
+                "qualification_name": {
+                  "type": "string"
+                },
+                "scheduled_supervised_hours_per_week": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "provider_name",
+                "qualification_name",
+                "qualification_level",
+                "scheduled_supervised_hours_per_week",
+                "course_duration_weeks"
+              ],
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "employment_details": {
+              "additionalProperties": false,
+              "description": "Employment-route fields. Must be null unless the employment route is selected.",
+              "properties": {
+                "average_gross_weekly_pay": {
+                  "type": "number"
+                },
+                "average_paid_hours": {
+                  "type": "number"
+                },
+                "contract_duration_requirement_met": {
+                  "type": "boolean"
+                },
+                "contract_end_date": {
+                  "format": "date",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "contract_start_date": {
+                  "format": "date",
+                  "type": "string"
+                },
+                "contract_type": {
+                  "enum": [
+                    "permanent",
+                    "fixed_term"
+                  ],
+                  "type": "string"
+                },
+                "employer_name": {
+                  "type": "string"
+                },
+                "excluded_week_endings": {
+                  "items": {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "hours_requirement_met": {
+                  "type": "boolean"
+                },
+                "job_group": {
+                  "enum": [
+                    "data_analysis",
+                    "technical_support",
+                    "administration"
+                  ],
+                  "type": "string"
+                },
+                "market_rate_floor": {
+                  "type": "number"
+                },
+                "pay_requirement_met": {
+                  "type": "boolean"
+                },
+                "pay_weeks_assessed": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "employer_name",
+                "job_group",
+                "contract_type",
+                "contract_start_date",
+                "contract_end_date",
+                "contract_duration_requirement_met",
+                "pay_weeks_assessed",
+                "excluded_week_endings",
+                "average_paid_hours",
+                "hours_requirement_met",
+                "average_gross_weekly_pay",
+                "market_rate_floor",
+                "pay_requirement_met"
+              ],
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "full_name": {
+              "description": "The verified person's full name.",
+              "type": "string"
+            },
+            "identity_verified": {
+              "description": "Whether the authoritative identity record is verified.",
+              "type": "boolean"
+            },
+            "not_eligible_reasons": {
+              "description": "Failed conditions for a not-eligible decision. Must be empty for other routes.",
+              "items": {
+                "enum": [
+                  "education_not_approved",
+                  "contract_duration_below_26_weeks",
+                  "average_hours_below_16",
+                  "pay_below_market_rate"
+                ],
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "selected_route": {
+              "description": "The route selected after applying the service rules in their required order.",
+              "enum": [
+                "manual_review",
+                "education",
+                "employment",
+                "not_eligible"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "full_name",
+            "identity_verified",
+            "selected_route",
+            "education_assessment",
+            "education_details",
+            "employment_details",
+            "not_eligible_reasons"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

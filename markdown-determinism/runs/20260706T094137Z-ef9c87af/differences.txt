@@ -1,0 +1,231 @@
+# Form Evaluation Differences
+
+## Expected arguments
+
+{
+  "continuous_history_confirmed": true,
+  "current_address": {
+    "address_line_1": "44 Cedar Avenue",
+    "address_line_2": "Flat 2",
+    "moved_in_month": "2025-02",
+    "postcode": "LS7 2AB",
+    "town_or_city": "Leeds"
+  },
+  "declaration_confirmed": true,
+  "full_name": "Jordan Ellis",
+  "history_start_month": "2018-09",
+  "previous_addresses": [
+    {
+      "address_line_1": "21 King Street",
+      "address_line_2": null,
+      "months_at_address": 21,
+      "moved_in_month": "2023-05",
+      "moved_out_month": "2025-02",
+      "postcode": "YO1 8RS",
+      "town_or_city": "York"
+    },
+    {
+      "address_line_1": "9 Harbour Road",
+      "address_line_2": "Flat 6",
+      "months_at_address": 18,
+      "moved_in_month": "2021-11",
+      "moved_out_month": "2023-05",
+      "postcode": "HU1 1AA",
+      "town_or_city": "Hull"
+    },
+    {
+      "address_line_1": "3 Station Terrace",
+      "address_line_2": null,
+      "months_at_address": 20,
+      "moved_in_month": "2020-03",
+      "moved_out_month": "2021-11",
+      "postcode": "S1 2GH",
+      "town_or_city": "Sheffield"
+    },
+    {
+      "address_line_1": "8 Mill Close",
+      "address_line_2": null,
+      "months_at_address": 18,
+      "moved_in_month": "2018-09",
+      "moved_out_month": "2020-03",
+      "postcode": "DE1 3PQ",
+      "town_or_city": "Derby"
+    }
+  ]
+}
+
+## Accepted non-exact semantic variants
+
+## Incorrect semantic variants
+
+### variant_001
+
+Occurrences: 100 (100.00%)
+Example runs: [6, 2, 5, 7, 4]
+Accepted match: False
+Exact match: False
+
+Field-level differences:
+[
+  {
+    "actual": false,
+    "expected": true,
+    "kind": "incorrect_value",
+    "path": "declaration_confirmed"
+  }
+]
+
+Unified diff:
+--- expected
++++ actual
+@@ -7,7 +7,7 @@
+     "postcode": "LS7 2AB",
+     "town_or_city": "Leeds"
+   },
+-  "declaration_confirmed": true,
++  "declaration_confirmed": false,
+   "full_name": "Jordan Ellis",
+   "history_start_month": "2018-09",
+   "previous_addresses": [
+
+
+Example raw strings:
+[
+  "{\"full_name\": \"Jordan Ellis\", \"current_address\": {\"address_line_1\": \"44 Cedar Avenue\", \"address_line_2\": \"Flat 2\", \"town_or_city\": \"Leeds\", \"postcode\": \"LS7 2AB\", \"moved_in_month\": \"2025-02\"}, \"previous_addresses\": [{\"address_line_1\": \"21 King Street\", \"address_line_2\": null, \"town_or_city\": \"York\", \"postcode\": \"YO1 8RS\", \"moved_in_month\": \"2023-05\", \"moved_out_month\": \"2025-02\", \"months_at_address\": 21}, {\"address_line_1\": \"9 Harbour Road\", \"address_line_2\": \"Flat 6\", \"town_or_city\": \"Hull\", \"postcode\": \"HU1 1AA\", \"moved_in_month\": \"2021-11\", \"moved_out_month\": \"2023-05\", \"months_at_address\": 18}, {\"address_line_1\": \"3 Station Terrace\", \"address_line_2\": null, \"town_or_city\": \"Sheffield\", \"postcode\": \"S1 2GH\", \"moved_in_month\": \"2020-03\", \"moved_out_month\": \"2021-11\", \"months_at_address\": 20}, {\"address_line_1\": \"8 Mill Close\", \"address_line_2\": null, \"town_or_city\": \"Derby\", \"postcode\": \"DE1 3PQ\", \"moved_in_month\": \"2018-09\", \"moved_out_month\": \"2020-03\", \"months_at_address\": 18}], \"history_start_month\": \"2018-09\", \"continuous_history_confirmed\": true, \"declaration_confirmed\": false}"
+]
+
+## Non-valid and API outcomes
+
+### malformed_arguments
+
+Count: 0
+Example runs: []
+
+[]
+
+### schema_invalid_arguments
+
+Count: 0
+Example runs: []
+
+[]
+
+### no_tool_call
+
+Count: 0
+Example runs: []
+
+### wrong_tool
+
+Count: 0
+Example runs: []
+
+### multiple_tool_calls
+
+Count: 0
+Example runs: []
+
+### refusal_or_prose_only
+
+Count: 0
+Example runs: []
+
+### transient_api_failure_exhausted
+
+Count: 0
+Example runs: []
+
+### non_transient_api_failure
+
+Count: 0
+Example runs: []
+
+### unexpected_response
+
+Count: 0
+Example runs: []
+
+## Summary
+
+{
+  "accepted_expected_match_count": 0,
+  "accepted_expected_match_rate": 0.0,
+  "all_requested_runs_completed": true,
+  "all_schema_valid_parsed_outputs_semantically_identical": true,
+  "all_successful_raw_tool_argument_strings_identical": true,
+  "api_failure_count": 0,
+  "api_failure_rate": 0.0,
+  "completed_runs": 100,
+  "completion_rate": 1.0,
+  "correct_count": 0,
+  "correct_rate": 0.0,
+  "cost_summary": {
+    "count": 100,
+    "max": 0.0189651,
+    "mean": 0.0189651,
+    "median": 0.0189651,
+    "min": 0.0189651
+  },
+  "every_requested_run_correct": false,
+  "exact_expected_match_count": 0,
+  "exact_expected_match_rate": 0.0,
+  "exactly_one_correct_tool_call_count": 100,
+  "exactly_one_correct_tool_call_rate": 1.0,
+  "field_level_mismatch_counts": {
+    "declaration_confirmed": 100
+  },
+  "latency_summary": {
+    "count": 100,
+    "max": 7.59226312499959,
+    "mean": 6.03609938964044,
+    "median": 5.91439400051604,
+    "min": 5.45494216599036
+  },
+  "malformed_arguments_count": 0,
+  "malformed_arguments_rate": 0.0,
+  "modal_canonical_valid_argument_object": "{\"continuous_history_confirmed\":true,\"current_address\":{\"address_line_1\":\"44 Cedar Avenue\",\"address_line_2\":\"Flat 2\",\"moved_in_month\":\"2025-02\",\"postcode\":\"LS7 2AB\",\"town_or_city\":\"Leeds\"},\"declaration_confirmed\":false,\"full_name\":\"Jordan Ellis\",\"history_start_month\":\"2018-09\",\"previous_addresses\":[{\"address_line_1\":\"21 King Street\",\"address_line_2\":null,\"months_at_address\":21,\"moved_in_month\":\"2023-05\",\"moved_out_month\":\"2025-02\",\"postcode\":\"YO1 8RS\",\"town_or_city\":\"York\"},{\"address_line_1\":\"9 Harbour Road\",\"address_line_2\":\"Flat 6\",\"months_at_address\":18,\"moved_in_month\":\"2021-11\",\"moved_out_month\":\"2023-05\",\"postcode\":\"HU1 1AA\",\"town_or_city\":\"Hull\"},{\"address_line_1\":\"3 Station Terrace\",\"address_line_2\":null,\"months_at_address\":20,\"moved_in_month\":\"2020-03\",\"moved_out_month\":\"2021-11\",\"postcode\":\"S1 2GH\",\"town_or_city\":\"Sheffield\"},{\"address_line_1\":\"8 Mill Close\",\"address_line_2\":null,\"months_at_address\":18,\"moved_in_month\":\"2018-09\",\"moved_out_month\":\"2020-03\",\"postcode\":\"DE1 3PQ\",\"town_or_city\":\"Derby\"}]}",
+  "modal_canonical_valid_argument_object_count": 100,
+  "modal_canonical_valid_argument_object_proportion": 1.0,
+  "modal_raw_argument_string": "{\"full_name\": \"Jordan Ellis\", \"current_address\": {\"address_line_1\": \"44 Cedar Avenue\", \"address_line_2\": \"Flat 2\", \"town_or_city\": \"Leeds\", \"postcode\": \"LS7 2AB\", \"moved_in_month\": \"2025-02\"}, \"previous_addresses\": [{\"address_line_1\": \"21 King Street\", \"address_line_2\": null, \"town_or_city\": \"York\", \"postcode\": \"YO1 8RS\", \"moved_in_month\": \"2023-05\", \"moved_out_month\": \"2025-02\", \"months_at_address\": 21}, {\"address_line_1\": \"9 Harbour Road\", \"address_line_2\": \"Flat 6\", \"town_or_city\": \"Hull\", \"postcode\": \"HU1 1AA\", \"moved_in_month\": \"2021-11\", \"moved_out_month\": \"2023-05\", \"months_at_address\": 18}, {\"address_line_1\": \"3 Station Terrace\", \"address_line_2\": null, \"town_or_city\": \"Sheffield\", \"postcode\": \"S1 2GH\", \"moved_in_month\": \"2020-03\", \"moved_out_month\": \"2021-11\", \"months_at_address\": 20}, {\"address_line_1\": \"8 Mill Close\", \"address_line_2\": null, \"town_or_city\": \"Derby\", \"postcode\": \"DE1 3PQ\", \"moved_in_month\": \"2018-09\", \"moved_out_month\": \"2020-03\", \"months_at_address\": 18}], \"history_start_month\": \"2018-09\", \"continuous_history_confirmed\": true, \"declaration_confirmed\": false}",
+  "modal_raw_argument_string_count": 100,
+  "modal_raw_argument_string_proportion": 1.0,
+  "multiple_tool_call_count": 0,
+  "multiple_tool_call_rate": 0.0,
+  "no_tool_call_count": 0,
+  "no_tool_call_rate": 0.0,
+  "rate_denominator": "completed_runs",
+  "requested_runs": 100,
+  "schema_invalid_count": 0,
+  "schema_invalid_rate": 0.0,
+  "schema_valid_count": 100,
+  "schema_valid_rate": 1.0,
+  "semantically_incorrect_count": 100,
+  "semantically_incorrect_rate": 1.0,
+  "status_counts": {
+    "correct": 0,
+    "incorrect_arguments": 100,
+    "malformed_arguments": 0,
+    "multiple_tool_calls": 0,
+    "no_tool_call": 0,
+    "non_transient_api_failure": 0,
+    "refusal_or_prose_only": 0,
+    "schema_invalid_arguments": 0,
+    "transient_api_failure_exhausted": 0,
+    "unexpected_response": 0,
+    "wrong_tool": 0
+  },
+  "token_usage_summary": {
+    "count": 100,
+    "totals": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "completion_tokens": 61500,
+      "prompt_tokens": 267200,
+      "total_tokens": 328700
+    }
+  },
+  "unique_canonical_valid_argument_objects": 1,
+  "unique_raw_tool_argument_strings": 1,
+  "wrong_tool_count": 0,
+  "wrong_tool_rate": 0.0
+}

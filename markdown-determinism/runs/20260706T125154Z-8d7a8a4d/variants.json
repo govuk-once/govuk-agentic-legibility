@@ -1,0 +1,203 @@
+{
+  "malformed_argument_strings": [],
+  "non_valid_outcome_categories": {},
+  "variants": [
+    {
+      "accepted_match_to_expected": false,
+      "canonical_argument_string": "{\"education_assessment\":{\"approved\":false,\"reason_code\":\"employer_required_internal_training\"},\"education_details\":null,\"employment_details\":{\"average_gross_weekly_pay\":512.14,\"average_paid_hours\":17.57,\"contract_duration_requirement_met\":true,\"contract_end_date\":\"2026-08-31\",\"contract_start_date\":\"2025-12-02\",\"contract_type\":\"fixed_term\",\"employer_name\":\"Northborough Digital Services\",\"excluded_week_endings\":[\"2026-06-07\"],\"hours_requirement_met\":true,\"job_group\":\"technical_support\",\"market_rate_floor\":510,\"pay_requirement_met\":true,\"pay_weeks_assessed\":7},\"full_name\":\"Priya Shah\",\"identity_verified\":true,\"not_eligible_reasons\":[\"education_not_approved\"],\"selected_route\":\"not_eligible\"}",
+      "distinct_raw_string_count": 1,
+      "exactly_matches_expected": false,
+      "example_raw_argument_strings": [
+        "{\"full_name\": \"Priya Shah\", \"identity_verified\": true, \"selected_route\": \"not_eligible\", \"education_assessment\": {\"approved\": false, \"reason_code\": \"employer_required_internal_training\"}, \"education_details\": null, \"employment_details\": {\"employer_name\": \"Northborough Digital Services\", \"job_group\": \"technical_support\", \"contract_type\": \"fixed_term\", \"contract_start_date\": \"2025-12-02\", \"contract_end_date\": \"2026-08-31\", \"contract_duration_requirement_met\": true, \"pay_weeks_assessed\": 7, \"excluded_week_endings\": [\"2026-06-07\"], \"average_paid_hours\": 17.57, \"hours_requirement_met\": true, \"average_gross_weekly_pay\": 512.14, \"market_rate_floor\": 510, \"pay_requirement_met\": true}, \"not_eligible_reasons\": [\"education_not_approved\"]}"
+      ],
+      "example_run_numbers": [
+        1,
+        28,
+        45,
+        43,
+        51
+      ],
+      "field_level_differences_from_expected": [
+        {
+          "actual": [
+            "education_not_approved"
+          ],
+          "expected": [],
+          "kind": "incorrect_value",
+          "path": "not_eligible_reasons"
+        },
+        {
+          "actual": "not_eligible",
+          "expected": "employment",
+          "kind": "incorrect_value",
+          "path": "selected_route"
+        }
+      ],
+      "occurrence_count": 11,
+      "occurrence_proportion": 0.11,
+      "parsed_argument_object": {
+        "education_assessment": {
+          "approved": false,
+          "reason_code": "employer_required_internal_training"
+        },
+        "education_details": null,
+        "employment_details": {
+          "average_gross_weekly_pay": 512.14,
+          "average_paid_hours": 17.57,
+          "contract_duration_requirement_met": true,
+          "contract_end_date": "2026-08-31",
+          "contract_start_date": "2025-12-02",
+          "contract_type": "fixed_term",
+          "employer_name": "Northborough Digital Services",
+          "excluded_week_endings": [
+            "2026-06-07"
+          ],
+          "hours_requirement_met": true,
+          "job_group": "technical_support",
+          "market_rate_floor": 510,
+          "pay_requirement_met": true,
+          "pay_weeks_assessed": 7
+        },
+        "full_name": "Priya Shah",
+        "identity_verified": true,
+        "not_eligible_reasons": [
+          "education_not_approved"
+        ],
+        "selected_route": "not_eligible"
+      },
+      "pretty_printed_argument_string": "{\n  \"education_assessment\": {\n    \"approved\": false,\n    \"reason_code\": \"employer_required_internal_training\"\n  },\n  \"education_details\": null,\n  \"employment_details\": {\n    \"average_gross_weekly_pay\": 512.14,\n    \"average_paid_hours\": 17.57,\n    \"contract_duration_requirement_met\": true,\n    \"contract_end_date\": \"2026-08-31\",\n    \"contract_start_date\": \"2025-12-02\",\n    \"contract_type\": \"fixed_term\",\n    \"employer_name\": \"Northborough Digital Services\",\n    \"excluded_week_endings\": [\n      \"2026-06-07\"\n    ],\n    \"hours_requirement_met\": true,\n    \"job_group\": \"technical_support\",\n    \"market_rate_floor\": 510,\n    \"pay_requirement_met\": true,\n    \"pay_weeks_assessed\": 7\n  },\n  \"full_name\": \"Priya Shah\",\n  \"identity_verified\": true,\n  \"not_eligible_reasons\": [\n    \"education_not_approved\"\n  ],\n  \"selected_route\": \"not_eligible\"\n}",
+      "unified_text_diff_from_expected": "--- expected\n+++ actual\n@@ -23,6 +23,8 @@\n   },\n   \"full_name\": \"Priya Shah\",\n   \"identity_verified\": true,\n-  \"not_eligible_reasons\": [],\n-  \"selected_route\": \"employment\"\n+  \"not_eligible_reasons\": [\n+    \"education_not_approved\"\n+  ],\n+  \"selected_route\": \"not_eligible\"\n }",
+      "variant_id": "variant_001"
+    },
+    {
+      "accepted_match_to_expected": false,
+      "canonical_argument_string": "{\"education_assessment\":{\"approved\":false,\"reason_code\":\"employer_required_internal_training\"},\"education_details\":null,\"employment_details\":{\"average_gross_weekly_pay\":512.14,\"average_paid_hours\":17.57,\"contract_duration_requirement_met\":true,\"contract_end_date\":\"2026-08-31\",\"contract_start_date\":\"2025-12-02\",\"contract_type\":\"fixed_term\",\"employer_name\":\"Northborough Digital Services\",\"excluded_week_endings\":[\"2026-06-07\"],\"hours_requirement_met\":true,\"job_group\":\"technical_support\",\"market_rate_floor\":510.0,\"pay_requirement_met\":true,\"pay_weeks_assessed\":7},\"full_name\":\"Priya Shah\",\"identity_verified\":true,\"not_eligible_reasons\":[\"education_not_approved\"],\"selected_route\":\"not_eligible\"}",
+      "distinct_raw_string_count": 1,
+      "exactly_matches_expected": false,
+      "example_raw_argument_strings": [
+        "{\"full_name\": \"Priya Shah\", \"identity_verified\": true, \"selected_route\": \"not_eligible\", \"education_assessment\": {\"approved\": false, \"reason_code\": \"employer_required_internal_training\"}, \"education_details\": null, \"employment_details\": {\"employer_name\": \"Northborough Digital Services\", \"job_group\": \"technical_support\", \"contract_type\": \"fixed_term\", \"contract_start_date\": \"2025-12-02\", \"contract_end_date\": \"2026-08-31\", \"contract_duration_requirement_met\": true, \"pay_weeks_assessed\": 7, \"excluded_week_endings\": [\"2026-06-07\"], \"average_paid_hours\": 17.57, \"hours_requirement_met\": true, \"average_gross_weekly_pay\": 512.14, \"market_rate_floor\": 510.0, \"pay_requirement_met\": true}, \"not_eligible_reasons\": [\"education_not_approved\"]}"
+      ],
+      "example_run_numbers": [
+        9,
+        8,
+        2,
+        10,
+        3
+      ],
+      "field_level_differences_from_expected": [
+        {
+          "actual": 510.0,
+          "actual_type": "float",
+          "expected": 510,
+          "expected_type": "int",
+          "kind": "incorrect_type",
+          "path": "employment_details.market_rate_floor"
+        },
+        {
+          "actual": [
+            "education_not_approved"
+          ],
+          "expected": [],
+          "kind": "incorrect_value",
+          "path": "not_eligible_reasons"
+        },
+        {
+          "actual": "not_eligible",
+          "expected": "employment",
+          "kind": "incorrect_value",
+          "path": "selected_route"
+        }
+      ],
+      "occurrence_count": 88,
+      "occurrence_proportion": 0.88,
+      "parsed_argument_object": {
+        "education_assessment": {
+          "approved": false,
+          "reason_code": "employer_required_internal_training"
+        },
+        "education_details": null,
+        "employment_details": {
+          "average_gross_weekly_pay": 512.14,
+          "average_paid_hours": 17.57,
+          "contract_duration_requirement_met": true,
+          "contract_end_date": "2026-08-31",
+          "contract_start_date": "2025-12-02",
+          "contract_type": "fixed_term",
+          "employer_name": "Northborough Digital Services",
+          "excluded_week_endings": [
+            "2026-06-07"
+          ],
+          "hours_requirement_met": true,
+          "job_group": "technical_support",
+          "market_rate_floor": 510.0,
+          "pay_requirement_met": true,
+          "pay_weeks_assessed": 7
+        },
+        "full_name": "Priya Shah",
+        "identity_verified": true,
+        "not_eligible_reasons": [
+          "education_not_approved"
+        ],
+        "selected_route": "not_eligible"
+      },
+      "pretty_printed_argument_string": "{\n  \"education_assessment\": {\n    \"approved\": false,\n    \"reason_code\": \"employer_required_internal_training\"\n  },\n  \"education_details\": null,\n  \"employment_details\": {\n    \"average_gross_weekly_pay\": 512.14,\n    \"average_paid_hours\": 17.57,\n    \"contract_duration_requirement_met\": true,\n    \"contract_end_date\": \"2026-08-31\",\n    \"contract_start_date\": \"2025-12-02\",\n    \"contract_type\": \"fixed_term\",\n    \"employer_name\": \"Northborough Digital Services\",\n    \"excluded_week_endings\": [\n      \"2026-06-07\"\n    ],\n    \"hours_requirement_met\": true,\n    \"job_group\": \"technical_support\",\n    \"market_rate_floor\": 510.0,\n    \"pay_requirement_met\": true,\n    \"pay_weeks_assessed\": 7\n  },\n  \"full_name\": \"Priya Shah\",\n  \"identity_verified\": true,\n  \"not_eligible_reasons\": [\n    \"education_not_approved\"\n  ],\n  \"selected_route\": \"not_eligible\"\n}",
+      "unified_text_diff_from_expected": "--- expected\n+++ actual\n@@ -17,12 +17,14 @@\n     ],\n     \"hours_requirement_met\": true,\n     \"job_group\": \"technical_support\",\n-    \"market_rate_floor\": 510,\n+    \"market_rate_floor\": 510.0,\n     \"pay_requirement_met\": true,\n     \"pay_weeks_assessed\": 7\n   },\n   \"full_name\": \"Priya Shah\",\n   \"identity_verified\": true,\n-  \"not_eligible_reasons\": [],\n-  \"selected_route\": \"employment\"\n+  \"not_eligible_reasons\": [\n+    \"education_not_approved\"\n+  ],\n+  \"selected_route\": \"not_eligible\"\n }",
+      "variant_id": "variant_002"
+    },
+    {
+      "accepted_match_to_expected": false,
+      "canonical_argument_string": "{\"education_assessment\":{\"approved\":false,\"reason_code\":\"employer_required_internal_training\"},\"education_details\":null,\"employment_details\":{\"average_gross_weekly_pay\":512.14,\"average_paid_hours\":17.57,\"contract_duration_requirement_met\":true,\"contract_end_date\":\"2026-08-31\",\"contract_start_date\":\"2025-12-02\",\"contract_type\":\"fixed_term\",\"employer_name\":\"Northborough Digital Services\",\"excluded_week_endings\":[\"2026-06-07\"],\"hours_requirement_met\":true,\"job_group\":\"technical_support\",\"market_rate_floor\":510.0,\"pay_requirement_met\":true,\"pay_weeks_assessed\":7},\"full_name\":\"Priya Shah\",\"identity_verified\":true,\"not_eligible_reasons\":[],\"selected_route\":\"employment\"}",
+      "distinct_raw_string_count": 1,
+      "exactly_matches_expected": false,
+      "example_raw_argument_strings": [
+        "{\"full_name\": \"Priya Shah\", \"identity_verified\": true, \"selected_route\": \"employment\", \"education_assessment\": {\"approved\": false, \"reason_code\": \"employer_required_internal_training\"}, \"education_details\": null, \"employment_details\": {\"employer_name\": \"Northborough Digital Services\", \"job_group\": \"technical_support\", \"contract_type\": \"fixed_term\", \"contract_start_date\": \"2025-12-02\", \"contract_end_date\": \"2026-08-31\", \"contract_duration_requirement_met\": true, \"pay_weeks_assessed\": 7, \"excluded_week_endings\": [\"2026-06-07\"], \"average_paid_hours\": 17.57, \"hours_requirement_met\": true, \"average_gross_weekly_pay\": 512.14, \"market_rate_floor\": 510.0, \"pay_requirement_met\": true}, \"not_eligible_reasons\": []}"
+      ],
+      "example_run_numbers": [
+        16
+      ],
+      "field_level_differences_from_expected": [
+        {
+          "actual": 510.0,
+          "actual_type": "float",
+          "expected": 510,
+          "expected_type": "int",
+          "kind": "incorrect_type",
+          "path": "employment_details.market_rate_floor"
+        }
+      ],
+      "occurrence_count": 1,
+      "occurrence_proportion": 0.01,
+      "parsed_argument_object": {
+        "education_assessment": {
+          "approved": false,
+          "reason_code": "employer_required_internal_training"
+        },
+        "education_details": null,
+        "employment_details": {
+          "average_gross_weekly_pay": 512.14,
+          "average_paid_hours": 17.57,
+          "contract_duration_requirement_met": true,
+          "contract_end_date": "2026-08-31",
+          "contract_start_date": "2025-12-02",
+          "contract_type": "fixed_term",
+          "employer_name": "Northborough Digital Services",
+          "excluded_week_endings": [
+            "2026-06-07"
+          ],
+          "hours_requirement_met": true,
+          "job_group": "technical_support",
+          "market_rate_floor": 510.0,
+          "pay_requirement_met": true,
+          "pay_weeks_assessed": 7
+        },
+        "full_name": "Priya Shah",
+        "identity_verified": true,
+        "not_eligible_reasons": [],
+        "selected_route": "employment"
+      },
+      "pretty_printed_argument_string": "{\n  \"education_assessment\": {\n    \"approved\": false,\n    \"reason_code\": \"employer_required_internal_training\"\n  },\n  \"education_details\": null,\n  \"employment_details\": {\n    \"average_gross_weekly_pay\": 512.14,\n    \"average_paid_hours\": 17.57,\n    \"contract_duration_requirement_met\": true,\n    \"contract_end_date\": \"2026-08-31\",\n    \"contract_start_date\": \"2025-12-02\",\n    \"contract_type\": \"fixed_term\",\n    \"employer_name\": \"Northborough Digital Services\",\n    \"excluded_week_endings\": [\n      \"2026-06-07\"\n    ],\n    \"hours_requirement_met\": true,\n    \"job_group\": \"technical_support\",\n    \"market_rate_floor\": 510.0,\n    \"pay_requirement_met\": true,\n    \"pay_weeks_assessed\": 7\n  },\n  \"full_name\": \"Priya Shah\",\n  \"identity_verified\": true,\n  \"not_eligible_reasons\": [],\n  \"selected_route\": \"employment\"\n}",
+      "unified_text_diff_from_expected": "--- expected\n+++ actual\n@@ -17,7 +17,7 @@\n     ],\n     \"hours_requirement_met\": true,\n     \"job_group\": \"technical_support\",\n-    \"market_rate_floor\": 510,\n+    \"market_rate_floor\": 510.0,\n     \"pay_requirement_met\": true,\n     \"pay_weeks_assessed\": 7\n   },\n",
+      "variant_id": "variant_003"
+    }
+  ]
+}
