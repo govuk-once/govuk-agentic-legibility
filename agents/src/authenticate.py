@@ -2,6 +2,10 @@ from dataclasses import dataclass
 from dotenv import dotenv_values
 from pathlib import Path
 import logging
+import base64
+import hashlib
+import secrets
+
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -75,3 +79,12 @@ def load_config(env_path: Path) -> JwtAuthConfig:
         token_url=env_vars["PLAYGROUND_TOKEN_URL"],
         one_login_env=env_vars["PLAYGROUND_ONE_LOGIN_ENV"],
     )
+
+
+def generate_pkce_pair() -> tuple[str, str]:
+    """Generates a pair used to verify the first and last calls to the token server are from the same source."""
+    verifier_bytes = secrets.token_bytes(32)
+    verifier = base64.urlsafe_b64encode(verifier_bytes).decode("utf-8").rstrip("=")
+    digest = hashlib.sha256(verifier.encode("utf-8")).digest()
+    challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
+    return verifier, challenge

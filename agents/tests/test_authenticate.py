@@ -1,6 +1,13 @@
 import pytest
-from src.authenticate import load_config, JwtAuthConfig, REDIRECT_URI
+from src.authenticate import (
+    load_config,
+    JwtAuthConfig,
+    REDIRECT_URI,
+    generate_pkce_pair,
+)
 from pathlib import Path
+import hashlib
+import base64
 
 
 @pytest.mark.describe("Config loading")
@@ -43,3 +50,28 @@ class TestConfigLoading:
         with pytest.raises(RuntimeError):
             load_config(file_path)
         assert "PLAYGROUND_EMAIL must be a valid email address" in caplog.text
+
+
+@pytest.mark.describe("PKCE verifier/challenge pair")
+class TestPKCEPair:
+    @pytest.mark.it("returns a tuple of strings")
+    def test_returns_strings(self):
+        v, c = generate_pkce_pair()
+        assert isinstance(v, str)
+        assert isinstance(c, str)
+
+    @pytest.mark.it("has no padding")
+    def test_no_padding(self):
+        v, c = generate_pkce_pair()
+        assert "=" not in v
+        assert "=" not in c
+
+    @pytest.mark.it("correctly works as a challenge pair")
+    def test_correct_pair(self):
+        v, c = generate_pkce_pair()
+        expected_digest = hashlib.sha256(v.encode("utf-8")).digest()
+        expected_challenge = (
+            base64.urlsafe_b64encode(expected_digest).decode("utf-8").rstrip("=")
+        )
+
+        assert c == expected_challenge
