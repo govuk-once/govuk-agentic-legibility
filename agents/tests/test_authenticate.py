@@ -5,12 +5,13 @@ from src.authenticate import (
     REDIRECT_URI,
     generate_pkce_pair,
     make_initial_request,
-    requests
+    requests,
+    make_session,
 )
 from pathlib import Path
 import hashlib
 import base64
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 
 @pytest.mark.describe("Config loading")
@@ -81,25 +82,20 @@ class TestPKCEPair:
 
 @pytest.mark.describe("Initial request")
 class TestInitialRequest:
-    @pytest.mark.it("gets a session with correct properties")
-    @patch('src.authenticate.make_session')
-    def test_gets_a_session(self, ms, sample_config):
-        make_initial_request(config=sample_config, challenge="XXYY")
-        ms.assert_called_once_with(config=sample_config)
-
     @pytest.mark.it("makes request with correct parameters and url")
-    @patch.object(requests.Session, 'get')
+    @patch.object(requests.Session, "get")
     def test_makes_correct_request(self, req, sample_config):
-        make_initial_request(config=sample_config, challenge="XXYY")
+        session = make_session(config=sample_config)
+        make_initial_request(session=session, config=sample_config, challenge="XXYY")
         expected_url = "https://woo.foo.bar.auth.com/oauth2/authorize"
         expected_params = {
-        "client_id": "733jnfdgyye774hjn",
-        "response_type": "code",
-        "redirect_uri": REDIRECT_URI,
-        "scope": "openid email",
-        "code_challenge": "XXYY",
-        "code_challenge_method": "S256",
-        "state": "smoke-test",
-        "idpidentifier": "onelogin"
-    }
+            "client_id": "733jnfdgyye774hjn",
+            "response_type": "code",
+            "redirect_uri": REDIRECT_URI,
+            "scope": "openid email",
+            "code_challenge": "XXYY",
+            "code_challenge_method": "S256",
+            "state": "smoke-test",
+            "idpidentifier": "onelogin",
+        }
         req.assert_called_once_with(url=expected_url, params=expected_params)
