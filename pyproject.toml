@@ -6,9 +6,20 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "boto3>=1.43.40",
+    "dotenv>=0.9.9",
+    "mypy>=2.1.0",
 ]
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.4",
+    "pip-audit>=2.10.1",
+    "pydoclint>=0.9.1",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-testdox>=3.1.0",
+    "ruff>=0.15.20",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = "agents"
