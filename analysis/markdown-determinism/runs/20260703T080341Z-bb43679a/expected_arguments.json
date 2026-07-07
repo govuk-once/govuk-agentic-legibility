@@ -1,0 +1,51 @@
+{
+  "continuous_history_confirmed": true,
+  "current_address": {
+    "address_line_1": "44 Cedar Avenue",
+    "address_line_2": "Flat 2",
+    "moved_in_month": "2025-02",
+    "postcode": "LS7 2AB",
+    "town_or_city": "Leeds"
+  },
+  "declaration_confirmed": true,
+  "full_name": "Jordan Ellis",
+  "history_start_month": "2018-09",
+  "previous_addresses": [
+    {
+      "address_line_1": "21 King Street",
+      "address_line_2": null,
+      "months_at_address": 21,
+      "moved_in_month": "2023-05",
+      "moved_out_month": "2025-02",
+      "postcode": "YO1 8RS",
+      "town_or_city": "York"
+    },
+    {
+      "address_line_1": "9 Harbour Road",
+      "address_line_2": "Flat 6",
+      "months_at_address": 18,
+      "moved_in_month": "2021-11",
+      "moved_out_month": "2023-05",
+      "postcode": "HU1 1AA",
+      "town_or_city": "Hull"
+    },
+    {
+      "address_line_1": "3 Station Terrace",
+      "address_line_2": null,
+      "months_at_address": 20,
+      "moved_in_month": "2020-03",
+      "moved_out_month": "2021-11",
+      "postcode": "S1 2GH",
+      "town_or_city": "Sheffield"
+    },
+    {
+      "address_line_1": "8 Mill Close",
+      "address_line_2": null,
+      "months_at_address": 18,
+      "moved_in_month": "2018-09",
+      "moved_out_month": "2020-03",
+      "postcode": "DE1 3PQ",
+      "town_or_city": "Derby"
+    }
+  ]
+}

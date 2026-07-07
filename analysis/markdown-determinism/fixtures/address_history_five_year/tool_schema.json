@@ -1,0 +1,145 @@
+{
+  "type": "function",
+  "function": {
+    "name": "submit_five_year_address_history",
+    "description": "Submit the five-year residential address-history form exactly once, after applying the history-period and residential-address rules.",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "full_name": {
+          "type": "string",
+          "description": "The person's full name, copied exactly as stated."
+        },
+        "history_period": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start_month": {
+              "type": "string",
+              "description": "The first month of the required five-year history period, as YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            },
+            "end_month": {
+              "type": "string",
+              "description": "The application month and end of the required history period, as YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          "required": [
+            "start_month",
+            "end_month"
+          ]
+        },
+        "current_address": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "address_line_1": {
+              "type": "string",
+              "description": "The building number or name and street only."
+            },
+            "address_line_2": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The flat, apartment or secondary address line, or null when none is stated."
+            },
+            "town_or_city": {
+              "type": "string",
+              "description": "The town or city, copied exactly as stated."
+            },
+            "postcode": {
+              "type": "string",
+              "description": "The postcode, copied exactly as stated."
+            },
+            "moved_in_month": {
+              "type": "string",
+              "description": "The actual move-in month normalised to YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          "required": [
+            "address_line_1",
+            "address_line_2",
+            "town_or_city",
+            "postcode",
+            "moved_in_month"
+          ]
+        },
+        "previous_addresses": {
+          "type": "array",
+          "description": "All and only previous residential addresses occupied at any point during the required history period, ordered from most recent to oldest. Preserve actual move dates.",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "address_line_1": {
+                "type": "string",
+                "description": "The building number or name and street only."
+              },
+              "address_line_2": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The flat, apartment or secondary address line, or null when none is stated."
+              },
+              "town_or_city": {
+                "type": "string",
+                "description": "The town or city, copied exactly as stated."
+              },
+              "postcode": {
+                "type": "string",
+                "description": "The postcode, copied exactly as stated."
+              },
+              "moved_in_month": {
+                "type": "string",
+                "description": "The actual move-in month normalised to YYYY-MM.",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              "moved_out_month": {
+                "type": "string",
+                "description": "The actual move-out month normalised to YYYY-MM.",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              "months_at_address": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of calendar-month boundaries between moved_in_month and moved_out_month."
+              }
+            },
+            "required": [
+              "address_line_1",
+              "address_line_2",
+              "town_or_city",
+              "postcode",
+              "moved_in_month",
+              "moved_out_month",
+              "months_at_address"
+            ]
+          }
+        },
+        "continuous_history_confirmed": {
+          "type": "boolean",
+          "description": "Whether the case explicitly confirms that the residential history has no gaps."
+        },
+        "declaration_confirmed": {
+          "type": "boolean",
+          "description": "Whether the person explicitly confirmed that the residential address history is complete and accurate."
+        }
+      },
+      "required": [
+        "full_name",
+        "history_period",
+        "current_address",
+        "previous_addresses",
+        "continuous_history_confirmed",
+        "declaration_confirmed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "accepted_equivalence_rules": [
+    {
+      "type": "unordered_text_components",
+      "paths": [
+        "address.address_line_1",
+        "address.address_line_2"
+      ]
+    }
+  ]
+}

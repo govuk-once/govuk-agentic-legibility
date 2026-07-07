@@ -1,0 +1,130 @@
+{
+  "type": "function",
+  "function": {
+    "name": "submit_corrected_address_history",
+    "description": "Submit the corrected residential address-history form exactly once, using only information explicitly stated in the case.",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "full_name": {
+          "type": "string",
+          "description": "The person's full name, copied exactly as stated."
+        },
+        "current_address": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "address_line_1": {
+              "type": "string",
+              "description": "The building number or name and street only."
+            },
+            "address_line_2": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The flat, apartment or secondary address line, or null when none is stated."
+            },
+            "town_or_city": {
+              "type": "string",
+              "description": "The town or city, copied exactly as stated."
+            },
+            "postcode": {
+              "type": "string",
+              "description": "The postcode, copied exactly as stated."
+            },
+            "moved_in_month": {
+              "type": "string",
+              "description": "The move-in month normalised to YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          "required": [
+            "address_line_1",
+            "address_line_2",
+            "town_or_city",
+            "postcode",
+            "moved_in_month"
+          ]
+        },
+        "previous_addresses": {
+          "type": "array",
+          "description": "All and only the person's previous residential addresses, ordered from most recent to oldest.",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "address_line_1": {
+                "type": "string",
+                "description": "The building number or name and street only."
+              },
+              "address_line_2": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The flat, apartment or secondary address line, or null when none is stated."
+              },
+              "town_or_city": {
+                "type": "string",
+                "description": "The town or city, copied exactly as stated."
+              },
+              "postcode": {
+                "type": "string",
+                "description": "The postcode, copied exactly as stated."
+              },
+              "moved_in_month": {
+                "type": "string",
+                "description": "The move-in month normalised to YYYY-MM.",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              "moved_out_month": {
+                "type": "string",
+                "description": "The move-out month normalised to YYYY-MM.",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              "months_at_address": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of calendar-month boundaries between moved_in_month and moved_out_month."
+              }
+            },
+            "required": [
+              "address_line_1",
+              "address_line_2",
+              "town_or_city",
+              "postcode",
+              "moved_in_month",
+              "moved_out_month",
+              "months_at_address"
+            ]
+          }
+        },
+        "history_start_month": {
+          "type": "string",
+          "description": "The move-in month of the oldest residential address, as YYYY-MM.",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+        },
+        "continuous_history_confirmed": {
+          "type": "boolean",
+          "description": "Whether the case explicitly confirms that the residential history has no gaps."
+        },
+        "declaration_confirmed": {
+          "type": "boolean",
+          "description": "Whether the person explicitly confirmed that the residential address history is complete and accurate."
+        }
+      },
+      "required": [
+        "full_name",
+        "current_address",
+        "previous_addresses",
+        "history_start_month",
+        "continuous_history_confirmed",
+        "declaration_confirmed"
+      ]
+    }
+  }
+}

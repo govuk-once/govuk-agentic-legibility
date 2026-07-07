@@ -1,0 +1,54 @@
+{
+  "malformed_argument_strings": [],
+  "non_valid_outcome_categories": {},
+  "variants": [
+    {
+      "accepted_match_to_expected": true,
+      "canonical_argument_string": "{\"current_address\":{\"address_line_1\":\"18 Orchard Lane\",\"moved_in_month\":\"2025-04\",\"postcode\":\"BS1 4QA\",\"town_or_city\":\"Bristol\"},\"declaration_confirmed\":true,\"full_name\":\"Alex Morgan\",\"previous_addresses\":[{\"address_line_1\":\"7 Market Street\",\"moved_in_month\":\"2023-09\",\"moved_out_month\":\"2025-04\",\"postcode\":\"BA1 1AA\",\"town_or_city\":\"Bath\"},{\"address_line_1\":\"22 Station Road\",\"moved_in_month\":\"2022-07\",\"moved_out_month\":\"2023-09\",\"postcode\":\"CF10 1AB\",\"town_or_city\":\"Cardiff\"}]}",
+      "distinct_raw_string_count": 1,
+      "exactly_matches_expected": true,
+      "example_raw_argument_strings": [
+        "{\"full_name\": \"Alex Morgan\", \"current_address\": {\"address_line_1\": \"18 Orchard Lane\", \"town_or_city\": \"Bristol\", \"postcode\": \"BS1 4QA\", \"moved_in_month\": \"2025-04\"}, \"previous_addresses\": [{\"address_line_1\": \"7 Market Street\", \"town_or_city\": \"Bath\", \"postcode\": \"BA1 1AA\", \"moved_in_month\": \"2023-09\", \"moved_out_month\": \"2025-04\"}, {\"address_line_1\": \"22 Station Road\", \"town_or_city\": \"Cardiff\", \"postcode\": \"CF10 1AB\", \"moved_in_month\": \"2022-07\", \"moved_out_month\": \"2023-09\"}], \"declaration_confirmed\": true}"
+      ],
+      "example_run_numbers": [
+        6,
+        3,
+        2,
+        1,
+        9
+      ],
+      "field_level_differences_from_expected": [],
+      "occurrence_count": 1000,
+      "occurrence_proportion": 1.0,
+      "parsed_argument_object": {
+        "current_address": {
+          "address_line_1": "18 Orchard Lane",
+          "moved_in_month": "2025-04",
+          "postcode": "BS1 4QA",
+          "town_or_city": "Bristol"
+        },
+        "declaration_confirmed": true,
+        "full_name": "Alex Morgan",
+        "previous_addresses": [
+          {
+            "address_line_1": "7 Market Street",
+            "moved_in_month": "2023-09",
+            "moved_out_month": "2025-04",
+            "postcode": "BA1 1AA",
+            "town_or_city": "Bath"
+          },
+          {
+            "address_line_1": "22 Station Road",
+            "moved_in_month": "2022-07",
+            "moved_out_month": "2023-09",
+            "postcode": "CF10 1AB",
+            "town_or_city": "Cardiff"
+          }
+        ]
+      },
+      "pretty_printed_argument_string": "{\n  \"current_address\": {\n    \"address_line_1\": \"18 Orchard Lane\",\n    \"moved_in_month\": \"2025-04\",\n    \"postcode\": \"BS1 4QA\",\n    \"town_or_city\": \"Bristol\"\n  },\n  \"declaration_confirmed\": true,\n  \"full_name\": \"Alex Morgan\",\n  \"previous_addresses\": [\n    {\n      \"address_line_1\": \"7 Market Street\",\n      \"moved_in_month\": \"2023-09\",\n      \"moved_out_month\": \"2025-04\",\n      \"postcode\": \"BA1 1AA\",\n      \"town_or_city\": \"Bath\"\n    },\n    {\n      \"address_line_1\": \"22 Station Road\",\n      \"moved_in_month\": \"2022-07\",\n      \"moved_out_month\": \"2023-09\",\n      \"postcode\": \"CF10 1AB\",\n      \"town_or_city\": \"Cardiff\"\n    }\n  ]\n}",
+      "unified_text_diff_from_expected": "",
+      "variant_id": "variant_001"
+    }
+  ]
+}

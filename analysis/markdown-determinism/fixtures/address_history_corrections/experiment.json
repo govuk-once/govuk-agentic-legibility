@@ -1,0 +1,7 @@
+{
+  "model": "bedrock/converse/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "runs": 100,
+  "concurrency": 10,
+  "max_retries": 10,
+  "debug": false
+}

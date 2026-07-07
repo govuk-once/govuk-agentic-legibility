@@ -1,0 +1,8 @@
+{
+  "model": "bedrock/converse/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  "runs": 100,
+  "concurrency": 10,
+  "max_retries": 10,
+  "progress": true,
+  "debug": false
+}

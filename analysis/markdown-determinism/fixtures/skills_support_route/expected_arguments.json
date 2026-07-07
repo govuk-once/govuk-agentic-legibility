@@ -1,0 +1,28 @@
+{
+  "full_name": "Priya Shah",
+  "identity_verified": true,
+  "selected_route": "employment",
+  "education_assessment": {
+    "approved": false,
+    "reason_code": "employer_required_internal_training"
+  },
+  "education_details": null,
+  "employment_details": {
+    "employer_name": "Northborough Digital Services",
+    "job_group": "technical_support",
+    "contract_type": "fixed_term",
+    "contract_start_date": "2025-12-02",
+    "contract_end_date": "2026-08-31",
+    "contract_duration_requirement_met": true,
+    "pay_weeks_assessed": 7,
+    "excluded_week_endings": [
+      "2026-06-07"
+    ],
+    "average_paid_hours": 17.57,
+    "hours_requirement_met": true,
+    "average_gross_weekly_pay": 512.14,
+    "market_rate_floor": 510,
+    "pay_requirement_met": true
+  },
+  "not_eligible_reasons": []
+}

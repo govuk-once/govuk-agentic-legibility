@@ -1,0 +1,152 @@
+{
+  "messages": [
+    {
+      "content": "You complete government forms using only information explicitly stated in the case.\n\nThe case contains a labelled transcript of an earlier conversation. It is evidence\nfor completing the form, not a conversation for you to continue.\n\nRead the entire transcript before completing the form.\n\nStatements made by USER are the source of information about the person. ASSISTANT\nturns may ask questions, repeat information, make tentative summaries or contain\nmistakes. Do not treat an ASSISTANT statement as authoritative unless USER later\nconfirms it.\n\nWhen USER corrects or clarifies an earlier statement, use the latest corrected\ninformation.\n\nCall the submit_corrected_address_history tool exactly once.\n\nInclude residential addresses only. Do not include correspondence addresses,\nworkplaces, addresses belonging to other people, or places the person only\nvisited.\n\nOrder previous_addresses from most recent to oldest.\n\nFor each previous address, calculate months_at_address as the number of\ncalendar-month boundaries between moved_in_month and moved_out_month. For\nexample, January 2024 to April 2024 is 3 months.\n\nUse null for address_line_2 when no flat, apartment or secondary address line is\nstated.\n\nDo not invent, assume or correct any other information.\n\nDo not provide a prose answer.\n",
+      "role": "system"
+    },
+    {
+      "content": "The following is a transcript of an earlier conversation. The form has not yet\nbeen submitted.\n\n--- BEGIN TRANSCRIPT ---\n\nUSER:\nBefore we start, I should say I've already tried filling this form in twice\nand it timed out both times. I am applying for a role that needs an address\nhistory, and I'm slightly annoyed because I do not understand why they need\nquite so much detail. I can give you the months, but not the exact days for\nevery move.\n\nASSISTANT:\nThat's fine. I can help organise the information.\nWhat is your full name and current home address?\n\nUSER:\nMy name is Jordan Ellis. I currently live in Leeds at Flat 2, 44 Cedar Avenue,\nLS7 2AB. I moved in around February 2025. I can't remember whether it was the\nfirst or second week, but it was definitely February. It was snowing at the time\nand I remember the move being such a nuisance.\n\nASSISTANT:\nWhat was your address before that?\n\nUSER:\nThat was in York. I initially wrote down 12 King Street, York, YO1 8RT. I lived\nthere from May 2023 until I moved to Leeds.\n\nI say \"initially\" because I'm working from an old note and I am not fully\nconfident it is right. I only moved like 18 months ago but I can't remember\nthe address - it's ridiculous. I have the tenancy agreement somewhere, so let me check.\n\nASSISTANT:\nWhile you look, do you remember where you were before York?\n\nUSER:\nI lived at 3 Station Terrace in Sheffield before that, from March 2020.\n\nThere was definitely another address between Sheffield and York, but I need to\nfind the details. I moved around for work in those years.\nThe office was definitely 26 Civic Street, Glasgow, G4 9RH.\n\nBefore Sheffield I was at 8 Mill Close in Derby DE1 3PQ, from September 2018.\n\nASSISTANT:\nWhat can you find about the missing address?\n\nUSER:\nHang on I've found the York address. It was 21 King Street, YO1 8RS.\n\nASSISTANT:\nThanks. We still need the misisng address.\n\nUSER:\nThat was Hull: 9 Harbour Road, Hull, HU1 1AA. I moved there in Nov 2021\nand left when I moved to York.\n\nI used to describe it just as 9 Harbour Road, but I think the utility bill may\nhave had a flat number on it. Give me a moment.\n\nASSISTANT:\nTake your time. Do you have the Sheffield postcode?\n\nUSER:\nYes. Sheffield was S1 2GH. I lived there until I moved to Hull.\n\nAlso, I've checked the Hull bill. It says Flat 6, 9 Harbour Road.\n\nASSISTANT:\nUnderstood. Can you confirm the Derby details and whether there were any \nearlier residential addresses required for this history?\n\nUSER:\nDerby was 8 Mill Close, Derby, DE1 3PQ. I lived there until I moved to Sheffield.\n\nI'm not being asked for anything before that.\n\nASSISTANT:\nWere any other addresses used during this period, even if you did not live\nthere? I want to make sure postal addresses are not accidentally treated as\nhomes.\n\nUSER:\nYes, there are two things that might show up in old records.\n\nFor a couple of months, from June to August 2024, I used PO Box 118, Leeds,\nLS1 9ZZ because post kept going missing from the York building.\n\nI also sometimes had parcels sent to 17 Meadow View, Wakefield, WF1 4AB.\nI stayed there for the odd weekend, but I didn't really live there.\n\nThere were also hotels for work trips, mostly in Manchester, but none was a\nhome address and I do not have the details.\n\nASSISTANT:\nDo the addresses you've provided form a continuous history?\n\nUSER:\nYes.\n\n--- END TRANSCRIPT ---\n",
+      "role": "user"
+    }
+  ],
+  "model": "bedrock/converse/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "model_parameters": {},
+  "tool_choice": {
+    "function": {
+      "name": "submit_corrected_address_history"
+    },
+    "type": "function"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Submit the corrected residential address-history form exactly once, using only information explicitly stated in the case.",
+        "name": "submit_corrected_address_history",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "continuous_history_confirmed": {
+              "description": "Whether the case explicitly confirms that the residential history has no gaps.",
+              "type": "boolean"
+            },
+            "current_address": {
+              "additionalProperties": false,
+              "properties": {
+                "address_line_1": {
+                  "description": "The building number or name and street only.",
+                  "type": "string"
+                },
+                "address_line_2": {
+                  "description": "The flat, apartment or secondary address line, or null when none is stated.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "moved_in_month": {
+                  "description": "The move-in month normalised to YYYY-MM.",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                "postcode": {
+                  "description": "The postcode, copied exactly as stated.",
+                  "type": "string"
+                },
+                "town_or_city": {
+                  "description": "The town or city, copied exactly as stated.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "address_line_1",
+                "address_line_2",
+                "town_or_city",
+                "postcode",
+                "moved_in_month"
+              ],
+              "type": "object"
+            },
+            "declaration_confirmed": {
+              "description": "Whether the person explicitly confirmed that the residential address history is complete and accurate.",
+              "type": "boolean"
+            },
+            "full_name": {
+              "description": "The person's full name, copied exactly as stated.",
+              "type": "string"
+            },
+            "history_start_month": {
+              "description": "The move-in month of the oldest residential address, as YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            },
+            "previous_addresses": {
+              "description": "All and only the person's previous residential addresses, ordered from most recent to oldest.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "address_line_1": {
+                    "description": "The building number or name and street only.",
+                    "type": "string"
+                  },
+                  "address_line_2": {
+                    "description": "The flat, apartment or secondary address line, or null when none is stated.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "months_at_address": {
+                    "description": "Number of calendar-month boundaries between moved_in_month and moved_out_month.",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "moved_in_month": {
+                    "description": "The move-in month normalised to YYYY-MM.",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                    "type": "string"
+                  },
+                  "moved_out_month": {
+                    "description": "The move-out month normalised to YYYY-MM.",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                    "type": "string"
+                  },
+                  "postcode": {
+                    "description": "The postcode, copied exactly as stated.",
+                    "type": "string"
+                  },
+                  "town_or_city": {
+                    "description": "The town or city, copied exactly as stated.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "address_line_1",
+                  "address_line_2",
+                  "town_or_city",
+                  "postcode",
+                  "moved_in_month",
+                  "moved_out_month",
+                  "months_at_address"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            }
+          },
+          "required": [
+            "full_name",
+            "current_address",
+            "previous_addresses",
+            "history_start_month",
+            "continuous_history_confirmed",
+            "declaration_confirmed"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

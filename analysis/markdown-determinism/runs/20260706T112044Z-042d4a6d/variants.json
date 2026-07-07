@@ -1,0 +1,73 @@
+{
+  "malformed_argument_strings": [],
+  "non_valid_outcome_categories": {},
+  "variants": [
+    {
+      "accepted_match_to_expected": true,
+      "canonical_argument_string": "{\"continuous_history_confirmed\":true,\"current_address\":{\"address_line_1\":\"44 Cedar Avenue\",\"address_line_2\":\"Flat 2\",\"moved_in_month\":\"2025-02\",\"postcode\":\"LS7 2AB\",\"town_or_city\":\"Leeds\"},\"declaration_confirmed\":true,\"full_name\":\"Jordan Ellis\",\"history_period\":{\"end_month\":\"2026-07\",\"start_month\":\"2021-07\"},\"previous_addresses\":[{\"address_line_1\":\"21 King Street\",\"address_line_2\":null,\"months_at_address\":21,\"moved_in_month\":\"2023-05\",\"moved_out_month\":\"2025-02\",\"postcode\":\"YO1 8RS\",\"town_or_city\":\"York\"},{\"address_line_1\":\"9 Harbour Road\",\"address_line_2\":\"Flat 6\",\"months_at_address\":18,\"moved_in_month\":\"2021-11\",\"moved_out_month\":\"2023-05\",\"postcode\":\"HU1 1AA\",\"town_or_city\":\"Hull\"},{\"address_line_1\":\"3 Station Terrace\",\"address_line_2\":null,\"months_at_address\":20,\"moved_in_month\":\"2020-03\",\"moved_out_month\":\"2021-11\",\"postcode\":\"S1 2GH\",\"town_or_city\":\"Sheffield\"}]}",
+      "distinct_raw_string_count": 1,
+      "exactly_matches_expected": true,
+      "example_raw_argument_strings": [
+        "{\"full_name\": \"Jordan Ellis\", \"history_period\": {\"start_month\": \"2021-07\", \"end_month\": \"2026-07\"}, \"current_address\": {\"address_line_1\": \"44 Cedar Avenue\", \"address_line_2\": \"Flat 2\", \"town_or_city\": \"Leeds\", \"postcode\": \"LS7 2AB\", \"moved_in_month\": \"2025-02\"}, \"previous_addresses\": [{\"address_line_1\": \"21 King Street\", \"address_line_2\": null, \"town_or_city\": \"York\", \"postcode\": \"YO1 8RS\", \"moved_in_month\": \"2023-05\", \"moved_out_month\": \"2025-02\", \"months_at_address\": 21}, {\"address_line_1\": \"9 Harbour Road\", \"address_line_2\": \"Flat 6\", \"town_or_city\": \"Hull\", \"postcode\": \"HU1 1AA\", \"moved_in_month\": \"2021-11\", \"moved_out_month\": \"2023-05\", \"months_at_address\": 18}, {\"address_line_1\": \"3 Station Terrace\", \"address_line_2\": null, \"town_or_city\": \"Sheffield\", \"postcode\": \"S1 2GH\", \"moved_in_month\": \"2020-03\", \"moved_out_month\": \"2021-11\", \"months_at_address\": 20}], \"continuous_history_confirmed\": true, \"declaration_confirmed\": true}"
+      ],
+      "example_run_numbers": [
+        2,
+        1,
+        7,
+        8,
+        3
+      ],
+      "field_level_differences_from_expected": [],
+      "occurrence_count": 100,
+      "occurrence_proportion": 1.0,
+      "parsed_argument_object": {
+        "continuous_history_confirmed": true,
+        "current_address": {
+          "address_line_1": "44 Cedar Avenue",
+          "address_line_2": "Flat 2",
+          "moved_in_month": "2025-02",
+          "postcode": "LS7 2AB",
+          "town_or_city": "Leeds"
+        },
+        "declaration_confirmed": true,
+        "full_name": "Jordan Ellis",
+        "history_period": {
+          "end_month": "2026-07",
+          "start_month": "2021-07"
+        },
+        "previous_addresses": [
+          {
+            "address_line_1": "21 King Street",
+            "address_line_2": null,
+            "months_at_address": 21,
+            "moved_in_month": "2023-05",
+            "moved_out_month": "2025-02",
+            "postcode": "YO1 8RS",
+            "town_or_city": "York"
+          },
+          {
+            "address_line_1": "9 Harbour Road",
+            "address_line_2": "Flat 6",
+            "months_at_address": 18,
+            "moved_in_month": "2021-11",
+            "moved_out_month": "2023-05",
+            "postcode": "HU1 1AA",
+            "town_or_city": "Hull"
+          },
+          {
+            "address_line_1": "3 Station Terrace",
+            "address_line_2": null,
+            "months_at_address": 20,
+            "moved_in_month": "2020-03",
+            "moved_out_month": "2021-11",
+            "postcode": "S1 2GH",
+            "town_or_city": "Sheffield"
+          }
+        ]
+      },
+      "pretty_printed_argument_string": "{\n  \"continuous_history_confirmed\": true,\n  \"current_address\": {\n    \"address_line_1\": \"44 Cedar Avenue\",\n    \"address_line_2\": \"Flat 2\",\n    \"moved_in_month\": \"2025-02\",\n    \"postcode\": \"LS7 2AB\",\n    \"town_or_city\": \"Leeds\"\n  },\n  \"declaration_confirmed\": true,\n  \"full_name\": \"Jordan Ellis\",\n  \"history_period\": {\n    \"end_month\": \"2026-07\",\n    \"start_month\": \"2021-07\"\n  },\n  \"previous_addresses\": [\n    {\n      \"address_line_1\": \"21 King Street\",\n      \"address_line_2\": null,\n      \"months_at_address\": 21,\n      \"moved_in_month\": \"2023-05\",\n      \"moved_out_month\": \"2025-02\",\n      \"postcode\": \"YO1 8RS\",\n      \"town_or_city\": \"York\"\n    },\n    {\n      \"address_line_1\": \"9 Harbour Road\",\n      \"address_line_2\": \"Flat 6\",\n      \"months_at_address\": 18,\n      \"moved_in_month\": \"2021-11\",\n      \"moved_out_month\": \"2023-05\",\n      \"postcode\": \"HU1 1AA\",\n      \"town_or_city\": \"Hull\"\n    },\n    {\n      \"address_line_1\": \"3 Station Terrace\",\n      \"address_line_2\": null,\n      \"months_at_address\": 20,\n      \"moved_in_month\": \"2020-03\",\n      \"moved_out_month\": \"2021-11\",\n      \"postcode\": \"S1 2GH\",\n      \"town_or_city\": \"Sheffield\"\n    }\n  ]\n}",
+      "unified_text_diff_from_expected": "",
+      "variant_id": "variant_001"
+    }
+  ]
+}
