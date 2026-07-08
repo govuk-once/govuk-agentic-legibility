@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from dotenv import dotenv_values
 from pathlib import Path
-import logging
-import sys
 import base64
 import hashlib
 import secrets
@@ -10,21 +8,15 @@ import requests
 from bs4 import BeautifulSoup
 import pyotp
 from urllib.parse import urlparse, parse_qs, urljoin
-from src.errors import (
+from agents.src.assets import (
     NoCSRFException,
     NoRedirectURLException,
     NoCodeInURLException,
     TokenExchangeFailedException,
 )
+from agents.src.assets import get_logger
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setLevel(logging.DEBUG)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+logger = get_logger()
 
 REDIRECT_URI = "govuk://govuk/login-auth-callback"
 MAX_REDIRECT_HOPS = 10
@@ -211,7 +203,7 @@ def get_access_token(config: JwtAuthConfig, code: str, verifier: str) -> str:
         token_url,
         data=token_payload,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30
+        timeout=30,
     )
 
     if not token_response.ok:

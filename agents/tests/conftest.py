@@ -1,5 +1,5 @@
 import pytest
-from src.authenticate import JwtAuthConfig
+from agents.src.authenticate_flex import JwtAuthConfig
 
 
 @pytest.fixture(scope="class")

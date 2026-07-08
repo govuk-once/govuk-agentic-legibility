@@ -2,6 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, urljoin
 import sys
+from agents.src.assets import get_logger
+
+logger = get_logger()
 
 
 def get_dvla_linking_token(customer_id: str) -> str:
@@ -21,12 +24,12 @@ def get_dvla_linking_token(customer_id: str) -> str:
     # This sets up the OAuth session state
     # in the backend and redirects us to the pre-filled stub form.
     init_url = f"{base_url}/create-token?locale=en"
-    print(f"Initiating flow at {init_url}...")
+    logger.info(f"Initiating flow at {init_url}...")
     response = session.get(init_url)
     response.raise_for_status()
 
     # We should now have landed on the /auth/stubgeneric... page
-    print(f"Landed on stub form: {response.url}")
+    logger.info(f"Landed on stub form: {response.url}")
 
     # 2. Extract form from the page we landed on
     soup = BeautifulSoup(response.text, "html.parser")
@@ -57,14 +60,14 @@ def get_dvla_linking_token(customer_id: str) -> str:
             payload[name] = input_tag.get("value", "")
 
     # 4. Inject the specific customer ID
-    print(f"Injecting customer_id: {customer_id}")
+    logger.info(f"Injecting customer_id: {customer_id}")
     payload["customer_id"] = customer_id
 
     # Update the Referer dynamically based on where the form actually lives
     session.headers.update({"Referer": response.url})
 
     # 5. Submit the form and trace the redirects
-    print("Submitting form to callback...")
+    logger.info("Submitting form to callback...")
     post_url = urljoin(base_url, str(form["action"]))
     response = session.post(post_url, data=payload, allow_redirects=False)
 
@@ -87,7 +90,7 @@ def get_dvla_linking_token(customer_id: str) -> str:
             f"Did not reach the govuk:// redirect. Stopped at {response.status_code} {response.url}\nResponse text: {response.text[:500]}"
         )
 
-    print("Extracting token from redirect URI...")
+    logger.info("Extracting token from redirect URI...")
     parsed_url = urlparse(token_redirect_url)
     qs = parse_qs(parsed_url.query)
     token = qs.get("token", [None])[0]
