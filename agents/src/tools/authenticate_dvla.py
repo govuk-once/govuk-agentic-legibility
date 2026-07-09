@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, urljoin
 import sys
-from agents.src.assets import get_logger
+from agents.src.tools.assets import get_logger
 
 logger = get_logger()
 

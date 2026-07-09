@@ -8,13 +8,13 @@ import requests
 from bs4 import BeautifulSoup
 import pyotp
 from urllib.parse import urlparse, parse_qs, urljoin
-from agents.src.assets import (
+from agents.src.tools.assets import (
     NoCSRFException,
     NoRedirectURLException,
     NoCodeInURLException,
     TokenExchangeFailedException,
 )
-from agents.src.assets import get_logger
+from agents.src.tools.assets import get_logger
 
 logger = get_logger()
 
@@ -215,7 +215,7 @@ def get_access_token(config: JwtAuthConfig, code: str, verifier: str) -> str:
 
 
 def main():
-    env_path = Path(__file__).resolve().parent.parent / ".env"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     logger.info("Generating token from provided environment variables")
     logger.info("Loading config...")
     config = load_config(env_path=env_path)

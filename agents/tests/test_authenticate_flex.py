@@ -1,5 +1,5 @@
 import pytest
-from agents.src.authenticate_flex import (
+from agents.src.tools.authenticate_flex import (
     load_config,
     JwtAuthConfig,
     REDIRECT_URI,
