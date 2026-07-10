@@ -22,7 +22,7 @@ Run (from the project root):
 uv run python agents/src/tools/authenticate_flex.py
 ```
 
-The token will be printed to the console.
+The token will be printed to the console and saved to SecretsManager.
 
 ### Getting a linking token from the DVLA stub form
 You will need a test-user customer id. You can find some candidates
@@ -33,4 +33,4 @@ Then, in the project root, run:
 uv run python agents/src/authenticate_dvla.py <Customer ID>
 ```
 
-Again, the required token will be printed to the console.
+Again, the required token will be printed to the console and saved to Secrets Manager.
