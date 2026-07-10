@@ -1,8 +1,6 @@
-from dataclasses import dataclass
 from dotenv import dotenv_values
 from pathlib import Path
 import time
-import json
 import base64
 import hashlib
 import secrets
@@ -29,15 +27,17 @@ SECRET_ID = "flex-access-token"
 
 
 class FlexTokenGenerator:
+    """Carries out the Flex authentication procedure and retrieves a JWT."""
+
     def __init__(self, env_path: Path, logger: logging.Logger) -> None:
         self.env_path = env_path
         self.logger = logger
         self.logger.info("Loading config...")
-        self.config: JwtAuthConfig = self.load_config()
+        self.config: JwtAuthConfig = self._load_config()
         self.logger.info("Creating HTTP session...")
-        self.session: requests.Session = self.make_session()
+        self.session: requests.Session = self._make_session()
 
-    def load_config(self) -> JwtAuthConfig:
+    def _load_config(self) -> JwtAuthConfig:
         """Loads required environment variables from file."""
         if self.env_path.is_file():
             env_vars = dotenv_values(self.env_path)
@@ -84,7 +84,7 @@ class FlexTokenGenerator:
         return verifier, challenge
 
 
-    def make_session(self) -> requests.Session:
+    def _make_session(self) -> requests.Session:
         "Makes HTTP session capable of holding persistent cookies."
         session = requests.Session()
         session.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
@@ -93,7 +93,7 @@ class FlexTokenGenerator:
         return session
 
 
-    def make_initial_request(self, challenge: str) -> requests.Response:
+    def _make_initial_request(self, challenge: str) -> requests.Response:
         """Makes initial request to Flex Cognito server."""
         query_params = {
             "client_id": self.config.client_id,
@@ -113,7 +113,8 @@ class FlexTokenGenerator:
         return init
 
 
-    def extract_csrf_token(self, response: requests.Response) -> str:
+    def _extract_csrf_token(self, response: requests.Response) -> str:
+        """Extracts CSRF token from OneLogin response."""
         soup = BeautifulSoup(response.text, "html.parser")
         csrf_input = soup.find("input", {"name": "_csrf"})
         if not csrf_input:
@@ -121,7 +122,7 @@ class FlexTokenGenerator:
         return str(csrf_input["value"])
 
 
-    def post(self, full_path: str, data: dict, token: str):
+    def _post(self, full_path: str, data: dict, token: str):
         """Helper function to make standard posts to OneLogin."""
         payload = {"_csrf": token}
         payload.update(data)
@@ -130,7 +131,8 @@ class FlexTokenGenerator:
         return res
 
 
-    def get_onelogin_oauth_code(self, csrf_token: str) -> str:
+    def _get_onelogin_oauth_code(self, csrf_token: str) -> str:
+        """Get OneLogin authorisation code."""
         env_name = self.config.one_login_env
         if env_name == "production":
             onelogin_domain = "signin.account.gov.uk"
@@ -141,9 +143,9 @@ class FlexTokenGenerator:
 
         self.logger.info("Posting form data to OneLogin...")
 
-        self.post(f"{base_url}/sign-in-or-create", {}, csrf_token)
-        self.post(f"{base_url}/enter-email?", {"email": self.config.email}, csrf_token)
-        self.post(
+        self._post(f"{base_url}/sign-in-or-create", {}, csrf_token)
+        self._post(f"{base_url}/enter-email?", {"email": self.config.email}, csrf_token)
+        self._post(
             f"{base_url}/enter-password", {"password": self.config.password}, csrf_token
         )
 
@@ -185,7 +187,8 @@ class FlexTokenGenerator:
         return code
 
 
-    def get_access_token(self, code: str, verifier: str) -> str:
+    def _get_access_token(self, code: str, verifier: str) -> str:
+        """Retrieve JWT from Flex/Cognito."""
         token_payload = {
             "grant_type": "authorization_code",
             "client_id": self.config.client_id,
@@ -220,13 +223,13 @@ class FlexTokenGenerator:
             verifier, challenge = FlexTokenGenerator.generate_pkce_pair()
             
             self.logger.info("Making initial call to Cognito...")
-            initial = self.make_initial_request(challenge=challenge)
+            initial = self._make_initial_request(challenge=challenge)
             self.logger.info("Getting CSRF token...")
-            csrf_token = self.extract_csrf_token(initial)
+            csrf_token = self._extract_csrf_token(initial)
             self.logger.info("Calling OneLogin...")
-            one_login_code = self.get_onelogin_oauth_code(csrf_token=csrf_token)
+            one_login_code = self._get_onelogin_oauth_code(csrf_token=csrf_token)
             self.logger.info("Calling Cognito for access token")
-            access_token = self.get_access_token(code=one_login_code, verifier=verifier)
+            access_token = self._get_access_token(code=one_login_code, verifier=verifier)
             return access_token
         except RuntimeError:
             self.logger.error("Config load failed")
@@ -284,9 +287,6 @@ def write_token_to_secrets(token: str) -> TokenResult:
         return TokenResult(stored=True, ttl=ttl, token=token)
     else:
         return TokenResult(stored=False)
-
-
-
 
 
 if __name__ == "__main__":

@@ -13,7 +13,9 @@ def get_logger() -> logging.Logger:
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -24,7 +26,9 @@ def get_secrets_client(region="eu-west-2"):
     return boto3.client(service_name="secretsmanager", region_name=region)
 
 
-def get_secret(client: SecretsManagerClient, logger: logging.Logger, secret_id: str) -> str | None:
+def get_secret(
+    client: SecretsManagerClient, logger: logging.Logger, secret_id: str
+) -> str | None:
     try:
         return client.get_secret_value(
             SecretId=secret_id,
@@ -34,9 +38,16 @@ def get_secret(client: SecretsManagerClient, logger: logging.Logger, secret_id: 
         return None
 
 
-def write_secret(client: SecretsManagerClient, logger: logging.Logger, secret_id: str, secret_value: str) -> str | None:
+def write_secret(
+    client: SecretsManagerClient,
+    logger: logging.Logger,
+    secret_id: str,
+    secret_value: str,
+) -> str | None:
     try:
-        return client.put_secret_value(SecretId=secret_id, SecretString=secret_value).get("ARN")
+        return client.put_secret_value(
+            SecretId=secret_id, SecretString=secret_value
+        ).get("ARN")
     except ClientError as c:
         logger.error(f"Error while writing secret {secret_id}: {str(c)}")
         return None
@@ -60,6 +71,7 @@ class TokenExchangeFailedException(Exception):
 
 
 # Data Structures
+
 
 @dataclass
 class JwtAuthConfig:

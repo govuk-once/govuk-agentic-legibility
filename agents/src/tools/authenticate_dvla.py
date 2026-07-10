@@ -12,7 +12,6 @@ def get_dvla_linking_token(customer_id: str) -> str:
 
     session = requests.Session()
 
-    # Standard headers to act like a normal browser
     session.headers.update(
         {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -20,18 +19,13 @@ def get_dvla_linking_token(customer_id: str) -> str:
         }
     )
 
-    # 1. INITIATE THE FLOW
-    # This sets up the OAuth session state
-    # in the backend and redirects us to the pre-filled stub form.
     init_url = f"{base_url}/create-token?locale=en"
     logger.info(f"Initiating flow at {init_url}...")
     response = session.get(init_url)
     response.raise_for_status()
 
-    # We should now have landed on the /auth/stubgeneric... page
     logger.info(f"Landed on stub form: {response.url}")
 
-    # 2. Extract form from the page we landed on
     soup = BeautifulSoup(response.text, "html.parser")
     form = soup.find("form", action="/auth/stubgeneric/callback")
     if not form:
@@ -39,7 +33,6 @@ def get_dvla_linking_token(customer_id: str) -> str:
             f"Could not find the stub login form. Landed on {response.url}"
         )
 
-    # 3. Scrape the pre-filled payload
     payload = {}
     for input_tag in form.find_all(["input", "select"]):
         name = input_tag.get("name")
@@ -59,14 +52,11 @@ def get_dvla_linking_token(customer_id: str) -> str:
         else:
             payload[name] = input_tag.get("value", "")
 
-    # 4. Inject the specific customer ID
     logger.info(f"Injecting customer_id: {customer_id}")
     payload["customer_id"] = customer_id
 
-    # Update the Referer dynamically based on where the form actually lives
     session.headers.update({"Referer": response.url})
 
-    # 5. Submit the form and trace the redirects
     logger.info("Submitting form to callback...")
     post_url = urljoin(base_url, str(form["action"]))
     response = session.post(post_url, data=payload, allow_redirects=False)
