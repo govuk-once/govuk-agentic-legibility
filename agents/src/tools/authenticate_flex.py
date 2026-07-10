@@ -1,38 +1,30 @@
 from dataclasses import dataclass
 from dotenv import dotenv_values
 from pathlib import Path
+import time
+import json
 import base64
 import hashlib
 import secrets
 import requests
 from bs4 import BeautifulSoup
 import pyotp
+import jwt
 from urllib.parse import urlparse, parse_qs, urljoin
 from agents.src.tools.assets import (
     NoCSRFException,
     NoRedirectURLException,
     NoCodeInURLException,
     TokenExchangeFailedException,
+    get_logger,
+    get_secret, get_secrets_client, TokenResult, JwtAuthConfig, write_secret
 )
-from agents.src.tools.assets import get_logger
+
 
 logger = get_logger()
 
-REDIRECT_URI = "govuk://govuk/login-auth-callback"
 MAX_REDIRECT_HOPS = 10
-
-
-@dataclass
-class JwtAuthConfig:
-    email: str
-    password: str
-    totp: str
-    client_id: str
-    auth_url: str
-    token_url: str
-    one_login_env: str
-    redirect_uri: str = REDIRECT_URI
-    attestation_token: str | None = None
+SECRET_ID = "flex-access-token"
 
 
 def load_config(env_path: Path) -> JwtAuthConfig:
@@ -97,7 +89,7 @@ def make_initial_request(
     query_params = {
         "client_id": config.client_id,
         "response_type": "code",
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": config.redirect_uri,
         "scope": "openid email",
         "code_challenge": challenge,
         "code_challenge_method": "S256",
@@ -191,7 +183,7 @@ def get_access_token(config: JwtAuthConfig, code: str, verifier: str) -> str:
         "grant_type": "authorization_code",
         "client_id": config.client_id,
         "code": code,
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": config.redirect_uri,
         "code_verifier": verifier,
         "scope": "email openid",
     }
@@ -214,7 +206,47 @@ def get_access_token(config: JwtAuthConfig, code: str, verifier: str) -> str:
     return token_response.json().get("access_token")
 
 
-def main():
+def get_or_create_flex_token() -> TokenResult:
+    current_token = get_token_from_secrets()
+    if current_token:
+        ttl = check_jwt_validity(current_token)
+        if ttl > 60:
+            return TokenResult(stored=True, ttl=ttl, token=current_token)
+    new_token = generate_new_token()
+    if new_token:
+        return write_token_to_secrets(new_token)
+    else:
+        return TokenResult(stored=False)
+        
+
+def check_jwt_validity(token: str) -> int:
+    try:
+        claims = jwt.decode(token, options={"verify_signature": False})
+        if "exp" not in claims:
+            return 0   
+        time_remaining = int(claims["exp"]) - int(time.time())
+        return max(0, time_remaining)
+    except jwt.InvalidTokenError:
+        logger.warning("Flex token is not valid")
+        return 0
+
+
+def get_token_from_secrets() -> str | None:
+    secretsm = get_secrets_client()
+    return get_secret(secretsm, logger, SECRET_ID)
+
+
+def write_token_to_secrets(token: str) -> TokenResult:
+    secretsm = get_secrets_client()
+    result = write_secret(secretsm, logger, SECRET_ID, token)
+    if result:
+        ttl = check_jwt_validity(token)
+        return TokenResult(stored=True, ttl=ttl, token=token)
+    else:
+        return TokenResult(stored=False)
+
+
+def generate_new_token() -> str | None:
     env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     logger.info("Generating token from provided environment variables")
     logger.info("Loading config...")
@@ -239,7 +271,7 @@ def main():
         access_token = get_access_token(
             config=config, code=one_login_code, verifier=verifier
         )
-        print(access_token)
+        return access_token
     except RuntimeError:
         logger.error("Config load failed")
         raise
@@ -258,4 +290,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    token_result = get_or_create_flex_token()
+    print(token_result)
