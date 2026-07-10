@@ -5,6 +5,7 @@ import base64
 import hashlib
 import secrets
 import logging
+import sys
 import requests
 from bs4 import BeautifulSoup
 import pyotp
@@ -16,8 +17,10 @@ from agents.src.tools.assets import (
     NoCodeInURLException,
     TokenExchangeFailedException,
     get_logger,
-    get_secret, get_secrets_client, TokenResult, JwtAuthConfig, write_secret
+    get_secret, get_secrets_client, TokenGenerator, JwtAuthConfig, write_secret, TokenWrangler, TokenType
 )
+import boto3
+from botocore.exceptions import ClientError
 
 
 logger = get_logger()
@@ -26,7 +29,7 @@ MAX_REDIRECT_HOPS = 10
 SECRET_ID = "flex-access-token"
 
 
-class FlexTokenGenerator:
+class FlexTokenGenerator(TokenGenerator):
     """Carries out the Flex authentication procedure and retrieves a JWT."""
 
     def __init__(self, env_path: Path, logger: logging.Logger) -> None:
@@ -82,7 +85,6 @@ class FlexTokenGenerator:
         digest = hashlib.sha256(verifier.encode("utf-8")).digest()
         challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
         return verifier, challenge
-
 
     def _make_session(self) -> requests.Session:
         "Makes HTTP session capable of holding persistent cookies."
@@ -248,48 +250,20 @@ class FlexTokenGenerator:
             raise
 
 
-def get_or_create_flex_token(env_path: Path) -> TokenResult:
-    current_token = get_token_from_secrets()
-    if current_token:
-        ttl = check_jwt_validity(current_token)
-        if ttl > 60:
-            return TokenResult(stored=True, ttl=ttl, token=current_token)
-    generator = FlexTokenGenerator(env_path=env_path, logger=logger)
-    new_token = generator.generate_new_token()
-    if new_token:
-        return write_token_to_secrets(new_token)
-    else:
-        return TokenResult(stored=False)
+
         
-
-def check_jwt_validity(token: str) -> int:
-    try:
-        claims = jwt.decode(token, options={"verify_signature": False})
-        if "exp" not in claims:
-            return 0   
-        time_remaining = int(claims["exp"]) - int(time.time())
-        return max(0, time_remaining)
-    except jwt.InvalidTokenError:
-        logger.warning("Flex token is not valid")
-        return 0
-
-
-def get_token_from_secrets() -> str | None:
-    secretsm = get_secrets_client()
-    return get_secret(secretsm, logger, SECRET_ID)
-
-
-def write_token_to_secrets(token: str) -> TokenResult:
-    secretsm = get_secrets_client()
-    result = write_secret(secretsm, logger, SECRET_ID, token)
-    if result:
-        ttl = check_jwt_validity(token)
-        return TokenResult(stored=True, ttl=ttl, token=token)
-    else:
-        return TokenResult(stored=False)
+    
 
 
 if __name__ == "__main__":
+    try:
+        sts = boto3.client("sts")
+        sts.get_caller_identity()
+    except ClientError as c:
+        logger.error(f"Error connecting to AWS account: {str(c)}")
+        sys.exit()
     env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-    token_result = get_or_create_flex_token(env_path=env_path)
+    generator = FlexTokenGenerator(env_path=env_path, logger=logger)
+    wrangler = TokenWrangler(generator=generator, logger=logger, token_type=TokenType.FLEX)
+    token_result = wrangler.get_or_create_token(SECRET_ID)
     print(token_result)

@@ -10,13 +10,16 @@ this repository:
 export PYTHONPATH=$(pwd)
 ```
 
+The required authentication tokens are saved to Secrets Manager in AWS. You will need a live credential chain to one of the 
+AI Legibility accounts for the authentication mechanisms to work.
+
 The project is built with [uv](https://docs.astral.sh/uv/). Make sure it is installed. Run `uv sync` to load all
 dependencies.
 
 ### Getting a JWT from Flex
 Run (from the project root):
 ```sh
-uv run python agents/src/authenticate_flex.py
+uv run python agents/src/tools/authenticate_flex.py
 ```
 
 The token will be printed to the console.

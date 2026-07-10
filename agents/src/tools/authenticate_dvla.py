@@ -93,6 +93,8 @@ def get_dvla_linking_token(customer_id: str) -> str:
     return token
 
 
+
+
 if __name__ == "__main__":
     target_id = sys.argv[1]
 
