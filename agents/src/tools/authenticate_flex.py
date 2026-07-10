@@ -6,6 +6,7 @@ import json
 import base64
 import hashlib
 import secrets
+import logging
 import requests
 from bs4 import BeautifulSoup
 import pyotp
@@ -27,192 +28,231 @@ MAX_REDIRECT_HOPS = 10
 SECRET_ID = "flex-access-token"
 
 
-def load_config(env_path: Path) -> JwtAuthConfig:
-    """Loads required environment variables from file."""
-    if env_path.is_file():
-        env_vars = dotenv_values(env_path)
-    else:
-        raise FileNotFoundError(f"File path {env_path} does not exist")
+class FlexTokenGenerator:
+    def __init__(self, env_path: Path, logger: logging.Logger) -> None:
+        self.env_path = env_path
+        self.logger = logger
+        self.logger.info("Loading config...")
+        self.config: JwtAuthConfig = self.load_config()
+        self.logger.info("Creating HTTP session...")
+        self.session: requests.Session = self.make_session()
 
-    required = [
-        "PLAYGROUND_EMAIL",
-        "PLAYGROUND_PASSWORD",
-        "PLAYGROUND_TOTP_SEED",
-        "PLAYGROUND_CLIENT_ID",
-        "PLAYGROUND_AUTH_URL",
-        "PLAYGROUND_TOKEN_URL",
-        "PLAYGROUND_ONE_LOGIN_ENV",
-    ]
+    def load_config(self) -> JwtAuthConfig:
+        """Loads required environment variables from file."""
+        if self.env_path.is_file():
+            env_vars = dotenv_values(self.env_path)
+        else:
+            raise FileNotFoundError(f"File path {self.env_path} does not exist")
 
-    missing = [var for var in required if not env_vars.get(var)]
-    if missing:
-        for missing_var in missing:
-            logger.error("Environment variable %s is required but not set", missing_var)
-        raise RuntimeError("One or more missing environment variables")
-    if "@" not in (env_vars.get("PLAYGROUND_EMAIL") or ""):
-        logger.error("PLAYGROUND_EMAIL must be a valid email address")
-        raise RuntimeError("Invalid Email address")
+        required = [
+            "PLAYGROUND_EMAIL",
+            "PLAYGROUND_PASSWORD",
+            "PLAYGROUND_TOTP_SEED",
+            "PLAYGROUND_CLIENT_ID",
+            "PLAYGROUND_AUTH_URL",
+            "PLAYGROUND_TOKEN_URL",
+            "PLAYGROUND_ONE_LOGIN_ENV",
+        ]
 
-    return JwtAuthConfig(
-        email=str(env_vars["PLAYGROUND_EMAIL"]),
-        password=str(env_vars["PLAYGROUND_PASSWORD"]),
-        totp=str(env_vars["PLAYGROUND_TOTP_SEED"]),
-        client_id=str(env_vars["PLAYGROUND_CLIENT_ID"]),
-        auth_url=str(env_vars["PLAYGROUND_AUTH_URL"]),
-        token_url=str(env_vars["PLAYGROUND_TOKEN_URL"]),
-        one_login_env=str(env_vars["PLAYGROUND_ONE_LOGIN_ENV"]),
-    )
+        missing = [var for var in required if not env_vars.get(var)]
+        if missing:
+            for missing_var in missing:
+                self.logger.error("Environment variable %s is required but not set", missing_var)
+            raise RuntimeError("One or more missing environment variables")
+        if "@" not in (env_vars.get("PLAYGROUND_EMAIL") or ""):
+            self.logger.error("PLAYGROUND_EMAIL must be a valid email address")
+            raise RuntimeError("Invalid Email address")
 
-
-def generate_pkce_pair() -> tuple[str, str]:
-    """Generates a pair used to verify the first and last calls to the token server are from the same source."""
-    verifier_bytes = secrets.token_bytes(32)
-    verifier = base64.urlsafe_b64encode(verifier_bytes).decode("utf-8").rstrip("=")
-    digest = hashlib.sha256(verifier.encode("utf-8")).digest()
-    challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
-    return verifier, challenge
-
-
-def make_session(config: JwtAuthConfig) -> requests.Session:
-    "Makes HTTP session capable of holding persistent cookies."
-    session = requests.Session()
-    session.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
-    if config.attestation_token:
-        session.headers.update({"X-Firebase-App-Check": config.attestation_token})
-    return session
-
-
-def make_initial_request(
-    session: requests.Session, config: JwtAuthConfig, challenge: str
-) -> requests.Response:
-    """Makes initial request to Flex Cognito server."""
-    query_params = {
-        "client_id": config.client_id,
-        "response_type": "code",
-        "redirect_uri": config.redirect_uri,
-        "scope": "openid email",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-        "state": "smoke-test",
-        "idpidentifier": "onelogin",
-    }
-
-    auth_url = f"https://{config.auth_url}/oauth2/authorize"
-
-    init = session.get(url=auth_url, params=query_params)
-    init.raise_for_status()
-    return init
-
-
-def extract_csrf_token(response: requests.Response) -> str:
-    soup = BeautifulSoup(response.text, "html.parser")
-    csrf_input = soup.find("input", {"name": "_csrf"})
-    if not csrf_input:
-        raise NoCSRFException("No csrf token in auth response")
-    return str(csrf_input["value"])
-
-
-def post(session: requests.Session, full_path: str, data: dict, token: str):
-    """Helper function to make standard posts to OneLogin."""
-    payload = {"_csrf": token}
-    payload.update(data)
-    res = session.post(full_path, data=payload)
-    res.raise_for_status()
-    return res
-
-
-def get_onelogin_oauth_code(
-    session: requests.Session, config: JwtAuthConfig, csrf_token: str
-) -> str:
-    env_name = config.one_login_env
-    if env_name == "production":
-        onelogin_domain = "signin.account.gov.uk"
-    else:
-        onelogin_domain = f"signin.{env_name}.account.gov.uk"
-
-    base_url = f"https://{onelogin_domain}"
-
-    logger.info("Posting form data to OneLogin...")
-
-    post(session, f"{base_url}/sign-in-or-create", {}, csrf_token)
-    post(session, f"{base_url}/enter-email?", {"email": config.email}, csrf_token)
-    post(
-        session, f"{base_url}/enter-password", {"password": config.password}, csrf_token
-    )
-
-    totp = pyotp.TOTP(config.totp)
-    otp = totp.now()
-
-    logger.info("Posting OTP value...")
-
-    totp_payload = {"_csrf": csrf_token, "code": otp}
-    ol_response = session.post(
-        f"{base_url}/enter-authenticator-app-code?",
-        data=totp_payload,
-        allow_redirects=False,
-    )
-
-    code_redirect_url = None
-
-    for _ in range(MAX_REDIRECT_HOPS):
-        if ol_response.status_code not in (301, 302, 303, 307, 308):
-            break
-        location = urljoin(ol_response.url, ol_response.headers["Location"])
-        if urlparse(location).scheme not in ("http", "https"):
-            code_redirect_url = location
-            break
-        ol_response = session.get(location, allow_redirects=False)
-
-    if not code_redirect_url:
-        raise NoRedirectURLException("OneLogin did not return a redirect url after OTP")
-
-    logger.info("Extracting code from redirect URL")
-
-    parsed_url = urlparse(code_redirect_url)
-    qs = parse_qs(parsed_url.query)
-    code = qs.get("code", [None])[0]
-
-    if not code:
-        raise NoCodeInURLException("No code found in redirect url")
-
-    return code
-
-
-def get_access_token(config: JwtAuthConfig, code: str, verifier: str) -> str:
-    token_payload = {
-        "grant_type": "authorization_code",
-        "client_id": config.client_id,
-        "code": code,
-        "redirect_uri": config.redirect_uri,
-        "code_verifier": verifier,
-        "scope": "email openid",
-    }
-
-    token_url = f"https://{config.token_url}/oauth2/token"
-
-    logger.info("Requesting token...")
-    token_response = requests.post(
-        token_url,
-        data=token_payload,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-    )
-
-    if not token_response.ok:
-        raise TokenExchangeFailedException(
-            f"Token exchange failed: {token_response.text}"
+        return JwtAuthConfig(
+            email=str(env_vars["PLAYGROUND_EMAIL"]),
+            password=str(env_vars["PLAYGROUND_PASSWORD"]),
+            totp=str(env_vars["PLAYGROUND_TOTP_SEED"]),
+            client_id=str(env_vars["PLAYGROUND_CLIENT_ID"]),
+            auth_url=str(env_vars["PLAYGROUND_AUTH_URL"]),
+            token_url=str(env_vars["PLAYGROUND_TOKEN_URL"]),
+            one_login_env=str(env_vars["PLAYGROUND_ONE_LOGIN_ENV"]),
         )
 
-    return token_response.json().get("access_token")
+
+    @classmethod
+    def generate_pkce_pair(cls) -> tuple[str, str]:
+        """Generates a pair used to verify the first and last calls to the token server are from the same source."""
+        verifier_bytes = secrets.token_bytes(32)
+        verifier = base64.urlsafe_b64encode(verifier_bytes).decode("utf-8").rstrip("=")
+        digest = hashlib.sha256(verifier.encode("utf-8")).digest()
+        challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
+        return verifier, challenge
 
 
-def get_or_create_flex_token() -> TokenResult:
+    def make_session(self) -> requests.Session:
+        "Makes HTTP session capable of holding persistent cookies."
+        session = requests.Session()
+        session.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
+        if self.config and self.config.attestation_token:
+            session.headers.update({"X-Firebase-App-Check": self.config.attestation_token})
+        return session
+
+
+    def make_initial_request(self, challenge: str) -> requests.Response:
+        """Makes initial request to Flex Cognito server."""
+        query_params = {
+            "client_id": self.config.client_id,
+            "response_type": "code",
+            "redirect_uri": self.config.redirect_uri,
+            "scope": "openid email",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": "smoke-test",
+            "idpidentifier": "onelogin",
+        }
+
+        auth_url = f"https://{self.config.auth_url}/oauth2/authorize"
+
+        init = self.session.get(url=auth_url, params=query_params)
+        init.raise_for_status()
+        return init
+
+
+    def extract_csrf_token(self, response: requests.Response) -> str:
+        soup = BeautifulSoup(response.text, "html.parser")
+        csrf_input = soup.find("input", {"name": "_csrf"})
+        if not csrf_input:
+            raise NoCSRFException("No csrf token in auth response")
+        return str(csrf_input["value"])
+
+
+    def post(self, full_path: str, data: dict, token: str):
+        """Helper function to make standard posts to OneLogin."""
+        payload = {"_csrf": token}
+        payload.update(data)
+        res = self.session.post(full_path, data=payload)
+        res.raise_for_status()
+        return res
+
+
+    def get_onelogin_oauth_code(self, csrf_token: str) -> str:
+        env_name = self.config.one_login_env
+        if env_name == "production":
+            onelogin_domain = "signin.account.gov.uk"
+        else:
+            onelogin_domain = f"signin.{env_name}.account.gov.uk"
+
+        base_url = f"https://{onelogin_domain}"
+
+        self.logger.info("Posting form data to OneLogin...")
+
+        self.post(f"{base_url}/sign-in-or-create", {}, csrf_token)
+        self.post(f"{base_url}/enter-email?", {"email": self.config.email}, csrf_token)
+        self.post(
+            f"{base_url}/enter-password", {"password": self.config.password}, csrf_token
+        )
+
+        totp = pyotp.TOTP(self.config.totp)
+        otp = totp.now()
+
+        self.logger.info("Posting OTP value...")
+
+        totp_payload = {"_csrf": csrf_token, "code": otp}
+        ol_response = self.session.post(
+            f"{base_url}/enter-authenticator-app-code?",
+            data=totp_payload,
+            allow_redirects=False,
+        )
+
+        code_redirect_url = None
+
+        for _ in range(MAX_REDIRECT_HOPS):
+            if ol_response.status_code not in (301, 302, 303, 307, 308):
+                break
+            location = urljoin(ol_response.url, ol_response.headers["Location"])
+            if urlparse(location).scheme not in ("http", "https"):
+                code_redirect_url = location
+                break
+            ol_response = self.session.get(location, allow_redirects=False)
+
+        if not code_redirect_url:
+            raise NoRedirectURLException("OneLogin did not return a redirect url after OTP")
+
+        self.logger.info("Extracting code from redirect URL")
+
+        parsed_url = urlparse(code_redirect_url)
+        qs = parse_qs(parsed_url.query)
+        code = qs.get("code", [None])[0]
+
+        if not code:
+            raise NoCodeInURLException("No code found in redirect url")
+
+        return code
+
+
+    def get_access_token(self, code: str, verifier: str) -> str:
+        token_payload = {
+            "grant_type": "authorization_code",
+            "client_id": self.config.client_id,
+            "code": code,
+            "redirect_uri": self.config.redirect_uri,
+            "code_verifier": verifier,
+            "scope": "email openid",
+        }
+
+        token_url = f"https://{self.config.token_url}/oauth2/token"
+
+        self.logger.info("Requesting token...")
+        token_response = requests.post(
+            token_url,
+            data=token_payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=30,
+        )
+
+        if not token_response.ok:
+            raise TokenExchangeFailedException(
+                f"Token exchange failed: {token_response.text}"
+            )
+
+        return token_response.json().get("access_token")
+    
+    def generate_new_token(self) -> str | None:
+        self.logger.info("Generating token from provided environment variables")
+
+        try:
+            self.logger.info("Creating PKCE pair...")
+            verifier, challenge = FlexTokenGenerator.generate_pkce_pair()
+            
+            self.logger.info("Making initial call to Cognito...")
+            initial = self.make_initial_request(challenge=challenge)
+            self.logger.info("Getting CSRF token...")
+            csrf_token = self.extract_csrf_token(initial)
+            self.logger.info("Calling OneLogin...")
+            one_login_code = self.get_onelogin_oauth_code(csrf_token=csrf_token)
+            self.logger.info("Calling Cognito for access token")
+            access_token = self.get_access_token(code=one_login_code, verifier=verifier)
+            return access_token
+        except RuntimeError:
+            self.logger.error("Config load failed")
+            raise
+        except NoCSRFException:
+            self.logger.error("No code from auth server")
+            raise
+        except NoCodeInURLException, NoRedirectURLException:
+            self.logger.error("OneLogin response failed")
+            raise
+        except TokenExchangeFailedException:
+            self.logger.error("Final token exchange error")
+            raise
+        except Exception as e:
+            self.logger.error("Unexpected error %s", str(e))
+            raise
+
+
+def get_or_create_flex_token(env_path: Path) -> TokenResult:
     current_token = get_token_from_secrets()
     if current_token:
         ttl = check_jwt_validity(current_token)
         if ttl > 60:
             return TokenResult(stored=True, ttl=ttl, token=current_token)
-    new_token = generate_new_token()
+    generator = FlexTokenGenerator(env_path=env_path, logger=logger)
+    new_token = generator.generate_new_token()
     if new_token:
         return write_token_to_secrets(new_token)
     else:
@@ -246,49 +286,10 @@ def write_token_to_secrets(token: str) -> TokenResult:
         return TokenResult(stored=False)
 
 
-def generate_new_token() -> str | None:
-    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-    logger.info("Generating token from provided environment variables")
-    logger.info("Loading config...")
-    config = load_config(env_path=env_path)
 
-    try:
-        logger.info("Creating PKCE pair...")
-        verifier, challenge = generate_pkce_pair()
-        logger.info("Creating HTTP session...")
-        session = make_session(config=config)
-        logger.info("Making initial call to Cognito...")
-        initial = make_initial_request(
-            session=session, config=config, challenge=challenge
-        )
-        logger.info("Getting CSRF token...")
-        csrf_token = extract_csrf_token(initial)
-        logger.info("Calling OneLogin...")
-        one_login_code = get_onelogin_oauth_code(
-            session=session, config=config, csrf_token=csrf_token
-        )
-        logger.info("Calling Cognito for access token")
-        access_token = get_access_token(
-            config=config, code=one_login_code, verifier=verifier
-        )
-        return access_token
-    except RuntimeError:
-        logger.error("Config load failed")
-        raise
-    except NoCSRFException:
-        logger.error("No code from auth server")
-        raise
-    except NoCodeInURLException, NoRedirectURLException:
-        logger.error("OneLogin response failed")
-        raise
-    except TokenExchangeFailedException:
-        logger.error("Final token exchange error")
-        raise
-    except Exception as e:
-        logger.error("Unexpected error %s", str(e))
-        raise
 
 
 if __name__ == "__main__":
-    token_result = get_or_create_flex_token()
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    token_result = get_or_create_flex_token(env_path=env_path)
     print(token_result)
