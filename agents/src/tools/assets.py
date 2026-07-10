@@ -4,7 +4,6 @@ import boto3
 from mypy_boto3_secretsmanager import SecretsManagerClient
 from botocore.exceptions import ClientError
 from dataclasses import dataclass
-from pathlib import Path
 import jwt
 import time
 from enum import Enum
@@ -56,13 +55,16 @@ def write_secret(
         logger.error(f"Error while writing secret {secret_id}: {str(c)}")
         raise
 
+
 class TokenGenerator:
     def generate_new_token(self):
         pass
 
 
 class TokenWrangler:
-    def __init__(self, generator: TokenGenerator, logger: logging.Logger, token_type: TokenType) -> None:
+    def __init__(
+        self, generator: TokenGenerator, logger: logging.Logger, token_type: TokenType
+    ) -> None:
         self.generator = generator
         self.logger = logger
         self.token_type = token_type
@@ -73,13 +75,18 @@ class TokenWrangler:
         if current_token and self.token_type == TokenType.FLEX:
             ttl = self.check_jwt_validity(current_token)
             if ttl > 60:
-                return TokenResult(stored=True, ttl=ttl, token_type=self.token_type.value, token=current_token)
+                return TokenResult(
+                    stored=True,
+                    ttl=ttl,
+                    token_type=self.token_type.value,
+                    token=current_token,
+                )
         new_token = self.generator.generate_new_token()
         if new_token:
             return self.write_token_to_secrets(new_token, secret_id)
         else:
             return TokenResult(stored=False, token_type=self.token_type.value)
-        
+
     def get_token_from_secrets(self, secret_id: str) -> str | None:
         try:
             secretsm = get_secrets_client()
@@ -94,19 +101,25 @@ class TokenWrangler:
             secretsm = get_secrets_client()
             result = write_secret(secretsm, self.logger, secret_id, token)
             if result:
-                return TokenResult(stored=True, token_type=self.token_type.value, ttl=ttl, token=token)
+                return TokenResult(
+                    stored=True, token_type=self.token_type.value, ttl=ttl, token=token
+                )
             else:
-                return TokenResult(stored=False, token_type=self.token_type.value, ttl=ttl, token=token)
+                return TokenResult(
+                    stored=False, token_type=self.token_type.value, ttl=ttl, token=token
+                )
         except ClientError as c:
             self.logger.error(f"Problem writing token to secrets: {str(c)}")
-            return TokenResult(stored=False, token_type=self.token_type.value,ttl=ttl, token=token)
-        
+            return TokenResult(
+                stored=False, token_type=self.token_type.value, ttl=ttl, token=token
+            )
+
     def check_jwt_validity(self, token: str) -> int:
         """Checks JWT valid and checks time to expiry in seconds."""
         try:
             claims = jwt.decode(token, options={"verify_signature": False})
             if "exp" not in claims:
-                return 0   
+                return 0
             time_remaining = int(claims["exp"]) - int(time.time())
             return max(0, time_remaining)
         except jwt.InvalidTokenError:
@@ -132,6 +145,7 @@ class TokenExchangeFailedException(Exception):
 
 
 # Data Structures
+
 
 class TokenType(Enum):
     FLEX = "flex"

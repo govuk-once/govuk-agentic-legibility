@@ -15,7 +15,10 @@ from agents.src.tools.assets import (
     NoCodeInURLException,
     TokenExchangeFailedException,
     get_logger,
-    get_secret, get_secrets_client, TokenGenerator, JwtAuthConfig, write_secret, TokenWrangler, TokenType
+    TokenGenerator,
+    JwtAuthConfig,
+    TokenWrangler,
+    TokenType,
 )
 import boto3
 from botocore.exceptions import ClientError
@@ -24,7 +27,7 @@ from botocore.exceptions import ClientError
 logger = get_logger()
 
 MAX_REDIRECT_HOPS = 10
-SECRET_ID = "flex-access-token"
+SECRET_ID = "flex-access-token"  # nosec
 
 
 class FlexTokenGenerator(TokenGenerator):
@@ -58,7 +61,9 @@ class FlexTokenGenerator(TokenGenerator):
         missing = [var for var in required if not env_vars.get(var)]
         if missing:
             for missing_var in missing:
-                self.logger.error("Environment variable %s is required but not set", missing_var)
+                self.logger.error(
+                    "Environment variable %s is required but not set", missing_var
+                )
             raise RuntimeError("One or more missing environment variables")
         if "@" not in (env_vars.get("PLAYGROUND_EMAIL") or ""):
             self.logger.error("PLAYGROUND_EMAIL must be a valid email address")
@@ -74,7 +79,6 @@ class FlexTokenGenerator(TokenGenerator):
             one_login_env=str(env_vars["PLAYGROUND_ONE_LOGIN_ENV"]),
         )
 
-
     @classmethod
     def generate_pkce_pair(cls) -> tuple[str, str]:
         """Generates a pair used to verify the first and last calls to the token server are from the same source."""
@@ -89,9 +93,10 @@ class FlexTokenGenerator(TokenGenerator):
         session = requests.Session()
         session.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
         if self.config and self.config.attestation_token:
-            session.headers.update({"X-Firebase-App-Check": self.config.attestation_token})
+            session.headers.update(
+                {"X-Firebase-App-Check": self.config.attestation_token}
+            )
         return session
-
 
     def _make_initial_request(self, challenge: str) -> requests.Response:
         """Makes initial request to Flex Cognito server."""
@@ -112,7 +117,6 @@ class FlexTokenGenerator(TokenGenerator):
         init.raise_for_status()
         return init
 
-
     def _extract_csrf_token(self, response: requests.Response) -> str:
         """Extracts CSRF token from OneLogin response."""
         soup = BeautifulSoup(response.text, "html.parser")
@@ -121,7 +125,6 @@ class FlexTokenGenerator(TokenGenerator):
             raise NoCSRFException("No csrf token in auth response")
         return str(csrf_input["value"])
 
-
     def _post(self, full_path: str, data: dict, token: str):
         """Helper function to make standard posts to OneLogin."""
         payload = {"_csrf": token}
@@ -129,7 +132,6 @@ class FlexTokenGenerator(TokenGenerator):
         res = self.session.post(full_path, data=payload)
         res.raise_for_status()
         return res
-
 
     def _get_onelogin_oauth_code(self, csrf_token: str) -> str:
         """Get OneLogin authorisation code."""
@@ -173,7 +175,9 @@ class FlexTokenGenerator(TokenGenerator):
             ol_response = self.session.get(location, allow_redirects=False)
 
         if not code_redirect_url:
-            raise NoRedirectURLException("OneLogin did not return a redirect url after OTP")
+            raise NoRedirectURLException(
+                "OneLogin did not return a redirect url after OTP"
+            )
 
         self.logger.info("Extracting code from redirect URL")
 
@@ -185,7 +189,6 @@ class FlexTokenGenerator(TokenGenerator):
             raise NoCodeInURLException("No code found in redirect url")
 
         return code
-
 
     def _get_access_token(self, code: str, verifier: str) -> str:
         """Retrieve JWT from Flex/Cognito."""
@@ -214,14 +217,14 @@ class FlexTokenGenerator(TokenGenerator):
             )
 
         return token_response.json().get("access_token")
-    
+
     def generate_new_token(self) -> str | None:
         self.logger.info("Generating token from provided environment variables")
 
         try:
             self.logger.info("Creating PKCE pair...")
             verifier, challenge = FlexTokenGenerator.generate_pkce_pair()
-            
+
             self.logger.info("Making initial call to Cognito...")
             initial = self._make_initial_request(challenge=challenge)
             self.logger.info("Getting CSRF token...")
@@ -229,7 +232,9 @@ class FlexTokenGenerator(TokenGenerator):
             self.logger.info("Calling OneLogin...")
             one_login_code = self._get_onelogin_oauth_code(csrf_token=csrf_token)
             self.logger.info("Calling Cognito for access token")
-            access_token = self._get_access_token(code=one_login_code, verifier=verifier)
+            access_token = self._get_access_token(
+                code=one_login_code, verifier=verifier
+            )
             return access_token
         except RuntimeError:
             self.logger.error("Config load failed")
@@ -248,11 +253,6 @@ class FlexTokenGenerator(TokenGenerator):
             raise
 
 
-
-        
-    
-
-
 if __name__ == "__main__":
     try:
         sts = boto3.client("sts")
@@ -262,6 +262,8 @@ if __name__ == "__main__":
         sys.exit()
     env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     generator = FlexTokenGenerator(env_path=env_path, logger=logger)
-    wrangler = TokenWrangler(generator=generator, logger=logger, token_type=TokenType.FLEX)
+    wrangler = TokenWrangler(
+        generator=generator, logger=logger, token_type=TokenType.FLEX
+    )
     token_result = wrangler.get_or_create_token(SECRET_ID)
     print(token_result)

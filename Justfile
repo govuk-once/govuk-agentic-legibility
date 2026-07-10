@@ -20,9 +20,9 @@ scan:
     uv run bandit -r agents/src
 
 types:
-    uv run mypy --explicit-package-bases agents/src agents/tests
+    uv run mypy agents/src agents/tests
 
 docs:
     uv run pydoclint agents
 
-check: build test lint docs audit scan
+check: build test lint docs audit scan types

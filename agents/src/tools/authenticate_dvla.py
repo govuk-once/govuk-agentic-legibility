@@ -9,7 +9,7 @@ from botocore.exceptions import ClientError
 
 logger = get_logger()
 
-SECRET_ID = 'dvla-linking-token'
+SECRET_ID = "dvla-linking-token"  # nosec
 
 
 class DVLATokenGenerator(TokenGenerator):
@@ -24,7 +24,6 @@ class DVLATokenGenerator(TokenGenerator):
             }
         )
         self.base_url = "https://architecture-link-account-service-ui-ext.dvla.gov.uk"
-
 
     def generate_new_token(self) -> str:
         init_url = f"{self.base_url}/create-token?locale=en"
@@ -53,7 +52,9 @@ class DVLATokenGenerator(TokenGenerator):
                     payload[name] = selected.get("value", "")
                 else:
                     first_option = input_tag.find("option")
-                    payload[name] = first_option.get("value", "") if first_option else ""
+                    payload[name] = (
+                        first_option.get("value", "") if first_option else ""
+                    )
             elif input_tag.get("type") in ["radio", "checkbox"]:
                 if input_tag.has_attr("checked"):
                     payload[name] = input_tag.get("value", "")
@@ -101,7 +102,6 @@ class DVLATokenGenerator(TokenGenerator):
         return token
 
 
-
 if __name__ == "__main__":
     target_id = sys.argv[1]
     try:
@@ -111,6 +111,8 @@ if __name__ == "__main__":
         logger.error(f"Error connecting to AWS account: {str(c)}")
         sys.exit()
     generator = DVLATokenGenerator(customer_id=target_id, logger=logger)
-    wrangler = TokenWrangler(generator=generator, logger=logger, token_type=TokenType.DVLA)
+    wrangler = TokenWrangler(
+        generator=generator, logger=logger, token_type=TokenType.DVLA
+    )
     token_result = wrangler.get_or_create_token(SECRET_ID)
     print(token_result)
