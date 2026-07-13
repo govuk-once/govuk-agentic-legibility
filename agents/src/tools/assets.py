@@ -93,10 +93,12 @@ class TokenWrangler:
             return get_secret(secretsm, self.logger, secret_id)
         except ClientError as c:
             self.logger.error(f"Error while retrieving token from Secrets: {str(c)}")
-            sys.exit()
+            sys.exit(1)
 
     def write_token_to_secrets(self, token: str, secret_id: str) -> TokenResult:
-        ttl = self.check_jwt_validity(token)
+        ttl = 0
+        if self.token_type == TokenType.FLEX:
+            ttl = self.check_jwt_validity(token)
         try:
             secretsm = get_secrets_client()
             result = write_secret(secretsm, self.logger, secret_id, token)
@@ -117,6 +119,8 @@ class TokenWrangler:
     def check_jwt_validity(self, token: str) -> int:
         """Checks JWT valid and checks time to expiry in seconds."""
         try:
+            if self.token_type == TokenType.FLEX:
+                return 0
             claims = jwt.decode(token, options={"verify_signature": False})
             if "exp" not in claims:
                 return 0
