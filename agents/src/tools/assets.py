@@ -70,22 +70,32 @@ class TokenWrangler:
         self.token_type = token_type
 
     def get_or_create_token(self, secret_id: str) -> TokenResult:
+        """Gets token if stored in Secrets Manager or generates one.
+        
+        The token specified at the given secret_id is retrieved. For a DVLA token, it is automatically 
+        regenerated as it is dependent on the customer id which can change. For a Flex token, we check the TTL
+        and if it less than 60 seconds, we generate a new one and store it before returning it.
+
+        Args:
+            secret_id (str): the id of the token stored in Secrets Manager
+
+        Returns:
+            TokenResult
+
+        """
         ttl = None
         current_token = self.get_token_from_secrets(secret_id)
-        if current_token and self.token_type == TokenType.FLEX:
-            ttl = self.check_jwt_validity(current_token)
-            if ttl > 60:
-                return TokenResult(
-                    stored=True,
-                    ttl=ttl,
-                    token_type=self.token_type.value,
-                    token=current_token,
-                )
-        new_token = self.generator.generate_new_token()
-        if new_token:
-            return self.write_token_to_secrets(new_token, secret_id)
-        else:
-            return TokenResult(stored=False, token_type=self.token_type.value)
+
+        if self.token_type == TokenType.FLEX:
+            if current_token and (ttl:=self.check_jwt_validity(current_token)) > 60:
+                return TokenResult(stored=True, ttl=ttl, token=current_token, token_type=self.token_type.value)
+            
+        if current_token:
+            new_token = self.generator.generate_new_token()
+            if new_token:
+                return self.write_token_to_secrets(new_token, secret_id)
+           
+        return TokenResult(stored=False, token_type=self.token_type.value)
 
     def get_token_from_secrets(self, secret_id: str) -> str | None:
         try:
