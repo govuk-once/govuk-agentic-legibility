@@ -1,0 +1,117 @@
+APPLICATION DATE: 15 July 2026
+
+--- FLEX RECORD ---
+
+Identity status: verified
+Full name: Priya Shah
+
+Current employment record:
+Employer: Northborough Digital Services
+Job title: Junior Data Analyst
+Contract type: fixed term
+Contract start date: 2 December 2025
+Scheduled contract end date: 31 August 2026
+
+The employment record was last checked in December 2025 and may not describe the
+person's current duties or working pattern.
+
+--- END FLEX RECORD ---
+
+--- BEGIN TRANSCRIPT ---
+
+USER:
+I'm applying for the skills support thing because my manager said the course I'm
+doing might count. I should warn you that my job title is a bit grander than the
+actual job.
+
+ASSISTANT:
+Let's start with the course. Who provides it, what qualification does it lead to,
+and how much scheduled teaching is there?
+
+USER:
+It's the Level 4 Certificate in Applied Data Skills at Northborough College. The
+college runs the teaching and assessment. It's a 16-week course and there are 14
+hours of scheduled classes and supervised workshops each week.
+
+There is homework too, but the 14 hours is the actual timetabled teaching.
+
+ASSISTANT:
+That sounds like it may be approved education. Did you choose to enrol yourself?
+
+USER:
+Not really. Northborough Digital Services arranged the whole thing. Everyone in
+my team at my grade has to complete it to keep doing the job. My manager was very
+clear that it is mandatory.
+
+The college only opens this particular course cohort to Northborough Digital
+Services employees. My friend asked whether she could apply independently and the
+college said no, because this intake is part of the employer's training agreement.
+
+It is still a real Level 4 certificate from the college though. That's why I was
+not sure whether the employer involvement mattered.
+
+ASSISTANT:
+I see. The qualification and teaching hours sound substantial. If the education
+route does not apply, we may need to look at your employment. FLEX says your job
+title is Junior Data Analyst. Is that a fair description of what you mainly do?
+
+USER:
+Honestly, no. The title came from a reorganisation.
+
+Most of my time is on the internal service desk. Roughly 60% of a normal week is
+resetting accounts, sorting permissions and working through access incidents.
+Another 20% is setting up laptops and helping people with device problems.
+
+I spend about 10% of my time pulling ticket numbers into a weekly spreadsheet and
+sending a summary to my manager. The remaining 10% is team admin and meetings.
+
+I don't do statistical analysis. I don't build dashboards. I sometimes run a
+saved query in the ticket system for the weekly numbers, but I didn't write it and
+I don't analyse the results beyond saying how many tickets there were.
+
+Four days out of five I'm basically doing account, access, incident and device support.
+The title is a bit misleading.
+
+ASSISTANT:
+Understood. What are your contract dates and working hours now?
+
+USER:
+The FLEX dates are still right: I started on 2 December 2025 and the fixed-term
+contract is scheduled to finish on 31 August 2026.
+
+My hours vary a bit. I have the last eight completed weekly records in front of
+me. These are the weeks immediately before this application week.
+
+Week ending 24 May: 18 paid hours, £520 gross pay.
+Week ending 31 May: 17 paid hours, £500 gross pay.
+Week ending 7 June: zero hours and £0. I was off for that entire week on unpaid
+sickness. There was no sick pay.
+Week ending 14 June: 19 paid hours, £530 gross pay.
+Week ending 21 June: 16 paid hours, £490 gross pay.
+Week ending 28 June: 18 paid hours, £515 gross pay.
+Week ending 5 July: 17 paid hours, £505 gross pay.
+Week ending 12 July: 18 paid hours, £525 gross pay.
+
+Those pay figures are gross, before tax or any other deductions.
+
+ASSISTANT:
+You mentioned £680 a week earlier when we spoke. Is that relevant to these eight
+weeks?
+
+USER:
+No. That was my old job before Northborough Digital Services. I was earning about
+£680 a week there, but I left that job before this contract started. None of the
+eight weekly figures I just gave you is missing or estimated.
+
+ASSISTANT:
+Anything else about the course or current job that you think changes the
+application?
+
+USER:
+No. The course details I gave you are current. It is mandatory for my job and
+this cohort is only available to employees of Northborough Digital Services.
+
+For the job, please use what I told you about what I actually do rather than the
+job title. The FLEX employer and contract dates are right.
+
+--- END TRANSCRIPT ---

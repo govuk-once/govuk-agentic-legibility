@@ -109,7 +109,7 @@ if __name__ == "__main__":
         sts.get_caller_identity()
     except ClientError as c:
         logger.error(f"Error connecting to AWS account: {str(c)}")
-        sys.exit()
+        sys.exit(1)
     generator = DVLATokenGenerator(customer_id=target_id, logger=logger)
     wrangler = TokenWrangler(
         generator=generator, logger=logger, token_type=TokenType.DVLA

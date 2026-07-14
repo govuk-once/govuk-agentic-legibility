@@ -1,0 +1,161 @@
+# Trivial Form Evaluation Differences
+
+## Expected arguments
+
+{
+  "address": {
+    "address_line_1": "18 Orchard Lane",
+    "address_line_2": "Flat 4B",
+    "postcode": "BS1 4QA",
+    "town_or_city": "Bristol"
+  },
+  "application_contact_consent": true,
+  "date_of_birth": "1988-02-14",
+  "declaration_confirmed": true,
+  "email_address": "alex.morgan@example.com",
+  "full_name": "Alex Morgan",
+  "has_previous_address": false,
+  "phone_number": "07700 900123",
+  "preferred_contact_method": "email",
+  "preferred_contact_time": "afternoon",
+  "preferred_language": "English",
+  "research_contact_consent": false
+}
+
+## Accepted non-exact semantic variants
+
+## Incorrect semantic variants
+
+## Non-valid and API outcomes
+
+### malformed_arguments
+
+Count: 0
+Example runs: []
+
+[]
+
+### schema_invalid_arguments
+
+Count: 0
+Example runs: []
+
+[]
+
+### no_tool_call
+
+Count: 0
+Example runs: []
+
+### wrong_tool
+
+Count: 0
+Example runs: []
+
+### multiple_tool_calls
+
+Count: 0
+Example runs: []
+
+### refusal_or_prose_only
+
+Count: 0
+Example runs: []
+
+### transient_api_failure_exhausted
+
+Count: 0
+Example runs: []
+
+### non_transient_api_failure
+
+Count: 0
+Example runs: []
+
+### unexpected_response
+
+Count: 0
+Example runs: []
+
+## Summary
+
+{
+  "accepted_expected_match_count": 1000,
+  "accepted_expected_match_rate": 1.0,
+  "all_requested_runs_completed": true,
+  "all_schema_valid_parsed_outputs_semantically_identical": true,
+  "all_successful_raw_tool_argument_strings_identical": true,
+  "api_failure_count": 0,
+  "api_failure_rate": 0.0,
+  "completed_runs": 1000,
+  "completion_rate": 1.0,
+  "correct_count": 1000,
+  "correct_rate": 1.0,
+  "cost_summary": {
+    "count": 1000,
+    "max": 0.0034749000000000004,
+    "mean": 0.0034570525000000006,
+    "median": 0.0034584000000000004,
+    "min": 0.0033649
+  },
+  "every_requested_run_correct": true,
+  "exact_expected_match_count": 1000,
+  "exact_expected_match_rate": 1.0,
+  "exactly_one_correct_tool_call_count": 1000,
+  "exactly_one_correct_tool_call_rate": 1.0,
+  "field_level_mismatch_counts": {},
+  "latency_summary": {
+    "count": 1000,
+    "max": 6.614206166000031,
+    "mean": 2.3409821595010025,
+    "median": 2.252201811999953,
+    "min": 1.9122795000000679
+  },
+  "malformed_arguments_count": 0,
+  "malformed_arguments_rate": 0.0,
+  "modal_canonical_valid_argument_object": "{\"address\":{\"address_line_1\":\"18 Orchard Lane\",\"address_line_2\":\"Flat 4B\",\"postcode\":\"BS1 4QA\",\"town_or_city\":\"Bristol\"},\"application_contact_consent\":true,\"date_of_birth\":\"1988-02-14\",\"declaration_confirmed\":true,\"email_address\":\"alex.morgan@example.com\",\"full_name\":\"Alex Morgan\",\"has_previous_address\":false,\"phone_number\":\"07700 900123\",\"preferred_contact_method\":\"email\",\"preferred_contact_time\":\"afternoon\",\"preferred_language\":\"English\",\"research_contact_consent\":false}",
+  "modal_canonical_valid_argument_object_count": 1000,
+  "modal_canonical_valid_argument_object_proportion": 1.0,
+  "modal_raw_argument_string": "{\"full_name\": \"Alex Morgan\", \"date_of_birth\": \"1988-02-14\", \"email_address\": \"alex.morgan@example.com\", \"phone_number\": \"07700 900123\", \"address\": {\"address_line_1\": \"18 Orchard Lane\", \"address_line_2\": \"Flat 4B\", \"town_or_city\": \"Bristol\", \"postcode\": \"BS1 4QA\"}, \"has_previous_address\": false, \"preferred_contact_method\": \"email\", \"preferred_contact_time\": \"afternoon\", \"preferred_language\": \"English\", \"application_contact_consent\": true, \"research_contact_consent\": false, \"declaration_confirmed\": true}",
+  "modal_raw_argument_string_count": 1000,
+  "modal_raw_argument_string_proportion": 1.0,
+  "multiple_tool_call_count": 0,
+  "multiple_tool_call_rate": 0.0,
+  "no_tool_call_count": 0,
+  "no_tool_call_rate": 0.0,
+  "rate_denominator": "completed_runs",
+  "requested_runs": 1000,
+  "schema_invalid_count": 0,
+  "schema_invalid_rate": 0.0,
+  "schema_valid_count": 1000,
+  "schema_valid_rate": 1.0,
+  "semantically_incorrect_count": 0,
+  "semantically_incorrect_rate": 0.0,
+  "status_counts": {
+    "correct": 1000,
+    "incorrect_arguments": 0,
+    "malformed_arguments": 0,
+    "multiple_tool_calls": 0,
+    "no_tool_call": 0,
+    "non_transient_api_failure": 0,
+    "refusal_or_prose_only": 0,
+    "schema_invalid_arguments": 0,
+    "transient_api_failure_exhausted": 0,
+    "unexpected_response": 0,
+    "wrong_tool": 0
+  },
+  "token_usage_summary": {
+    "count": 1000,
+    "totals": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "completion_tokens": 329755,
+      "prompt_tokens": 1494000,
+      "total_tokens": 1823755
+    }
+  },
+  "unique_canonical_valid_argument_objects": 1,
+  "unique_raw_tool_argument_strings": 1,
+  "wrong_tool_count": 0,
+  "wrong_tool_rate": 0.0
+}

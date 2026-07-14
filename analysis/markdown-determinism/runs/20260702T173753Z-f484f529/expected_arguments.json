@@ -1,0 +1,26 @@
+{
+  "current_address": {
+    "address_line_1": "18 Orchard Lane",
+    "moved_in_month": "2025-04",
+    "postcode": "BS1 4QA",
+    "town_or_city": "Bristol"
+  },
+  "declaration_confirmed": true,
+  "full_name": "Alex Morgan",
+  "previous_addresses": [
+    {
+      "address_line_1": "7 Market Street",
+      "moved_in_month": "2023-09",
+      "moved_out_month": "2025-04",
+      "postcode": "BA1 1AA",
+      "town_or_city": "Bath"
+    },
+    {
+      "address_line_1": "22 Station Road",
+      "moved_in_month": "2022-07",
+      "moved_out_month": "2023-09",
+      "postcode": "CF10 1AB",
+      "town_or_city": "Cardiff"
+    }
+  ]
+}

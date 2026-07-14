@@ -1,0 +1,93 @@
+---
+config:
+  look: handDrawn
+  theme: neutral
+  layout: dagre
+---
+
+flowchart TD
+
+    subgraph citizen_experience["GOV.UK Chat"]
+        direction TD
+
+        user_request[User describes what they need]
+        chat_agent[Agent<br/>understands intent]
+
+        user_request <--> chat_agent
+    end
+
+    subgraph tbd["TBD"]
+        direction LR
+
+        journey_ui[Journey UI?<br/>radio buttons, dates, confirmation]
+        flex_authentication[Flex authentication]
+    end
+
+    subgraph lower_row[" "]
+        direction LR
+
+        subgraph journey_backend["Agentic Legibility / journey backend?"]
+            direction TD
+
+            service_discovery[Service catalogue<br/>MCP / discovery]
+
+            employment_service[Employment route service]
+            licence_service[Renew driving licence service]
+            other_services[Other government services]
+
+            journey_runtime[Journey execution layer?<br/>What owns state and navigation?]
+
+            agent_support[Agent capabilities<br/>interpret, explain, clarify]
+
+            outcome[Outcome / submission]
+
+            service_discovery --> employment_service
+            service_discovery --> licence_service
+            service_discovery --> other_services
+
+            employment_service --> journey_runtime
+            licence_service --> journey_runtime
+            other_services --> journey_runtime
+
+            journey_runtime <--> agent_support
+            journey_runtime --> outcome
+        end
+
+        pathway_studio[Describe and approve agentic journeys?]
+
+        subgraph department_experience["Department-facing authoring"]
+            direction TD
+
+            service_team[Department / service team]
+
+            journey_definition[Journey definition<br/>JSON / other?]
+
+            flex[Flex APIs]
+
+            service_team --> journey_definition
+            journey_definition --> flex
+        end
+    end
+
+
+    chat_agent -->|discover services| service_discovery
+    chat_agent <--> agent_support
+    chat_agent <--> journey_ui
+
+    journey_ui <--> journey_runtime
+
+    journey_definition --> pathway_studio
+    pathway_studio --> employment_service
+    pathway_studio --> licence_service
+    pathway_studio --> other_services
+
+
+    style journey_runtime fill:#f3e5f5,stroke:#ba68c8,stroke-width:2px,color:#4a148c
+    style journey_ui fill:#fff8e1,stroke:#ffb300,stroke-width:2px,color:#5d4037
+
+    style citizen_experience stroke-dasharray: 5 5
+    style tbd stroke-dasharray: 5 5
+    style journey_backend stroke-dasharray: 5 5
+    style department_experience stroke-dasharray: 5 5
+
+    style lower_row fill:none,stroke:none

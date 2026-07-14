@@ -1,0 +1,152 @@
+{
+  "messages": [
+    {
+      "content": "You complete government forms using only information explicitly stated in the case description.\nRead the entire case description before completing the form.\nCall the submit_corrected_address_history tool exactly once.\nUse corrected information in preference to information explicitly described as earlier, mistaken or incomplete.\nInclude residential addresses only. Do not include correspondence addresses or addresses belonging to other people.\nOrder previous_addresses from most recent to oldest.\nFor each previous address, calculate months_at_address as the number of calendar-month boundaries between moved_in_month and moved_out_month. For example, January 2024 to April 2024 is 3 months.\nUse null for address_line_2 when no flat, apartment or secondary address line is stated.\nDo not invent, assume or correct any other information.\nDo not provide a prose answer.\n",
+      "role": "system"
+    },
+    {
+      "content": "Jordan Ellis has confirmed that the residential address history below is complete and accurate.\n\nJordan's current home is Flat 2, 44 Cedar Avenue, Leeds, LS7 2AB. They moved there in February 2025.\n\nBetween May 2023 and February 2025, Jordan lived in York. An earlier note recorded this as 12 King Street, YO1 8RT, but Jordan later corrected both details: the residential address was 21 King Street and the postcode was YO1 8RS.\n\nImmediately before York, from November 2021 until May 2023, Jordan lived at 9 Harbour Road, Hull, HU1 1AA. The first note omitted part of the address; Jordan later confirmed that it was Flat 6.\n\nFrom March 2020 until November 2021, Jordan lived at 3 Station Terrace, Sheffield, S1 2GH.\n\nFrom September 2018 until March 2020, Jordan lived at 8 Mill Close, Derby, DE1 3PQ.\n\nJordan used PO Box 118, Leeds, LS1 9ZZ for correspondence between June and August 2024, but never lived there. They have also sometimes received post at 17 Meadow View, Wakefield, WF1 4AB, which is their sibling's address rather than Jordan's residence.\n\nJordan has confirmed that the residential dates above form a continuous history with no gaps.\n",
+      "role": "user"
+    }
+  ],
+  "model": "bedrock/converse/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "model_parameters": {},
+  "tool_choice": {
+    "function": {
+      "name": "submit_corrected_address_history"
+    },
+    "type": "function"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Submit the corrected residential address-history form exactly once, using only information explicitly stated in the case.",
+        "name": "submit_corrected_address_history",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "continuous_history_confirmed": {
+              "description": "Whether the case explicitly confirms that the residential history has no gaps.",
+              "type": "boolean"
+            },
+            "current_address": {
+              "additionalProperties": false,
+              "properties": {
+                "address_line_1": {
+                  "description": "The building number or name and street only.",
+                  "type": "string"
+                },
+                "address_line_2": {
+                  "description": "The flat, apartment or secondary address line, or null when none is stated.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "moved_in_month": {
+                  "description": "The move-in month normalised to YYYY-MM.",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                "postcode": {
+                  "description": "The postcode, copied exactly as stated.",
+                  "type": "string"
+                },
+                "town_or_city": {
+                  "description": "The town or city, copied exactly as stated.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "address_line_1",
+                "address_line_2",
+                "town_or_city",
+                "postcode",
+                "moved_in_month"
+              ],
+              "type": "object"
+            },
+            "declaration_confirmed": {
+              "description": "Whether the person explicitly confirmed that the residential address history is complete and accurate.",
+              "type": "boolean"
+            },
+            "full_name": {
+              "description": "The person's full name, copied exactly as stated.",
+              "type": "string"
+            },
+            "history_start_month": {
+              "description": "The move-in month of the oldest residential address, as YYYY-MM.",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            },
+            "previous_addresses": {
+              "description": "All and only the person's previous residential addresses, ordered from most recent to oldest.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "address_line_1": {
+                    "description": "The building number or name and street only.",
+                    "type": "string"
+                  },
+                  "address_line_2": {
+                    "description": "The flat, apartment or secondary address line, or null when none is stated.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "months_at_address": {
+                    "description": "Number of calendar-month boundaries between moved_in_month and moved_out_month.",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "moved_in_month": {
+                    "description": "The move-in month normalised to YYYY-MM.",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                    "type": "string"
+                  },
+                  "moved_out_month": {
+                    "description": "The move-out month normalised to YYYY-MM.",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                    "type": "string"
+                  },
+                  "postcode": {
+                    "description": "The postcode, copied exactly as stated.",
+                    "type": "string"
+                  },
+                  "town_or_city": {
+                    "description": "The town or city, copied exactly as stated.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "address_line_1",
+                  "address_line_2",
+                  "town_or_city",
+                  "postcode",
+                  "moved_in_month",
+                  "moved_out_month",
+                  "months_at_address"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            }
+          },
+          "required": [
+            "full_name",
+            "current_address",
+            "previous_addresses",
+            "history_start_month",
+            "continuous_history_confirmed",
+            "declaration_confirmed"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "type": "function",
+  "function": {
+    "name": "submit_skills_support_route",
+    "description": "Submit the selected skills-support route and the fields required for that route after applying the service rules.",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "full_name": {
+          "type": "string",
+          "description": "The verified person's full name."
+        },
+        "identity_verified": {
+          "type": "boolean",
+          "description": "Whether the authoritative identity record is verified."
+        },
+        "selected_route": {
+          "type": "string",
+          "enum": [
+            "manual_review",
+            "education",
+            "employment",
+            "not_eligible"
+          ],
+          "description": "The route selected after applying the service rules in their required order."
+        },
+        "education_assessment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "approved": {
+              "type": "boolean"
+            },
+            "reason_code": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "provider_not_recognised",
+                "qualification_below_level_3",
+                "insufficient_supervised_hours",
+                "course_too_short",
+                "employer_required_internal_training",
+                null
+              ]
+            }
+          },
+          "required": [
+            "approved",
+            "reason_code"
+          ],
+          "description": "The result of applying the approved-education rules."
+        },
+        "education_details": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "provider_name": {
+              "type": "string"
+            },
+            "qualification_name": {
+              "type": "string"
+            },
+            "qualification_level": {
+              "type": "integer"
+            },
+            "scheduled_supervised_hours_per_week": {
+              "type": "number"
+            },
+            "course_duration_weeks": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "provider_name",
+            "qualification_name",
+            "qualification_level",
+            "scheduled_supervised_hours_per_week",
+            "course_duration_weeks"
+          ],
+          "description": "Education-route fields. Must be null unless the education route is selected."
+        },
+        "employment_details": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "employer_name": {
+              "type": "string"
+            },
+            "job_group": {
+              "type": "string",
+              "enum": [
+                "data_analysis",
+                "technical_support",
+                "administration"
+              ]
+            },
+            "contract_type": {
+              "type": "string",
+              "enum": [
+                "permanent",
+                "fixed_term"
+              ]
+            },
+            "contract_start_date": {
+              "type": "string",
+              "format": "date"
+            },
+            "contract_end_date": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "contract_duration_requirement_met": {
+              "type": "boolean"
+            },
+            "pay_weeks_assessed": {
+              "type": "integer"
+            },
+            "excluded_week_endings": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date"
+              },
+              "uniqueItems": true
+            },
+            "average_paid_hours": {
+              "type": "number"
+            },
+            "hours_requirement_met": {
+              "type": "boolean"
+            },
+            "average_gross_weekly_pay": {
+              "type": "number"
+            },
+            "market_rate_floor": {
+              "type": "number"
+            },
+            "pay_requirement_met": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "employer_name",
+            "job_group",
+            "contract_type",
+            "contract_start_date",
+            "contract_end_date",
+            "contract_duration_requirement_met",
+            "pay_weeks_assessed",
+            "excluded_week_endings",
+            "average_paid_hours",
+            "hours_requirement_met",
+            "average_gross_weekly_pay",
+            "market_rate_floor",
+            "pay_requirement_met"
+          ],
+          "description": "Employment-route fields. Must be null unless the employment route is selected."
+        },
+        "not_eligible_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "education_not_approved",
+              "contract_duration_below_26_weeks",
+              "average_hours_below_16",
+              "pay_below_market_rate"
+            ]
+          },
+          "uniqueItems": true,
+          "description": "Failed conditions for a not-eligible decision. Must be empty for other routes."
+        }
+      },
+      "required": [
+        "full_name",
+        "identity_verified",
+        "selected_route",
+        "education_assessment",
+        "education_details",
+        "employment_details",
+        "not_eligible_reasons"
+      ]
+    }
+  }
+}

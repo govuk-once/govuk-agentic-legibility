@@ -259,7 +259,7 @@ if __name__ == "__main__":
         sts.get_caller_identity()
     except ClientError as c:
         logger.error(f"Error connecting to AWS account: {str(c)}")
-        sys.exit()
+        sys.exit(1)
     env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     generator = FlexTokenGenerator(env_path=env_path, logger=logger)
     wrangler = TokenWrangler(
