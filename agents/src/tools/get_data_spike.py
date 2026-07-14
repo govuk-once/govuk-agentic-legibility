@@ -1,13 +1,13 @@
 from agents.src.tools.authenticate_flex import FlexTokenGenerator
 from agents.src.tools.authenticate_dvla import DVLATokenGenerator
 from agents.src.tools.assets import TokenWrangler, TokenType, get_logger
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 from requests.exceptions import HTTPError
 import boto3
 import sys
-import json
 from pathlib import Path
 import requests
+import json
 
 
 logger = get_logger()
@@ -40,10 +40,14 @@ def authenticate_and_match(user: str) -> str | None:
     return flex_token
 
 
-def get_user_data(user: str) -> dict:
+def get_user_data(user: str, override_token: str | None=None, retry:int=1) -> dict:
+    max_retries = 3
     try:
-        secretsm = boto3.client("secretsmanager")
-        flex_token = secretsm.get_secret_value(SecretId="flex-access-token")
+        if not override_token:
+            secretsm = boto3.client("secretsmanager")
+            flex_token = secretsm.get_secret_value(SecretId="flex-access-token")
+        else:
+            flex_token = override_token
         logger.info("Getting user data")
         headers = {
             "Content-Type": "application/json",
@@ -55,14 +59,25 @@ def get_user_data(user: str) -> dict:
         return response.json()
     except secretsm.exceptions.ResourceNotFoundException as e:
         logger.error(f"The secret flex-access-token was not found")
-        sys.exit()
+        sys.exit(1)
     except ClientError as e:
         logger.error(f"There was an error retrieving the Flex token: {e}")
-        sys.exit()
+        sys.exit(1)
     except HTTPError as e:
-        logger.info(f"Somewhat expected error: {e}")
+        logger.info(f"HTTPError: {e}")
+        # if 401 or 403 reauthenticate and retry
+        if response.status_code in (401, 403) and retry < max_retries:
+            logger.info("Retrying authentication...")
+            token = authenticate_and_match(user)
+            return get_user_data(user, override_token=token, retry=retry+1)
+        elif response.status_code in (401, 403):
+            logger.info("Max retries exceeded, halting")
+            sys.exit(1)
+        else:
+            sys.exit(1)
     except Exception as e:
         logger.error(f"Unexpected error {e}")
+        raise e
 
 
 if __name__ == "__main__":
@@ -76,7 +91,7 @@ if __name__ == "__main__":
     try:
         sts = boto3.client("sts")
         sts.get_caller_identity()
-    except ClientError as c:
+    except (ClientError, NoCredentialsError) as c:
         logger.error(f"Error connecting to AWS account: {str(c)}")
         sys.exit()
 
