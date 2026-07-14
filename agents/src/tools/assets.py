@@ -129,7 +129,7 @@ class TokenWrangler:
     def check_jwt_validity(self, token: str) -> int:
         """Checks JWT valid and checks time to expiry in seconds."""
         try:
-            if self.token_type == TokenType.FLEX:
+            if self.token_type == TokenType.DVLA:
                 return 0
             claims = jwt.decode(token, options={"verify_signature": False})
             if "exp" not in claims:
