@@ -1,4 +1,5 @@
 import requests
+from requests import HTTPError
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, urljoin
 import sys
@@ -26,10 +27,14 @@ class DVLATokenGenerator(TokenGenerator):
         self.base_url = "https://architecture-link-account-service-ui-ext.dvla.gov.uk"
 
     def generate_new_token(self) -> str:
-        init_url = f"{self.base_url}/create-token?locale=en"
-        self.logger.info(f"Initiating flow at {init_url}...")
-        response = self.session.get(init_url)
-        response.raise_for_status()
+        try:
+            init_url = f"{self.base_url}/create-token?locale=en"
+            self.logger.info(f"Initiating flow at {init_url}...")
+            response = self.session.get(init_url)
+            response.raise_for_status()
+        except HTTPError as h:
+            logger.info(f"Error response from host: {h}")
+            sys.exit(1)
 
         self.logger.info(f"Landed on stub form: {response.url}")
 
