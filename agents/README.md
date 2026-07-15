@@ -1,4 +1,4 @@
-# Agents
+# Agentic Legibility
 
 ## Authentication
 The authentication processes here are designed to replicate the existing processes used by Flex developers and detailed
@@ -46,3 +46,6 @@ uv run python agents/src/tools/authenticate_dvla.py <Customer ID>
 ```
 
 Again, the required token will be printed to the console and saved to Secrets Manager.
+
+**Stub server**: a stub server has been created as a substitute for the `flex/dvla` and `flex/udp` endpoints in the event
+that the DVLA link process is unavailable. Add `USE_STUB_SERVER=1` to the `.env` file to activate their usage. 
