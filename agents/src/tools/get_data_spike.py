@@ -8,11 +8,33 @@ import sys
 from pathlib import Path
 import requests
 import json
+import os
+import uuid
+from dotenv import load_dotenv
 
+load_dotenv()
+
+USE_STUB_SERVER = os.environ.get("USE_STUB_SERVER", 1)
 
 logger = get_logger()
 
-FLEX_BASE_URL = "https://staging.bl.once.service.gov.uk/app"
+def get_stub_url():
+    ssm = boto3.client('ssm', region_name='eu-west-2') 
+
+    parameter_name = '/flex-mock/server-url'
+
+    try:
+        response = ssm.get_parameter(Name=parameter_name)
+        url = response['Parameter'].get('Value')
+        return url
+        
+    except ClientError as e:
+        logger.error(f"Failed to retrieve parameter: {e.response.get('Error', {}).get('Message')}")
+        return None
+
+
+FLEX_BASE_URL = "https://staging.bl.once.service.gov.uk/app" if USE_STUB_SERVER == 0 else get_stub_url()
+
 
 def authenticate_and_match(user: str) -> str | None:
     logger.info("getting Flex token")
@@ -24,14 +46,18 @@ def authenticate_and_match(user: str) -> str | None:
     logger.info("getting link token for user")
     dvla_gen = DVLATokenGenerator(user, logger=logger)
     dvla_wrangler = TokenWrangler(generator=dvla_gen, logger=logger, token_type=TokenType.DVLA)
-    dvla_token = dvla_wrangler.get_or_create_token("dvla-linking-token").token
+    if USE_STUB_SERVER:
+        dvla_token = str(uuid.uuid4())
+    else:
+        dvla_token = dvla_wrangler.get_or_create_token("dvla-linking-token").token
+
 
     match_headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {flex_token}",
         "x-linking-token": dvla_token
     }
-    match_url = f"{FLEX_BASE_URL}/udp/v1/identity/dvla"
+    match_url = f"{FLEX_BASE_URL}/app/udp/v1/identity/dvla"
 
     logger.info("Matching tokens")
     match_response = requests.post(match_url, headers=match_headers)
@@ -53,7 +79,7 @@ def get_user_data(user: str, override_token: str | None=None, retry:int=1) -> di
             "Content-Type": "application/json",
             "Authorization": f"Bearer {flex_token}",
         }
-        url = f"{FLEX_BASE_URL}/dvla/v1/customer-summary"
+        url = f"{FLEX_BASE_URL}/app/dvla/v1/customer-summary"
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         return response.json()
@@ -96,6 +122,7 @@ if __name__ == "__main__":
         sys.exit()
 
     user = users["bob"]
-    # flex_token = authenticate_and_match(user)
+    flex_token = authenticate_and_match(user)
+    print(flex_token)
     data = get_user_data(user)
     print(json.dumps(data, indent=2))
