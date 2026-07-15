@@ -33,7 +33,7 @@ def get_stub_url():
         return None
 
 
-FLEX_BASE_URL = "https://staging.bl.once.service.gov.uk/app" if USE_STUB_SERVER == 0 else get_stub_url()
+FLEX_BASE_URL = "https://staging.bl.once.service.gov.uk/app" if USE_STUB_SERVER == "0" else get_stub_url()
 
 
 def authenticate_and_match(user: str) -> str | None:

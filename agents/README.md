@@ -47,5 +47,14 @@ uv run python agents/src/tools/authenticate_dvla.py <Customer ID>
 
 Again, the required token will be printed to the console and saved to Secrets Manager.
 
+### Getting data
+An end-to-end process (authentication plus fetch) is modelled in the `get_data_spike` module. This executes both token processes, 
+links them, and then hits the /dvla endpoint. 
+
+Run it with:
+```sh
+uv run python agents/src/tools/get_data_spike.py
+```
+
 **Stub server**: a stub server has been created as a substitute for the `flex/dvla` and `flex/udp` endpoints in the event
 that the DVLA link process is unavailable. Add `USE_STUB_SERVER=1` to the `.env` file to activate their usage. 
