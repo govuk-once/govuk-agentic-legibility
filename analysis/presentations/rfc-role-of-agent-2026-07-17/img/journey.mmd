@@ -1,0 +1,22 @@
+---
+config:
+  look: handDrawn
+  theme: neutral
+  layout: dagre
+---
+
+flowchart TD
+    A[Service journey starts<br/><i>e.g. Change driving licence address</i>]
+    A --> B[Journey executor presents current step<br/><i>e.g. What is your new address?</i>]
+
+    B --> C[User responds<br/><i>e.g. I recently moved to 18 Station Road</i>]
+
+    C --> D[Agent supports the current step:<br/>propose values;<br/>retrieve approved information;<br/>surface a conflict;<br/>make no suggestion;<br/>flag inconsistency;<br/>answer a journey question;<br/>prompt to exit or continue.]
+
+    D --> E[Journey executor decides what happens next<br/><i>e.g. Show the proposed address for confirmation</i>]
+
+    E -->|Present next step| B
+    E -->|Journey complete| F[Journey completed]
+    E -->|Exit journey| G[Return to orchestration]
+
+    classDef default fill:#f8f8f8,stroke:#0b0c0c,color:#0b0c0c;

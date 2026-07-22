@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.16.0",
+    "svg-pan-zoom": "^3.6.2"
+  }
+}

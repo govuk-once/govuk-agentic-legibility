@@ -1,0 +1,238 @@
+---
+title: "Agent support during deterministic service journeys"
+subtitle: "RFC discussion"
+author: "Agentic Legibility"
+date: "2026-07-15"
+format:
+  revealjs:
+    theme: [default, gds-style.scss]
+    transition: none
+    slide-number: true
+    controls: false
+    progress: true
+    center: true
+    width: 1920
+    height: 1080
+    margin: 0
+    code-overflow: wrap
+execute:
+  echo: false
+---
+
+## What is the agent for? {.diagram-overlay background-iframe="diagram-viewer.html" background-interactive="true" .smaller}
+
+- The executor controls the journey.
+- The agent supports the current step.
+
+## Why this matters
+
+How do we not just fill in a form in a chat window? The agent can help by using:
+
+- earlier conversation
+- structured user data
+- corrections and conflicts
+- journey questions
+- approved retrieval tools
+
+## Proposed decision
+
+Agree that the agent supports the journey through **bounded structured actions**.
+
+The executor remains responsible for:
+
+- form rendering
+- validation
+- confirmation
+- branching
+- submission
+- outcomes
+
+The agent recommends support for the current step.
+
+## Proposed agent actions
+
+| Action | What it means |
+|---|---|
+| Propose values | Fill fields with candidate values |
+| Surface conflict | Show competing plausible values |
+| No safe suggestion | Decline to populate fields |
+| Retrieve information | Look up approved supporting information |
+| Flag inconsistency | Highlight inconsistent in user response |
+| Answer journey question | Explain the active journey |
+| Prompt to exit or continue | Handle a separate request |
+
+:::{.caption}
+These are desired capabilities, not necessarily the first implementation scope.
+:::
+
+## Example: propose values
+
+```json
+{"current_step": "enter_new_address"}
+```
+
+> Conversation history: _I recently moved to 18 Station Road, Bristol, BS1 3AB_
+
+Expected action:
+
+```json
+{
+  "actions": [
+    {
+      "type": "propose_values",
+      "values": {
+        "address_line_1": "18 Station Road",
+        "town_or_city": "Bristol",
+        "postcode": "BS1 3AB"
+      }
+    }
+  ]
+}
+```
+
+The executor shows fields for review and confirmation.
+
+## Example: surface conflict
+
+> My new address is 18 Station Road, Bristol, BS1 3AB.  
+> Later: Please use 81 Station Road, Bristol, BS1 3AB.
+
+The agent should not guess.
+
+```json
+{
+  "actions": [
+    {
+      "type": "surface_conflict",
+      "field": "new_address",
+      "candidates": ["18 Station Road", "81 Station Road"]
+    }
+  ]
+}
+```
+
+## Example: no safe suggestion
+
+> My sister lives at 18 Station Road, Bristol, BS1 3AB.
+
+The address is complete.
+
+But it is not the user’s address.
+
+Expected action:
+
+```json
+{
+  "actions": [
+    { "type": "no_safe_suggestion" }
+  ]
+}
+```
+
+## Decision 1: beyond the API surface to `answer_journey_question`
+
+> _I’m staying with my sister for a few months. Should I use her address as my new address?_
+
+- The API tells us which field is required, but not how to explain it.
+- There is a value in an agent at this point.
+- Does an agentic transaction require access to guidance beyond the transactional API?
+
+## Decision 2: how far should `retrieve_information` go?
+
+> My address is 18 Station Road, BS1
+
+Possible sequence:
+
+```{mermaid}
+flowchart LR
+    A[Partial address] --> B[Retrieve address]
+    B --> C[Propose values]
+    C --> D[Executor renders fields]
+    D --> E[User confirms or edits]
+```
+
+::: {.caption}
+This could be much better than asking the user to type the full address again.
+:::
+
+## Decision 2: how far should `retrieve_information` go?
+
+::: {.two-col}
+::: {}
+
+**Narrow retrieval**
+
+- address lookup
+- service-specific guidance
+- known structured data
+
+:::
+::: {}
+
+**Broader retrieval**
+
+- GOV.UK content search
+- departmental APIs
+- approved web sources
+
+:::
+:::
+
+::: {.emphasis}
+Retrieval may support both form filling and question answering.
+:::
+
+## Decision 3: how far should `flag_possible_inconsistency` go?
+
+```json
+{"current_step": "enter_new_address"}
+```
+
+> Conversation history: *My sister’s address is 18 Station Road, Bristol, BS1 3AB*
+
+> User enters: *18 Station Road, Bristol, BS1 3AB*
+
+Expected action:
+
+```json
+{
+  "actions": [
+    {
+      "type": "flag_possible_inconsistency",
+      "field": "new_address"
+    }
+  ]
+}
+```
+
+The executor asks the user to check or confirm the address.
+
+## Decision 3: how far should `flag_possible_inconsistency` go?
+
+| Example | What is needed |
+|---|---|
+| [User enters address chat history suggests is mistaken]{.agentic-legibility} | Journey guidance defining the field |
+| [Postcode does not match street]{.outside-scope} | Address lookup or validation service |
+| [Address valid but outside scope of the service]{.outside-scope} | Service rules or deterministic validation |
+| [Dates overlap or appear in an impossible order]{.outside-scope} | Deterministic rules or calculation |
+| [Vehicle registration not associated with user]{.outside-scope} | Departmental API or authoritative data |
+| [Sum of tax form’s amounts don't equal total]{.outside-scope} | Calculation rather than a knowledge base |
+
+::: {.flow}
+- Do not replicate departmental validation.
+- Scope should be limited to information from Chat.
+- Decision is: does this generate any more requirements for departments than `retrieve_information`?
+:::
+
+
+## Next steps
+
+After agreeing the action model:
+
+- Implementation:
+    - define the structured interface
+    - choose the first action subset
+- Evaluation:
+    - create fixtures with messy context
+    - test action selection and field values
+    - test repeated-run consistency
