@@ -63,7 +63,7 @@ def authenticate_and_match(user: str) -> str | None:
     if USE_STUB_SERVER:
         dvla_token = str(uuid.uuid4())
     else:
-        dvla_token = dvla_wrangler.get_or_create_token("dvla-linking-token").token
+        dvla_token = dvla_wrangler.get_or_create_token("dvla-linking-token").token # type: ignore[assignment]
 
     match_headers = {
         "Content-Type": "application/json",
@@ -90,7 +90,7 @@ def get_user_data(user: str, override_token: str | None = None, retry: int = 1) 
             secretsm = boto3.client("secretsmanager")
             flex_token = secretsm.get_secret_value(SecretId="flex-access-token")
         else:
-            flex_token = override_token
+            flex_token = override_token # type: ignore[assignment]
         logger.info("Getting user data")
         headers = {
             "Content-Type": "application/json",
