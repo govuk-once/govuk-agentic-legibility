@@ -1,0 +1,376 @@
+---
+title: "Server-driven service journeys"
+subtitle: "A minimal executor for Agentic Legibility"
+format:
+  revealjs:
+    theme: [default, gds-style.scss]
+    transition: none
+    slide-number: true
+    code-line-numbers: false
+    width: 1920
+    height: 1080
+execute:
+  echo: false
+---
+
+## Evaluating agentic approaches {.centre-slide}
+
+We need:
+
+- Agreed service journey
+- Test cases
+- Common output format
+
+## Creating a mock service journey for different agentic prototypes {.centre-slide}
+
+::: {.big}
+First create an API surface
+:::
+
+::: {.emphasis}
+DVLA: change driving license address
+:::
+
+::: notes
+Open by saying this is not a user interface, not the agent, and not the final product. It is a protocol test so that different implementations can be compared against the same service journey.
+:::
+
+---
+
+## {.diagram-overlay background-iframe="http://127.0.0.1:8000/docs#/" background-interactive="true"}
+
+## Example journey
+
+```{mermaid}
+flowchart TD
+    A[Start journey] --> B[Choose address entry]
+    B -->|Use postcode lookup| C[Postcode + building num]
+    B -->|Enter manually| D[Manual address]
+    C --> E[Confirm new address]
+    D --> E
+    E --> F[Complete]
+
+    classDef default fill:#f3f2f1,stroke:#0b0c0c,color:#0b0c0c;
+```
+
+::: {.emphasis}
+Intentionally very simple
+:::
+
+---
+
+## The service advertises available journeys
+
+```http
+GET /app/dvla/v1/journeys
+```
+
+```json
+{
+  "protocol": {
+    "version": "2.0",
+    "progression": "server_driven",
+    "terminality": {
+      "next_action_field": "next_action",
+      "terminal_when_absent": true
+    }
+  },
+  "journeys": [{
+    "id": "change-driving-licence-address",
+    "operations": {
+      "start": {
+        "method": "POST",
+        "path": "/app/dvla/v1/journeys/change-driving-licence-address"
+      }
+    }
+  }]
+}
+```
+
+::: {.caption}
+The catalogue tells a consumer how to start a journey and how the protocol works. It does not expose a graph for the consumer to navigate.
+:::
+
+---
+
+## A runtime response: interaction, schema, next action
+
+```json
+{
+  "status": "in_progress",
+  "continuation_token": "...",
+  "interaction": {
+    "id": "choose_address_entry_method",
+    "content": {
+      "title": "How would you like to enter your new address?"
+    },
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "use_postcode_lookup": {"type": "boolean"}
+      },
+      "required": ["use_postcode_lookup"]
+    }
+  },
+  "next_action": {
+    "method": "POST",
+    "path": ".../steps"
+  }
+}
+```
+
+::: {.caption}
+The consumer decides how to present the content. The schema defines the result it must submit.
+:::
+
+---
+
+## Submit a result; the service returns the next interaction
+
+:::: {.two-col .wide-gap}
+
+::: {}
+**Consumer submits**
+
+```json
+{
+  "continuation_token": "...",
+  "result": {
+    "use_postcode_lookup": true
+  }
+}
+```
+:::
+
+::: {}
+**Service responds**
+
+```json
+{
+  "interaction": {
+    "id": "find_address_by_postcode",
+    "content": {
+      "title": "Enter your postcode and building number or name"
+    },
+    "input_schema": {
+      "properties": {
+        "postcode": {"type": "string"},
+        "building_number_or_name": {"type": "string"}
+      },
+      "required": ["postcode", "building_number_or_name"]
+    }
+  },
+  "next_action": {"path": ".../steps"}
+}
+```
+:::
+
+::::
+
+---
+
+## Confirmation is final interaction
+
+```json
+{
+  "status": "ready_for_confirmation",
+  "continuation_token": "...",
+  "interaction": {
+    "id": "confirm_new_address",
+    "content": {
+      "title": "Check your new address",
+      "data": {
+        "new_address": {
+          "address_line_1": "18 Station Road",
+          "town_or_city": "Bristol",
+          "postcode": "BS1 3AB"
+        }
+      }
+    },
+    "input_schema": {
+      "properties": {
+        "confirmed": {"type": "boolean"}
+      },
+      "required": ["confirmed"]
+    }
+  },
+  "next_action": {"path": ".../confirm"}
+}
+```
+
+::: {.caption}
+The service is not saying “render a confirmation page”. It is saying: present this content and collect a result matching this schema.
+:::
+
+---
+
+## The whole executor loop
+
+```python
+response = start_journey()
+
+while "next_action" in response:
+    result = input_provider.collect(response["interaction"])
+
+    response = client.call_action(
+        response["next_action"],
+        response["continuation_token"],
+        result,
+    )
+```
+
+:::: {.two-col}
+
+::: {.plain-block .ok}
+**It knows**
+
+`interaction`, `input_schema`, `continuation_token`, `next_action`.
+:::
+
+::: {.plain-block .bad-stat}
+**It does not know**
+
+DVLA steps, graph branches, status-specific navigation, postcode/manual logic.
+:::
+
+::::
+
+
+
+## The API surface
+
+```{mermaid}
+---
+config:
+  look: handDrawn
+  theme: neutral
+  layout: dagre
+---
+
+flowchart LR
+    S[Mock Flex / DVLA service]
+
+    E[App] <--> S
+    A[Agent] <--> S
+    A[Executor + agent] <--> S
+    O[Other clients] <--> S
+
+    classDef default fill:#f3f2f1,stroke:#0b0c0c,color:#0b0c0c;
+```
+
+:::: {.two-col}
+
+::: {.plain-block .ok}
+**The service owns**
+
+Current interaction, validation, branching, continuation token, completion.
+:::
+
+::: {.plain-block}
+**The consumer owns**
+
+Calling the advertised operation, carrying the latest token, asking an input provider for a result.
+:::
+
+::::
+
+---
+
+## Next steps: make the implementations comparable
+
+::: {.fragment}
+
+1. **Define an implementation-agnostic journey record**
+
+   * capture each service response, submitted result and final outcome;
+   * retain enough detail to reconstruct and compare what happened.
+   * this should live in the consumer;
+
+:::
+
+::: {.fragment}
+2. **Create representative test cases**
+
+   * straightforward completion;
+   * missing or partial information;
+   * corrections and conflicting values;
+   * journey questions and confirmation;
+   * invalid submissions and recovery.
+
+:::
+
+::: {.fragment}
+
+3. **Compare behaviour and outcomes**
+
+   * journey completion;
+   * correctness of submitted values;
+   * handling of ambiguity and errors;
+   * consistency across repeated runs;
+   * user support, latency and cost.
+:::
+
+## Common journey record: points for discussion
+
+- Needs to be implementation agnostic.
+- Shouldn't be full json trace
+    - No literal `continuation_token`
+- How to establish if it contains test case specific details?
+     - e.g. `surface_conflict`, `propose_values`, `surface_conflict`, `retrieve_information`
+
+
+## Minimal example
+
+```
+schema_version: "1.0"
+
+case_id: complete-address-postcode-lookup
+run_id: run-001
+
+consumer:
+  name: deterministic-executor
+  version: git-sha-or-version
+
+journey:
+  id: change-driving-licence-address
+
+submissions:
+  - sequence: 1
+    method: POST
+    path: /app/dvla/v1/journeys/change-driving-licence-address/steps
+    continuation_token:
+      present: true
+      source: previous_response
+    result:
+      use_postcode_lookup: true
+
+  - sequence: 2
+    method: POST
+    path: /app/dvla/v1/journeys/change-driving-licence-address/steps
+    continuation_token:
+      present: true
+      source: previous_response
+    result:
+      postcode: BS1 3AB
+      building_number_or_name: "18"
+
+  - sequence: 3
+    method: POST
+    path: /app/dvla/v1/journeys/change-driving-licence-address/confirm
+    continuation_token:
+      present: true
+      source: previous_response
+    result:
+      confirmed: true
+
+outcome:
+  http_status: 200
+  status: completed
+  result:
+    new_address:
+      address_line_1: 18 Station Road
+      address_line_2: null
+      town_or_city: Bristol
+      postcode: BS1 3AB
+```
+
