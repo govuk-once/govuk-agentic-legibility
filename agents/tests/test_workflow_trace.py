@@ -97,5 +97,7 @@ def test_trace_recorder_creates_a_unique_file_in_requested_directory(
 
     assert recorder.path.parent == tmp_path / "nested"
     assert recorder.path.suffix == ".jsonl"
+    assert recorder.run_id
     assert "change-driving-licence-address" in recorder.path.name
     assert read_events(recorder.path)[0]["consumer"] == "automated_fixture"
+    assert recorder.read_events() == read_events(recorder.path)

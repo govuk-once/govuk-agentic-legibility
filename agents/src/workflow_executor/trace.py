@@ -84,6 +84,26 @@ class JsonlTraceRecorder:
         """Return the trace file path."""
         return self._path
 
+    @property
+    def run_id(self) -> str:
+        """Return the run identifier shared by all trace events."""
+        return self._run_id
+
+    def read_events(self) -> list[dict[str, object]]:
+        """Read the raw trace events currently written for this run.
+
+        Returns:
+            Decoded JSON objects in sequence order.
+        """
+        events: list[dict[str, object]] = []
+        for line in self._path.read_text(encoding="utf-8").splitlines():
+            event = json.loads(line)
+            if not isinstance(event, dict):  # pragma: no cover - written internally
+                msg = "Journey trace events must be JSON objects"
+                raise ValueError(msg)
+            events.append(event)
+        return events
+
     def record_exchange(self, exchange: HttpExchange) -> None:
         """Record one journey-service HTTP request and response.
 

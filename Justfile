@@ -7,6 +7,9 @@ build:
 test:
     uv run pytest -vrrP --testdox --cov agents/src agents/tests
 
+api:
+    uv run uvicorn agents.src.workflow_executor.api:create_app --factory --reload --port 8001
+
 format:
     uv run ruff format
 
