@@ -7,12 +7,14 @@ from agents.src.workflow_executor.input_provider import (
     JsonCliInputProvider,
 )
 from agents.src.workflow_executor.state import load_response, save_response
+from agents.src.workflow_executor.trace import JsonlTraceRecorder
 
 __all__ = [
     "InputProvider",
     "JourneyClient",
     "JourneyExecutor",
     "JsonCliInputProvider",
+    "JsonlTraceRecorder",
     "load_response",
     "save_response",
 ]

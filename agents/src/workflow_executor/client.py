@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
@@ -53,6 +54,22 @@ class HttpSession(Protocol):
 
 
 @dataclass(frozen=True)
+class HttpExchange:
+    """One sanitised HTTP exchange with the journey service."""
+
+    method: str
+    path: str
+    request_body: object | None
+    status_code: int | None
+    response_body: object | None
+    duration_ms: float
+    error: str | None = None
+
+
+HttpExchangeObserver = Callable[[HttpExchange], None]
+
+
+@dataclass(frozen=True)
 class Operation:
     """An HTTP operation advertised by the journey service."""
 
@@ -77,6 +94,7 @@ class JourneyClient:
             headers: Headers applied to every request, such as authentication material.
             timeout_seconds: Timeout applied to each HTTP request.
             supported_protocol_versions: Protocol versions accepted by this client.
+            on_exchange: Optional observer for sanitised HTTP request/response traces.
 
         Raises:
             ValueError: If the base URL is missing a scheme or host.
@@ -90,6 +108,7 @@ class JourneyClient:
         headers: Mapping[str, str] | None = None,
         timeout_seconds: float = 10.0,
         supported_protocol_versions: frozenset[str] = SUPPORTED_PROTOCOL_VERSIONS,
+        on_exchange: HttpExchangeObserver | None = None,
     ) -> None:
 
         parsed_url = urlsplit(base_url)
@@ -102,6 +121,7 @@ class JourneyClient:
         self._headers = dict(headers or {})
         self._timeout_seconds = timeout_seconds
         self._supported_protocol_versions = supported_protocol_versions
+        self._on_exchange = on_exchange
         self._catalogue: JsonObject | None = None
         self._protocol: JourneyProtocolDefinition | None = None
 
@@ -129,13 +149,15 @@ class JourneyClient:
                 f"supported: {supported}"
             )
             raise JourneyProtocolError(msg)
+        self._protocol = parse_protocol(catalogue)
         self._catalogue = catalogue
         return self._catalogue
 
     def get_protocol(self) -> JourneyProtocolDefinition:
         """Return the parsed protocol rules advertised by the service."""
-        if self._protocol is None:
-            self._protocol = parse_protocol(self.get_catalogue())
+        catalogue = self.get_catalogue()
+        if self._protocol is None:  # pragma: no cover - set by get_catalogue
+            self._protocol = parse_protocol(catalogue)
         return self._protocol
 
     def get_journey(self, journey_id: str) -> JourneyDefinition:
@@ -222,6 +244,7 @@ class JourneyClient:
         method = method.upper()
         _validate_relative_path(path)
         url = f"{self._base_url}{path}"
+        started_at = perf_counter()
 
         try:
             response = self._session.request(
@@ -231,27 +254,112 @@ class JourneyClient:
                 json=json_body,
                 timeout=self._timeout_seconds,
             )
+        except requests.RequestException as exc:
+            message = f"Journey service request failed: {method} {path}"
+            self._emit_exchange(
+                method=method,
+                path=path,
+                request_body=json_body,
+                status_code=None,
+                response_body=None,
+                started_at=started_at,
+                error=message,
+            )
+            raise JourneyHttpError(message) from exc
+
+        try:
             response.raise_for_status()
         except requests.RequestException as exc:
-            status_code = getattr(getattr(exc, "response", None), "status_code", None)
-            detail = _response_detail(getattr(exc, "response", None))
+            response_body = _response_body(response) # type: ignore
+            status_code = response.status_code
+            detail = _body_detail(response_body)
             message = f"Journey service request failed: {method} {path}"
-            if status_code is not None:
-                message += f" returned {status_code}"
+            message += f" returned {status_code}"
             if detail:
                 message += f": {detail}"
+            self._emit_exchange(
+                method=method,
+                path=path,
+                request_body=json_body,
+                status_code=status_code,
+                response_body=response_body,
+                started_at=started_at,
+                error=message,
+            )
             raise JourneyHttpError(message) from exc
 
         try:
             payload = response.json()
         except ValueError as exc:
             msg = f"Journey service returned non-JSON content for {method} {path}"
+            self._emit_exchange(
+                method=method,
+                path=path,
+                request_body=json_body,
+                status_code=response.status_code,
+                response_body=response.text.strip() or None,
+                started_at=started_at,
+                error=msg,
+            )
             raise JourneyProtocolError(msg) from exc
 
         if not isinstance(payload, dict):
             msg = f"Journey service response for {method} {path} must be a JSON object"
+            self._emit_exchange(
+                method=method,
+                path=path,
+                request_body=json_body,
+                status_code=response.status_code,
+                response_body=payload,
+                started_at=started_at,
+                error=msg,
+            )
             raise JourneyProtocolError(msg)
+
+        self._emit_exchange(
+            method=method,
+            path=path,
+            request_body=json_body,
+            status_code=response.status_code,
+            response_body=payload,
+            started_at=started_at,
+        )
         return payload
+
+    def _emit_exchange(
+        self,
+        *,
+        method: str,
+        path: str,
+        request_body: object | None,
+        status_code: int | None,
+        response_body: object | None,
+        started_at: float,
+        error: str | None = None,
+    ) -> None:
+        if self._on_exchange is None:
+            return
+
+        redacted_fields: frozenset[str] = frozenset()
+        if self._protocol is not None:
+            redacted_fields = frozenset(
+                {
+                    self._protocol.continuation_token_request_field,
+                    self._protocol.continuation_token_response_field,
+                }
+            )
+
+        self._on_exchange(
+            HttpExchange(
+                method=method,
+                path=path,
+                request_body=_redact_fields(request_body, redacted_fields),
+                status_code=status_code,
+                response_body=_redact_fields(response_body, redacted_fields),
+                duration_ms=(perf_counter() - started_at) * 1000,
+                error=error,
+            )
+        )
 
 
 def _parse_operation(raw_operation: ReadOnlyJsonObject) -> Operation:
@@ -285,16 +393,31 @@ def _required_string(container: Mapping[str, Any], key: str) -> str:
     return value
 
 
-def _response_detail(response: Any) -> str | None:
-    if response is None:
-        return None
+def _response_body(response: HttpResponse) -> object | None:
     try:
-        payload = response.json()
+        return response.json()
     except (TypeError, ValueError):
-        text = getattr(response, "text", "")
-        return text.strip() or None
-    if isinstance(payload, Mapping):
-        detail = payload.get("detail")
+        return response.text.strip() or None
+
+
+def _body_detail(body: object | None) -> str | None:
+    if isinstance(body, Mapping):
+        detail = body.get("detail")
         if isinstance(detail, str):
             return detail
+    if isinstance(body, str):
+        return body or None
     return None
+
+
+def _redact_fields(value: object, fields: frozenset[str]) -> object:
+    if isinstance(value, Mapping):
+        return {
+            str(key): "[redacted]"
+            if key in fields
+            else _redact_fields(item, fields)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_fields(item, fields) for item in value]
+    return value

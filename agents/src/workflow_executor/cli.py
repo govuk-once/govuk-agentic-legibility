@@ -16,6 +16,7 @@ from agents.src.workflow_executor.config import (
 from agents.src.workflow_executor.executor import JourneyExecutor
 from agents.src.workflow_executor.input_provider import JsonCliInputProvider
 from agents.src.workflow_executor.state import load_response, save_response
+from agents.src.workflow_executor.trace import JsonlTraceRecorder
 from agents.src.workflow_executor.types import JsonObject, ReadOnlyJsonObject
 
 ResponseObserver = Callable[[ReadOnlyJsonObject], None]
@@ -54,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Suspend after processing this many interactions.",
     )
+    parser.add_argument(
+        "--trace-dir",
+        type=Path,
+        help="Write a local JSONL trace for this run.",
+    )
     return parser
 
 
@@ -74,7 +80,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("--max-interactions must be zero or greater")
 
     base_url = resolve_base_url(args.base_url)
-    executor = JourneyExecutor(JourneyClient(base_url))
+    trace_recorder: JsonlTraceRecorder | None = None
+    if args.trace_dir is not None:
+        trace_recorder = JsonlTraceRecorder.create(
+            args.trace_dir,
+            journey_id=args.journey_id,
+            consumer="json_cli",
+        )
+
+    client = JourneyClient(
+        base_url,
+        on_exchange=(
+            trace_recorder.record_exchange if trace_recorder is not None else None
+        ),
+    )
+    executor = JourneyExecutor(client)
     input_provider = JsonCliInputProvider()
 
     response_observer: ResponseObserver | None = None
@@ -95,8 +115,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         on_response=response_observer,
     )
 
+    if trace_recorder is not None:
+        if executor.is_terminal(response):
+            trace_recorder.record_finished(response)
+        else:
+            trace_recorder.record_stopped(
+                response,
+                reason="maximum_interactions_reached",
+            )
+
     print("\nLatest journey response:")
     print(json.dumps(response, indent=2, ensure_ascii=False))
+    if trace_recorder is not None:
+        print(f"\nTrace written to {trace_recorder.path}")
     return 0
 
 

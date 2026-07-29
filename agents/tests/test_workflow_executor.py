@@ -13,7 +13,7 @@ import pytest
 import requests
 
 import agents.src.workflow_executor.config as workflow_executor_config
-from agents.src.workflow_executor.client import JourneyClient
+from agents.src.workflow_executor.client import HttpExchange, JourneyClient
 from agents.src.workflow_executor.config import (
     load_executor_environment,
     resolve_base_url,
@@ -181,25 +181,22 @@ def non_terminal_response(
 
 def test_client_uses_catalogue_to_start_advertised_journey() -> None:
     """The start route comes from the catalogue rather than client code."""
+    catalogue = catalogue_response()
+    catalogue["journeys"] = [
+        {
+            "id": "change-driving-licence-address",
+            "title": "Change driving-licence address",
+            "operations": {
+                "start": {
+                    "method": "POST",
+                    "path": "/advertised-start",
+                }
+            },
+        }
+    ]
     session = FakeSession(
         [
-            FakeResponse(
-                {
-                    "protocol": {"version": "2.0"},
-                    "journeys": [
-                        {
-                            "id": "change-driving-licence-address",
-                            "title": "Change driving-licence address",
-                            "operations": {
-                                "start": {
-                                    "method": "POST",
-                                    "path": "/advertised-start",
-                                }
-                            },
-                        }
-                    ],
-                }
-            ),
+            FakeResponse(catalogue),
             FakeResponse(non_terminal_response("token-1", status="anything")),
         ]
     )
@@ -371,7 +368,12 @@ def test_client_surfaces_service_error_detail() -> None:
             FakeResponse({"detail": "Address not found"}, status_code=404),
         ]
     )
-    client = JourneyClient("http://journey.test", session=session)
+    exchanges: list[HttpExchange] = []
+    client = JourneyClient(
+        "http://journey.test",
+        session=session,
+        on_exchange=exchanges.append,
+    )
 
     with pytest.raises(JourneyHttpError, match="Address not found"):
         client.call_action(
@@ -379,6 +381,11 @@ def test_client_surfaces_service_error_detail() -> None:
             "token",
             {"postcode": "SW1A 1AA"},
         )
+
+    failed_exchange = exchanges[-1]
+    assert failed_exchange.status_code == 404
+    assert failed_exchange.response_body == {"detail": "Address not found"}
+    assert failed_exchange.error is not None
 
 
 def test_load_executor_environment_reads_agents_dotenv(
@@ -433,3 +440,73 @@ def test_resolve_base_url_reads_parameter_store(
     )
 
     assert resolve_base_url() == "https://deployed.example"
+
+
+def test_client_traces_exchanges_using_protocol_token_field_names() -> None:
+    """Trace observers receive transport evidence with protocol tokens redacted."""
+    catalogue = {
+        "protocol": {
+            "version": "2.0",
+            "terminality": {
+                "next_action_field": "continue_with",
+                "terminal_when_absent": True,
+            },
+            "continuation_token": {
+                "response_field": "cursor",
+                "request_field": "cursor_input",
+            },
+            "statuses": [
+                {"value": "waiting", "terminal": False},
+                {"value": "done", "terminal": True},
+            ],
+        },
+        "journeys": [
+            {
+                "id": "example-journey",
+                "title": "Example journey",
+                "operations": {
+                    "start": {"method": "POST", "path": "/start"},
+                },
+            }
+        ],
+    }
+    first_response = {
+        "status": "waiting",
+        "cursor": "response-secret",
+        "interaction": {
+            "id": "question",
+            "content": {"title": "Question"},
+            "input_schema": {"type": "object"},
+        },
+        "continue_with": {"method": "POST", "path": "/continue"},
+    }
+    session = FakeSession(
+        [
+            FakeResponse(catalogue),
+            FakeResponse(first_response),
+            FakeResponse({"status": "done"}),
+        ]
+    )
+    exchanges: list[HttpExchange] = []
+    client = JourneyClient(
+        "http://journey.test",
+        session=session,
+        on_exchange=exchanges.append,
+    )
+
+    response = client.start_journey("example-journey")
+    client.call_action(
+        response["continue_with"],
+        "request-secret",
+        {"answer": True},
+    )
+
+    assert len(exchanges) == 3
+    traced_start_response = exchanges[1].response_body
+    assert isinstance(traced_start_response, dict)
+    assert traced_start_response["cursor"] == "[redacted]"
+    assert exchanges[2].request_body == {
+        "cursor_input": "[redacted]",
+        "result": {"answer": True},
+    }
+    assert session.calls[2]["json"]["cursor_input"] == "request-secret"

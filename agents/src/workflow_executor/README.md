@@ -44,8 +44,9 @@ response = executor.submit(
 )
 ```
 
-`current_interaction()` returns `None` for a terminal response. Terminality is determined
-only by the absence of `next_action`:
+`current_interaction()` returns `None` for a terminal response. Terminality and the
+field names needed to continue are read from the protocol definition advertised in the
+service catalogue:
 
 ```python
 while not executor.is_terminal(response):
@@ -100,6 +101,27 @@ uv run python -m agents.src.workflow_executor.cli \
 `STUB_SERVER_URL` can be used as a direct environment-variable override. Values already
 present in the process environment take precedence over `agents/.env`.
 
+## Record a raw local trace
+
+Pass `--trace-dir` to save the transport evidence from a run as a local JSON Lines file:
+
+```sh
+uv run python -m agents.src.workflow_executor.cli \
+  --base-url http://127.0.0.1:8000 \
+  --trace-dir .traces \
+  change-driving-licence-address
+```
+
+The trace contains a run-start event, every journey-service HTTP request and response,
+and a final event indicating whether the run reached a terminal response or stopped at
+an interaction limit. Continuation-token values are redacted using the field names in
+the advertised protocol, while submitted results and service response bodies are kept
+for later evaluation.
+
+`.traces/` is ignored by Git. Traces are local development artefacts and may contain
+user-entered values. Sanitised examples selected for tests should be copied to an
+explicit committed fixture directory rather than removing this ignore rule.
+
 ## Save the latest response
 
 The CLI can save the latest complete service response after every transition:
@@ -133,6 +155,7 @@ The components have deliberately narrow responsibilities:
 - `JourneyClient` handles catalogue discovery and HTTP requests;
 - `JourneyExecutor` validates and advances one service response at a time;
 - `JsonCliInputProvider` collects manual JSON input for the developer CLI;
+- `JsonlTraceRecorder` appends local raw trace events without controlling execution;
 - `cli.py` owns the synchronous command-line loop;
 - future web, agent and evaluation consumers can call `start()` and `submit()` directly.
 
