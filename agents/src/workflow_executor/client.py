@@ -14,6 +14,10 @@ from agents.src.workflow_executor.errors import (
     JourneyNotFoundError,
     JourneyProtocolError,
 )
+from agents.src.workflow_executor.protocol import (
+    JourneyProtocolDefinition,
+    parse_protocol,
+)
 from agents.src.workflow_executor.types import JsonObject, ReadOnlyJsonObject
 
 CATALOGUE_PATH = "/app/dvla/v1/journeys"
@@ -98,6 +102,8 @@ class JourneyClient:
         self._headers = dict(headers or {})
         self._timeout_seconds = timeout_seconds
         self._supported_protocol_versions = supported_protocol_versions
+        self._catalogue: JsonObject | None = None
+        self._protocol: JourneyProtocolDefinition | None = None
 
     def get_catalogue(self) -> JsonObject:
         """Retrieve and validate the service journey catalogue.
@@ -110,6 +116,9 @@ class JourneyClient:
                 unsupported protocol version.
             JourneyHttpError: If the catalogue request fails.
         """
+        if self._catalogue is not None:
+            return self._catalogue
+
         catalogue = self._request("GET", CATALOGUE_PATH)
         protocol = _required_mapping(catalogue, "protocol")
         version = _required_string(protocol, "version")
@@ -120,7 +129,14 @@ class JourneyClient:
                 f"supported: {supported}"
             )
             raise JourneyProtocolError(msg)
-        return catalogue
+        self._catalogue = catalogue
+        return self._catalogue
+
+    def get_protocol(self) -> JourneyProtocolDefinition:
+        """Return the parsed protocol rules advertised by the service."""
+        if self._protocol is None:
+            self._protocol = parse_protocol(self.get_catalogue())
+        return self._protocol
 
     def get_journey(self, journey_id: str) -> JourneyDefinition:
         """Find a journey in the service catalogue.
@@ -189,8 +205,9 @@ class JourneyClient:
             JourneyProtocolError: If the advertised action is malformed or unsafe.
         """
         operation = _parse_operation(action)
+        token_request_field = self.get_protocol().continuation_token_request_field
         body: JsonObject = {
-            "continuation_token": continuation_token,
+            token_request_field: continuation_token,
             "result": dict(result),
         }
         return self._request(operation.method, operation.path, json_body=body)

@@ -4,22 +4,29 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
-from typing import Sequence
 
 from agents.src.workflow_executor.client import JourneyClient
 from agents.src.workflow_executor.config import (
     load_executor_environment,
     resolve_base_url,
 )
-from agents.src.workflow_executor.executor import JourneyExecutor, ResponseObserver
+from agents.src.workflow_executor.executor import JourneyExecutor
 from agents.src.workflow_executor.input_provider import JsonCliInputProvider
 from agents.src.workflow_executor.state import load_response, save_response
+from agents.src.workflow_executor.types import JsonObject, ReadOnlyJsonObject
+
+ResponseObserver = Callable[[ReadOnlyJsonObject], None]
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Create the workflow-executor argument parser."""
+    """Create the workflow-executor argument parser.
+
+    Returns:
+        The configured argument parser.
+    """
     parser = argparse.ArgumentParser(
         description="Execute a server-driven service journey using JSON input.",
     )
@@ -63,33 +70,82 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.resume is None and args.journey_id is None:
         raise SystemExit("journey_id is required unless --resume is used")
+    if args.max_interactions is not None and args.max_interactions < 0:
+        raise SystemExit("--max-interactions must be zero or greater")
 
     base_url = resolve_base_url(args.base_url)
     executor = JourneyExecutor(JourneyClient(base_url))
     input_provider = JsonCliInputProvider()
 
-    response_observer: ResponseObserver | None = None # ruff needs this specified
+    response_observer: ResponseObserver | None = None
     if args.state_file is not None:
         response_observer = partial(save_response, path=args.state_file)
 
     if args.resume is not None:
-        response = executor.continue_from(
-            load_response(args.resume),
-            input_provider,
-            max_interactions=args.max_interactions,
-            on_response=response_observer,
-        )
+        response = load_response(args.resume)
     else:
-        response = executor.run(
-            args.journey_id,
-            input_provider,
-            max_interactions=args.max_interactions,
-            on_response=response_observer,
-        )
+        response = executor.start(args.journey_id)
+    _observe(response, response_observer)
+
+    response = _drive_cli(
+        executor,
+        response,
+        input_provider,
+        max_interactions=args.max_interactions,
+        on_response=response_observer,
+    )
 
     print("\nLatest journey response:")
     print(json.dumps(response, indent=2, ensure_ascii=False))
     return 0
+
+
+def _drive_cli(
+    executor: JourneyExecutor,
+    response: JsonObject,
+    input_provider: JsonCliInputProvider,
+    *,
+    max_interactions: int | None,
+    on_response: ResponseObserver | None,
+) -> JsonObject:
+    """Drive the stepwise executor until completion or the requested limit.
+
+    Args:
+        executor: Stepwise journey executor.
+        response: Latest complete service response.
+        input_provider: CLI interaction collector.
+        max_interactions: Optional limit on submitted results.
+        on_response: Optional callback for each new service response.
+
+    Returns:
+        The latest journey response.
+    """
+    interactions_processed = 0
+    current = dict(response)
+    while not executor.is_terminal(current):
+        if (
+            max_interactions is not None
+            and interactions_processed >= max_interactions
+        ):
+            return current
+
+        interaction = executor.current_interaction(current)
+        if interaction is None:  # pragma: no cover - guarded by is_terminal
+            return current
+        result = input_provider.collect(interaction)
+        current = executor.submit(current, result)
+        interactions_processed += 1
+        _observe(current, on_response)
+
+    return current
+
+
+def _observe(
+    response: ReadOnlyJsonObject,
+    observer: ResponseObserver | None,
+) -> None:
+    if observer is not None:
+        observer(response)
 
 
 if __name__ == "__main__":

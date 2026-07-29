@@ -1,15 +1,13 @@
-"""Journey-agnostic execution of server-driven interactions."""
+"""Stepwise execution of server-driven service journeys."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from typing import Protocol
 
 from agents.src.workflow_executor.errors import JourneyProtocolError
-from agents.src.workflow_executor.input_provider import InputProvider
+from agents.src.workflow_executor.protocol import JourneyProtocolDefinition
 from agents.src.workflow_executor.types import JsonObject, ReadOnlyJsonObject
-
-ResponseObserver = Callable[[ReadOnlyJsonObject], None]
 
 
 class JourneyClientProtocol(Protocol):
@@ -17,6 +15,9 @@ class JourneyClientProtocol(Protocol):
 
     def start_journey(self, journey_id: str) -> JsonObject:
         """Start a journey and return its first response."""
+
+    def get_protocol(self) -> JourneyProtocolDefinition:
+        """Return the protocol rules advertised by the journey service."""
 
     def call_action(
         self,
@@ -28,109 +29,113 @@ class JourneyClientProtocol(Protocol):
 
 
 class JourneyExecutor:
-    """Execute successive interactions without interpreting a journey graph.
-    Initialise the executor with a journey service client.
+    """Advance a server-driven journey one operation at a time.
 
-        Args:
-            client: Client used to start journeys and follow advertised actions.
+    The executor does not collect input or own a long-running execution loop. A CLI,
+    web application, agent or test harness can start a journey, inspect the current
+    interaction and later submit a result.
+
+    Args:
+        client: Client used to start journeys and follow advertised actions.
     """
 
     def __init__(self, client: JourneyClientProtocol) -> None:
-        
         self._client = client
 
-    def run(
-        self,
-        journey_id: str,
-        input_provider: InputProvider,
-        *,
-        max_interactions: int | None = None,
-        on_response: ResponseObserver | None = None,
-    ) -> JsonObject:
-        """Start and execute a journey until it terminates or is suspended.
+    def start(self, journey_id: str) -> JsonObject:
+        """Start a journey and return its first validated service response.
 
         Args:
-            journey_id: Journey identifier from the service catalogue.
-            input_provider: Consumer-specific implementation that presents content and
-                collects data conforming to the supplied input schema.
-            max_interactions: Optional interaction limit before returning the latest
-                response for later resumption.
-            on_response: Optional callback invoked for every service response.
+            journey_id: Journey identifier advertised by the service catalogue.
 
         Returns:
-            A terminal response, or the latest non-terminal response when execution is
-            deliberately suspended.
+            The first non-terminal interaction or terminal journey response.
+
+        Raises:
+            JourneyProtocolError: If the service returns a malformed response.
         """
         response = self._client.start_journey(journey_id)
-        return self.continue_from(
-            response,
-            input_provider,
-            max_interactions=max_interactions,
-            on_response=on_response,
-        )
+        self._validate_response(response)
+        return response
 
-    def continue_from(
+    def submit(
         self,
         response: ReadOnlyJsonObject,
-        input_provider: InputProvider,
-        *,
-        max_interactions: int | None = None,
-        on_response: ResponseObserver | None = None,
+        result: ReadOnlyJsonObject,
     ) -> JsonObject:
-        """Continue from a previously returned journey response.
+        """Submit a result for the interaction in the latest service response.
 
-        Terminality is determined exclusively by the absence of `next_action`. The
-        executor does not branch on journey status, step identifiers or domain values.
+        The operation, continuation token and journey transition are all taken from
+        the supplied service response using the field names advertised by the
+        protocol catalogue. The executor does not branch on journey-specific status
+        names, interaction identifiers or domain values.
 
         Args:
             response: Latest complete response returned by the journey service.
-            input_provider: Consumer-specific interaction handler.
-            max_interactions: Optional interaction limit before returning.
-            on_response: Optional callback invoked for every service response.
+            result: JSON object produced by the current consumer.
 
         Returns:
-            A terminal response, or the latest response after `max_interactions`.
+            The next validated response selected by the journey service.
 
         Raises:
-            JourneyProtocolError: If a non-terminal response lacks the shared protocol
-                fields required to continue.
-            ValueError: If `max_interactions` is negative.
+            JourneyProtocolError: If the response is terminal or does not contain the
+                fields required by the shared protocol.
         """
-        if max_interactions is not None and max_interactions < 0:
-            msg = "max_interactions must be zero or greater"
-            raise ValueError(msg)
+        self._validate_response(response)
+        if self.is_terminal(response):
+            msg = "Cannot submit a result for a terminal journey response"
+            raise JourneyProtocolError(msg)
+        if not isinstance(result, Mapping):
+            msg = "Journey interaction results must be JSON objects"
+            raise JourneyProtocolError(msg)
 
-        current = dict(response)
-        if on_response is not None:
-            on_response(current)
+        protocol = self._client.get_protocol()
+        action = _required_mapping(response, protocol.next_action_field)
+        continuation_token = _required_string(
+            response,
+            protocol.continuation_token_response_field,
+        )
+        next_response = self._client.call_action(
+            action,
+            continuation_token,
+            result,
+        )
+        self._validate_response(next_response)
+        return next_response
 
-        interactions_processed = 0
-        while "next_action" in current:
-            if (
-                max_interactions is not None
-                and interactions_processed >= max_interactions
-            ):
-                return current
+    def current_interaction(
+        self,
+        response: ReadOnlyJsonObject,
+    ) -> JsonObject | None:
+        """Return the current interaction, or ``None`` for a terminal response.
 
-            action = _required_mapping(current, "next_action")
-            interaction = _required_mapping(current, "interaction")
-            continuation_token = _required_string(current, "continuation_token")
+        Args:
+            response: Latest complete response returned by the journey service.
 
-            result = input_provider.collect(interaction)
-            if not isinstance(result, dict):
-                msg = "Input providers must return a JSON object"
-                raise JourneyProtocolError(msg)
+        Returns:
+            A copy of the current interaction, or ``None`` when the journey is
+            terminal.
 
-            current = self._client.call_action(
-                action,
-                continuation_token,
-                result,
-            )
-            interactions_processed += 1
-            if on_response is not None:
-                on_response(current)
+        Raises:
+            JourneyProtocolError: If a non-terminal response is malformed.
+        """
+        self._validate_response(response)
+        if self.is_terminal(response):
+            return None
+        return dict(_required_mapping(response, "interaction"))
 
-        return current
+    def is_terminal(self, response: ReadOnlyJsonObject) -> bool:
+        """Return terminality using the protocol advertised by the service."""
+        return self._client.get_protocol().is_terminal(response)
+
+    def _validate_response(self, response: ReadOnlyJsonObject) -> None:
+        if self.is_terminal(response):
+            return
+
+        protocol = self._client.get_protocol()
+        _required_mapping(response, protocol.next_action_field)
+        _required_mapping(response, "interaction")
+        _required_string(response, protocol.continuation_token_response_field)
 
 
 def _required_mapping(

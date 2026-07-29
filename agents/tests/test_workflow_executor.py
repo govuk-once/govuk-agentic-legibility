@@ -24,8 +24,69 @@ from agents.src.workflow_executor.errors import (
     JourneyProtocolError,
 )
 from agents.src.workflow_executor.executor import JourneyExecutor
+from agents.src.workflow_executor.protocol import JourneyProtocolDefinition
 from agents.src.workflow_executor.input_provider import JsonCliInputProvider
 from agents.src.workflow_executor.state import load_response, save_response
+
+
+def executor_protocol() -> JourneyProtocolDefinition:
+    """Return the catalogue rules used by executor unit tests."""
+    return JourneyProtocolDefinition(
+        version="2.0",
+        next_action_field="next_action",
+        terminal_when_absent=True,
+        continuation_token_response_field="continuation_token",
+        continuation_token_request_field="continuation_token",
+        terminal_statuses=frozenset(
+            {
+                "another_terminal_name",
+                "completed",
+                "confirmation_declined",
+                "done",
+                "finished",
+            }
+        ),
+        non_terminal_statuses=frozenset(
+            {
+                "anything",
+                "first_unknown_status",
+                "in_progress",
+                "ready_for_confirmation",
+                "second_unknown_status",
+                "still_waiting",
+                "waiting",
+            }
+        ),
+    )
+
+
+def catalogue_response() -> dict[str, Any]:
+    """Return a complete protocol catalogue for HTTP client tests."""
+    protocol = executor_protocol()
+    return {
+        "protocol": {
+            "version": protocol.version,
+            "terminality": {
+                "next_action_field": protocol.next_action_field,
+                "terminal_when_absent": protocol.terminal_when_absent,
+            },
+            "continuation_token": {
+                "response_field": protocol.continuation_token_response_field,
+                "request_field": protocol.continuation_token_request_field,
+            },
+            "statuses": [
+                *[
+                    {"value": value, "terminal": False}
+                    for value in sorted(protocol.non_terminal_statuses)
+                ],
+                *[
+                    {"value": value, "terminal": True}
+                    for value in sorted(protocol.terminal_statuses)
+                ],
+            ],
+        },
+        "journeys": [],
+    }
 
 
 class FakeResponse:
@@ -66,19 +127,6 @@ class FakeSession:
         return self.responses.pop(0)
 
 
-class ScriptedInputProvider:
-    """Return predetermined results and record interactions."""
-
-    def __init__(self, results: list[dict[str, Any]]) -> None:
-        self.results = results
-        self.interactions: list[Mapping[str, Any]] = []
-
-    def collect(self, interaction: Mapping[str, Any]) -> dict[str, Any]:
-        """Return the next scripted interaction result."""
-        self.interactions.append(interaction)
-        return self.results.pop(0)
-
-
 class FakeJourneyClient:
     """Journey client that returns predetermined protocol responses."""
 
@@ -86,6 +134,10 @@ class FakeJourneyClient:
         self.responses = responses
         self.started_journey: str | None = None
         self.action_calls: list[dict[str, Any]] = []
+
+    def get_protocol(self) -> JourneyProtocolDefinition:
+        """Return the protocol advertised to the executor tests."""
+        return executor_protocol()
 
     def start_journey(self, journey_id: str) -> dict[str, Any]:
         """Record the journey and return the first response."""
@@ -164,7 +216,9 @@ def test_client_uses_catalogue_to_start_advertised_journey() -> None:
 
 def test_client_submits_generic_result_to_advertised_action() -> None:
     """The client carries the latest token and result to the advertised path."""
-    session = FakeSession([FakeResponse({"status": "finished"})])
+    session = FakeSession(
+        [FakeResponse(catalogue_response()), FakeResponse({"status": "finished"})]
+    )
     client = JourneyClient("http://journey.test", session=session)
 
     client.call_action(
@@ -173,15 +227,15 @@ def test_client_submits_generic_result_to_advertised_action() -> None:
         {"confirmed": True},
     )
 
-    assert session.calls[0]["json"] == {
+    assert session.calls[1]["json"] == {
         "continuation_token": "latest-token",
         "result": {"confirmed": True},
     }
-    assert session.calls[0]["url"] == "http://journey.test/advertised-action"
+    assert session.calls[1]["url"] == "http://journey.test/advertised-action"
 
 
-def test_executor_uses_next_action_presence_not_status() -> None:
-    """Unknown status names do not affect generic executor control flow."""
+def test_executor_exposes_stepwise_operations_without_interpreting_status() -> None:
+    """Different consumers can advance the journey one response at a time."""
     client = FakeJourneyClient(
         [
             non_terminal_response("token-1", status="first_unknown_status"),
@@ -189,11 +243,22 @@ def test_executor_uses_next_action_presence_not_status() -> None:
             {"status": "another_terminal_name", "result": {"ok": True}},
         ]
     )
-    provider = ScriptedInputProvider([{"first": 1}, {"second": 2}])
+    executor = JourneyExecutor(client)
 
-    response = JourneyExecutor(client).run("example-journey", provider)
+    first = executor.start("example-journey")
+    assert executor.current_interaction(first) is not None
 
-    assert response == {"status": "another_terminal_name", "result": {"ok": True}}
+    second = executor.submit(first, {"first": 1})
+    assert executor.current_interaction(second) is not None
+
+    terminal = executor.submit(second, {"second": 2})
+
+    assert terminal == {
+        "status": "another_terminal_name",
+        "result": {"ok": True},
+    }
+    assert executor.is_terminal(terminal)
+    assert executor.current_interaction(terminal) is None
     assert [call["continuation_token"] for call in client.action_calls] == [
         "token-1",
         "token-2",
@@ -204,29 +269,44 @@ def test_executor_uses_next_action_presence_not_status() -> None:
     ]
 
 
-def test_executor_can_suspend_and_resume_without_interpreting_status() -> None:
-    """A latest response is sufficient to pause and continue execution."""
+def test_executor_can_continue_from_a_response_held_by_another_consumer() -> None:
+    """The latest response alone is sufficient for a later submit operation."""
     client = FakeJourneyClient(
         [
             non_terminal_response("token-1", status="waiting"),
-            non_terminal_response("token-2", status="still_waiting"),
             {"status": "done"},
         ]
     )
     executor = JourneyExecutor(client)
 
-    suspended = executor.run(
-        "example-journey",
-        ScriptedInputProvider([{"one": 1}]),
-        max_interactions=1,
-    )
-    assert suspended["continuation_token"] == "token-2"
+    response_held_by_consumer = executor.start("example-journey")
+    completed = executor.submit(response_held_by_consumer, {"answer": True})
 
-    completed = executor.continue_from(
-        suspended,
-        ScriptedInputProvider([{"two": 2}]),
-    )
     assert completed == {"status": "done"}
+
+
+def test_executor_rejects_submission_to_terminal_response() -> None:
+    """Consumers cannot submit another result after the service terminates."""
+    executor = JourneyExecutor(FakeJourneyClient([]))
+
+    with pytest.raises(JourneyProtocolError, match="terminal journey response"):
+        executor.submit({"status": "done"}, {"answer": True})
+
+
+def test_executor_validates_each_non_terminal_response() -> None:
+    """Consumers receive an error rather than an unusable protocol response."""
+    client = FakeJourneyClient(
+        [
+            {
+                "status": "waiting",
+                "interaction": {"content": {}},
+                "next_action": {"method": "POST", "path": "/next"},
+            }
+        ]
+    )
+
+    with pytest.raises(JourneyProtocolError, match="continuation_token"):
+        JourneyExecutor(client).start("example-journey")
 
 
 def test_state_file_round_trip(tmp_path: Path) -> None:
@@ -286,7 +366,10 @@ def test_client_rejects_cross_origin_next_action() -> None:
 def test_client_surfaces_service_error_detail() -> None:
     """Non-successful service responses become useful executor errors."""
     session = FakeSession(
-        [FakeResponse({"detail": "Address not found"}, status_code=404)]
+        [
+            FakeResponse(catalogue_response()),
+            FakeResponse({"detail": "Address not found"}, status_code=404),
+        ]
     )
     client = JourneyClient("http://journey.test", session=session)
 
