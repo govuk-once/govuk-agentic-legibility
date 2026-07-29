@@ -4,12 +4,22 @@
 
   export let interaction: Interaction;
   export let disabled = false;
+  export let proposedValues: Record<string, unknown> | null = null;
   export let onSubmit: (values: Record<string, unknown>) => void;
-
   const schema = interaction.input_schema;
   const fields = Object.entries(schema.properties ?? {});
-  let values: Record<string, unknown> = initialValues(schema);
+  let values: Record<string, unknown> = {
+    ...initialValues(schema),
+    ...(proposedValues ?? {})
+  };
+  let appliedProposal = proposedValues;
   let errors: Record<string, string> = {};
+
+  $: if (proposedValues !== appliedProposal) {
+    values = { ...values, ...(proposedValues ?? {}) };
+    appliedProposal = proposedValues;
+    errors = {};
+  }
 
   function setValue(name: string, value: unknown): void {
     values = { ...values, [name]: value };
@@ -19,7 +29,6 @@
       errors = next;
     }
   }
-
   function textValue(name: string, event: Event): void {
     setValue(name, (event.currentTarget as HTMLInputElement).value);
   }
@@ -28,7 +37,6 @@
     const raw = (event.currentTarget as HTMLInputElement).value;
     setValue(name, raw === '' ? '' : Number(raw));
   }
-
   function selectValue(name: string, property: JsonSchemaProperty, event: Event): void {
     const raw = (event.currentTarget as HTMLSelectElement).value;
     setValue(name, property.enum?.find((value) => String(value) === raw) ?? raw);
@@ -39,7 +47,6 @@
     errors = validateValues(schema, values);
     if (Object.keys(errors).length === 0) onSubmit(values);
   }
-
   function label(name: string, property: JsonSchemaProperty): string {
     return property.title || humaniseIdentifier(name);
   }
@@ -47,14 +54,12 @@
   function required(name: string): boolean {
     return schema.required?.includes(name) ?? false;
   }
-
   function renderableType(property: JsonSchemaProperty): string | undefined {
     if (property.type === undefined) return 'string';
     const types = Array.isArray(property.type) ? property.type : [property.type];
     const nonNullTypes = types.filter((type) => type !== 'null');
     return nonNullTypes.length === 1 ? nonNullTypes[0] : undefined;
   }
-
   function schemaTypeLabel(property: JsonSchemaProperty): string {
     if (property.type === undefined) return 'unspecified';
     return Array.isArray(property.type) ? property.type.join(', ') : property.type;
@@ -65,7 +70,6 @@
   {#if fields.length === 0}
     <div class="unsupported" role="alert">This interaction has no renderable form properties.</div>
   {/if}
-
   {#each fields as [name, property]}
     <div class:error={Boolean(errors[name])} class="field">
       {#if renderableType(property) === 'boolean'}
@@ -99,10 +103,8 @@
       {/if}
     </div>
   {/each}
-
   {#if fields.length > 0}<button type="submit" {disabled}>{disabled ? 'Submitting…' : 'Continue'}</button>{/if}
 </form>
-
 <style>
   form { margin-top: 1.75rem; }
   .field { margin-bottom: 1.75rem; }

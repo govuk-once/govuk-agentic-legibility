@@ -6,12 +6,22 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any, TypeAlias
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
+from agents.src.interaction_assistant import (
+    AssistanceAction,
+    AssistanceRequest,
+    ConversationMessage,
+    InteractionAssistant,
+    InteractionAssistantError,
+    validate_assistance_action,
+)
+from agents.src.interaction_assistant.config import create_environment_assistant
 from agents.src.workflow_executor.client import HttpExchangeObserver, JourneyClient
 from agents.src.workflow_executor.config import (
     load_executor_environment,
@@ -56,6 +66,24 @@ class SubmitResultRequest(BaseModel):
     result: dict[str, Any]
 
 
+class AssistanceApiRequest(BaseModel):
+    """Natural-language input for the current journey interaction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1)
+    conversation: list[ConversationMessage] = Field(default_factory=list)
+
+
+class AssistanceApiResponse(BaseModel):
+    """Structured assistance returned without advancing the journey."""
+
+    action: AssistanceAction
+    model_id: str
+    prompt_id: str
+    duration_ms: float
+
+
 class RunResponse(BaseModel):
     """Frontend-facing state of an active or completed run."""
 
@@ -72,9 +100,14 @@ class _Run:
     executor: JourneyExecutor
     response: JsonObject
     trace: JsonlTraceRecorder
+    latest_proposal: JsonObject | None = None
 
 
 class _RunCompletedError(RuntimeError):
+    pass
+
+
+class _AssistantUnavailableError(RuntimeError):
     pass
 
 
@@ -84,6 +117,7 @@ class JourneyRunService:
     Args:
         trace_directory: Local directory used for raw JSONL traces.
         client_factory: Factory creating one traced journey client per run.
+        assistant: Optional bounded assistant for the current interaction.
     """
 
     def __init__(
@@ -91,9 +125,11 @@ class JourneyRunService:
         *,
         trace_directory: Path,
         client_factory: JourneyClientFactory,
+        assistant: InteractionAssistant | None = None,
     ) -> None:
         self._trace_directory = trace_directory
         self._client_factory = client_factory
+        self._assistant = assistant
         self._runs: dict[str, _Run] = {}
 
     def start(self, journey_id: str) -> RunResponse:
@@ -111,7 +147,7 @@ class JourneyRunService:
         trace = JsonlTraceRecorder.create(
             self._trace_directory,
             journey_id=journey_id,
-            consumer="http_frontend",
+            consumer="agent_assisted_http_frontend",
         )
         executor = JourneyExecutor(self._client_factory(trace.record_exchange))
         response = executor.start(journey_id)
@@ -120,6 +156,95 @@ class JourneyRunService:
         if executor.is_terminal(response):
             trace.record_finished(response)
         return self._view(trace.run_id, run)
+
+    def assist(
+        self,
+        run_id: str,
+        *,
+        message: str,
+        conversation: list[ConversationMessage],
+    ) -> AssistanceApiResponse:
+        """Ask the assistant to propose values for the current interaction.
+
+        Args:
+            run_id: Process-local run identifier.
+            message: Latest user message to interpret.
+            conversation: Earlier user-visible conversation messages.
+
+        Returns:
+            Structured assistance without advancing the journey.
+
+        Raises:
+            KeyError: If the run is not held by this process.
+            _RunCompletedError: If the run has already reached terminal state.
+            _AssistantUnavailableError: If no assistant model is configured.
+            InteractionAssistantError: If the assistant cannot return a valid action.
+        """
+        run = self._runs[run_id]
+        if run.executor.is_terminal(run.response):
+            raise _RunCompletedError
+
+        interaction = run.executor.current_interaction(run.response)
+        if interaction is None:  # pragma: no cover - terminality checked above
+            raise _RunCompletedError
+        interaction_id = _interaction_id(interaction)
+        run.trace.record_user_message(
+            interaction_id=interaction_id,
+            message=message,
+        )
+
+        if self._assistant is None:
+            error = "Interaction assistant is not configured"
+            run.trace.record_agent_failed(model_id=None, error=error)
+            raise _AssistantUnavailableError(error)
+
+        request = AssistanceRequest(
+            user_message=message,
+            conversation=conversation,
+            interaction=interaction,
+        )
+        conversation_payload: list[dict[str, object]] = [
+            item.model_dump(mode="json") for item in conversation
+        ]
+        run.trace.record_agent_invoked(
+            model_id=self._assistant.model_id,
+            prompt_id=self._assistant.prompt_id,
+            interaction=interaction,
+            conversation=conversation_payload,
+            user_message=message,
+        )
+
+        started_at = perf_counter()
+        try:
+            action = validate_assistance_action(
+                self._assistant.assist(request),
+                interaction,
+            )
+        except InteractionAssistantError as exc:
+            duration_ms = (perf_counter() - started_at) * 1000
+            run.trace.record_agent_failed(
+                model_id=self._assistant.model_id,
+                error=str(exc),
+                duration_ms=duration_ms,
+            )
+            raise
+
+        duration_ms = (perf_counter() - started_at) * 1000
+        action_payload = action.model_dump(mode="json")
+        run.trace.record_agent_responded(
+            model_id=self._assistant.model_id,
+            action=action_payload,
+            duration_ms=duration_ms,
+        )
+        run.latest_proposal = (
+            dict(action.values) if action.type == "propose_values" else None
+        )
+        return AssistanceApiResponse(
+            action=action,
+            model_id=self._assistant.model_id,
+            prompt_id=self._assistant.prompt_id,
+            duration_ms=round(duration_ms, 3),
+        )
 
     def submit(
         self,
@@ -143,7 +268,24 @@ class JourneyRunService:
         if run.executor.is_terminal(run.response):
             raise _RunCompletedError
 
+        interaction = run.executor.current_interaction(run.response)
+        interaction_id = _interaction_id(interaction)
+        source = "manual"
+        if run.latest_proposal is not None:
+            source = "agent_proposal_review"
+            run.trace.record_proposal_reviewed(
+                interaction_id=interaction_id,
+                proposed_values=run.latest_proposal,
+                submitted_values=result,
+            )
+        run.trace.record_result_submitted(
+            interaction_id=interaction_id,
+            result=result,
+            source=source,
+        )
+
         run.response = run.executor.submit(run.response, result)
+        run.latest_proposal = None
         if run.executor.is_terminal(run.response):
             run.trace.record_finished(run.response)
         return self._view(run_id, run)
@@ -203,11 +345,12 @@ def create_app(
                 resolved_url,
                 on_exchange=observer,
             ),
+            assistant=create_environment_assistant(),
         )
     else:
         configured_service = run_service
 
-    app = FastAPI(title="Journey executor prototype API", version="0.1.0")
+    app = FastAPI(title="Journey executor prototype API", version="0.2.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(DEFAULT_FRONTEND_ORIGINS),
@@ -247,6 +390,44 @@ def create_app(
         except JourneyNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except JourneyExecutorError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    @app.post(
+        "/api/journey-runs/{run_id}/assistance",
+        response_model=AssistanceApiResponse,
+    )
+    def request_assistance(
+        run_id: str,
+        request: AssistanceApiRequest,
+    ) -> AssistanceApiResponse:
+        """Propose values for the current interaction without advancing it.
+
+        Args:
+            run_id: Process-local run identifier.
+            request: User message and earlier conversation context.
+
+        Returns:
+            Structured assistance action.
+
+        Raises:
+            HTTPException: If the run or assistant is unavailable or fails.
+        """
+        try:
+            return configured_service.assist(
+                run_id,
+                message=request.message,
+                conversation=request.conversation,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Journey run not found") from exc
+        except _RunCompletedError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Journey run has already completed",
+            ) from exc
+        except _AssistantUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except InteractionAssistantError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     @app.post(
@@ -303,3 +484,10 @@ def create_app(
 def _environment_trace_directory() -> Path:
     value = os.environ.get("JOURNEY_TRACE_DIR")
     return Path(value) if value else DEFAULT_TRACE_DIRECTORY
+
+
+def _interaction_id(interaction: ReadOnlyJsonObject | None) -> str | None:
+    if interaction is None:
+        return None
+    raw_id = interaction.get("id")
+    return raw_id if isinstance(raw_id, str) else None

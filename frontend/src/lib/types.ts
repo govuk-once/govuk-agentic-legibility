@@ -42,6 +42,24 @@ export interface JourneyRunResponse {
   interaction: Interaction | null;
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AssistanceAction {
+  type: 'propose_values' | 'no_safe_suggestion';
+  values: Record<string, JsonPrimitive>;
+  message: string | null;
+}
+
+export interface AssistanceResponse {
+  action: AssistanceAction;
+  model_id: string;
+  prompt_id: string;
+  duration_ms: number;
+}
+
 export interface TraceEvent {
   run_id?: string;
   sequence?: number;

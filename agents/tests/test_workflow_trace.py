@@ -52,7 +52,7 @@ def test_trace_recorder_appends_run_exchange_and_finish_events(tmp_path: Path) -
         "run_finished",
     ]
     assert {event["run_id"] for event in events} == {"run-123"}
-    assert events[0]["trace_version"] == "1.0"
+    assert events[0]["trace_version"] == "1.1"
     assert events[1]["request"]["path"] == "/journeys/change-address/steps"
     assert events[1]["duration_ms"] == 12.346
     assert events[2]["terminal_status"] == "completed"
@@ -101,3 +101,35 @@ def test_trace_recorder_creates_a_unique_file_in_requested_directory(
     assert "change-driving-licence-address" in recorder.path.name
     assert read_events(recorder.path)[0]["consumer"] == "automated_fixture"
     assert recorder.read_events() == read_events(recorder.path)
+
+
+def test_trace_records_agent_proposal_review_without_treating_added_fields_as_edits(
+    tmp_path: Path,
+) -> None:
+    """Only changes to proposed fields count as edits to the agent proposal."""
+    recorder = JsonlTraceRecorder(
+        tmp_path / "run.jsonl",
+        run_id="run-agent",
+        journey_id="change-driving-licence-address",
+        consumer="agent_assisted_http_frontend",
+    )
+
+    recorder.record_proposal_reviewed(
+        interaction_id="enter_address_manually",
+        proposed_values={"address_line_1": "18 Station Road"},
+        submitted_values={
+            "address_line_1": "18 Station Road",
+            "town_or_city": "Bristol",
+        },
+    )
+    recorder.record_proposal_reviewed(
+        interaction_id="enter_address_manually",
+        proposed_values={"address_line_1": "18 Station Road"},
+        submitted_values={"address_line_1": "81 Station Road"},
+    )
+
+    accepted, edited = read_events(recorder.path)[1:]
+    assert accepted["changed"] is False
+    assert accepted["changed_fields"] == []
+    assert edited["changed"] is True
+    assert edited["changed_fields"] == ["address_line_1"]

@@ -12,18 +12,19 @@ from uuid import uuid4
 from agents.src.workflow_executor.client import HttpExchange
 from agents.src.workflow_executor.types import ReadOnlyJsonObject
 
-TRACE_FORMAT_VERSION = "1.0"
+TRACE_FORMAT_VERSION = "1.1"
 
 
 class JsonlTraceRecorder:
     """Append raw journey execution events to one local JSONL file.
-    Create a recorder and write the run-start event.
 
-        Args:
-            path: File to which trace events are appended.
-            run_id: Identifier shared by every event in this run.
-            journey_id: Journey requested by the consumer, if known.
-            consumer: Name of the consumer driving the executor.
+    Creating the recorder writes the initial ``run_started`` event.
+
+    Args:
+        path: File to which trace events are appended.
+        run_id: Identifier shared by every event in this run.
+        journey_id: Journey requested by the consumer, if known.
+        consumer: Name of the consumer driving the executor.
     """
 
     def __init__(
@@ -34,7 +35,6 @@ class JsonlTraceRecorder:
         journey_id: str | None,
         consumer: str,
     ) -> None:
-    
         self._path = path
         self._run_id = run_id
         self._sequence = 0
@@ -127,6 +127,157 @@ class JsonlTraceRecorder:
                 },
                 "response": response,
                 "duration_ms": round(exchange.duration_ms, 3),
+            },
+        )
+
+    def record_user_message(
+        self,
+        *,
+        interaction_id: str | None,
+        message: str,
+    ) -> None:
+        """Record natural-language input supplied for the current interaction.
+
+        Args:
+            interaction_id: Current service interaction identifier, when available.
+            message: User message sent to the interaction assistant.
+        """
+        self._append(
+            "user_message",
+            {
+                "interaction_id": interaction_id,
+                "message": message,
+            },
+        )
+
+    def record_agent_invoked(
+        self,
+        *,
+        model_id: str,
+        prompt_id: str,
+        interaction: ReadOnlyJsonObject,
+        conversation: list[dict[str, object]],
+        user_message: str,
+    ) -> None:
+        """Record the exact application-level context supplied to an assistant.
+
+        Args:
+            model_id: Configured model or inference-profile identifier.
+            prompt_id: Identifier of the version-controlled system prompt.
+            interaction: Current service interaction and input schema.
+            conversation: Earlier user-visible conversation messages.
+            user_message: Latest user message interpreted by the assistant.
+        """
+        self._append(
+            "agent_invoked",
+            {
+                "model_id": model_id,
+                "prompt_id": prompt_id,
+                "input": {
+                    "conversation": conversation,
+                    "user_message": user_message,
+                    "interaction": dict(interaction),
+                },
+            },
+        )
+
+    def record_agent_responded(
+        self,
+        *,
+        model_id: str,
+        action: ReadOnlyJsonObject,
+        duration_ms: float,
+    ) -> None:
+        """Record the validated structured action returned by an assistant.
+
+        Args:
+            model_id: Configured model or inference-profile identifier.
+            action: Validated structured assistance action.
+            duration_ms: End-to-end assistant invocation duration.
+        """
+        self._append(
+            "agent_responded",
+            {
+                "model_id": model_id,
+                "action": dict(action),
+                "duration_ms": round(duration_ms, 3),
+            },
+        )
+
+    def record_agent_failed(
+        self,
+        *,
+        model_id: str | None,
+        error: str,
+        duration_ms: float | None = None,
+    ) -> None:
+        """Record a failed or unavailable assistant invocation.
+
+        Args:
+            model_id: Configured model identifier, when one was available.
+            error: Application-level failure description.
+            duration_ms: Invocation duration when a model call was attempted.
+        """
+        event: dict[str, object] = {
+            "model_id": model_id,
+            "error": error,
+        }
+        if duration_ms is not None:
+            event["duration_ms"] = round(duration_ms, 3)
+        self._append("agent_failed", event)
+
+    def record_proposal_reviewed(
+        self,
+        *,
+        interaction_id: str | None,
+        proposed_values: ReadOnlyJsonObject,
+        submitted_values: ReadOnlyJsonObject,
+    ) -> None:
+        """Record whether a user changed an agent proposal before submission.
+
+        Args:
+            interaction_id: Current service interaction identifier, when available.
+            proposed_values: Values returned by the assistant.
+            submitted_values: Values approved or edited by the user.
+        """
+        proposed = dict(proposed_values)
+        submitted = dict(submitted_values)
+        changed_fields = sorted(
+            field_name
+            for field_name, proposed_value in proposed.items()
+            if submitted.get(field_name) != proposed_value
+        )
+        self._append(
+            "proposal_reviewed",
+            {
+                "interaction_id": interaction_id,
+                "proposed_values": proposed,
+                "submitted_values": submitted,
+                "changed": bool(changed_fields),
+                "changed_fields": changed_fields,
+            },
+        )
+
+    def record_result_submitted(
+        self,
+        *,
+        interaction_id: str | None,
+        result: ReadOnlyJsonObject,
+        source: str,
+    ) -> None:
+        """Record the browser-level result sent to the executor.
+
+        Args:
+            interaction_id: Current service interaction identifier, when available.
+            result: Reviewed values submitted by the browser.
+            source: Whether the result was manual or based on an agent proposal.
+        """
+        self._append(
+            "result_submitted",
+            {
+                "interaction_id": interaction_id,
+                "source": source,
+                "result": dict(result),
             },
         )
 

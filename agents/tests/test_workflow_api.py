@@ -9,6 +9,11 @@ from typing import Any
 import pytest
 from starlette.routing import Route
 
+from agents.src.interaction_assistant import (
+    AssistanceAction,
+    AssistanceRequest,
+    ConversationMessage,
+)
 from agents.src.workflow_executor.api import JourneyRunService, create_app
 from agents.src.workflow_executor.client import HttpExchange, HttpExchangeObserver
 from agents.src.workflow_executor.protocol import JourneyProtocolDefinition
@@ -35,7 +40,13 @@ def interaction_response() -> dict[str, Any]:
         "interaction": {
             "id": "choose_address_entry_method",
             "content": {"title": "Choose how to enter your address"},
-            "input_schema": {"type": "object"},
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "use_postcode_lookup": {"type": "boolean"},
+                },
+                "required": ["use_postcode_lookup"],
+            },
         },
         "next_action": {"method": "POST", "path": "/next"},
     }
@@ -104,6 +115,22 @@ class FakeClientFactory:
         return client
 
 
+class FakeAssistant:
+    """Return one configured structured proposal without calling a model."""
+
+    model_id = "test-model"
+    prompt_id = "test-prompt-v1"
+
+    def __init__(self, action: AssistanceAction) -> None:
+        self.action = action
+        self.requests: list[AssistanceRequest] = []
+
+    def assist(self, request: AssistanceRequest) -> AssistanceAction:
+        """Record the assistant request and return the configured action."""
+        self.requests.append(request)
+        return self.action
+
+
 def test_service_completes_a_run_and_exposes_its_trace(tmp_path: Path) -> None:
     """The frontend drives a run without handling continuation fields."""
     factory = FakeClientFactory(
@@ -125,8 +152,82 @@ def test_service_completes_a_run_and_exposes_its_trace(tmp_path: Path) -> None:
     assert [event["type"] for event in service.trace_events(started.run_id)] == [
         "run_started",
         "http_exchange",
+        "result_submitted",
         "http_exchange",
         "run_finished",
+    ]
+
+
+def test_agent_proposal_does_not_advance_until_reviewed_result_is_submitted(
+    tmp_path: Path,
+) -> None:
+    """Assistance proposes values while the executor remains on the current step."""
+    factory = FakeClientFactory([interaction_response(), {"status": "completed"}])
+    assistant = FakeAssistant(
+        AssistanceAction(
+            type="propose_values",
+            values={"use_postcode_lookup": True},
+        )
+    )
+    service = JourneyRunService(
+        trace_directory=tmp_path,
+        client_factory=factory,
+        assistant=assistant,
+    )
+
+    started = service.start("change-driving-licence-address")
+    assistance = service.assist(
+        started.run_id,
+        message="Yes, use my postcode",
+        conversation=[
+            ConversationMessage(role="user", content="I need to change my address")
+        ],
+    )
+
+    assert assistance.action.values == {"use_postcode_lookup": True}
+    assert factory.clients[0].results == []
+    assert assistant.requests[0].interaction["id"] == "choose_address_entry_method"
+
+    completed = service.submit(started.run_id, {"use_postcode_lookup": True})
+
+    assert completed.terminal
+    events = service.trace_events(started.run_id)
+    assert [event["type"] for event in events] == [
+        "run_started",
+        "http_exchange",
+        "user_message",
+        "agent_invoked",
+        "agent_responded",
+        "proposal_reviewed",
+        "result_submitted",
+        "http_exchange",
+        "run_finished",
+    ]
+    reviewed = events[5]
+    assert reviewed["changed"] is False
+    assert reviewed["changed_fields"] == []
+
+
+def test_unconfigured_assistance_is_traced_without_advancing_run(
+    tmp_path: Path,
+) -> None:
+    """Manual execution remains available when no model has been configured."""
+    factory = FakeClientFactory([interaction_response()])
+    service = JourneyRunService(
+        trace_directory=tmp_path,
+        client_factory=factory,
+    )
+    started = service.start("change-driving-licence-address")
+
+    with pytest.raises(RuntimeError, match="not configured"):
+        service.assist(started.run_id, message="Use my postcode", conversation=[])
+
+    assert factory.clients[0].results == []
+    assert [event["type"] for event in service.trace_events(started.run_id)] == [
+        "run_started",
+        "http_exchange",
+        "user_message",
+        "agent_failed",
     ]
 
 
@@ -161,6 +262,7 @@ def test_app_exposes_generic_run_routes(tmp_path: Path) -> None:
     assert {
         "/healthcheck",
         "/api/journey-runs",
+        "/api/journey-runs/{run_id}/assistance",
         "/api/journey-runs/{run_id}/results",
         "/api/journey-runs/{run_id}/trace",
     }.issubset(paths)

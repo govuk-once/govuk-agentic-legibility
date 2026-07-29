@@ -26,7 +26,7 @@ types:
     uv run mypy agents/src agents/tests
 
 docs:
-    uv run pydoclint agents
+    uvx --from pydoclint==0.9.1 pydoclint agents
 
 check: build test lint docs audit scan types
 

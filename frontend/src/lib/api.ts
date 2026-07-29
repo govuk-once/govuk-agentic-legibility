@@ -1,5 +1,10 @@
 import { env } from '$env/dynamic/public';
-import type { JourneyRunResponse, TraceResponse } from '$lib/types';
+import type {
+  AssistanceResponse,
+  ConversationMessage,
+  JourneyRunResponse,
+  TraceResponse
+} from '$lib/types';
 
 const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8001';
 
@@ -32,6 +37,20 @@ export async function submitJourneyResult(
     method: 'POST',
     body: JSON.stringify({ result })
   });
+}
+
+export async function requestJourneyAssistance(
+  runId: string,
+  message: string,
+  conversation: ConversationMessage[]
+): Promise<AssistanceResponse> {
+  return request<AssistanceResponse>(
+    `/api/journey-runs/${encodeURIComponent(runId)}/assistance`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ message, conversation })
+    }
+  );
 }
 
 export async function getJourneyTrace(runId: string): Promise<TraceResponse> {
