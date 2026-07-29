@@ -29,3 +29,17 @@ docs:
     uv run pydoclint agents
 
 check: build test lint docs audit scan types
+
+frontend-install:
+    npm --prefix frontend install
+
+frontend:
+    npm --prefix frontend run dev -- --host 127.0.0.1
+
+frontend-check:
+    npm --prefix frontend run check
+
+frontend-build:
+    npm --prefix frontend run build
+
+check-all: check frontend-check
