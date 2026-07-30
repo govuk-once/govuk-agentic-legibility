@@ -29,7 +29,8 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "choose-address-entry-method",
-            body: ChooseAddressMethodSchema,\n            response: ChooseAddressMethodSchema
+            body: ChooseAddressMethodSchema,
+            response: ChooseAddressMethodSchema
           },
         },
       },
@@ -37,7 +38,8 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "find-address-by-postcode",
-            body: AddressSchema,\n            response: AddressSchema
+            body: AddressSchema,
+            response: AddressSchema
           },
         },
       },
@@ -45,7 +47,8 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "enter-address-manually",
-            body: AddressSchema,\n            response: AddressSchema
+            body: AddressSchema,
+            response: AddressSchema
           },
         },
       },
@@ -53,7 +56,8 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "confirm-new-address",
-            body: ConfirmNewAddressSchema,\n            response: ConfirmNewAddressSchema
+            body: ConfirmNewAddressSchema,
+            response: ConfirmNewAddressSchema
           },
         },
       },
