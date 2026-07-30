@@ -1,9 +1,9 @@
 import { domain } from "@flex/sdk";
 import { 
-  chooseAddressMethodSchema,
-  addressSchema,
-  confirmNewAddressSchema
-} from "@schemas/dvla-adress";
+  ChooseAddressMethodSchema,
+  AddressSchema,
+  ConfirmNewAddressSchema
+} from "@schemas/dvla-address";
 
 export const { config, route, routeContext } = domain({
   name: "agentic-legibility",
@@ -29,7 +29,7 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "choose-address-entry-method",
-            response: chooseAddressMethodSchema
+            body: ChooseAddressMethodSchema,\n            response: ChooseAddressMethodSchema
           },
         },
       },
@@ -37,7 +37,7 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "find-address-by-postcode",
-            response: addressSchema
+            body: AddressSchema,\n            response: AddressSchema
           },
         },
       },
@@ -45,7 +45,7 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "enter-address-manually",
-            response: adressSchema
+            body: AddressSchema,\n            response: AddressSchema
           },
         },
       },
@@ -53,14 +53,10 @@ export const { config, route, routeContext } = domain({
         POST: {
           public: {
             name: "confirm-new-address",
-            response: confirmNewAddressSchema
+            body: ConfirmNewAddressSchema,\n            response: ConfirmNewAddressSchema
           },
         },
       },
     },
   },
 });
-
-// Example: Create alias accessors for reuse throughout your domain
-export const getUserContext = routeContext<"GET /v1/user">;
-export const createUserContext = routeContext<"POST /v1/user [private]">;
