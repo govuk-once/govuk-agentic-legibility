@@ -155,10 +155,10 @@
     }
     assistance = response.assistance;
     assistanceError = response.assistance_error ?? '';
-    proposedValues =
-      response.assistance?.action.type === 'propose_values'
-        ? { ...response.assistance.action.values }
-        : null;
+    const proposal = response.assistance?.actions.find(
+      (action) => action.type === 'propose_values'
+    );
+    proposedValues = proposal ? { ...proposal.values } : null;
   }
 
   function rememberInteraction(response: JourneyRunResponse | null): void {

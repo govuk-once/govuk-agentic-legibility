@@ -66,7 +66,7 @@ export interface AssistanceAction {
 }
 
 export interface AssistanceResponse {
-  action: AssistanceAction;
+  actions: AssistanceAction[];
   retrieved_guidance: GuidanceReference[];
   model_id: string;
   prompt_id: string;

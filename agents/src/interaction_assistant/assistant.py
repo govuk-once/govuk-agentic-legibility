@@ -71,7 +71,7 @@ class AssistanceAction(BaseModel):
         "propose_values",
         "no_safe_suggestion",
         "answer_journey_question",
-    ] = Field(description="The single bounded action selected for this interaction")
+    ] = Field(description="One bounded action selected for this interaction")
     values: dict[str, JsonScalar] = Field(
         default_factory=dict,
         description="Current-schema field names and safely supported scalar values",
@@ -118,6 +118,36 @@ class AssistanceAction(BaseModel):
         return self
 
 
+class AssistanceActions(BaseModel):
+    """One or two compatible actions returned by one assistant invocation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actions: list[AssistanceAction] = Field(min_length=1, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_action_combination(self) -> Self:
+        """Permit only the narrow action combinations supported by the executor."""
+        action_types = [action.type for action in self.actions]
+        if len(action_types) != len(set(action_types)):
+            msg = "Assistance actions must not repeat the same action type"
+            raise ValueError(msg)
+        if action_types == ["no_safe_suggestion"]:
+            return self
+        if action_types == ["propose_values"]:
+            return self
+        if action_types == ["answer_journey_question"]:
+            return self
+        if action_types == ["answer_journey_question", "propose_values"]:
+            return self
+        msg = (
+            "Permitted assistance actions are propose_values, no_safe_suggestion, "
+            "answer_journey_question, or answer_journey_question followed by "
+            "propose_values"
+        )
+        raise ValueError(msg)
+
+
 class AssistanceToolRecorder(Protocol):
     """Record tool activity selected during one model invocation."""
 
@@ -162,12 +192,18 @@ class AssistanceResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    action: AssistanceAction
+    actions: list[AssistanceAction] = Field(min_length=1, max_length=2)
     retrieved_guidance: list[GuidanceReference] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_actions(self) -> Self:
+        """Apply the same combination rules to every assistant implementation."""
+        AssistanceActions(actions=self.actions)
+        return self
 
 
 class InteractionAssistant(Protocol):
-    """Produce a bounded action for the current interaction only."""
+    """Produce one or two bounded actions for the current interaction only."""
 
     @property
     def model_id(self) -> str:

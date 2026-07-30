@@ -12,7 +12,7 @@ from uuid import uuid4
 from agents.src.workflow_executor.client import HttpExchange
 from agents.src.workflow_executor.types import ReadOnlyJsonObject
 
-TRACE_FORMAT_VERSION = "1.4"
+TRACE_FORMAT_VERSION = "1.5"
 
 
 class JsonlTraceRecorder:
@@ -277,15 +277,15 @@ class JsonlTraceRecorder:
         self,
         *,
         model_id: str,
-        action: ReadOnlyJsonObject,
+        actions: list[dict[str, object]],
         retrieved_guidance: list[dict[str, object]],
         duration_ms: float,
     ) -> None:
-        """Record the validated structured action returned by an assistant.
+        """Record the validated structured actions returned by an assistant.
 
         Args:
             model_id: Configured model or inference-profile identifier.
-            action: Validated structured assistance action.
+            actions: Ordered validated structured assistance actions.
             retrieved_guidance: Documents actually retrieved by bounded tools.
             duration_ms: End-to-end assistant invocation duration.
         """
@@ -293,7 +293,7 @@ class JsonlTraceRecorder:
             "agent_responded",
             {
                 "model_id": model_id,
-                "action": dict(action),
+                "actions": actions,
                 "retrieved_guidance": retrieved_guidance,
                 "duration_ms": round(duration_ms, 3),
             },

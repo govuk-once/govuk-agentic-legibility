@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from starlette.routing import Route
@@ -201,7 +201,10 @@ class FakeAssistant:
     model_id = "test-model"
     prompt_id = "test-prompt-v4"
 
-    def __init__(self, actions: list[AssistanceAction]) -> None:
+    def __init__(
+        self,
+        actions: list[AssistanceAction | list[AssistanceAction]],
+    ) -> None:
         self.actions = actions
         self.requests: list[AssistanceRequest] = []
 
@@ -213,7 +216,9 @@ class FakeAssistant:
         """Record the assistant request and return the next configured action."""
         del context
         self.requests.append(request)
-        return AssistanceResult(action=self.actions.pop(0))
+        configured = self.actions.pop(0)
+        actions = configured if isinstance(configured, list) else [configured]
+        return AssistanceResult(actions=actions)
 
 
 class GuidanceUsingAssistant:
@@ -255,10 +260,12 @@ class GuidanceUsingAssistant:
             result=reference.model_dump(mode="json"),
         )
         return AssistanceResult(
-            action=AssistanceAction(
-                type="answer_journey_question",
-                answer="You can use postcode lookup if you live in a flat.",
-            ),
+            actions=[
+                AssistanceAction(
+                    type="answer_journey_question",
+                    answer="You can use postcode lookup if you live in a flat.",
+                )
+            ],
             retrieved_guidance=[reference],
         )
 
@@ -396,9 +403,9 @@ def test_fixture_generates_default_proposals_at_each_interaction(
     second = service.submit(started.run_id, {"use_postcode_lookup": True})
 
     assert started.assistance is not None
-    assert started.assistance.action.values == {"use_postcode_lookup": True}
+    assert started.assistance.actions[0].values == {"use_postcode_lookup": True}
     assert second.assistance is not None
-    assert second.assistance.action.values["postcode"] == "BS1 3AB"
+    assert second.assistance.actions[0].values["postcode"] == "BS1 3AB"
     assert len(assistant.requests) == 2
     assert assistant.requests[0].conversation == assistant.requests[1].conversation
     assert [request.trigger.type for request in assistant.requests] == [
@@ -452,7 +459,7 @@ def test_new_message_extends_context_without_adding_agent_proposal(
         "Actually, enter it manually.",
     ]
     assert updated.assistance is not None
-    assert updated.assistance.action.values == {"use_postcode_lookup": False}
+    assert updated.assistance.actions[0].values == {"use_postcode_lookup": False}
     assert len(assistant.requests[-1].conversation) == 2
     assert assistant.requests[-1].trigger.type == "user_message_added"
     assert assistant.requests[-1].trigger.message == "Actually, enter it manually."
@@ -485,7 +492,7 @@ def test_journey_answer_without_guidance_is_recorded_not_rejected(
 
     assert answered.interaction == started.interaction
     assert answered.assistance is not None
-    assert answered.assistance.action.type == "answer_journey_question"
+    assert answered.assistance.actions[0].type == "answer_journey_question"
     assert answered.assistance.retrieved_guidance == []
     assert answered.conversation[-1].role == "assistant"
     assert assistant.requests[-1].trigger.type == "user_message_added"
@@ -493,6 +500,61 @@ def test_journey_answer_without_guidance_is_recorded_not_rejected(
     presented = next(event for event in events if event["type"] == "answer_presented")
     assert presented["grounded_in_retrieved_guidance"] is False
     assert "agent_failed" not in [event["type"] for event in events]
+
+
+def test_one_message_can_answer_and_propose_without_advancing(
+    tmp_path: Path,
+) -> None:
+    """A mixed user turn yields two actions from one model invocation."""
+    assistant = FakeAssistant(
+        [
+            [
+                AssistanceAction(
+                    type="answer_journey_question",
+                    answer="Postcode lookup can be used for a flat.",
+                ),
+                AssistanceAction(
+                    type="propose_values",
+                    values={"use_postcode_lookup": True},
+                ),
+            ]
+        ]
+    )
+    service = JourneyRunService(
+        trace_directory=tmp_path,
+        client_factory=FakeClientFactory([interaction_response(), {"status": "completed"}]),
+        assistant=assistant,
+        fixture_repository=fixture_repository(tmp_path),
+    )
+    started = service.start("change-driving-licence-address")
+
+    assisted = service.add_message(
+        started.run_id,
+        "Can I use postcode lookup if I live in a flat? If so, I would like to use it.",
+    )
+
+    assert assisted.interaction == started.interaction
+    assert assisted.assistance is not None
+    assert [action.type for action in assisted.assistance.actions] == [
+        "answer_journey_question",
+        "propose_values",
+    ]
+    assert assisted.assistance.actions[1].values == {"use_postcode_lookup": True}
+    events = service.trace_events(started.run_id)
+    responded = next(event for event in events if event["type"] == "agent_responded")
+    responded_actions = cast(
+        list[Mapping[str, object]],
+        responded["actions"],
+    )
+    assert [action["type"] for action in responded_actions] == [
+        "answer_journey_question",
+        "propose_values",
+    ]
+    assert events[-1]["type"] == "answer_presented"
+
+    service.submit(started.run_id, {"use_postcode_lookup": True})
+    event_types = [event["type"] for event in service.trace_events(started.run_id)]
+    assert "proposal_reviewed" in event_types
 
 
 def test_next_interaction_does_not_repeat_an_earlier_journey_answer(
@@ -536,9 +598,9 @@ def test_next_interaction_does_not_repeat_an_earlier_journey_answer(
     )
 
     assert answered.assistance is not None
-    assert answered.assistance.action.type == "answer_journey_question"
+    assert answered.assistance.actions[0].type == "answer_journey_question"
     assert next_interaction.assistance is not None
-    assert next_interaction.assistance.action.type == "propose_values"
+    assert next_interaction.assistance.actions[0].type == "propose_values"
     assert [request.trigger.type for request in assistant.requests] == [
         "user_message_added",
         "interaction_opened",

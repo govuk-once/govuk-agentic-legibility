@@ -11,7 +11,7 @@ The framework-neutral `InteractionAssistant` interface accepts:
 - an explicit trigger distinguishing a newly opened interaction from a new user message;
 - a run-scoped context exposing bounded journey-guidance operations and trace recording.
 
-It returns one structured action:
+It returns an ordered list containing one or two structured actions:
 
 - `propose_values` for a safe complete or partial field proposal;
 - `no_safe_suggestion` when no current field can be populated safely;

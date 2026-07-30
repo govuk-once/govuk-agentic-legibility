@@ -2,6 +2,7 @@
 
 from agents.src.interaction_assistant.assistant import (
     AssistanceAction,
+    AssistanceActions,
     AssistanceContext,
     AssistanceRequest,
     AssistanceResult,
@@ -15,6 +16,7 @@ from agents.src.interaction_assistant.assistant import (
 
 __all__ = [
     "AssistanceAction",
+    "AssistanceActions",
     "AssistanceContext",
     "AssistanceRequest",
     "AssistanceResult",

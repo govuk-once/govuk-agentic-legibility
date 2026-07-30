@@ -9,7 +9,7 @@ from strands import Agent, tool
 from strands.models import BedrockModel
 
 from agents.src.interaction_assistant.assistant import (
-    AssistanceAction,
+    AssistanceActions,
     AssistanceContext,
     AssistanceRequest,
     AssistanceResult,
@@ -18,7 +18,7 @@ from agents.src.interaction_assistant.assistant import (
 from agents.src.workflow_executor.guidance import GuidanceReference
 from agents.src.workflow_executor.types import JsonObject
 
-PROMPT_ID = "interaction-assistance-v4"
+PROMPT_ID = "interaction-assistance-v5"
 PROMPT_PATH = Path(__file__).with_name("prompts") / "value_proposals.txt"
 
 
@@ -152,10 +152,10 @@ class StrandsInteractionAssistant:
         try:
             result = agent(
                 _request_prompt(request),
-                structured_output_model=AssistanceAction,
+                structured_output_model=AssistanceActions,
             )
-            action = result.structured_output
-            if not isinstance(action, AssistanceAction):
+            actions = result.structured_output
+            if not isinstance(actions, AssistanceActions):
                 msg = "Interaction assistant did not return structured output"
                 raise InteractionAssistantError(msg)
         except Exception as exc:
@@ -166,7 +166,7 @@ class StrandsInteractionAssistant:
             raise InteractionAssistantError(msg) from exc
 
         return AssistanceResult(
-            action=action,
+            actions=actions.actions,
             retrieved_guidance=list(retrieved_documents.values()),
         )
 
@@ -185,9 +185,11 @@ def _request_prompt(request: AssistanceRequest) -> str:
         "interaction_opened trigger, only propose values for the newly opened form and "
         "do not answer questions from earlier turns again. For a user_message_added "
         "trigger, respond specifically to trigger.message. If that new message asks a "
-        "journey question, use the approved guidance tools before answering. Because "
-        "you can return only one action, do not claim to set, select, change or submit "
-        "form values unless the returned action is propose_values and contains those "
-        "values. Use later explicit corrections in preference to earlier values.\n\n"
+        "journey question, use the approved guidance tools before answering. A new user "
+        "message may require both an answer and a value proposal. Return "
+        "answer_journey_question followed by propose_values when the new message asks a "
+        "journey question and also clearly expresses a value for the current form. Do "
+        "not claim to submit or confirm values; proposals still require user review. "
+        "Use later explicit corrections in preference to earlier values.\n\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )

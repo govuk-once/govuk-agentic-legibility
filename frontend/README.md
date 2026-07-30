@@ -142,6 +142,15 @@ If the model answers without retrieving guidance, the answer is still displayed 
 trace records `grounded_in_retrieved_guidance: false`; automated evals can score this as
 a model-behaviour failure rather than a runtime error.
 
+A single message can also ask a question and express a form preference, for example:
+
+```text
+Can I use postcode lookup if I live in a flat? If so, I would like to use it.
+```
+
+The assistant may return `answer_journey_question` followed by `propose_values` in one
+structured response. The guidance answer is displayed and the corresponding form value
+is proposed, but the user must still review and submit the form.
 
 The frontend defaults to using the executor API at
 `http://127.0.0.1:8001`. Override this when necessary with:

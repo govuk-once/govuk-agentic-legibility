@@ -54,7 +54,9 @@ Content-Type: application/json
 
 The backend appends the user message to the run conversation and refreshes suggestions
 for the current interaction. Agent proposals are not inserted into the conversation.
-They remain application events in the raw trace.
+They remain application events in the raw trace. A single user message may produce an
+`answer_journey_question` action followed by a `propose_values` action; the answer is
+shown without advancing the journey and the proposed values still require review.
 
 ## Submit the reviewed result
 

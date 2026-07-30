@@ -52,7 +52,7 @@ def test_trace_recorder_appends_run_exchange_and_finish_events(tmp_path: Path) -
         "run_finished",
     ]
     assert {event["run_id"] for event in events} == {"run-123"}
-    assert events[0]["trace_version"] == "1.4"
+    assert events[0]["trace_version"] == "1.5"
     assert events[1]["request"]["path"] == "/journeys/change-address/steps"
     assert events[1]["duration_ms"] == 12.346
     assert events[2]["terminal_status"] == "completed"
@@ -182,7 +182,6 @@ def test_trace_records_why_the_assistant_was_invoked(tmp_path: Path) -> None:
     }
 
 
-
 def test_trace_distinguishes_retrieved_and_ungrounded_journey_answers(
     tmp_path: Path,
 ) -> None:
@@ -215,3 +214,38 @@ def test_trace_distinguishes_retrieved_and_ungrounded_journey_answers(
         "answer_presented",
     ]
     assert events[-1]["grounded_in_retrieved_guidance"] is False
+
+
+def test_trace_records_ordered_compound_agent_actions(tmp_path: Path) -> None:
+    """One model response retains both semantic actions in their returned order."""
+    recorder = JsonlTraceRecorder(
+        tmp_path / "run.jsonl",
+        run_id="run-compound",
+        journey_id="change-driving-licence-address",
+        consumer="automated_fixture",
+    )
+    recorder.record_agent_responded(
+        model_id="test-model",
+        actions=[
+            {
+                "type": "answer_journey_question",
+                "values": {},
+                "message": None,
+                "answer": "Postcode lookup can be used for a flat.",
+            },
+            {
+                "type": "propose_values",
+                "values": {"use_postcode_lookup": True},
+                "message": None,
+                "answer": None,
+            },
+        ],
+        retrieved_guidance=[],
+        duration_ms=10.0,
+    )
+
+    responded = read_events(recorder.path)[1]
+    assert [action["type"] for action in responded["actions"]] == [
+        "answer_journey_question",
+        "propose_values",
+    ]

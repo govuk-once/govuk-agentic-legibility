@@ -8,6 +8,13 @@
   export let requesting = false;
   export let onRequest: () => void;
 
+  $: actions = response?.actions ?? [];
+  $: noSafeSuggestion =
+    actions.find((action) => action.type === 'no_safe_suggestion') ?? null;
+  $: journeyAnswer =
+    actions.find((action) => action.type === 'answer_journey_question') ?? null;
+  $: retrievedGuidance = response?.retrieved_guidance ?? [];
+
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     onRequest();
@@ -43,19 +50,19 @@
 
   {#if error}
     <div class="error" role="alert"><strong>Agent assistance failed</strong><span>{error}</span></div>
-  {:else if response?.action.type === 'no_safe_suggestion'}
+  {:else if noSafeSuggestion}
     <div class="notice" role="status">
       <strong>No safe suggestion</strong>
-      <span>{response.action.message}</span>
+      <span>{noSafeSuggestion.message}</span>
     </div>
-  {:else if response?.action.type === 'answer_journey_question'}
+  {:else if journeyAnswer}
     <div class="answer" role="status">
       <strong>Journey guidance</strong>
-      <p>{response.action.answer}</p>
-      {#if response.retrieved_guidance.length > 0}
+      <p>{journeyAnswer.answer}</p>
+      {#if retrievedGuidance.length > 0}
         <span>
           Retrieved from:
-          {response.retrieved_guidance.map((item) => item.title).join(', ')}
+          {retrievedGuidance.map((item) => item.title).join(', ')}
         </span>
       {:else}
         <span class="ungrounded">No approved journey guidance was retrieved for this answer.</span>

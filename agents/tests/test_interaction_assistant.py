@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from agents.src.interaction_assistant import (
     AssistanceAction,
+    AssistanceActions,
     AssistanceRequest,
     AssistanceTrigger,
     ConversationMessage,
@@ -133,4 +134,53 @@ def test_journey_answer_requires_answer_but_not_reported_provenance() -> None:
             type="answer_journey_question",
             answer="Use postcode lookup.",
             values={"use_postcode_lookup": True},
+        )
+
+
+def test_answer_then_proposal_is_the_only_permitted_compound_result() -> None:
+    """One invocation may answer a question and propose current-form values."""
+    actions = AssistanceActions(
+        actions=[
+            AssistanceAction(
+                type="answer_journey_question",
+                answer="Postcode lookup can be used for a flat.",
+            ),
+            AssistanceAction(
+                type="propose_values",
+                values={"use_postcode_lookup": True},
+            ),
+        ]
+    )
+
+    assert [action.type for action in actions.actions] == [
+        "answer_journey_question",
+        "propose_values",
+    ]
+
+    with pytest.raises(ValidationError):
+        AssistanceActions(
+            actions=[
+                AssistanceAction(
+                    type="propose_values",
+                    values={"use_postcode_lookup": True},
+                ),
+                AssistanceAction(
+                    type="answer_journey_question",
+                    answer="Postcode lookup can be used for a flat.",
+                ),
+            ]
+        )
+
+    with pytest.raises(ValidationError):
+        AssistanceActions(
+            actions=[
+                AssistanceAction(
+                    type="no_safe_suggestion",
+                    message="Complete the form manually.",
+                ),
+                AssistanceAction(
+                    type="propose_values",
+                    values={"use_postcode_lookup": True},
+                ),
+            ]
         )

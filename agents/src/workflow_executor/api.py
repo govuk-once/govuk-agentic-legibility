@@ -99,7 +99,7 @@ class AddConversationMessageRequest(BaseModel):
 class AssistanceApiResponse(BaseModel):
     """Structured assistance generated for one current interaction."""
 
-    action: AssistanceAction
+    actions: list[AssistanceAction] = Field(min_length=1, max_length=2)
     retrieved_guidance: list[GuidanceReference] = Field(default_factory=list)
     model_id: str
     prompt_id: str
@@ -405,10 +405,10 @@ class JourneyRunService:
                     tool_recorder=run.trace,
                 ),
             )
-            action = validate_assistance_action(
-                assistance_result.action,
-                interaction,
-            )
+            actions = [
+                validate_assistance_action(action, interaction)
+                for action in assistance_result.actions
+            ]
         except InteractionAssistantError as exc:
             duration_ms = (perf_counter() - started_at) * 1000
             run.latest_assistance_error = str(exc)
@@ -420,29 +420,35 @@ class JourneyRunService:
             return
 
         duration_ms = (perf_counter() - started_at) * 1000
-        action_payload = action.model_dump(mode="json")
+        action_payloads = [action.model_dump(mode="json") for action in actions]
         retrieved_guidance = assistance_result.retrieved_guidance
         retrieved_payload = [
             reference.model_dump(mode="json") for reference in retrieved_guidance
         ]
         run.trace.record_agent_responded(
             model_id=self._assistant.model_id,
-            action=action_payload,
+            actions=action_payloads,
             retrieved_guidance=retrieved_payload,
             duration_ms=duration_ms,
         )
         run.latest_assistance = AssistanceApiResponse(
-            action=action,
+            actions=actions,
             retrieved_guidance=retrieved_guidance,
             model_id=self._assistant.model_id,
             prompt_id=self._assistant.prompt_id,
             duration_ms=round(duration_ms, 3),
         )
-        run.latest_proposal = (
-            dict(action.values) if action.type == "propose_values" else None
+        proposal = next(
+            (action for action in actions if action.type == "propose_values"),
+            None,
         )
-        if action.type == "answer_journey_question":
-            answer = action.answer
+        run.latest_proposal = dict(proposal.values) if proposal is not None else None
+        answer_action = next(
+            (action for action in actions if action.type == "answer_journey_question"),
+            None,
+        )
+        if answer_action is not None:
+            answer = answer_action.answer
             if answer is None:  # pragma: no cover - validated by AssistanceAction
                 raise InteractionAssistantError(
                     "answer_journey_question did not contain an answer"
