@@ -1,6 +1,6 @@
 # flex-domain
 
-An example of how a public sector service journey could be exposed as a set of **symmetrical API endpoints** (request and response schemas are identical), written as a domain for [flex](https://github.com/govuk-once/flex) — GOV.UK serverless platform for building service domains on AWS CDK and TypeScript.
+An example of how a public sector service journey could be exposed as a set of **symmetrical API endpoints** (request and response schemas are identical), written as a domain for [FLEX](https://github.com/govuk-once/flex) — GOV.UK serverless platform for building service domains on AWS CDK and TypeScript.
 
 This sits within the broader [Agentic Legibility](../README.md) project, which explores serialising public sector workflows so they can be interpreted and driven by agents rather than only by a human clicking through a browser journey.
 
@@ -30,6 +30,7 @@ src/data/store.ts           # mock driver/address record used in place of a real
 Handlers currently return data from the static `DRIVER` fixture in `src/data/store.ts` rather than calling a real DVLA integration — this is a scaffold for illustrating the domain/route/schema pattern, not a working integration.
 
 ## Commands
+Note that this project **cannot** be run from within the `govuk-agentic-legibility` repo. It will only work once placed under `domains/<domain-name>` inside the [FLEX](https://github.com/govuk-once/flex) repo.
 
 ```bash
 pnpm tsc          # type-check
