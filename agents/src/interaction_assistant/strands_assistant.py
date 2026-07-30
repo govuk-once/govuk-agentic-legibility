@@ -14,7 +14,7 @@ from agents.src.interaction_assistant.assistant import (
     InteractionAssistantError,
 )
 
-PROMPT_ID = "interaction-value-proposals-v1"
+PROMPT_ID = "interaction-value-proposals-v2"
 PROMPT_PATH = Path(__file__).with_name("prompts") / "value_proposals.txt"
 
 
@@ -88,11 +88,11 @@ def _request_prompt(request: AssistanceRequest) -> str:
         "conversation": [
             message.model_dump(mode="json") for message in request.conversation
         ],
-        "latest_user_message": request.user_message,
         "current_interaction": request.interaction,
     }
     return (
-        "Interpret the latest user message for the current service interaction. "
+        "Use the complete conversation to propose values for the current service "
+        "interaction. Give later explicit corrections precedence over earlier values. "
         "Use only the supplied context.\n\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )

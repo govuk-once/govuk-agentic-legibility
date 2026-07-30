@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from agents.src.interaction_assistant import (
     AssistanceAction,
+    AssistanceRequest,
+    ConversationMessage,
     InteractionAssistantError,
     validate_assistance_action,
 )
@@ -81,3 +83,16 @@ def test_no_safe_suggestion_requires_message_and_no_values() -> None:
             values={"postcode": "BS1 3AB"},
             message="Complete the form manually.",
         )
+
+
+def test_assistance_request_accepts_complete_conversation() -> None:
+    """The assistant interface does not require a synthetic latest-message split."""
+    request = AssistanceRequest(
+        conversation=[
+            ConversationMessage(role="user", content="My address is 18 Station Road"),
+            ConversationMessage(role="user", content="Sorry, it is number 81"),
+        ],
+        interaction=address_interaction(),
+    )
+
+    assert request.conversation[-1].content == "Sorry, it is number 81"

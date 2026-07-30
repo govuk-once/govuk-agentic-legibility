@@ -40,6 +40,10 @@ export interface JourneyRunResponse {
   status: string;
   terminal: boolean;
   interaction: Interaction | null;
+  fixture: ConversationFixture | null;
+  conversation: ConversationMessage[];
+  assistance: AssistanceResponse | null;
+  assistance_error: string | null;
 }
 
 export interface ConversationMessage {
@@ -77,4 +81,13 @@ export interface JourneyHistoryItem {
   sequence: number;
   interactionId: string;
   status: string;
+}
+
+export interface ConversationFixture {
+  id: string;
+  version: string;
+  title: string;
+  description: string;
+  journey_id: string;
+  conversation: ConversationMessage[];
 }

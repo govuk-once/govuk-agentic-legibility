@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -9,11 +10,8 @@ from typing import Any
 import pytest
 from starlette.routing import Route
 
-from agents.src.interaction_assistant import (
-    AssistanceAction,
-    AssistanceRequest,
-    ConversationMessage,
-)
+from agents.src.evaluation import ConversationFixtureRepository
+from agents.src.interaction_assistant import AssistanceAction, AssistanceRequest
 from agents.src.workflow_executor.api import JourneyRunService, create_app
 from agents.src.workflow_executor.client import HttpExchange, HttpExchangeObserver
 from agents.src.workflow_executor.protocol import JourneyProtocolDefinition
@@ -32,20 +30,35 @@ def api_protocol() -> JourneyProtocolDefinition:
     )
 
 
-def interaction_response() -> dict[str, Any]:
-    """Return one valid non-terminal response."""
+def interaction_response(
+    interaction_id: str = "choose_address_entry_method",
+) -> dict[str, Any]:
+    """Return one valid non-terminal response.
+
+    Args:
+        interaction_id: Interaction identifier and schema variant to return.
+
+    Returns:
+        Valid server-driven journey response.
+    """
+    properties: dict[str, object]
+    if interaction_id == "choose_address_entry_method":
+        properties = {"use_postcode_lookup": {"type": "boolean"}}
+    else:
+        properties = {
+            "postcode": {"type": "string"},
+            "building_number_or_name": {"type": "string"},
+        }
     return {
         "status": "in_progress",
-        "continuation_token": "secret-token",
+        "continuation_token": f"token-{interaction_id}",
         "interaction": {
-            "id": "choose_address_entry_method",
-            "content": {"title": "Choose how to enter your address"},
+            "id": interaction_id,
+            "content": {"title": interaction_id},
             "input_schema": {
                 "type": "object",
-                "properties": {
-                    "use_postcode_lookup": {"type": "boolean"},
-                },
-                "required": ["use_postcode_lookup"],
+                "properties": properties,
+                "required": list(properties),
             },
         },
         "next_action": {"method": "POST", "path": "/next"},
@@ -116,119 +129,187 @@ class FakeClientFactory:
 
 
 class FakeAssistant:
-    """Return one configured structured proposal without calling a model."""
+    """Return configured structured proposals without calling a model."""
 
     model_id = "test-model"
-    prompt_id = "test-prompt-v1"
+    prompt_id = "test-prompt-v2"
 
-    def __init__(self, action: AssistanceAction) -> None:
-        self.action = action
+    def __init__(self, actions: list[AssistanceAction]) -> None:
+        self.actions = actions
         self.requests: list[AssistanceRequest] = []
 
     def assist(self, request: AssistanceRequest) -> AssistanceAction:
-        """Record the assistant request and return the configured action."""
+        """Record the assistant request and return the next configured action."""
         self.requests.append(request)
-        return self.action
+        return self.actions.pop(0)
 
 
-def test_service_completes_a_run_and_exposes_its_trace(tmp_path: Path) -> None:
-    """The frontend drives a run without handling continuation fields."""
-    factory = FakeClientFactory(
-        [interaction_response(), {"status": "completed"}]
+def fixture_repository(tmp_path: Path) -> ConversationFixtureRepository:
+    """Write and return one fixed conversation fixture repository.
+
+    Args:
+        tmp_path: Temporary directory supplied by pytest.
+
+    Returns:
+        Repository containing one address fixture.
+    """
+    fixture_directory = tmp_path / "fixtures"
+    fixture_directory.mkdir()
+    (fixture_directory / "address.json").write_text(
+        json.dumps(
+            {
+                "id": "address-context",
+                "version": "1",
+                "title": "Address context",
+                "description": "A complete address and lookup preference",
+                "journey_id": "change-driving-licence-address",
+                "conversation": [
+                    {
+                        "role": "user",
+                        "content": (
+                            "My address is 18 Station Road, BS1 3AB. "
+                            "Use postcode lookup."
+                        ),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
     )
+    return ConversationFixtureRepository(fixture_directory)
+
+
+def test_service_completes_manual_run_and_exposes_trace(tmp_path: Path) -> None:
+    """A run without conversation context remains manually executable."""
+    factory = FakeClientFactory([interaction_response(), {"status": "completed"}])
     service = JourneyRunService(
         trace_directory=tmp_path,
         client_factory=factory,
+        fixture_repository=fixture_repository(tmp_path),
     )
 
     started = service.start("change-driving-licence-address")
     completed = service.submit(started.run_id, {"use_postcode_lookup": True})
 
-    assert started.interaction is not None
-    assert started.interaction["id"] == "choose_address_entry_method"
+    assert started.assistance is None
+    assert started.conversation == []
     assert completed.terminal
-    assert completed.interaction is None
     assert factory.clients[0].results == [{"use_postcode_lookup": True}]
-    assert [event["type"] for event in service.trace_events(started.run_id)] == [
-        "run_started",
-        "http_exchange",
-        "result_submitted",
-        "http_exchange",
-        "run_finished",
-    ]
 
 
-def test_agent_proposal_does_not_advance_until_reviewed_result_is_submitted(
+def test_fixture_generates_default_proposals_at_each_interaction(
     tmp_path: Path,
 ) -> None:
-    """Assistance proposes values while the executor remains on the current step."""
-    factory = FakeClientFactory([interaction_response(), {"status": "completed"}])
+    """The complete fixed conversation is reused automatically at every step."""
+    factory = FakeClientFactory(
+        [
+            interaction_response(),
+            interaction_response("find_address_by_postcode"),
+            {"status": "completed"},
+        ]
+    )
     assistant = FakeAssistant(
-        AssistanceAction(
-            type="propose_values",
-            values={"use_postcode_lookup": True},
-        )
+        [
+            AssistanceAction(
+                type="propose_values",
+                values={"use_postcode_lookup": True},
+            ),
+            AssistanceAction(
+                type="propose_values",
+                values={
+                    "postcode": "BS1 3AB",
+                    "building_number_or_name": "18",
+                },
+            ),
+        ]
     )
     service = JourneyRunService(
         trace_directory=tmp_path,
         client_factory=factory,
         assistant=assistant,
+        fixture_repository=fixture_repository(tmp_path),
     )
 
-    started = service.start("change-driving-licence-address")
-    assistance = service.assist(
-        started.run_id,
-        message="Yes, use my postcode",
-        conversation=[
-            ConversationMessage(role="user", content="I need to change my address")
-        ],
+    started = service.start(
+        "change-driving-licence-address",
+        fixture_id="address-context",
+        consumer="automated_fixture",
     )
+    second = service.submit(started.run_id, {"use_postcode_lookup": True})
 
-    assert assistance.action.values == {"use_postcode_lookup": True}
-    assert factory.clients[0].results == []
-    assert assistant.requests[0].interaction["id"] == "choose_address_entry_method"
-
-    completed = service.submit(started.run_id, {"use_postcode_lookup": True})
-
-    assert completed.terminal
+    assert started.assistance is not None
+    assert started.assistance.action.values == {"use_postcode_lookup": True}
+    assert second.assistance is not None
+    assert second.assistance.action.values["postcode"] == "BS1 3AB"
+    assert len(assistant.requests) == 2
+    assert assistant.requests[0].conversation == assistant.requests[1].conversation
     events = service.trace_events(started.run_id)
+    assert events[0]["consumer"] == "automated_fixture"
     assert [event["type"] for event in events] == [
         "run_started",
+        "fixture_loaded",
         "http_exchange",
-        "user_message",
         "agent_invoked",
         "agent_responded",
         "proposal_reviewed",
         "result_submitted",
         "http_exchange",
-        "run_finished",
+        "agent_invoked",
+        "agent_responded",
     ]
-    reviewed = events[5]
-    assert reviewed["changed"] is False
-    assert reviewed["changed_fields"] == []
 
 
-def test_unconfigured_assistance_is_traced_without_advancing_run(
+def test_new_message_extends_context_without_adding_agent_proposal(
     tmp_path: Path,
 ) -> None:
-    """Manual execution remains available when no model has been configured."""
-    factory = FakeClientFactory([interaction_response()])
+    """Journey clarifications are conversation; agent outputs remain trace events."""
+    assistant = FakeAssistant(
+        [
+            AssistanceAction(type="no_safe_suggestion", message="Need a preference."),
+            AssistanceAction(
+                type="propose_values",
+                values={"use_postcode_lookup": False},
+            ),
+        ]
+    )
     service = JourneyRunService(
         trace_directory=tmp_path,
-        client_factory=factory,
+        client_factory=FakeClientFactory([interaction_response()]),
+        assistant=assistant,
+        fixture_repository=fixture_repository(tmp_path),
     )
-    started = service.start("change-driving-licence-address")
+    started = service.start(
+        "change-driving-licence-address",
+        fixture_id="address-context",
+    )
 
-    with pytest.raises(RuntimeError, match="not configured"):
-        service.assist(started.run_id, message="Use my postcode", conversation=[])
+    updated = service.add_message(started.run_id, "Actually, enter it manually.")
 
-    assert factory.clients[0].results == []
-    assert [event["type"] for event in service.trace_events(started.run_id)] == [
-        "run_started",
-        "http_exchange",
-        "user_message",
-        "agent_failed",
+    assert [message.content for message in updated.conversation] == [
+        "My address is 18 Station Road, BS1 3AB. Use postcode lookup.",
+        "Actually, enter it manually.",
     ]
+    assert updated.assistance is not None
+    assert updated.assistance.action.values == {"use_postcode_lookup": False}
+    assert len(assistant.requests[-1].conversation) == 2
+
+
+def test_unconfigured_fixture_run_stays_manually_usable(tmp_path: Path) -> None:
+    """Missing model configuration is exposed without preventing journey execution."""
+    service = JourneyRunService(
+        trace_directory=tmp_path,
+        client_factory=FakeClientFactory([interaction_response()]),
+        fixture_repository=fixture_repository(tmp_path),
+    )
+
+    started = service.start(
+        "change-driving-licence-address",
+        fixture_id="address-context",
+    )
+
+    assert started.assistance is None
+    assert started.assistance_error == "Interaction assistant is not configured"
+    assert service.trace_events(started.run_id)[-1]["type"] == "agent_failed"
 
 
 def test_service_rejects_missing_and_completed_runs(tmp_path: Path) -> None:
@@ -236,6 +317,7 @@ def test_service_rejects_missing_and_completed_runs(tmp_path: Path) -> None:
     service = JourneyRunService(
         trace_directory=tmp_path,
         client_factory=FakeClientFactory([{"status": "completed"}]),
+        fixture_repository=fixture_repository(tmp_path),
     )
 
     with pytest.raises(KeyError):
@@ -246,11 +328,12 @@ def test_service_rejects_missing_and_completed_runs(tmp_path: Path) -> None:
         service.submit(completed.run_id, {"answer": True})
 
 
-def test_app_exposes_generic_run_routes(tmp_path: Path) -> None:
-    """The HTTP adapter does not expose journey-specific endpoint paths."""
+def test_app_exposes_generic_fixture_and_run_routes(tmp_path: Path) -> None:
+    """The HTTP adapter exposes inputs and operations without journey-specific paths."""
     service = JourneyRunService(
         trace_directory=tmp_path,
         client_factory=FakeClientFactory([interaction_response()]),
+        fixture_repository=fixture_repository(tmp_path),
     )
 
     paths = {
@@ -261,8 +344,9 @@ def test_app_exposes_generic_run_routes(tmp_path: Path) -> None:
 
     assert {
         "/healthcheck",
+        "/api/conversation-fixtures",
         "/api/journey-runs",
-        "/api/journey-runs/{run_id}/assistance",
+        "/api/journey-runs/{run_id}/messages",
         "/api/journey-runs/{run_id}/results",
         "/api/journey-runs/{run_id}/trace",
     }.issubset(paths)

@@ -6,8 +6,7 @@ next operation.
 
 The framework-neutral `InteractionAssistant` interface accepts:
 
-- the latest user message;
-- earlier user-visible conversation;
+- the complete user-visible conversation available to the run;
 - the current interaction and its JSON Schema.
 
 It returns one structured action:
@@ -41,5 +40,12 @@ The assistant is created when the Python API starts. Restart the API after
 changing these values.
 
 The deterministic executor does not depend on the assistant. When no model is
-configured, manual journey execution remains available and the assistance
-endpoint returns a configuration error.
+configured, manual journey execution remains available and run responses expose
+that automatic suggestions are unavailable.
+
+## Conversation fixtures
+
+Version-controlled conversations live in `agents/src/evaluation/fixtures/`. The same
+fixture loader is used by the demonstration frontend and can be used directly by future
+automated evaluation runners. The assistant receives the complete conversation at every
+interaction; it does not receive earlier agent proposals as conversation messages.

@@ -1,18 +1,21 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import {
+    addJourneyMessage,
     getApiBaseUrl,
+    getConversationFixtures,
     getJourneyTrace,
-    requestJourneyAssistance,
     startJourney,
     submitJourneyResult
   } from '$lib/api';
   import AssistancePanel from '$lib/components/AssistancePanel.svelte';
+  import ConversationFixtureSelector from '$lib/components/ConversationFixtureSelector.svelte';
   import DataSummary from '$lib/components/DataSummary.svelte';
   import DeveloperPanel from '$lib/components/DeveloperPanel.svelte';
   import SchemaForm from '$lib/components/SchemaForm.svelte';
   import type {
     AssistanceResponse,
-    ConversationMessage,
+    ConversationFixture,
     JourneyHistoryItem,
     JourneyRunResponse,
     TraceEvent
@@ -21,9 +24,10 @@
   const JOURNEY_ID = 'change-driving-licence-address';
   const API_BASE_URL = getApiBaseUrl();
   let run: JourneyRunResponse | null = null;
+  let fixtures: ConversationFixture[] = [];
+  let selectedFixtureId: string | null = null;
   let traceEvents: TraceEvent[] = [];
   let history: JourneyHistoryItem[] = [];
-  let conversation: ConversationMessage[] = [];
   let assistanceMessage = '';
   let assistance: AssistanceResponse | null = null;
   let proposedValues: Record<string, unknown> | null = null;
@@ -31,23 +35,36 @@
   let submitting = false;
   let requestingAssistance = false;
   let refreshingTrace = false;
+  let loadingFixtures = true;
   let errorMessage = '';
+  let fixtureError = '';
   let assistanceError = '';
+
   $: interaction = run?.interaction ?? null;
   $: interactionKey = `${run?.run_id ?? 'idle'}:${history.length}:${interaction?.id ?? 'terminal'}`;
   $: title = interaction?.content?.title || humanTitle(interaction?.id) || 'Service interaction';
   $: description = interaction?.content?.description;
   $: summaryData = interaction?.content?.data;
 
+  onMount(async () => {
+    try {
+      fixtures = await getConversationFixtures();
+      selectedFixtureId = fixtures[0]?.id ?? null;
+    } catch (error) {
+      fixtureError = messageFrom(error);
+    } finally {
+      loadingFixtures = false;
+    }
+  });
+
   async function start(): Promise<void> {
     starting = true;
     errorMessage = '';
     traceEvents = [];
     history = [];
-    conversation = [];
     clearAssistance();
     try {
-      run = await startJourney(JOURNEY_ID);
+      applyRun(await startJourney(JOURNEY_ID, selectedFixtureId));
       rememberInteraction(run);
       await refreshTrace();
     } catch (error) {
@@ -57,21 +74,13 @@
     }
   }
 
-  async function requestAssistance(): Promise<void> {
+  async function addMessage(): Promise<void> {
     if (!run || !assistanceMessage.trim()) return;
     requestingAssistance = true;
     assistanceError = '';
     const message = assistanceMessage.trim();
     try {
-      const response = await requestJourneyAssistance(run.run_id, message, conversation);
-      assistance = response;
-      proposedValues =
-        response.action.type === 'propose_values' ? { ...response.action.values } : null;
-      conversation = [
-        ...conversation,
-        { role: 'user', content: message },
-        { role: 'assistant', content: assistantConversationMessage(response) }
-      ];
+      applyRun(await addJourneyMessage(run.run_id, message));
       assistanceMessage = '';
       await refreshTrace();
     } catch (error) {
@@ -87,9 +96,9 @@
     submitting = true;
     errorMessage = '';
     try {
-      run = await submitJourneyResult(run.run_id, result);
+      applyRun(await submitJourneyResult(run.run_id, result));
       rememberInteraction(run);
-      clearAssistance();
+      assistanceMessage = '';
       await refreshTrace();
     } catch (error) {
       errorMessage = messageFrom(error);
@@ -111,13 +120,31 @@
     }
   }
 
-  function rememberInteraction(response: JourneyRunResponse): void {
-    const interactionId = response.interaction?.id;
+  function applyRun(response: JourneyRunResponse): void {
+    run = response;
+    assistance = response.assistance;
+    assistanceError = response.assistance_error ?? '';
+    proposedValues =
+      response.assistance?.action.type === 'propose_values'
+        ? { ...response.assistance.action.values }
+        : null;
+  }
+
+  function rememberInteraction(response: JourneyRunResponse | null): void {
+    const interactionId = response?.interaction?.id;
     if (!interactionId) return;
     history = [
       ...history,
       { sequence: history.length + 1, interactionId, status: response.status }
     ];
+  }
+
+  function selectFixture(fixtureId: string | null): void {
+    selectedFixtureId = fixtureId;
+  }
+
+  function clearSuggestedValues(): void {
+    proposedValues = null;
   }
 
   function clearAssistance(): void {
@@ -131,16 +158,8 @@
     run = null;
     traceEvents = [];
     history = [];
-    conversation = [];
     clearAssistance();
     errorMessage = '';
-  }
-
-  function assistantConversationMessage(response: AssistanceResponse): string {
-    if (response.action.type === 'no_safe_suggestion') {
-      return response.action.message ?? 'No safe values could be proposed.';
-    }
-    return `Proposed values: ${JSON.stringify(response.action.values)}`;
   }
 
   function humanTitle(value: string | undefined): string {
@@ -196,10 +215,17 @@
             The browser asks the Python executor to start the journey. The service returns
             the first interaction and controls every subsequent transition.
           </p>
+          <ConversationFixtureSelector
+            {fixtures}
+            selectedId={selectedFixtureId}
+            loading={loadingFixtures}
+            error={fixtureError}
+            onSelect={selectFixture}
+          />
           <ul>
-            <li>Describe an answer or enter it directly</li>
-            <li>Review any values proposed by the agent</li>
-            <li>Confirm before completion</li>
+            <li>Reuse information from the selected conversation</li>
+            <li>Review or clear values proposed by the agent</li>
+            <li>Add corrections beneath the form when needed</li>
           </ul>
           <button class="primary" type="button" onclick={start} disabled={starting}
             >{starting ? 'Starting journey…' : 'Start journey'}</button
@@ -230,22 +256,23 @@
           <h2>{title}</h2>
           {#if description}<p>{description}</p>{/if}
           <DataSummary data={summaryData} />
-          <AssistancePanel
-            bind:message={assistanceMessage}
-            response={assistance}
-            error={assistanceError}
-            disabled={submitting}
-            requesting={requestingAssistance}
-            onRequest={requestAssistance}
-          />
           {#key interactionKey}
             <SchemaForm
               {interaction}
               {proposedValues}
               disabled={submitting || requestingAssistance}
               onSubmit={submit}
+              onClearSuggestedValues={clearSuggestedValues}
             />
           {/key}
+          <AssistancePanel
+            bind:message={assistanceMessage}
+            response={assistance}
+            error={assistanceError}
+            disabled={submitting}
+            requesting={requestingAssistance}
+            onRequest={addMessage}
+          />
         </div>
       {/if}
     </section>

@@ -1,7 +1,6 @@
 import { env } from '$env/dynamic/public';
 import type {
-  AssistanceResponse,
-  ConversationMessage,
+  ConversationFixture,
   JourneyRunResponse,
   TraceResponse
 } from '$lib/types';
@@ -22,10 +21,17 @@ export function getApiBaseUrl(): string {
   return (env.PUBLIC_JOURNEY_API_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 }
 
-export async function startJourney(journeyId: string): Promise<JourneyRunResponse> {
+export async function getConversationFixtures(): Promise<ConversationFixture[]> {
+  return request<ConversationFixture[]>('/api/conversation-fixtures');
+}
+
+export async function startJourney(
+  journeyId: string,
+  fixtureId: string | null
+): Promise<JourneyRunResponse> {
   return request<JourneyRunResponse>('/api/journey-runs', {
     method: 'POST',
-    body: JSON.stringify({ journey_id: journeyId })
+    body: JSON.stringify({ journey_id: journeyId, fixture_id: fixtureId })
   });
 }
 
@@ -39,16 +45,15 @@ export async function submitJourneyResult(
   });
 }
 
-export async function requestJourneyAssistance(
+export async function addJourneyMessage(
   runId: string,
-  message: string,
-  conversation: ConversationMessage[]
-): Promise<AssistanceResponse> {
-  return request<AssistanceResponse>(
-    `/api/journey-runs/${encodeURIComponent(runId)}/assistance`,
+  content: string
+): Promise<JourneyRunResponse> {
+  return request<JourneyRunResponse>(
+    `/api/journey-runs/${encodeURIComponent(runId)}/messages`,
     {
       method: 'POST',
-      body: JSON.stringify({ message, conversation })
+      body: JSON.stringify({ content })
     }
   );
 }

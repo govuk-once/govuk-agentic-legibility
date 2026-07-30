@@ -17,27 +17,27 @@
 <section class="assistant" aria-labelledby="assistant-heading">
   <div class="heading">
     <div>
-      <span>Optional agent assistance</span>
-      <h3 id="assistant-heading">Describe your answer in your own words</h3>
+      <span>Conversation context</span>
+      <h3 id="assistant-heading">Add or correct information</h3>
     </div>
     <strong>Agent cannot continue the journey</strong>
   </div>
   <p>
-    The agent can suggest values for the current fields. You will still review the form
-    and choose whether to continue.
+    Use this when the existing conversation is incomplete or wrong. The new message is
+    added to the run and the agent updates suggestions for the current form.
   </p>
 
   <form onsubmit={submit}>
-    <label for="assistant-message">Your message</label>
+    <label for="assistant-message">New message</label>
     <textarea
       id="assistant-message"
-      rows="4"
+      rows="3"
       bind:value={message}
-      placeholder="Tell us what you know about the information requested above."
+      placeholder="For example: Sorry, the building number is 81, not 18."
       disabled={disabled || requesting}
     ></textarea>
     <button type="submit" disabled={disabled || requesting || !message.trim()}>
-      {requesting ? 'Getting suggestion…' : 'Suggest values'}
+      {requesting ? 'Updating suggestions…' : 'Add message and update suggestions'}
     </button>
   </form>
 
@@ -45,13 +45,8 @@
     <div class="error" role="alert"><strong>Agent assistance failed</strong><span>{error}</span></div>
   {:else if response?.action.type === 'propose_values'}
     <div class="proposal" role="status">
-      <strong>Suggested values have been added to the form</strong>
-      <span>Check or change them before continuing.</span>
-      <dl>
-        {#each Object.entries(response.action.values) as [name, value]}
-          <div><dt>{name}</dt><dd>{String(value ?? '')}</dd></div>
-        {/each}
-      </dl>
+      <strong>Suggestions updated</strong>
+      <span>The current form now reflects the complete conversation.</span>
     </div>
   {:else if response?.action.type === 'no_safe_suggestion'}
     <div class="notice" role="status">
@@ -62,7 +57,7 @@
 </section>
 
 <style>
-  .assistant { margin: 1.6rem 0 0; border: 1px solid #b1b4b6; border-left: .35rem solid #1d70b8; background: #f3f2f1; padding: 1rem 1.1rem 1.15rem; }
+  .assistant { margin: 2rem 0 0; border-top: 1px solid #b1b4b6; background: #f3f2f1; padding: 1rem 1.1rem 1.15rem; }
   .heading { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
   .heading span { color: #1d70b8; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
   .heading h3 { margin: .15rem 0 0; font-size: 1.12rem; line-height: 1.25; }
@@ -80,9 +75,5 @@
   .notice { border-left: .3rem solid #f47738; }
   .error { border-left: .3rem solid #d4351c; }
   .proposal span, .notice span, .error span { color: #505a5f; font-size: .86rem; }
-  dl { margin: .6rem 0 0; }
-  dl div { display: grid; grid-template-columns: minmax(8rem,1fr) minmax(0,2fr); gap: .75rem; border-top: 1px solid #b1b4b6; padding: .35rem 0; font-size: .78rem; }
-  dt { font-family: ui-monospace, monospace; }
-  dd { margin: 0; overflow-wrap: anywhere; }
   @media (max-width: 38rem) { .heading { flex-direction: column; } .heading > strong { max-width: none; } }
 </style>

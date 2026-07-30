@@ -26,12 +26,11 @@ class ConversationMessage(BaseModel):
 
 
 class AssistanceRequest(BaseModel):
-    """Inputs available to the assistant for one current interaction."""
+    """Complete conversation and current interaction available to the assistant."""
 
     model_config = ConfigDict(extra="forbid")
 
-    user_message: str = Field(min_length=1)
-    conversation: list[ConversationMessage] = Field(default_factory=list)
+    conversation: list[ConversationMessage] = Field(min_length=1)
     interaction: JsonObject
 
 

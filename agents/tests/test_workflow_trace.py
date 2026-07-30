@@ -52,7 +52,7 @@ def test_trace_recorder_appends_run_exchange_and_finish_events(tmp_path: Path) -
         "run_finished",
     ]
     assert {event["run_id"] for event in events} == {"run-123"}
-    assert events[0]["trace_version"] == "1.1"
+    assert events[0]["trace_version"] == "1.2"
     assert events[1]["request"]["path"] == "/journeys/change-address/steps"
     assert events[1]["duration_ms"] == 12.346
     assert events[2]["terminal_status"] == "completed"
@@ -133,3 +133,24 @@ def test_trace_records_agent_proposal_review_without_treating_added_fields_as_ed
     assert accepted["changed_fields"] == []
     assert edited["changed"] is True
     assert edited["changed_fields"] == ["address_line_1"]
+
+
+def test_trace_records_loaded_fixture_and_complete_conversation(tmp_path: Path) -> None:
+    """A run records the exact fixed input used by UI or automated consumers."""
+    recorder = JsonlTraceRecorder(
+        tmp_path / "run.jsonl",
+        run_id="run-fixture",
+        journey_id="change-driving-licence-address",
+        consumer="automated_fixture",
+    )
+    recorder.record_fixture_loaded(
+        fixture_id="address-context",
+        fixture_version="1",
+        fixture_sha256="abc123",
+        conversation=[{"role": "user", "content": "Use postcode lookup."}],
+    )
+
+    event = read_events(recorder.path)[1]
+    assert event["type"] == "fixture_loaded"
+    assert event["fixture_id"] == "address-context"
+    assert event["conversation"][0]["content"] == "Use postcode lookup."

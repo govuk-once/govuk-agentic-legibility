@@ -6,6 +6,7 @@
   export let disabled = false;
   export let proposedValues: Record<string, unknown> | null = null;
   export let onSubmit: (values: Record<string, unknown>) => void;
+  export let onClearSuggestedValues: () => void;
   const schema = interaction.input_schema;
   const fields = Object.entries(schema.properties ?? {});
   let values: Record<string, unknown> = {
@@ -16,9 +17,27 @@
   let errors: Record<string, string> = {};
 
   $: if (proposedValues !== appliedProposal) {
-    values = { ...values, ...(proposedValues ?? {}) };
-    appliedProposal = proposedValues;
+    replaceProposal(proposedValues);
+  }
+
+  function replaceProposal(nextProposal: Record<string, unknown> | null): void {
+    const nextValues = { ...values };
+    const defaults = initialValues(schema);
+    for (const [name, previousValue] of Object.entries(appliedProposal ?? {})) {
+      if (nextValues[name] !== previousValue) continue;
+      if (name in defaults) nextValues[name] = defaults[name];
+      else delete nextValues[name];
+    }
+    values = { ...nextValues, ...(nextProposal ?? {}) };
+    appliedProposal = nextProposal;
     errors = {};
+  }
+
+  function clearSuggestedValues(): void {
+    values = initialValues(schema);
+    appliedProposal = null;
+    errors = {};
+    onClearSuggestedValues();
   }
 
   function setValue(name: string, value: unknown): void {
@@ -67,6 +86,17 @@
 </script>
 
 <form onsubmit={submit} novalidate>
+  {#if proposedValues}
+    <div class="suggestion" role="status">
+      <div>
+        <strong>Values suggested from the conversation</strong>
+        <span>Check or change them before continuing.</span>
+      </div>
+      <button class="clear" type="button" onclick={clearSuggestedValues} {disabled}>
+        Clear suggested values
+      </button>
+    </div>
+  {/if}
   {#if fields.length === 0}
     <div class="unsupported" role="alert">This interaction has no renderable form properties.</div>
   {/if}
@@ -107,6 +137,10 @@
 </form>
 <style>
   form { margin-top: 1.75rem; }
+  .suggestion { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.5rem; border-left: .3rem solid #00703c; background: #f3f2f1; padding: .8rem .9rem; }
+  .suggestion div { display: grid; gap: .15rem; }
+  .suggestion span { color: #505a5f; font-size: .88rem; }
+  .clear { border: 2px solid #0b0c0c; border-bottom-width: 2px; background: #fff; color: #0b0c0c; box-shadow: none; padding: .45rem .65rem; white-space: nowrap; }
   .field { margin-bottom: 1.75rem; }
   .field.error { border-left: .3rem solid #d4351c; padding-left: .9rem; }
   fieldset { border: 0; padding: 0; margin: 0; }
@@ -120,8 +154,10 @@
   .choice input { width: 1.6rem; height: 1.6rem; margin: 0; accent-color: #1d70b8; }
   button { border: 0; border-bottom: .2rem solid #002d18; background: #00703c; color: #fff; padding: .72rem 1.25rem .62rem; font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 .15rem 0 #002d18; }
   button:hover:not(:disabled) { background: #005a30; }
+  .clear:hover:not(:disabled) { background: #e8f1f8; }
   button:focus { outline: .2rem solid #ffdd00; outline-offset: .15rem; }
   button:disabled { cursor: wait; opacity: .55; }
   .unsupported { margin: 1rem 0; border-left: .3rem solid #f47738; background: #fff7e6; padding: .8rem 1rem; }
   code { background: #f3f2f1; padding: .1rem .25rem; }
+  @media (max-width: 38rem) { .suggestion { align-items: flex-start; flex-direction: column; } }
 </style>

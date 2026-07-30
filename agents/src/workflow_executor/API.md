@@ -1,63 +1,62 @@
 # Journey executor prototype API
 
 This is a thin FastAPI adapter around the stepwise executor. It exists so a SvelteKit
-prototype can start a journey, ask for bounded agent assistance, display the current
-interaction and submit a reviewed result without implementing journey progression.
+prototype, automated fixture runner or another client can start a journey, inspect the
+current interaction and submit a reviewed result without implementing journey
+progression.
 
-Active runs are held only in the Python process. Restarting the API clears them. This is
-not durable journey storage: the latest response is retained only to carry the
-service-issued continuation token between browser requests. Each run writes its raw
-application and journey-service events to `.traces/`.
+Active runs are held only in the Python process. Restarting the API clears them. Each
+run writes raw application and journey-service events to `.traces/`.
 
-## Run locally
+## Conversation fixtures
 
-Start the Flex/DVLA stub on port 8000. Configure a Bedrock model or inference profile in
-`agents/.env`:
+Version-controlled conversation inputs live in `agents/src/evaluation/fixtures/`.
+They are ordinary JSON files and are not coupled to the frontend. The same fixture
+repository can be used by the HTTP application and future automated evaluation runners.
 
-```dotenv
-JOURNEY_AGENT_MODEL_ID=<Bedrock model or inference-profile ID>
-JOURNEY_AGENT_REGION=eu-west-2
+List available fixtures:
+
+```http
+GET /api/conversation-fixtures
 ```
 
-Then run the adapter from a shell with AWS credentials:
-
-```sh
-STUB_SERVER_URL=http://127.0.0.1:8000 just api
-```
-
-The adapter listens on `http://127.0.0.1:8001`; its OpenAPI documentation is available
-at `/docs`. The SvelteKit development origins on port 5173 are allowed by CORS.
-
-The model is optional. Without `JOURNEY_AGENT_MODEL_ID`, the manual form path remains
-available but the assistance operation returns HTTP 503.
-
-## Operations
-
-Start a run:
+Start a run with a fixture:
 
 ```http
 POST /api/journey-runs
 Content-Type: application/json
 
-{"journey_id": "change-driving-licence-address"}
-```
-
-Ask for a structured proposal for the current interaction:
-
-```http
-POST /api/journey-runs/{run_id}/assistance
-Content-Type: application/json
-
 {
-  "message": "Yes, use my postcode",
-  "conversation": []
+  "journey_id": "change-driving-licence-address",
+  "fixture_id": "complete-address-postcode-lookup"
 }
 ```
 
-This operation does not submit values or advance the journey. It returns
-`propose_values` or `no_safe_suggestion`.
+The backend stores the fixed source conversation with the run and asks the interaction
+assistant for suggestions automatically at every non-terminal interaction. A client does
+not need to request suggestions explicitly.
 
-Submit the reviewed result:
+Start without a fixture by omitting `fixture_id` or setting it to `null`. The journey
+remains manually executable.
+
+## Add information during a run
+
+A user can add a correction or clarification without advancing the journey:
+
+```http
+POST /api/journey-runs/{run_id}/messages
+Content-Type: application/json
+
+{
+  "content": "Sorry, the building number is 81, not 18."
+}
+```
+
+The backend appends the user message to the run conversation and refreshes suggestions
+for the current interaction. Agent proposals are not inserted into the conversation.
+They remain application events in the raw trace.
+
+## Submit the reviewed result
 
 ```http
 POST /api/journey-runs/{run_id}/results
@@ -66,15 +65,20 @@ Content-Type: application/json
 {"result": {"use_postcode_lookup": true}}
 ```
 
-Inspect the raw trace accumulated so far:
+The run response includes:
+
+- the current interaction and terminality;
+- the selected fixture and complete user-visible conversation;
+- the latest structured assistance action or assistance error.
+
+The continuation token and advertised next operation remain inside the Python adapter.
+
+## Inspect the raw trace
 
 ```http
 GET /api/journey-runs/{run_id}/trace
 ```
 
-The trace includes user messages, assistant invocations and structured responses,
-proposal review, submitted results, and exact journey-service HTTP exchanges. It does
-not record hidden model reasoning.
-
-The run response contains only the current interaction, status and terminality. The
-continuation token and advertised next operation remain inside the Python adapter.
+The trace includes the fixture ID, version and source-file hash, complete assistant
+inputs, structured assistant responses, proposal review, submitted results and exact
+journey-service HTTP exchanges. It does not record hidden model reasoning.

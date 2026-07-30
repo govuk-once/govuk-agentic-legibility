@@ -1,0 +1,35 @@
+{
+  "id": "corrected-building-number",
+  "version": "1",
+  "title": "Explicitly corrected building number",
+  "description": "The user corrects an earlier building number before the journey starts.",
+  "journey_id": "change-driving-licence-address",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "My new address is 18 Station Road, Bristol, BS1 3AB."
+    },
+    {
+      "role": "user",
+      "content": "Sorry, I mistyped the building number. It is 81 Station Road, not 18. Please use postcode lookup."
+    }
+  ],
+  "expected": {
+    "interactions": {
+      "choose_address_entry_method": {
+        "type": "propose_values",
+        "values": {
+          "use_postcode_lookup": true
+        }
+      },
+      "find_address_by_postcode": {
+        "type": "propose_values",
+        "values": {
+          "postcode": "BS1 3AB",
+          "building_number_or_name": "81"
+        }
+      }
+    },
+    "terminal_status": "completed"
+  }
+}

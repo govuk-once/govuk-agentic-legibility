@@ -12,7 +12,7 @@ from uuid import uuid4
 from agents.src.workflow_executor.client import HttpExchange
 from agents.src.workflow_executor.types import ReadOnlyJsonObject
 
-TRACE_FORMAT_VERSION = "1.1"
+TRACE_FORMAT_VERSION = "1.2"
 
 
 class JsonlTraceRecorder:
@@ -130,6 +130,32 @@ class JsonlTraceRecorder:
             },
         )
 
+    def record_fixture_loaded(
+        self,
+        *,
+        fixture_id: str,
+        fixture_version: str,
+        fixture_sha256: str,
+        conversation: list[dict[str, object]],
+    ) -> None:
+        """Record the exact version-controlled conversation input for a run.
+
+        Args:
+            fixture_id: Stable fixture identifier.
+            fixture_version: Explicit fixture version.
+            fixture_sha256: Hash of the exact JSON fixture file.
+            conversation: Fixed user-visible conversation loaded from the fixture.
+        """
+        self._append(
+            "fixture_loaded",
+            {
+                "fixture_id": fixture_id,
+                "fixture_version": fixture_version,
+                "fixture_sha256": fixture_sha256,
+                "conversation": conversation,
+            },
+        )
+
     def record_user_message(
         self,
         *,
@@ -157,7 +183,6 @@ class JsonlTraceRecorder:
         prompt_id: str,
         interaction: ReadOnlyJsonObject,
         conversation: list[dict[str, object]],
-        user_message: str,
     ) -> None:
         """Record the exact application-level context supplied to an assistant.
 
@@ -165,8 +190,7 @@ class JsonlTraceRecorder:
             model_id: Configured model or inference-profile identifier.
             prompt_id: Identifier of the version-controlled system prompt.
             interaction: Current service interaction and input schema.
-            conversation: Earlier user-visible conversation messages.
-            user_message: Latest user message interpreted by the assistant.
+            conversation: Complete user-visible conversation supplied to the assistant.
         """
         self._append(
             "agent_invoked",
@@ -175,7 +199,6 @@ class JsonlTraceRecorder:
                 "prompt_id": prompt_id,
                 "input": {
                     "conversation": conversation,
-                    "user_message": user_message,
                     "interaction": dict(interaction),
                 },
             },
