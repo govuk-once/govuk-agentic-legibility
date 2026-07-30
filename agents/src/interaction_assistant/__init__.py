@@ -2,7 +2,11 @@
 
 from agents.src.interaction_assistant.assistant import (
     AssistanceAction,
+    AssistanceContext,
     AssistanceRequest,
+    AssistanceResult,
+    AssistanceToolRecorder,
+    AssistanceTrigger,
     ConversationMessage,
     InteractionAssistant,
     InteractionAssistantError,
@@ -11,7 +15,11 @@ from agents.src.interaction_assistant.assistant import (
 
 __all__ = [
     "AssistanceAction",
+    "AssistanceContext",
     "AssistanceRequest",
+    "AssistanceResult",
+    "AssistanceToolRecorder",
+    "AssistanceTrigger",
     "ConversationMessage",
     "InteractionAssistant",
     "InteractionAssistantError",

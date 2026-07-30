@@ -51,14 +51,23 @@ export interface ConversationMessage {
   content: string;
 }
 
+export interface GuidanceReference {
+  id: string;
+  title: string;
+  version: string;
+  sha256: string;
+}
+
 export interface AssistanceAction {
-  type: 'propose_values' | 'no_safe_suggestion';
+  type: 'propose_values' | 'no_safe_suggestion' | 'answer_journey_question';
   values: Record<string, JsonPrimitive>;
   message: string | null;
+  answer: string | null;
 }
 
 export interface AssistanceResponse {
   action: AssistanceAction;
+  retrieved_guidance: GuidanceReference[];
   model_id: string;
   prompt_id: string;
   duration_ms: number;

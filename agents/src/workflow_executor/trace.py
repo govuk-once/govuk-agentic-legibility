@@ -12,7 +12,7 @@ from uuid import uuid4
 from agents.src.workflow_executor.client import HttpExchange
 from agents.src.workflow_executor.types import ReadOnlyJsonObject
 
-TRACE_FORMAT_VERSION = "1.2"
+TRACE_FORMAT_VERSION = "1.4"
 
 
 class JsonlTraceRecorder:
@@ -183,6 +183,7 @@ class JsonlTraceRecorder:
         prompt_id: str,
         interaction: ReadOnlyJsonObject,
         conversation: list[dict[str, object]],
+        trigger: ReadOnlyJsonObject,
     ) -> None:
         """Record the exact application-level context supplied to an assistant.
 
@@ -191,6 +192,7 @@ class JsonlTraceRecorder:
             prompt_id: Identifier of the version-controlled system prompt.
             interaction: Current service interaction and input schema.
             conversation: Complete user-visible conversation supplied to the assistant.
+            trigger: Application-observed reason for this assistant invocation.
         """
         self._append(
             "agent_invoked",
@@ -198,9 +200,76 @@ class JsonlTraceRecorder:
                 "model_id": model_id,
                 "prompt_id": prompt_id,
                 "input": {
+                    "trigger": dict(trigger),
                     "conversation": conversation,
                     "interaction": dict(interaction),
                 },
+            },
+        )
+
+    def record_agent_tool_requested(
+        self,
+        *,
+        tool: str,
+        arguments: ReadOnlyJsonObject,
+    ) -> None:
+        """Record a bounded tool call selected by the model.
+
+        Args:
+            tool: Application tool name exposed to the model.
+            arguments: Structured arguments selected by the model.
+        """
+        self._append(
+            "agent_tool_requested",
+            {
+                "tool": tool,
+                "arguments": dict(arguments),
+            },
+        )
+
+    def record_agent_tool_completed(
+        self,
+        *,
+        tool: str,
+        arguments: ReadOnlyJsonObject,
+        result: ReadOnlyJsonObject,
+    ) -> None:
+        """Record the semantic result of a completed bounded tool call.
+
+        Args:
+            tool: Application tool name exposed to the model.
+            arguments: Structured arguments selected by the model.
+            result: Sanitised application-observed result.
+        """
+        self._append(
+            "agent_tool_completed",
+            {
+                "tool": tool,
+                "arguments": dict(arguments),
+                "result": dict(result),
+            },
+        )
+
+    def record_agent_tool_failed(
+        self,
+        *,
+        tool: str,
+        arguments: ReadOnlyJsonObject,
+        error: str,
+    ) -> None:
+        """Record a bounded tool call that could not be completed.
+
+        Args:
+            tool: Application tool name exposed to the model.
+            arguments: Structured arguments selected by the model.
+            error: Application-level failure description.
+        """
+        self._append(
+            "agent_tool_failed",
+            {
+                "tool": tool,
+                "arguments": dict(arguments),
+                "error": error,
             },
         )
 
@@ -209,6 +278,7 @@ class JsonlTraceRecorder:
         *,
         model_id: str,
         action: ReadOnlyJsonObject,
+        retrieved_guidance: list[dict[str, object]],
         duration_ms: float,
     ) -> None:
         """Record the validated structured action returned by an assistant.
@@ -216,6 +286,7 @@ class JsonlTraceRecorder:
         Args:
             model_id: Configured model or inference-profile identifier.
             action: Validated structured assistance action.
+            retrieved_guidance: Documents actually retrieved by bounded tools.
             duration_ms: End-to-end assistant invocation duration.
         """
         self._append(
@@ -223,7 +294,32 @@ class JsonlTraceRecorder:
             {
                 "model_id": model_id,
                 "action": dict(action),
+                "retrieved_guidance": retrieved_guidance,
                 "duration_ms": round(duration_ms, 3),
+            },
+        )
+
+    def record_answer_presented(
+        self,
+        *,
+        interaction_id: str | None,
+        answer: str,
+        retrieved_guidance: list[dict[str, object]],
+    ) -> None:
+        """Record a journey answer shown without advancing the interaction.
+
+        Args:
+            interaction_id: Current service interaction identifier, when available.
+            answer: User-facing answer returned by the assistant.
+            retrieved_guidance: Guidance actually retrieved during this invocation.
+        """
+        self._append(
+            "answer_presented",
+            {
+                "interaction_id": interaction_id,
+                "answer": answer,
+                "retrieved_guidance": retrieved_guidance,
+                "grounded_in_retrieved_guidance": bool(retrieved_guidance),
             },
         )
 

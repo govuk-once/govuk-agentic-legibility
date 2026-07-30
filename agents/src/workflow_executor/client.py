@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from time import perf_counter
@@ -9,11 +10,16 @@ from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 import requests
+from pydantic import ValidationError
 
 from agents.src.workflow_executor.errors import (
     JourneyHttpError,
     JourneyNotFoundError,
     JourneyProtocolError,
+)
+from agents.src.workflow_executor.guidance import (
+    GuidanceDirectory,
+    GuidanceDocument,
 )
 from agents.src.workflow_executor.protocol import (
     JourneyProtocolDefinition,
@@ -79,11 +85,13 @@ class Operation:
 
 @dataclass(frozen=True)
 class JourneyDefinition:
-    """The catalogue information required to start a journey."""
+    """Catalogue operations exposed for one journey."""
 
     journey_id: str
     title: str
     start: Operation
+    guidance_directory: Operation | None = None
+    guidance: Operation | None = None
 
 
 class JourneyClient:
@@ -191,6 +199,10 @@ class JourneyClient:
                 journey_id=journey_id,
                 title=_required_string(raw_journey, "title"),
                 start=start,
+                guidance_directory=_optional_operation(
+                    operations, "guidance_directory"
+                ),
+                guidance=_optional_operation(operations, "guidance"),
             )
 
         raise JourneyNotFoundError(f"Journey {journey_id!r} is not advertised")
@@ -206,6 +218,57 @@ class JourneyClient:
         """
         journey = self.get_journey(journey_id)
         return self._request(journey.start.method, journey.start.path)
+
+    def list_guidance(self, journey_id: str) -> GuidanceDirectory:
+        """List compact approved guidance metadata for one journey.
+
+        Args:
+            journey_id: Stable journey identifier advertised by the service.
+
+        Returns:
+            Versioned guidance directory.
+
+        Raises:
+            JourneyProtocolError: If the operation or response is malformed.
+        """
+        operation = _required_guidance_operation(
+            self.get_journey(journey_id).guidance_directory,
+            "guidance_directory",
+        )
+        payload = self._request(operation.method, operation.path)
+        return _validated_guidance(GuidanceDirectory, payload, operation.path)
+
+    def get_guidance(
+        self,
+        journey_id: str,
+        topic_id: str,
+    ) -> GuidanceDocument:
+        """Retrieve one advertised Markdown guidance document.
+
+        Args:
+            journey_id: Stable journey identifier advertised by the service.
+            topic_id: Topic identifier selected from the guidance directory.
+
+        Returns:
+            Retrieved guidance content and provenance.
+
+        Raises:
+            JourneyProtocolError: If the topic, operation or response is malformed.
+        """
+        if re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", topic_id) is None:
+            msg = "Guidance topic IDs must use lowercase letters, numbers and hyphens"
+            raise JourneyProtocolError(msg)
+
+        operation = _required_guidance_operation(
+            self.get_journey(journey_id).guidance,
+            "guidance",
+        )
+        if operation.path.count("{topic}") != 1:
+            msg = "Advertised guidance path must contain one {topic} placeholder"
+            raise JourneyProtocolError(msg)
+        path = operation.path.replace("{topic}", topic_id)
+        payload = self._request(operation.method, path)
+        return _validated_guidance(GuidanceDocument, payload, path)
 
     def call_action(
         self,
@@ -360,6 +423,43 @@ class JourneyClient:
                 error=error,
             )
         )
+
+
+def _optional_operation(
+    operations: Mapping[str, Any],
+    key: str,
+) -> Operation | None:
+    raw_operation = operations.get(key)
+    if raw_operation is None:
+        return None
+    if not isinstance(raw_operation, Mapping):
+        raise JourneyProtocolError(
+            f"Journey contract field {key!r} must be an object"
+        )
+    return _parse_operation(raw_operation)
+
+
+def _required_guidance_operation(
+    operation: Operation | None,
+    name: str,
+) -> Operation:
+    if operation is None:
+        raise JourneyProtocolError(
+            f"Journey does not advertise the {name!r} operation"
+        )
+    return operation
+
+
+def _validated_guidance[GuidanceModel: GuidanceDirectory | GuidanceDocument](
+    model: type[GuidanceModel],
+    payload: JsonObject,
+    path: str,
+) -> GuidanceModel:
+    try:
+        return model.model_validate(payload) # type: ignore
+    except ValidationError as exc:
+        msg = f"Journey guidance response for {path} is malformed: {exc}"
+        raise JourneyProtocolError(msg) from exc
 
 
 def _parse_operation(raw_operation: ReadOnlyJsonObject) -> Operation:

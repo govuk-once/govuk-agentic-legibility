@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
-from typing import Any, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +20,9 @@ from agents.src.evaluation import (
 )
 from agents.src.interaction_assistant import (
     AssistanceAction,
+    AssistanceContext,
     AssistanceRequest,
+    AssistanceTrigger,
     ConversationMessage,
     InteractionAssistant,
     InteractionAssistantError,
@@ -40,6 +42,10 @@ from agents.src.workflow_executor.executor import (
     JourneyClientProtocol,
     JourneyExecutor,
 )
+from agents.src.workflow_executor.guidance import (
+    GuidanceClientProtocol,
+    GuidanceReference,
+)
 from agents.src.workflow_executor.trace import JsonlTraceRecorder
 from agents.src.workflow_executor.types import JsonObject, ReadOnlyJsonObject
 
@@ -49,9 +55,18 @@ DEFAULT_FRONTEND_ORIGINS = (
     "http://localhost:5173",
 )
 
+
+class JourneyServiceClientProtocol(
+    JourneyClientProtocol,
+    GuidanceClientProtocol,
+    Protocol,
+):
+    """Journey execution and bounded guidance operations for one service."""
+
+
 JourneyClientFactory: TypeAlias = Callable[
     [HttpExchangeObserver | None],
-    JourneyClientProtocol,
+    JourneyServiceClientProtocol,
 ]
 
 
@@ -85,6 +100,7 @@ class AssistanceApiResponse(BaseModel):
     """Structured assistance generated for one current interaction."""
 
     action: AssistanceAction
+    retrieved_guidance: list[GuidanceReference] = Field(default_factory=list)
     model_id: str
     prompt_id: str
     duration_ms: float
@@ -107,6 +123,7 @@ class RunResponse(BaseModel):
 @dataclass
 class _Run:
     journey_id: str
+    client: JourneyServiceClientProtocol
     executor: JourneyExecutor
     response: JsonObject
     trace: JsonlTraceRecorder
@@ -218,10 +235,12 @@ class JourneyRunService:
                 ],
             )
 
-        executor = JourneyExecutor(self._client_factory(trace.record_exchange))
+        client = self._client_factory(trace.record_exchange)
+        executor = JourneyExecutor(client)
         response = executor.start(journey_id)
         run = _Run(
             journey_id=journey_id,
+            client=client,
             executor=executor,
             response=response,
             trace=trace,
@@ -237,7 +256,10 @@ class JourneyRunService:
         if executor.is_terminal(response):
             trace.record_finished(response)
         elif run.assistance_enabled:
-            self._refresh_assistance(run)
+            self._refresh_assistance(
+                run,
+                trigger=AssistanceTrigger(type="interaction_opened"),
+            )
         return self._view(trace.run_id, run)
 
     def add_message(self, run_id: str, content: str) -> RunResponse:
@@ -264,7 +286,13 @@ class JourneyRunService:
             interaction_id=_interaction_id(interaction),
             message=content,
         )
-        self._refresh_assistance(run)
+        self._refresh_assistance(
+            run,
+            trigger=AssistanceTrigger(
+                type="user_message_added",
+                message=content,
+            ),
+        )
         return self._view(run_id, run)
 
     def submit(
@@ -310,7 +338,10 @@ class JourneyRunService:
         if run.executor.is_terminal(run.response):
             run.trace.record_finished(run.response)
         elif run.assistance_enabled:
-            self._refresh_assistance(run)
+            self._refresh_assistance(
+                run,
+                trigger=AssistanceTrigger(type="interaction_opened"),
+            )
         return self._view(run_id, run)
 
     def trace_events(self, run_id: str) -> list[dict[str, object]]:
@@ -327,7 +358,12 @@ class JourneyRunService:
         """
         return self._runs[run_id].trace.read_events()
 
-    def _refresh_assistance(self, run: _Run) -> None:
+    def _refresh_assistance(
+        self,
+        run: _Run,
+        *,
+        trigger: AssistanceTrigger,
+    ) -> None:
         self._clear_assistance(run)
         if not run.assistance_enabled:
             return
@@ -347,6 +383,7 @@ class JourneyRunService:
         request = AssistanceRequest(
             conversation=conversation,
             interaction=interaction,
+            trigger=trigger,
         )
         conversation_payload = [
             item.model_dump(mode="json") for item in conversation
@@ -356,11 +393,20 @@ class JourneyRunService:
             prompt_id=self._assistant.prompt_id,
             interaction=interaction,
             conversation=conversation_payload,
+            trigger=trigger.model_dump(mode="json"),
         )
         started_at = perf_counter()
         try:
+            assistance_result = self._assistant.assist(
+                request,
+                AssistanceContext(
+                    journey_id=run.journey_id,
+                    guidance=run.client,
+                    tool_recorder=run.trace,
+                ),
+            )
             action = validate_assistance_action(
-                self._assistant.assist(request),
+                assistance_result.action,
                 interaction,
             )
         except InteractionAssistantError as exc:
@@ -375,13 +421,19 @@ class JourneyRunService:
 
         duration_ms = (perf_counter() - started_at) * 1000
         action_payload = action.model_dump(mode="json")
+        retrieved_guidance = assistance_result.retrieved_guidance
+        retrieved_payload = [
+            reference.model_dump(mode="json") for reference in retrieved_guidance
+        ]
         run.trace.record_agent_responded(
             model_id=self._assistant.model_id,
             action=action_payload,
+            retrieved_guidance=retrieved_payload,
             duration_ms=duration_ms,
         )
         run.latest_assistance = AssistanceApiResponse(
             action=action,
+            retrieved_guidance=retrieved_guidance,
             model_id=self._assistant.model_id,
             prompt_id=self._assistant.prompt_id,
             duration_ms=round(duration_ms, 3),
@@ -389,6 +441,20 @@ class JourneyRunService:
         run.latest_proposal = (
             dict(action.values) if action.type == "propose_values" else None
         )
+        if action.type == "answer_journey_question":
+            answer = action.answer
+            if answer is None:  # pragma: no cover - validated by AssistanceAction
+                raise InteractionAssistantError(
+                    "answer_journey_question did not contain an answer"
+                )
+            run.journey_conversation.append(
+                ConversationMessage(role="assistant", content=answer)
+            )
+            run.trace.record_answer_presented(
+                interaction_id=_interaction_id(interaction),
+                answer=answer,
+                retrieved_guidance=retrieved_payload,
+            )
 
     @staticmethod
     def _clear_assistance(run: _Run) -> None:

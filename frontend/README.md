@@ -2,14 +2,16 @@
 
 This SvelteKit application is a developer-facing demonstration of an agent-assisted,
 deterministic service journey. It renders the current interaction from its JSON Schema,
-allows an agent to propose values from natural language, and requires the user to review
-or edit those values before the executor submits them.
+allows an agent to propose values from natural language or retrieve approved journey
+guidance, and requires the user to review or edit values before the executor submits
+them.
 
 The developer panel exposes:
 
 - the browser-facing run state;
 - the exact current interaction supplied to the agent;
 - the validated structured agent result;
+- guidance tool requests and retrieved document provenance;
 - the service-selected interaction sequence;
 - the ordered raw JSONL application and transport trace.
 
@@ -93,7 +95,8 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 The same SvelteKit application can be opened in two presentation modes.
 
 Agent-assisted mode is the default. It loads conversation fixtures, displays values
-proposed by the Bedrock-backed assistant, and shows the developer panel:
+proposed by the Bedrock-backed assistant, answers journey questions using the guidance
+operations advertised by the stub, and shows the developer panel:
 
 ```text
 http://127.0.0.1:5173/?mode=assisted
@@ -119,6 +122,25 @@ A no-agent-mode run is labelled `noagent_web_frontend` in its raw trace. It does
 load conversation fixtures, add conversation messages or invoke the interaction
 assistant. This makes it suitable for demonstrating that the same server-driven journey
 can be consumed as an ordinary web service.
+
+### Demonstrate journey guidance
+
+In assisted mode, select the **Question about postcode lookup for a flat** fixture, or
+enter the following beneath the current form:
+
+```text
+Should I use postcode lookup if I live in a flat?
+```
+
+The agent can list the compact guidance directory and retrieve a relevant Markdown
+document from the updated stub. The answer is displayed without submitting the form or
+changing the current journey interaction. The developer trace shows the model-selected
+tool calls, the corresponding HTTP exchanges, and the retrieved document ID, version
+and content hash.
+
+If the model answers without retrieving guidance, the answer is still displayed and the
+trace records `grounded_in_retrieved_guidance: false`; automated evals can score this as
+a model-behaviour failure rather than a runtime error.
 
 
 The frontend defaults to using the executor API at
@@ -160,7 +182,9 @@ The trace includes:
 
 * journey-service requests and responses;
 * user messages sent for agent assistance;
-* structured agent proposals;
+* structured agent actions;
+* requested and completed guidance tools;
+* guidance answers and observed retrieval provenance;
 * values reviewed and submitted by the user;
 * terminal completion or failure events.
 

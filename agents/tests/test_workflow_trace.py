@@ -52,7 +52,7 @@ def test_trace_recorder_appends_run_exchange_and_finish_events(tmp_path: Path) -
         "run_finished",
     ]
     assert {event["run_id"] for event in events} == {"run-123"}
-    assert events[0]["trace_version"] == "1.2"
+    assert events[0]["trace_version"] == "1.4"
     assert events[1]["request"]["path"] == "/journeys/change-address/steps"
     assert events[1]["duration_ms"] == 12.346
     assert events[2]["terminal_status"] == "completed"
@@ -154,3 +154,64 @@ def test_trace_records_loaded_fixture_and_complete_conversation(tmp_path: Path) 
     assert event["type"] == "fixture_loaded"
     assert event["fixture_id"] == "address-context"
     assert event["conversation"][0]["content"] == "Use postcode lookup."
+
+
+def test_trace_records_why_the_assistant_was_invoked(tmp_path: Path) -> None:
+    """The trace distinguishes a new user message from a newly opened form."""
+    recorder = JsonlTraceRecorder(
+        tmp_path / "run.jsonl",
+        run_id="run-trigger",
+        journey_id="change-driving-licence-address",
+        consumer="automated_fixture",
+    )
+    recorder.record_agent_invoked(
+        model_id="test-model",
+        prompt_id="test-prompt-v4",
+        interaction={"id": "choose_address_entry_method"},
+        conversation=[{"role": "user", "content": "Does this work for flats?"}],
+        trigger={
+            "type": "user_message_added",
+            "message": "Does this work for flats?",
+        },
+    )
+
+    invoked = read_events(recorder.path)[1]
+    assert invoked["input"]["trigger"] == {
+        "type": "user_message_added",
+        "message": "Does this work for flats?",
+    }
+
+
+
+def test_trace_distinguishes_retrieved_and_ungrounded_journey_answers(
+    tmp_path: Path,
+) -> None:
+    """Tool evidence is recorded independently from the model's answer action."""
+    recorder = JsonlTraceRecorder(
+        tmp_path / "run.jsonl",
+        run_id="run-guidance",
+        journey_id="change-driving-licence-address",
+        consumer="automated_fixture",
+    )
+    recorder.record_agent_tool_requested(
+        tool="list_journey_guidance",
+        arguments={},
+    )
+    recorder.record_agent_tool_completed(
+        tool="list_journey_guidance",
+        arguments={},
+        result={"version": "1", "topics": []},
+    )
+    recorder.record_answer_presented(
+        interaction_id="choose_address_entry_method",
+        answer="Prototype answer without a retrieved document.",
+        retrieved_guidance=[],
+    )
+
+    events = read_events(recorder.path)
+    assert [event["type"] for event in events[1:]] == [
+        "agent_tool_requested",
+        "agent_tool_completed",
+        "answer_presented",
+    ]
+    assert events[-1]["grounded_in_retrieved_guidance"] is False

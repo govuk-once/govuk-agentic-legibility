@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol, Self, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from agents.src.workflow_executor.guidance import (
+    GuidanceClientProtocol,
+    GuidanceReference,
+)
 from agents.src.workflow_executor.types import JsonObject, ReadOnlyJsonObject
 
 JsonScalar: TypeAlias = str | int | float | bool | None
@@ -25,13 +30,36 @@ class ConversationMessage(BaseModel):
     content: str = Field(min_length=1)
 
 
+class AssistanceTrigger(BaseModel):
+    """Reason the application invoked the assistant for the current interaction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["interaction_opened", "user_message_added"]
+    message: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_trigger_shape(self) -> Self:
+        """Require a message only for a user-message invocation."""
+        if self.type == "user_message_added":
+            if self.message is None:
+                msg = "user_message_added trigger must include the new message"
+                raise ValueError(msg)
+            return self
+        if self.message is not None:
+            msg = "interaction_opened trigger must not include a message"
+            raise ValueError(msg)
+        return self
+
+
 class AssistanceRequest(BaseModel):
-    """Complete conversation and current interaction available to the assistant."""
+    """Complete conversation, trigger and interaction available to the assistant."""
 
     model_config = ConfigDict(extra="forbid")
 
     conversation: list[ConversationMessage] = Field(min_length=1)
     interaction: JsonObject
+    trigger: AssistanceTrigger
 
 
 class AssistanceAction(BaseModel):
@@ -39,9 +67,11 @@ class AssistanceAction(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["propose_values", "no_safe_suggestion"] = Field(
-        description="The single bounded action selected for the current interaction"
-    )
+    type: Literal[
+        "propose_values",
+        "no_safe_suggestion",
+        "answer_journey_question",
+    ] = Field(description="The single bounded action selected for this interaction")
     values: dict[str, JsonScalar] = Field(
         default_factory=dict,
         description="Current-schema field names and safely supported scalar values",
@@ -50,20 +80,90 @@ class AssistanceAction(BaseModel):
         default=None,
         description="Short user-facing explanation for no_safe_suggestion",
     )
+    answer: str | None = Field(
+        default=None,
+        description="User-facing answer to a question about the active journey",
+    )
 
     @model_validator(mode="after")
     def validate_action_shape(self) -> Self:
-        """Require values only for proposals and a message for no suggestion."""
-        if self.type == "propose_values" and not self.values:
-            msg = "propose_values must contain at least one value"
+        """Require only the fields appropriate to the selected action."""
+        if self.type == "propose_values":
+            if not self.values:
+                msg = "propose_values must contain at least one value"
+                raise ValueError(msg)
+            if self.message is not None or self.answer is not None:
+                msg = "propose_values must not contain a message or answer"
+                raise ValueError(msg)
+            return self
+
+        if self.type == "no_safe_suggestion":
+            if self.values:
+                msg = "no_safe_suggestion must not contain proposed values"
+                raise ValueError(msg)
+            if not self.message:
+                msg = "no_safe_suggestion must include a message"
+                raise ValueError(msg)
+            if self.answer is not None:
+                msg = "no_safe_suggestion must not contain an answer"
+                raise ValueError(msg)
+            return self
+
+        if self.values or self.message is not None:
+            msg = "answer_journey_question must not contain values or a message"
             raise ValueError(msg)
-        if self.type == "no_safe_suggestion" and self.values:
-            msg = "no_safe_suggestion must not contain proposed values"
-            raise ValueError(msg)
-        if self.type == "no_safe_suggestion" and not self.message:
-            msg = "no_safe_suggestion must include a message"
+        if not self.answer:
+            msg = "answer_journey_question must include an answer"
             raise ValueError(msg)
         return self
+
+
+class AssistanceToolRecorder(Protocol):
+    """Record tool activity selected during one model invocation."""
+
+    def record_agent_tool_requested(
+        self,
+        *,
+        tool: str,
+        arguments: ReadOnlyJsonObject,
+    ) -> None:
+        """Record that the model requested a bounded application tool."""
+
+    def record_agent_tool_completed(
+        self,
+        *,
+        tool: str,
+        arguments: ReadOnlyJsonObject,
+        result: ReadOnlyJsonObject,
+    ) -> None:
+        """Record a completed bounded tool call."""
+
+    def record_agent_tool_failed(
+        self,
+        *,
+        tool: str,
+        arguments: ReadOnlyJsonObject,
+        error: str,
+    ) -> None:
+        """Record a failed bounded tool call."""
+
+
+@dataclass(frozen=True)
+class AssistanceContext:
+    """Run-scoped infrastructure available to the assistant implementation."""
+
+    journey_id: str
+    guidance: GuidanceClientProtocol
+    tool_recorder: AssistanceToolRecorder
+
+
+class AssistanceResult(BaseModel):
+    """Model output plus application-observed retrieval provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: AssistanceAction
+    retrieved_guidance: list[GuidanceReference] = Field(default_factory=list)
 
 
 class InteractionAssistant(Protocol):
@@ -77,8 +177,12 @@ class InteractionAssistant(Protocol):
     def prompt_id(self) -> str:
         """Return the version-controlled prompt identifier."""
 
-    def assist(self, request: AssistanceRequest) -> AssistanceAction:
-        """Interpret the request and return a structured assistance action."""
+    def assist(
+        self,
+        request: AssistanceRequest,
+        context: AssistanceContext,
+    ) -> AssistanceResult:
+        """Interpret the request and return structured assistance and evidence."""
 
 
 def validate_assistance_action(
@@ -124,7 +228,10 @@ def validate_assistance_action(
     return action
 
 
-def _value_matches_property(value: JsonScalar, property_schema: Mapping[str, Any]) -> bool:
+def _value_matches_property(
+    value: JsonScalar,
+    property_schema: Mapping[str, Any],
+) -> bool:
     raw_type = property_schema.get("type")
     if raw_type is None:
         permitted_types: set[str] | None = None
@@ -134,7 +241,6 @@ def _value_matches_property(value: JsonScalar, property_schema: Mapping[str, Any
         permitted_types = set(raw_type)
     else:
         return False
-
     if permitted_types is not None and not _matches_any_type(value, permitted_types):
         return False
 

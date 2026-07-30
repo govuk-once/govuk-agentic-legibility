@@ -1,0 +1,13 @@
+{
+  "id": "question-about-postcode-lookup-for-flat",
+  "version": "1",
+  "title": "Question about postcode lookup for a flat",
+  "description": "The user asks a journey question that should trigger approved guidance retrieval.",
+  "journey_id": "change-driving-licence-address",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I need to change the address on my driving licence. Should I use postcode lookup if I live in a flat?"
+    }
+  ]
+}

@@ -510,3 +510,117 @@ def test_client_traces_exchanges_using_protocol_token_field_names() -> None:
         "result": {"answer": True},
     }
     assert session.calls[2]["json"]["cursor_input"] == "request-secret"
+
+
+def test_client_discovers_progressive_guidance_operations_from_catalogue() -> None:
+    """Guidance directory and document paths come from the journey contract."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "protocol": {
+                        "version": "2.0",
+                        "terminality": {
+                            "next_action_field": "next_action",
+                            "terminal_when_absent": True,
+                        },
+                        "continuation_token": {
+                            "response_field": "continuation_token",
+                            "request_field": "continuation_token",
+                        },
+                        "statuses": [
+                            {"value": "in_progress", "terminal": False},
+                            {"value": "completed", "terminal": True},
+                        ],
+                    },
+                    "journeys": [
+                        {
+                            "id": "change-driving-licence-address",
+                            "title": "Change driving-licence address",
+                            "operations": {
+                                "start": {"method": "POST", "path": "/start"},
+                                "guidance_directory": {
+                                    "method": "GET",
+                                    "path": "/advertised/guidance",
+                                },
+                                "guidance": {
+                                    "method": "GET",
+                                    "path": "/advertised/guidance/{topic}",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ),
+            FakeResponse(
+                {
+                    "version": "1",
+                    "topics": [
+                        {
+                            "id": "postcode-lookup-for-flats",
+                            "title": "Using postcode lookup for a flat",
+                            "description": "Use for questions about flats.",
+                        }
+                    ],
+                }
+            ),
+            FakeResponse(
+                {
+                    "id": "postcode-lookup-for-flats",
+                    "title": "Using postcode lookup for a flat",
+                    "description": "Use for questions about flats.",
+                    "version": "1",
+                    "content_type": "text/markdown",
+                    "content": "# Flats\n\nPrototype guidance.",
+                    "sha256": "a" * 64,
+                }
+            ),
+        ]
+    )
+    client = JourneyClient("http://journey.test", session=session)
+
+    directory = client.list_guidance("change-driving-licence-address")
+    document = client.get_guidance(
+        "change-driving-licence-address",
+        "postcode-lookup-for-flats",
+    )
+
+    assert directory.topics[0].id == "postcode-lookup-for-flats"
+    assert document.content_type == "text/markdown"
+    assert [call["url"] for call in session.calls] == [
+        "http://journey.test/app/dvla/v1/journeys",
+        "http://journey.test/advertised/guidance",
+        "http://journey.test/advertised/guidance/postcode-lookup-for-flats",
+    ]
+
+
+def test_client_rejects_unsafe_guidance_topic_before_request() -> None:
+    """Model-selected topic IDs cannot alter the advertised guidance path."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "protocol": {"version": "2.0"},
+                    "journeys": [
+                        {
+                            "id": "example-journey",
+                            "title": "Example journey",
+                            "operations": {
+                                "start": {"method": "POST", "path": "/start"},
+                                "guidance": {
+                                    "method": "GET",
+                                    "path": "/guidance/{topic}",
+                                },
+                            },
+                        }
+                    ],
+                }
+            )
+        ]
+    )
+    client = JourneyClient("http://journey.test", session=session)
+
+    with pytest.raises(JourneyProtocolError, match="Guidance topic IDs"):
+        client.get_guidance("example-journey", "../admin")
+
+    assert session.calls == []

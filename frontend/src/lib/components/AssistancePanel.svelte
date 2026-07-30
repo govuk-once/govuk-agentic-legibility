@@ -18,40 +18,48 @@
   <div class="heading">
     <div>
       <span>Conversation context</span>
-      <h3 id="assistant-heading">Add or correct information</h3>
+      <h3 id="assistant-heading">Ask or add information</h3>
     </div>
     <strong>Agent cannot continue the journey</strong>
   </div>
   <p>
-    Use this when the existing conversation is incomplete or wrong. The new message is
-    added to the run and the agent updates suggestions for the current form.
+    Ask a question about this step, add missing information or correct something in the
+    conversation. The journey stays on the current form until you submit it.
   </p>
 
   <form onsubmit={submit}>
-    <label for="assistant-message">New message</label>
+    <label for="assistant-message">Question or new information</label>
     <textarea
       id="assistant-message"
       rows="3"
       bind:value={message}
-      placeholder="For example: Sorry, the building number is 81, not 18."
+      placeholder="For example: Should I use postcode lookup if I live in a flat?"
       disabled={disabled || requesting}
     ></textarea>
     <button type="submit" disabled={disabled || requesting || !message.trim()}>
-      {requesting ? 'Updating suggestions…' : 'Add message and update suggestions'}
+      {requesting ? 'Checking…' : 'Send to agent'}
     </button>
   </form>
 
   {#if error}
     <div class="error" role="alert"><strong>Agent assistance failed</strong><span>{error}</span></div>
-  {:else if response?.action.type === 'propose_values'}
-    <div class="proposal" role="status">
-      <strong>Suggestions updated</strong>
-      <span>The current form now reflects the complete conversation.</span>
-    </div>
   {:else if response?.action.type === 'no_safe_suggestion'}
     <div class="notice" role="status">
       <strong>No safe suggestion</strong>
       <span>{response.action.message}</span>
+    </div>
+  {:else if response?.action.type === 'answer_journey_question'}
+    <div class="answer" role="status">
+      <strong>Journey guidance</strong>
+      <p>{response.action.answer}</p>
+      {#if response.retrieved_guidance.length > 0}
+        <span>
+          Retrieved from:
+          {response.retrieved_guidance.map((item) => item.title).join(', ')}
+        </span>
+      {:else}
+        <span class="ungrounded">No approved journey guidance was retrieved for this answer.</span>
+      {/if}
     </div>
   {/if}
 </section>
@@ -70,10 +78,12 @@
   button { justify-self: start; border: 2px solid #0b0c0c; background: #fff; color: #0b0c0c; padding: .55rem .8rem; font: inherit; font-weight: 700; cursor: pointer; }
   button:hover:not(:disabled) { background: #e8f1f8; }
   button:disabled { cursor: wait; opacity: .55; }
-  .proposal, .notice, .error { display: grid; gap: .2rem; margin-top: 1rem; background: #fff; padding: .8rem .9rem; }
-  .proposal { border-left: .3rem solid #00703c; }
+  .notice, .answer, .error { display: grid; gap: .2rem; margin-top: 1rem; background: #fff; padding: .8rem .9rem; }
   .notice { border-left: .3rem solid #f47738; }
+  .answer { border-left: .3rem solid #1d70b8; }
   .error { border-left: .3rem solid #d4351c; }
-  .proposal span, .notice span, .error span { color: #505a5f; font-size: .86rem; }
+  .answer p { margin: .35rem 0; line-height: 1.45; }
+  .notice span, .answer span, .error span { color: #505a5f; font-size: .86rem; }
+  .answer .ungrounded { color: #d4351c; font-weight: 700; }
   @media (max-width: 38rem) { .heading { flex-direction: column; } .heading > strong { max-width: none; } }
 </style>

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from agents.src.interaction_assistant import (
     AssistanceAction,
     AssistanceRequest,
+    AssistanceTrigger,
     ConversationMessage,
     InteractionAssistantError,
     validate_assistance_action,
@@ -93,6 +94,43 @@ def test_assistance_request_accepts_complete_conversation() -> None:
             ConversationMessage(role="user", content="Sorry, it is number 81"),
         ],
         interaction=address_interaction(),
+        trigger=AssistanceTrigger(
+            type="user_message_added",
+            message="Sorry, it is number 81",
+        ),
     )
 
     assert request.conversation[-1].content == "Sorry, it is number 81"
+    assert request.trigger.message == "Sorry, it is number 81"
+
+
+def test_assistance_trigger_requires_message_only_for_new_user_input() -> None:
+    """Invocation reasons cannot blur a new interaction with a new message."""
+    opened = AssistanceTrigger(type="interaction_opened")
+    assert opened.message is None
+
+    with pytest.raises(ValidationError):
+        AssistanceTrigger(type="interaction_opened", message="Old question")
+
+    with pytest.raises(ValidationError):
+        AssistanceTrigger(type="user_message_added")
+
+
+def test_journey_answer_requires_answer_but_not_reported_provenance() -> None:
+    """Model output declares the answer while retrieval evidence stays external."""
+    action = AssistanceAction(
+        type="answer_journey_question",
+        answer="You can use postcode lookup if you live in a flat.",
+    )
+
+    assert validate_assistance_action(action, address_interaction()) is action
+
+    with pytest.raises(ValidationError):
+        AssistanceAction(type="answer_journey_question")
+
+    with pytest.raises(ValidationError):
+        AssistanceAction(
+            type="answer_journey_question",
+            answer="Use postcode lookup.",
+            values={"use_postcode_lookup": True},
+        )
