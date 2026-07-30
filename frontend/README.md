@@ -32,7 +32,7 @@ Add an available Bedrock model or inference-profile ID to `agents/.env`:
 ```dotenv
 JOURNEY_AGENT_MODEL_ID=<Bedrock model or inference-profile ID>
 JOURNEY_AGENT_REGION=eu-west-2
-````
+```
 
 The region defaults to `eu-west-2`, but setting it explicitly makes the local
 configuration easier to understand.
@@ -88,6 +88,39 @@ just frontend
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
+### Presentation modes
+
+The same SvelteKit application can be opened in two presentation modes.
+
+Agent-assisted mode is the default. It loads conversation fixtures, displays values
+proposed by the Bedrock-backed assistant, and shows the developer panel:
+
+```text
+http://127.0.0.1:5173/?mode=assisted
+```
+
+No-agent mode starts without a conversation fixture and explicitly disables agent
+assistance for the run. The frontend only renders the current JSON Schema and submits the
+completed form to the same executor and DVLA-like journey API:
+
+```text
+http://127.0.0.1:5173/?mode=noagent
+```
+
+The developer panel is shown by default in both modes so the same executor state and
+raw trace remain visible when comparing them. Hide it explicitly in either mode with:
+
+```text
+http://127.0.0.1:5173/?mode=noagent&developer=false
+http://127.0.0.1:5173/?mode=assisted&developer=false
+```
+
+A no-agent-mode run is labelled `noagent_web_frontend` in its raw trace. It does not
+load conversation fixtures, add conversation messages or invoke the interaction
+assistant. This makes it suitable for demonstrating that the same server-driven journey
+can be consumed as an ordinary web service.
+
+
 The frontend defaults to using the executor API at
 `http://127.0.0.1:8001`. Override this when necessary with:
 
@@ -97,15 +130,19 @@ PUBLIC_JOURNEY_API_URL=<URL> just frontend
 
 ### Run without agent assistance
 
-The deterministic journey and manual form entry still work when no Bedrock
-model is configured. Start the API without AWS credentials:
+Use no-agent mode when demonstrating the journey without an agent, even when the
+API has a Bedrock model configured:
+
+```text
+http://127.0.0.1:5173/?mode=noagent
+```
+
+The deterministic journey and manual form entry also work when no Bedrock model is
+configured. In that case, start the API without AWS credentials:
 
 ```bash
 STUB_SERVER_URL=http://127.0.0.1:8000 just api
 ```
-
-The **Suggest values** operation will be unavailable, but the journey can still
-be completed through the schema-driven form.
 
 ## Run against the deployed server
 

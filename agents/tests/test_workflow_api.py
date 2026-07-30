@@ -197,6 +197,45 @@ def test_service_completes_manual_run_and_exposes_trace(tmp_path: Path) -> None:
     assert factory.clients[0].results == [{"use_postcode_lookup": True}]
 
 
+def test_noagent_web_run_never_invokes_assistant(tmp_path: Path) -> None:
+    """A no-agent web consumer uses the same service without agent assistance."""
+    factory = FakeClientFactory(
+        [
+            interaction_response(),
+            interaction_response("find_address_by_postcode"),
+        ]
+    )
+    assistant = FakeAssistant(
+        [
+            AssistanceAction(
+                type="propose_values",
+                values={"use_postcode_lookup": True},
+            )
+        ]
+    )
+    service = JourneyRunService(
+        trace_directory=tmp_path,
+        client_factory=factory,
+        assistant=assistant,
+        fixture_repository=fixture_repository(tmp_path),
+    )
+
+    started = service.start(
+        "change-driving-licence-address",
+        fixture_id="address-context",
+        assistance_enabled=False,
+        consumer="noagent_web_frontend",
+    )
+    second = service.submit(started.run_id, {"use_postcode_lookup": True})
+
+    assert started.assistance is None
+    assert second.assistance is None
+    assert assistant.requests == []
+    events = service.trace_events(started.run_id)
+    assert events[0]["consumer"] == "noagent_web_frontend"
+    assert "agent_invoked" not in [event["type"] for event in events]
+
+
 def test_fixture_generates_default_proposals_at_each_interaction(
     tmp_path: Path,
 ) -> None:

@@ -21,8 +21,12 @@
     TraceEvent
   } from '$lib/types';
 
+  type PresentationMode = 'assisted' | 'noagent';
+
   const JOURNEY_ID = 'change-driving-licence-address';
   const API_BASE_URL = getApiBaseUrl();
+  let presentationMode: PresentationMode = 'assisted';
+  let showDeveloperPanel = true;
   let run: JourneyRunResponse | null = null;
   let fixtures: ConversationFixture[] = [];
   let selectedFixtureId: string | null = null;
@@ -40,6 +44,7 @@
   let fixtureError = '';
   let assistanceError = '';
 
+  $: assistedMode = presentationMode === 'assisted';
   $: interaction = run?.interaction ?? null;
   $: interactionKey = `${run?.run_id ?? 'idle'}:${history.length}:${interaction?.id ?? 'terminal'}`;
   $: title = interaction?.content?.title || humanTitle(interaction?.id) || 'Service interaction';
@@ -47,6 +52,20 @@
   $: summaryData = interaction?.content?.data;
 
   onMount(async () => {
+    const parameters = new URLSearchParams(window.location.search);
+    const requestedMode: PresentationMode =
+      parameters.get('mode') === 'noagent' ? 'noagent' : 'assisted';
+    const developerParameter = parameters.get('developer');
+
+    presentationMode = requestedMode;
+    showDeveloperPanel = developerParameter !== 'false';
+
+    if (requestedMode === 'noagent') {
+      selectedFixtureId = null;
+      loadingFixtures = false;
+      return;
+    }
+
     try {
       fixtures = await getConversationFixtures();
       selectedFixtureId = fixtures[0]?.id ?? null;
@@ -64,7 +83,13 @@
     history = [];
     clearAssistance();
     try {
-      applyRun(await startJourney(JOURNEY_ID, selectedFixtureId));
+      applyRun(
+        await startJourney(
+          JOURNEY_ID,
+          assistedMode ? selectedFixtureId : null,
+          assistedMode
+        )
+      );
       rememberInteraction(run);
       await refreshTrace();
     } catch (error) {
@@ -75,7 +100,7 @@
   }
 
   async function addMessage(): Promise<void> {
-    if (!run || !assistanceMessage.trim()) return;
+    if (!assistedMode || !run || !assistanceMessage.trim()) return;
     requestingAssistance = true;
     assistanceError = '';
     const message = assistanceMessage.trim();
@@ -122,6 +147,12 @@
 
   function applyRun(response: JourneyRunResponse): void {
     run = response;
+    if (!assistedMode) {
+      assistance = null;
+      assistanceError = '';
+      proposedValues = null;
+      return;
+    }
     assistance = response.assistance;
     assistanceError = response.assistance_error ?? '';
     proposedValues =
@@ -174,15 +205,20 @@
 </script>
 
 <svelte:head>
-  <title>Journey executor prototype</title>
+  <title>{assistedMode ? 'Agent-assisted journey prototype' : 'Change your driving-licence address'}</title>
   <meta
     name="description"
-    content="A developer-facing prototype of an agent-assisted, deterministic service journey"
+    content={assistedMode
+      ? 'A developer-facing prototype of an agent-assisted, deterministic service journey'
+      : 'A conventional web presentation of a server-driven service journey'}
   />
 </svelte:head>
 <header>
   <div class="header-inner">
-    <div class="brand"><span aria-hidden="true">◆</span><strong>Agentic legibility</strong></div>
+    <div class="brand">
+      <span aria-hidden="true">◆</span>
+      <strong>{assistedMode ? 'Agentic legibility' : 'DVLA journey prototype'}</strong>
+    </div>
     <span class="prototype">Experimental prototype</span>
   </div>
 </header>
@@ -191,13 +227,21 @@
 </div>
 <main>
   <div class="intro">
-    <span class="eyebrow">Comparable journey execution spike</span>
+    <span class="eyebrow">{assistedMode ? 'Comparable journey execution spike' : 'No-agent web journey'}</span>
     <h1>Change your driving-licence address</h1>
-    <p>
-      This demonstration shows an agent proposing values inside a deterministic journey.
-      The service API still controls progression, while the developer panel exposes the
-      application state and raw run trace.
-    </p>
+    {#if assistedMode}
+      <p>
+        This demonstration shows an agent proposing values inside a deterministic journey.
+        The service API still controls progression, while the developer panel exposes the
+        application state and raw run trace.
+      </p>
+    {:else}
+      <p>
+        This demonstration renders the same DVLA-like journey API as a conventional web
+        service. The browser collects form values while the service API controls every
+        transition.
+      </p>
+    {/if}
   </div>
 
   {#if errorMessage}
@@ -205,7 +249,7 @@
       <strong>There is a problem</strong><span>{errorMessage}</span>
     </div>
   {/if}
-  <div class="layout">
+  <div class="layout" class:single-column={!showDeveloperPanel}>
     <section class="service-card" aria-live="polite">
       {#if !run}
         <div class="card-body">
@@ -215,18 +259,26 @@
             The browser asks the Python executor to start the journey. The service returns
             the first interaction and controls every subsequent transition.
           </p>
-          <ConversationFixtureSelector
-            {fixtures}
-            selectedId={selectedFixtureId}
-            loading={loadingFixtures}
-            error={fixtureError}
-            onSelect={selectFixture}
-          />
-          <ul>
-            <li>Reuse information from the selected conversation</li>
-            <li>Review or clear values proposed by the agent</li>
-            <li>Add corrections beneath the form when needed</li>
-          </ul>
+          {#if assistedMode}
+            <ConversationFixtureSelector
+              {fixtures}
+              selectedId={selectedFixtureId}
+              loading={loadingFixtures}
+              error={fixtureError}
+              onSelect={selectFixture}
+            />
+            <ul>
+              <li>Reuse information from the selected conversation</li>
+              <li>Review or clear values proposed by the agent</li>
+              <li>Add corrections beneath the form when needed</li>
+            </ul>
+          {:else}
+            <ul>
+              <li>Answer each question using the web form</li>
+              <li>Review the address before confirming it</li>
+              <li>Use the same service-controlled journey as the assisted version</li>
+            </ul>
+          {/if}
           <button class="primary" type="button" onclick={start} disabled={starting}
             >{starting ? 'Starting journey…' : 'Start journey'}</button
           >
@@ -237,8 +289,12 @@
           <span class="step-label">Journey finished</span>
           <h2>Journey finished</h2>
           <p>
-            The service returned a terminal status. No further action was selected by the
-            agent, executor or browser.
+            {#if assistedMode}
+              The service returned a terminal status. No further action was selected by the
+              agent, executor or browser.
+            {:else}
+              The service returned a terminal status and offered no further action.
+            {/if}
           </p>
           <dl>
             <div><dt>Final status</dt><dd>{run.status}</dd></div>
@@ -259,38 +315,44 @@
           {#key interactionKey}
             <SchemaForm
               {interaction}
-              {proposedValues}
-              disabled={submitting || requestingAssistance}
+              proposedValues={assistedMode ? proposedValues : null}
+              disabled={submitting || (assistedMode && requestingAssistance)}
               onSubmit={submit}
               onClearSuggestedValues={clearSuggestedValues}
             />
           {/key}
-          <AssistancePanel
-            bind:message={assistanceMessage}
-            response={assistance}
-            error={assistanceError}
-            disabled={submitting}
-            requesting={requestingAssistance}
-            onRequest={addMessage}
-          />
+          {#if assistedMode}
+            <AssistancePanel
+              bind:message={assistanceMessage}
+              response={assistance}
+              error={assistanceError}
+              disabled={submitting}
+              requesting={requestingAssistance}
+              onRequest={addMessage}
+            />
+          {/if}
         </div>
       {/if}
     </section>
-    <DeveloperPanel
-      {run}
-      {traceEvents}
-      {history}
-      apiBaseUrl={API_BASE_URL}
-      refreshing={refreshingTrace}
-      onRefresh={refreshTrace}
-    />
+    {#if showDeveloperPanel}
+      <DeveloperPanel
+        {run}
+        {traceEvents}
+        {history}
+        apiBaseUrl={API_BASE_URL}
+        refreshing={refreshingTrace}
+        onRefresh={refreshTrace}
+      />
+    {/if}
   </div>
 </main>
 
 <footer>
   <div>
-    <strong>Agentic Legibility</strong
-    ><span>Prototype for exploring server-driven journeys and comparable traces.</span>
+    <strong>{assistedMode ? 'Agentic Legibility' : 'DVLA journey prototype'}</strong
+    ><span>{assistedMode
+      ? 'Prototype for exploring server-driven journeys and comparable traces.'
+      : 'Conventional web presentation of the same server-driven journey.'}</span>
   </div>
 </footer>
 <style>
@@ -313,6 +375,7 @@
   h1 { margin: .25rem 0 .6rem; font-size: clamp(2rem,4vw,3.25rem); line-height: 1.05; letter-spacing: -.035em; }
   .intro p, .card-body > p { color: #505a5f; font-size: 1.05rem; }
   .layout { display: grid; grid-template-columns: minmax(0,1.08fr) minmax(23rem,.92fr); gap: 1.5rem; align-items: start; }
+  .layout.single-column { grid-template-columns: minmax(0,46rem); justify-content: center; }
   .service-card { min-height: 34rem; border: 1px solid #b1b4b6; border-top: .4rem solid #1d70b8; background: #fff; box-shadow: 0 .5rem 1.5rem rgb(11 12 12 / 8%); }
   .card-body { padding: clamp(1.5rem,5vw,3rem); }
   h2 { margin: .35rem 0 .8rem; font-size: clamp(1.55rem,3vw,2.15rem); line-height: 1.15; }

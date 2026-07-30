@@ -27,11 +27,16 @@ export async function getConversationFixtures(): Promise<ConversationFixture[]> 
 
 export async function startJourney(
   journeyId: string,
-  fixtureId: string | null
+  fixtureId: string | null,
+  assistanceEnabled = true
 ): Promise<JourneyRunResponse> {
   return request<JourneyRunResponse>('/api/journey-runs', {
     method: 'POST',
-    body: JSON.stringify({ journey_id: journeyId, fixture_id: fixtureId })
+    body: JSON.stringify({
+      journey_id: journeyId,
+      fixture_id: fixtureId,
+      assistance_enabled: assistanceEnabled
+    })
   });
 }
 

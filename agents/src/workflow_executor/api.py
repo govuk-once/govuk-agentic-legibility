@@ -62,6 +62,7 @@ class StartRunRequest(BaseModel):
 
     journey_id: str = Field(min_length=1)
     fixture_id: str | None = Field(default=None, min_length=1)
+    assistance_enabled: bool = True
 
 
 class SubmitResultRequest(BaseModel):
@@ -109,6 +110,7 @@ class _Run:
     executor: JourneyExecutor
     response: JsonObject
     trace: JsonlTraceRecorder
+    assistance_enabled: bool = True
     loaded_fixture: LoadedConversationFixture | None = None
     source_conversation: list[ConversationMessage] = field(default_factory=list)
     journey_conversation: list[ConversationMessage] = field(default_factory=list)
@@ -168,6 +170,7 @@ class JourneyRunService:
         journey_id: str,
         *,
         fixture_id: str | None = None,
+        assistance_enabled: bool = True,
         consumer: str = "agent_assisted_http_frontend",
     ) -> RunResponse:
         """Start a journey and generate suggestions from an optional fixture.
@@ -175,6 +178,7 @@ class JourneyRunService:
         Args:
             journey_id: Journey identifier advertised by the service catalogue.
             fixture_id: Optional version-controlled conversation fixture ID.
+            assistance_enabled: Whether this run may invoke the interaction assistant.
             consumer: Trace label for the client driving the run.
 
         Returns:
@@ -221,6 +225,7 @@ class JourneyRunService:
             executor=executor,
             response=response,
             trace=trace,
+            assistance_enabled=assistance_enabled,
             loaded_fixture=loaded_fixture,
             source_conversation=(
                 list(loaded_fixture.fixture.conversation)
@@ -231,7 +236,7 @@ class JourneyRunService:
         self._runs[trace.run_id] = run
         if executor.is_terminal(response):
             trace.record_finished(response)
-        else:
+        elif run.assistance_enabled:
             self._refresh_assistance(run)
         return self._view(trace.run_id, run)
 
@@ -304,7 +309,7 @@ class JourneyRunService:
         self._clear_assistance(run)
         if run.executor.is_terminal(run.response):
             run.trace.record_finished(run.response)
-        else:
+        elif run.assistance_enabled:
             self._refresh_assistance(run)
         return self._view(run_id, run)
 
@@ -324,6 +329,8 @@ class JourneyRunService:
 
     def _refresh_assistance(self, run: _Run) -> None:
         self._clear_assistance(run)
+        if not run.assistance_enabled:
+            return
         conversation = run.conversation()
         if not conversation:
             return
@@ -494,6 +501,12 @@ def create_app(
             return configured_service.start(
                 request.journey_id,
                 fixture_id=request.fixture_id,
+                assistance_enabled=request.assistance_enabled,
+                consumer=(
+                    "agent_assisted_http_frontend"
+                    if request.assistance_enabled
+                    else "noagent_web_frontend"
+                ),
             )
         except KeyError as exc:
             raise HTTPException(
