@@ -103,3 +103,9 @@ commitlint.config.js
 dist/
 coverage/
 *.tsbuildinfo
+
+# Local journey execution traces
+.traces/
+
+# SvelteKit
+.svelte-kit/

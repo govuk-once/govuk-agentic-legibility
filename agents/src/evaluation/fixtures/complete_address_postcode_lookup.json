@@ -1,0 +1,39 @@
+{
+  "id": "complete-address-postcode-lookup",
+  "version": "1",
+  "title": "Complete address and postcode preference",
+  "description": "The user has already supplied a complete address and said they prefer postcode lookup.",
+  "journey_id": "change-driving-licence-address",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I need to change the address on my driving licence."
+    },
+    {
+      "role": "assistant",
+      "content": "I can help with that. What is your new address?"
+    },
+    {
+      "role": "user",
+      "content": "My new address is 18 Station Road, Bristol, BS1 3AB. I always prefer to find addresses using the postcode."
+    }
+  ],
+  "expected": {
+    "interactions": {
+      "choose_address_entry_method": {
+        "type": "propose_values",
+        "values": {
+          "use_postcode_lookup": true
+        }
+      },
+      "find_address_by_postcode": {
+        "type": "propose_values",
+        "values": {
+          "postcode": "BS1 3AB",
+          "building_number_or_name": "18"
+        }
+      }
+    },
+    "terminal_status": "completed"
+  }
+}

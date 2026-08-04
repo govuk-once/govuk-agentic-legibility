@@ -1,0 +1,186 @@
+"""Tests for bounded interaction assistance and schema validation."""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from agents.src.interaction_assistant import (
+    AssistanceAction,
+    AssistanceActions,
+    AssistanceRequest,
+    AssistanceTrigger,
+    ConversationMessage,
+    InteractionAssistantError,
+    validate_assistance_action,
+)
+
+
+def address_interaction() -> dict[str, object]:
+    """Return an interaction containing required and nullable scalar fields."""
+    return {
+        "id": "enter_address_manually",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "address_line_1": {"type": "string"},
+                "address_line_2": {"type": ["string", "null"]},
+                "postcode": {"type": ["string", "null"]},
+                "use_postcode_lookup": {"type": "boolean"},
+            },
+        },
+    }
+
+
+def test_partial_proposal_is_validated_against_current_schema() -> None:
+    """The assistant may propose a safe subset of the current interaction fields."""
+    action = AssistanceAction(
+        type="propose_values",
+        values={"address_line_1": "18 Station Road", "postcode": "BS1 3AB"},
+    )
+
+    assert validate_assistance_action(action, address_interaction()) is action
+
+
+def test_nullable_schema_field_accepts_null() -> None:
+    """JSON Schema nullable scalar fields remain valid assistant outputs."""
+    action = AssistanceAction(
+        type="propose_values",
+        values={"address_line_2": None},
+    )
+
+    assert validate_assistance_action(action, address_interaction()) is action
+
+
+def test_proposal_rejects_fields_outside_current_schema() -> None:
+    """An assistant cannot introduce a field the current interaction did not expose."""
+    action = AssistanceAction(
+        type="propose_values",
+        values={"next_action": "/complete"},
+    )
+
+    with pytest.raises(InteractionAssistantError, match="outside the current schema"):
+        validate_assistance_action(action, address_interaction())
+
+
+def test_proposal_rejects_value_with_wrong_schema_type() -> None:
+    """Proposed values must have the scalar type advertised by the service."""
+    action = AssistanceAction(
+        type="propose_values",
+        values={"use_postcode_lookup": "yes"},
+    )
+
+    with pytest.raises(InteractionAssistantError, match="does not match"):
+        validate_assistance_action(action, address_interaction())
+
+
+def test_no_safe_suggestion_requires_message_and_no_values() -> None:
+    """The no-suggestion action cannot silently carry proposed form values."""
+    with pytest.raises(ValidationError):
+        AssistanceAction(type="no_safe_suggestion")
+
+    with pytest.raises(ValidationError):
+        AssistanceAction(
+            type="no_safe_suggestion",
+            values={"postcode": "BS1 3AB"},
+            message="Complete the form manually.",
+        )
+
+
+def test_assistance_request_accepts_complete_conversation() -> None:
+    """The assistant interface does not require a synthetic latest-message split."""
+    request = AssistanceRequest(
+        conversation=[
+            ConversationMessage(role="user", content="My address is 18 Station Road"),
+            ConversationMessage(role="user", content="Sorry, it is number 81"),
+        ],
+        interaction=address_interaction(),
+        trigger=AssistanceTrigger(
+            type="user_message_added",
+            message="Sorry, it is number 81",
+        ),
+    )
+
+    assert request.conversation[-1].content == "Sorry, it is number 81"
+    assert request.trigger.message == "Sorry, it is number 81"
+
+
+def test_assistance_trigger_requires_message_only_for_new_user_input() -> None:
+    """Invocation reasons cannot blur a new interaction with a new message."""
+    opened = AssistanceTrigger(type="interaction_opened")
+    assert opened.message is None
+
+    with pytest.raises(ValidationError):
+        AssistanceTrigger(type="interaction_opened", message="Old question")
+
+    with pytest.raises(ValidationError):
+        AssistanceTrigger(type="user_message_added")
+
+
+def test_journey_answer_requires_answer_but_not_reported_provenance() -> None:
+    """Model output declares the answer while retrieval evidence stays external."""
+    action = AssistanceAction(
+        type="answer_journey_question",
+        answer="You can use postcode lookup if you live in a flat.",
+    )
+
+    assert validate_assistance_action(action, address_interaction()) is action
+
+    with pytest.raises(ValidationError):
+        AssistanceAction(type="answer_journey_question")
+
+    with pytest.raises(ValidationError):
+        AssistanceAction(
+            type="answer_journey_question",
+            answer="Use postcode lookup.",
+            values={"use_postcode_lookup": True},
+        )
+
+
+def test_answer_then_proposal_is_the_only_permitted_compound_result() -> None:
+    """One invocation may answer a question and propose current-form values."""
+    actions = AssistanceActions(
+        actions=[
+            AssistanceAction(
+                type="answer_journey_question",
+                answer="Postcode lookup can be used for a flat.",
+            ),
+            AssistanceAction(
+                type="propose_values",
+                values={"use_postcode_lookup": True},
+            ),
+        ]
+    )
+
+    assert [action.type for action in actions.actions] == [
+        "answer_journey_question",
+        "propose_values",
+    ]
+
+    with pytest.raises(ValidationError):
+        AssistanceActions(
+            actions=[
+                AssistanceAction(
+                    type="propose_values",
+                    values={"use_postcode_lookup": True},
+                ),
+                AssistanceAction(
+                    type="answer_journey_question",
+                    answer="Postcode lookup can be used for a flat.",
+                ),
+            ]
+        )
+
+    with pytest.raises(ValidationError):
+        AssistanceActions(
+            actions=[
+                AssistanceAction(
+                    type="no_safe_suggestion",
+                    message="Complete the form manually.",
+                ),
+                AssistanceAction(
+                    type="propose_values",
+                    values={"use_postcode_lookup": True},
+                ),
+            ]
+        )
