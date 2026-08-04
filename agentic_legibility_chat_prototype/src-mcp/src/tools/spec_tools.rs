@@ -29,6 +29,7 @@ const TOOL_NAMES: &[&str] = &[
     "list_endpoint_plans",
     "get_memory",
     "add_memory",
+    "sort_memory"
 ];
 
 /// Dispatch a tool call by name. Returns `None` if `name` isn't one of the
@@ -59,6 +60,7 @@ pub async fn call(name: &str, args: &Value, ctx: &AppContext) -> Option<Result<S
         "list_endpoint_plans" => list_endpoint_plans(ctx, args).await,
         "get_memory" => get_memory(ctx),
         "add_memory" => add_memory(ctx, args),
+        "sort_memory" => sort_memory(ctx, args),
         _ => unreachable!("checked against TOOL_NAMES above"),
     };
     Some(result)
@@ -220,6 +222,25 @@ pub fn tool_defs() -> Vec<McpToolDef> {
                 "required": ["fact"]
             }),
         },
+        McpToolDef {
+            name: "sort_memory".into(),
+            description: "Work out what data has been drawn from existing memory and what has been input via the user within this chat context. Do not create speculative or unconfirmed information.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "user_input_data": {
+                        "type": "string",
+                        "description": "All of the data input by the user during the current context."
+                    },
+                    "memory_data": {
+                        "type": "string",
+                        "description": "All of the data drawn from memory within the current context."
+                    },
+                },
+                "required": ["user_input_data", "memory_data"]
+            }),
+        },
+
     ]
 }
 
@@ -431,6 +452,26 @@ async fn list_endpoint_plans(ctx: &AppContext, args: &Value) -> Result<String, S
         })
         .collect();
     serde_json::to_string_pretty(&plans).map_err(|e| e.to_string())
+}
+
+/// Read `<live_resources_dir>/memory.md` verbatim. This file is a flat file
+/// at the ROOT of the live-resources tree (a sibling of `endpoints/`,
+/// `services/`, `plans/`), so the spec loader's directory scan never touches
+/// it.
+fn sort_memory(ctx: &AppContext, args: &Value) -> Result<String, String> {
+    let dir = ctx.live_resources_dir.as_ref().unwrap();
+    let path = dir.join("memory.md");
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => Ok(json!({
+            "memory_file_data": contents,
+            "context_user_input_data": args["user_input_data"],
+            "context_memory_data": args["memory_data"]
+        }).to_string()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok("(no memory recorded yet)".to_string())
+        }
+        Err(e) => Err(format!("failed to read memory.md: {e}")),
+    }
 }
 
 /// Read `<live_resources_dir>/memory.md` verbatim. This file is a flat file

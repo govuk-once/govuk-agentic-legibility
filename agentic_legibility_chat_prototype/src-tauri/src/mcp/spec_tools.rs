@@ -37,6 +37,7 @@ pub const SPEC_TOOL_NAMES: &[&str] = &[
     "list_endpoint_plans",
     "get_memory",
     "add_memory",
+    "sort_memory"
 ];
 
 /// True if `name` is a spec-lookup tool gated on `LIVE_RESOURCES_DIR`.
