@@ -107,12 +107,16 @@ def convert_raw_trace(
         if event_type == "user_message":
             message = _optional_string(raw_event.get("message"))
             if message is not None:
-                event: JsonObject = {
+                user_message_event: JsonObject = {
                     "type": "user_message",
                     "content": message,
                 }
-                _add_interaction_id(event, raw_event, current_interaction_id)
-                common_events.append(event)
+                _add_interaction_id(
+                    user_message_event,
+                    raw_event,
+                    current_interaction_id,
+                )
+                common_events.append(user_message_event)
             continue
 
         if event_type == "agent_tool_completed":
@@ -125,28 +129,32 @@ def convert_raw_trace(
             continue
 
         if event_type == "answer_presented":
-            event: JsonObject = {"type": "answer_presented"}
-            _add_interaction_id(event, raw_event, current_interaction_id)
-            common_events.append(event)
+            answer_event: JsonObject = {"type": "answer_presented"}
+            _add_interaction_id(answer_event, raw_event, current_interaction_id)
+            common_events.append(answer_event)
             continue
 
         if event_type == "result_submitted":
             result = _json_object(raw_event.get("result"))
             if result is not None:
-                event: JsonObject = {
+                submission_event: JsonObject = {
                     "type": "values_submitted",
                     "values": result,
                 }
-                _add_interaction_id(event, raw_event, current_interaction_id)
-                common_events.append(event)
+                _add_interaction_id(
+                    submission_event,
+                    raw_event,
+                    current_interaction_id,
+                )
+                common_events.append(submission_event)
             continue
 
         if event_type == "agent_failed":
-            event: JsonObject = {"type": "assistance_failed"}
+            failure_event: JsonObject = {"type": "assistance_failed"}
             interaction_id = invocation_interaction_id or current_interaction_id
             if interaction_id is not None:
-                event["interaction_id"] = interaction_id
-            common_events.append(event)
+                failure_event["interaction_id"] = interaction_id
+            common_events.append(failure_event)
             continue
 
         if event_type == "run_finished":
