@@ -213,7 +213,7 @@
         errorMsg = ev.payload.message
         isStreaming = false
       }),
-
+  
       listen<ServiceStepEvent>('service-step-changed', (ev) => {
         serviceStep = ev.payload
       }),
