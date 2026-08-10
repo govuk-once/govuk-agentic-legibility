@@ -2,8 +2,27 @@
 @plugin "@tailwindcss/typography";
 @import "highlight.js/styles/github.css";
 
+/*
+  Design tokens for the app chrome (not the cards — those are styled by
+  ui/public/theme.css). We override Tailwind's own colour tokens so every
+  existing utility class picks up the new value with no markup change:
+    - blue      -> GOV.UK blue #1D70B8 (buttons, links, bubbles, active states)
+    - blue-50   -> soft blue #EAF1F8 (active nav item / active state pill)
+    - blue-700  -> GOV.UK dark blue #003078 (hover / active)
+    - gray-200  -> #E8E8E8 (borders and dividers)
+  The green send button (#00703C) is applied directly in InputBar rather than
+  via a token, since it is the only element that uses it.
+*/
+@theme {
+  --color-blue-50: #eaf1f8;
+  --color-blue-500: #1d70b8;
+  --color-blue-600: #1d70b8;
+  --color-blue-700: #003078;
+  --color-gray-200: #e8e8e8;
+}
+
 :root {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
 }
 
 html, body, #app {
@@ -17,16 +36,17 @@ html, body, #app {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
 .md-link {
-  color: #2563eb;
+  color: #1d70b8;
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
 }
-.md-link:hover { color: #1d4ed8; }
+.md-link:hover { color: #003078; }
 
-/* Prose overrides for compact chat bubbles */
-.prose { max-width: none; font-size: 0.875rem; line-height: 1.6; }
+/* Prose overrides for chat bubbles. Body text is 16px minimum per the
+   design spec; only pills and tool-call text may go smaller (14px). */
+.prose { max-width: none; font-size: 1rem; line-height: 1.6; }
 .prose :first-child { margin-top: 0; }
 .prose :last-child  { margin-bottom: 0; }
-.prose pre { background: #f6f8fa; border-radius: 6px; padding: 0.75rem 1rem; overflow-x: auto; font-size: 0.8125rem; }
+.prose pre { background: #f6f8fa; border-radius: 6px; padding: 0.75rem 1rem; overflow-x: auto; font-size: 0.875rem; }
 .prose code:not(pre code) { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.85em; }

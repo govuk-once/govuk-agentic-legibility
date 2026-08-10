@@ -31,7 +31,7 @@
     disabled={isStreaming}
     rows="1"
     placeholder="Describe your situation… (Enter to send, Shift+Enter for new line)"
-    class="flex-1 resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm
+    class="flex-1 resize-none rounded-xl border border-gray-300 px-3 py-2 text-base
            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
            disabled:bg-gray-50 disabled:text-gray-400
            max-h-40 overflow-y-auto"
@@ -40,8 +40,8 @@
   <button
     onclick={submit}
     disabled={isStreaming || !value.trim()}
-    class="flex-shrink-0 bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-medium
-           hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+    class="flex-shrink-0 bg-[#00703C] text-white rounded-xl border border-transparent px-5 py-2 text-base font-bold
+           hover:bg-[#005a30] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
   >
     {isStreaming ? '…' : 'Send'}
   </button>

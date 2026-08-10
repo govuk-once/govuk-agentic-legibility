@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { Message } from '../types'
   import MessageBubble from './MessageBubble.svelte'
+  import ToolCallGroup from './ToolCallGroup.svelte'
+  import StepPills from './StepPills.svelte'
+  import { buildRenderItems } from './toolGroups'
 
   const {
     messages,
@@ -22,6 +25,11 @@
   let listEl = $state<HTMLDivElement | null>(null)
   // True while the user is at (or near) the bottom — auto-scroll follows content
   let isAtBottom = $state(true)
+
+  // Group consecutive tool-call messages into single collapsible bubbles and
+  // attach step pills to the replies that close each run. Non tool-call
+  // messages pass through unchanged. See toolGroups.ts.
+  const renderItems = $derived(buildRenderItems(messages))
 
   function onScroll() {
     if (!listEl) return
@@ -56,20 +64,26 @@
     </div>
   {/if}
 
-  {#each messages as msg (msg.id)}
-    <MessageBubble {msg} {cardView} />
+  {#each renderItems as item (item.id)}
+    {#if item.kind === 'message'}
+      <MessageBubble msg={item.message} {cardView} />
+    {:else if item.kind === 'toolGroup'}
+      <ToolCallGroup group={item.group} />
+    {:else if item.kind === 'stepPills'}
+      <StepPills steps={item.steps} />
+    {/if}
   {/each}
 
   <!-- Streaming assistant bubble -->
   {#if isStreaming && streamingContent}
     <div class="flex">
-      <div class="max-w-[80%] bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm">
+      <div class="max-w-[80%] bg-white rounded-[14px] px-4 py-2.5">
         <MessageBubble msg={{ id: '__streaming__', role: 'assistant', content: streamingContent }} streaming />
       </div>
     </div>
   {:else if isStreaming}
     <div class="flex">
-      <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm text-gray-400 flex items-center gap-1.5">
+      <div class="bg-white border border-gray-200 rounded-[14px] px-4 py-2.5 text-base text-gray-400 flex items-center gap-1.5">
         <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
         <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
         <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>

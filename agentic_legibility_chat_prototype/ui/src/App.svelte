@@ -4,13 +4,14 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event'
   import { openUrl } from '@tauri-apps/plugin-opener'
   import type { AppConfig, SetupStatus, StateView, StateSummary, Message, ServiceStepEvent, UiInputRequest } from './types'
-  import StateIndicator from './lib/StateIndicator.svelte'
   import UiInputForm from './lib/UiInputForm.svelte'
   import StateSelector from './lib/StateSelector.svelte'
   import ChatWindow from './lib/ChatWindow.svelte'
   import ConfigPanel from './lib/ConfigPanel.svelte'
   import PlaygroundPanel from './lib/PlaygroundPanel.svelte'
   import SetupWizard from './lib/SetupWizard.svelte'
+  import JourneyPanel from './lib/JourneyPanel.svelte'
+  import { parseServicePlan, computeStepProgress } from './lib/journey'
 
   // ── App state ────────────────────────────────────────────────────────────
   let currentState = $state<StateView | null>(null)
@@ -23,6 +24,32 @@
   let uiInputRequest = $state<UiInputRequest | null>(null)
   let showConfig = $state(false)
   let showPlayground = $state(false)
+  let showJourney = $state(false)
+
+  // Derive the journey from data already held in `messages`. The most recent
+  // get_service result gives the current plan, and the fetch tool calls show
+  // which steps have run. A fetch counts as successful when its result begins
+  // with an HTTP 2xx status line.
+  const journeySteps = $derived.by(() => {
+    const planMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === 'tool-call' && m.toolName === 'get_service')
+    if (!planMessage?.toolResult) return []
+
+    const plan = parseServicePlan(planMessage.toolResult)
+    const fetches = messages
+      .filter((m) => m.role === 'tool-call' && m.toolName === 'fetch')
+      .map((m) => {
+        const args = m.toolArgs as { url?: string } | undefined
+        const result = m.toolResult ?? ''
+        return {
+          url: typeof args?.url === 'string' ? args.url : '',
+          ok: result.startsWith('HTTP 2'),
+          result,
+        }
+      })
+    return computeStepProgress(plan, fetches)
+  })
 
   // Chat view-mode toggle: 'cards' renders styled <CardBubble>s, 'text'
   // renders the underlying markdown. Default is 'text' so first-time
@@ -310,26 +337,25 @@
   }
 </script>
 
-<div class="flex flex-col h-full bg-gray-50 text-gray-900">
+<div class="flex flex-col h-full bg-white text-gray-900">
   <!-- Top bar -->
-  <header class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
-    <div class="flex-1 min-w-0">
-      {#if currentState}
-        <StateIndicator state={currentState} />
-      {/if}
+  <header class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200">
+    <div class="flex-1 min-w-0 flex items-baseline gap-6">
+      <span class="text-lg font-bold text-black">GOV.UK</span>
+      <span class="truncate text-base text-gray-500">Agentic legibility chat</span>
     </div>
     <button
       onclick={clearChat}
-      class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+      class="text-base text-gray-500 hover:text-gray-700 px-2 py-1 rounded-[10px] hover:bg-gray-100"
     >
       Clear
     </button>
     <button
       onclick={openWizard}
-      class="relative text-xs px-2 py-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+      class="relative text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 text-gray-500 hover:text-gray-700"
       title="Run the setup wizard"
     >
-      ⚙ Setup
+      Setup
       {#if setupStatus && (!setupStatus.has_provider || !setupStatus.has_live_resources_dir)}
         <span
           class="absolute top-0.5 right-0.5 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"
@@ -350,35 +376,35 @@
         : 'Switch to card view — render responses with structured card styling'}
       aria-label={cardView === 'cards' ? 'Switch to text view' : 'Switch to card view'}
       aria-pressed={cardView === 'text'}
-      class="text-xs px-2 py-1 rounded hover:bg-gray-100 {cardView === 'text'
+      class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {cardView === 'text'
         ? 'text-blue-600 bg-blue-50'
         : 'text-gray-500 hover:text-gray-700'}"
     >
-      {cardView === 'cards' ? '🎴 Cards' : '📄 Text'}
+      {cardView === 'cards' ? 'Cards' : 'Text'}
     </button>
     <button
-      onclick={() => { showConfig = !showConfig; if (showConfig) showPlayground = false }}
-      class="text-xs px-2 py-1 rounded hover:bg-gray-100 {showConfig ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
+      onclick={() => { showConfig = !showConfig; if (showConfig) { showPlayground = false; showJourney = false } }}
+      class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {showConfig ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
     >
-      ⚙ Config
+      Config
     </button>
     <button
-      onclick={() => { showPlayground = !showPlayground; if (showPlayground) showConfig = false }}
-      class="text-xs px-2 py-1 rounded hover:bg-gray-100 {showPlayground ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
+      onclick={() => { showPlayground = !showPlayground; if (showPlayground) { showConfig = false; showJourney = false } }}
+      class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {showPlayground ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
     >
-      ✎ Playground
+      Playground
     </button>
   </header>
 
   {#if errorMsg}
-    <div class="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700">
+    <div class="bg-red-50 border-b border-red-200 px-4 py-2 text-base text-red-700">
       {errorMsg}
       <button onclick={() => (errorMsg = '')} class="ml-2 text-red-500 hover:text-red-700">✕</button>
     </div>
   {/if}
 
   {#if setupBanner && setupStatus}
-    <div class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-900 flex items-center gap-3">
+    <div class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-base text-amber-900 flex items-center gap-3">
       <span>
         Setup incomplete —
         {#if !setupStatus.has_provider && !setupStatus.has_live_resources_dir}
@@ -391,7 +417,7 @@
       </span>
       <button
         onclick={openWizard}
-        class="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700"
+        class="text-base px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700"
       >
         Open Setup
       </button>
@@ -400,7 +426,7 @@
 
   <div class="flex flex-1 overflow-hidden">
     <!-- Left sidebar: state selector -->
-    <aside class="w-44 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+    <aside class="w-64 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
       <StateSelector
         {allStates}
         currentStateName={currentState?.name ?? ''}
@@ -410,6 +436,20 @@
 
     <!-- Main chat area -->
     <main class="flex-1 flex flex-col overflow-hidden relative">
+      <!-- Chat panel header: Journey toggle opens the step panel on the right. -->
+      <div class="flex items-center justify-end px-4 py-2 border-b border-gray-200">
+        <button
+          onclick={() => { showJourney = !showJourney; if (showJourney) { showConfig = false; showPlayground = false } }}
+          aria-pressed={showJourney}
+          class="flex items-center gap-2 rounded-[10px] px-3 py-1.5 text-base bg-blue-50 text-blue-600"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" />
+            <line x1="9.5" y1="2.5" x2="9.5" y2="13.5" stroke="currentColor" />
+          </svg>
+          Journey
+        </button>
+      </div>
       <ChatWindow
         {messages}
         {streamingContent}
@@ -445,6 +485,13 @@
         class="flex-shrink-0 border-l border-gray-200 overflow-hidden flex flex-col"
       >
         <PlaygroundPanel onClose={() => (showPlayground = false)} />
+      </aside>
+    {/if}
+
+    <!-- Journey panel -->
+    {#if showJourney}
+      <aside class="w-80 flex-shrink-0 bg-white border-l border-gray-200 overflow-y-auto">
+        <JourneyPanel steps={journeySteps} onClose={() => (showJourney = false)} />
       </aside>
     {/if}
   </div>

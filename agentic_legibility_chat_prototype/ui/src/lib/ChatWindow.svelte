@@ -22,8 +22,8 @@
   } = $props()
 </script>
 
-<div class="flex flex-col h-full">
-  <div class="flex-1 overflow-y-auto">
+<div class="flex flex-col flex-1 min-h-0">
+  <div class="flex-1 min-h-0 overflow-y-auto">
     <MessageList {messages} {streamingContent} {isStreaming} {cardView} />
   </div>
   <div class="border-t border-gray-200 bg-white">
