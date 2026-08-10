@@ -10,6 +10,8 @@
   import ConfigPanel from './lib/ConfigPanel.svelte'
   import PlaygroundPanel from './lib/PlaygroundPanel.svelte'
   import SetupWizard from './lib/SetupWizard.svelte'
+  import JourneyPanel from './lib/JourneyPanel.svelte'
+  import { parseServicePlan, computeStepProgress } from './lib/journey'
 
   // ── App state ────────────────────────────────────────────────────────────
   let currentState = $state<StateView | null>(null)
@@ -22,6 +24,32 @@
   let uiInputRequest = $state<UiInputRequest | null>(null)
   let showConfig = $state(false)
   let showPlayground = $state(false)
+  let showJourney = $state(false)
+
+  // Derive the journey from data already held in `messages`. The most recent
+  // get_service result gives the current plan, and the fetch tool calls show
+  // which steps have run. A fetch counts as successful when its result begins
+  // with an HTTP 2xx status line.
+  const journeySteps = $derived.by(() => {
+    const planMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === 'tool-call' && m.toolName === 'get_service')
+    if (!planMessage?.toolResult) return []
+
+    const plan = parseServicePlan(planMessage.toolResult)
+    const fetches = messages
+      .filter((m) => m.role === 'tool-call' && m.toolName === 'fetch')
+      .map((m) => {
+        const args = m.toolArgs as { url?: string } | undefined
+        const result = m.toolResult ?? ''
+        return {
+          url: typeof args?.url === 'string' ? args.url : '',
+          ok: result.startsWith('HTTP 2'),
+          result,
+        }
+      })
+    return computeStepProgress(plan, fetches)
+  })
 
   // Chat view-mode toggle: 'cards' renders styled <CardBubble>s, 'text'
   // renders the underlying markdown. Default is 'text' so first-time
@@ -355,13 +383,13 @@
       {cardView === 'cards' ? 'Cards' : 'Text'}
     </button>
     <button
-      onclick={() => { showConfig = !showConfig; if (showConfig) showPlayground = false }}
+      onclick={() => { showConfig = !showConfig; if (showConfig) { showPlayground = false; showJourney = false } }}
       class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {showConfig ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
     >
       Config
     </button>
     <button
-      onclick={() => { showPlayground = !showPlayground; if (showPlayground) showConfig = false }}
+      onclick={() => { showPlayground = !showPlayground; if (showPlayground) { showConfig = false; showJourney = false } }}
       class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {showPlayground ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
     >
       Playground
@@ -408,6 +436,20 @@
 
     <!-- Main chat area -->
     <main class="flex-1 flex flex-col overflow-hidden relative">
+      <!-- Chat panel header: Journey toggle opens the step panel on the right. -->
+      <div class="flex items-center justify-end px-4 py-2 border-b border-gray-200">
+        <button
+          onclick={() => { showJourney = !showJourney; if (showJourney) { showConfig = false; showPlayground = false } }}
+          aria-pressed={showJourney}
+          class="flex items-center gap-2 rounded-[10px] px-3 py-1.5 text-base bg-blue-50 text-blue-600"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" />
+            <line x1="9.5" y1="2.5" x2="9.5" y2="13.5" stroke="currentColor" />
+          </svg>
+          Journey
+        </button>
+      </div>
       <ChatWindow
         {messages}
         {streamingContent}
@@ -443,6 +485,13 @@
         class="flex-shrink-0 border-l border-gray-200 overflow-hidden flex flex-col"
       >
         <PlaygroundPanel onClose={() => (showPlayground = false)} />
+      </aside>
+    {/if}
+
+    <!-- Journey panel -->
+    {#if showJourney}
+      <aside class="w-80 flex-shrink-0 bg-white border-l border-gray-200 overflow-y-auto">
+        <JourneyPanel steps={journeySteps} onClose={() => (showJourney = false)} />
       </aside>
     {/if}
   </div>
