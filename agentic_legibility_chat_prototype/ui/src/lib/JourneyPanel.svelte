@@ -9,6 +9,14 @@
     onClose: () => void
   } = $props()
 
+  // Colour the step number circle by status. A skipped step (an optional branch
+  // the agent bypassed) turns grey to set it apart from steps still ahead.
+  function dotClasses(status: JourneyStep['status']): string {
+    if (status === 'skipped') return 'bg-gray-400 text-white'
+    if (status === 'awaiting') return 'bg-blue-600 text-white opacity-40'
+    return 'bg-blue-600 text-white'
+  }
+
   // Placeholder field-level provenance. Real values need a backend signal that
   // records where each answer came from, so this block exists only to preview
   // the tag design and is clearly labelled as a sample in the panel. The colours
@@ -49,8 +57,7 @@
         {#each steps as step (step.number)}
           <li class="flex gap-3">
             <span
-              class="flex-shrink-0 flex items-center justify-center rounded-full bg-blue-600 text-white text-sm font-semibold"
-              class:opacity-40={step.status === 'awaiting'}
+              class="flex-shrink-0 flex items-center justify-center rounded-full text-sm font-semibold {dotClasses(step.status)}"
               style="width: 22px; height: 22px;"
             >
               {step.number}
@@ -59,7 +66,7 @@
               <p class="text-base font-bold text-black">{step.title}</p>
               <p class="text-sm text-gray-500">
                 {step.required ? 'Required' : 'Optional'}
-                {#if step.status === 'done'}· done{:else if step.status === 'active'}· in progress{/if}
+                {#if step.status === 'done'}· done{:else if step.status === 'active'}· in progress{:else if step.status === 'skipped'}· skipped{/if}
               </p>
               {#if step.result}
                 <p class="mt-1 text-sm text-gray-600 font-mono break-words">{step.result}</p>

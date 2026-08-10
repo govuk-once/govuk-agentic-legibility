@@ -6,7 +6,7 @@
 // supplied each answer) is deliberately not derived here, it needs a dedicated
 // backend signal and is mocked in the panel for design review only.
 
-export type StepStatus = 'done' | 'active' | 'awaiting'
+export type StepStatus = 'done' | 'active' | 'skipped' | 'awaiting'
 
 export interface PlanStep {
   number: number
@@ -112,6 +112,22 @@ export function parseServicePlan(text: string): PlanStep[] {
 // is not yet done is treated as active, and every step after it is awaiting. The
 // endpoint match is a step-level heuristic: it confirms a step ran, not which
 // individual fields it filled.
+// Find the plan step a request URL targets, or null if none matches. Endpoint
+// names and URL paths are compared in a letters-only form so the underscore and
+// hyphen spellings line up. Shared with the in-chat tool grouping so both use
+// one matching rule.
+export function matchStepNumber(url: string, plan: PlanStep[]): number | null {
+  const target = normaliseEndpoint(lastPathSegment(url))
+  if (!target) return null
+  for (const step of plan) {
+    const stepKey = normaliseEndpoint(step.endpoint)
+    if (stepKey && (target.includes(stepKey) || stepKey.includes(target))) {
+      return step.number
+    }
+  }
+  return null
+}
+
 export function computeStepProgress(plan: PlanStep[], fetches: FetchCall[]): JourneyStep[] {
   // Map each completed step number to the response body of the fetch that
   // completed it. A later successful fetch to the same endpoint replaces an
@@ -120,13 +136,19 @@ export function computeStepProgress(plan: PlanStep[], fetches: FetchCall[]): Jou
 
   for (const call of fetches) {
     if (!call.ok) continue
-    const target = normaliseEndpoint(lastPathSegment(call.url))
-    if (!target) continue
-    for (const step of plan) {
-      const stepKey = normaliseEndpoint(step.endpoint)
-      if (stepKey && (target.includes(stepKey) || stepKey.includes(target))) {
-        results.set(step.number, summariseResult(call.result))
-      }
+    const stepNumber = matchStepNumber(call.url, plan)
+    if (stepNumber !== null) {
+      results.set(stepNumber, summariseResult(call.result))
+    }
+  }
+
+  // The highest completed step number lets us tell a bypassed step (one left
+  // undone once a later step has completed) from a step still ahead of the
+  // agent. An optional branch the agent chose not to take reads as skipped.
+  let lastCompleted = 0
+  for (const step of plan) {
+    if (results.has(step.number)) {
+      lastCompleted = Math.max(lastCompleted, step.number)
     }
   }
 
@@ -135,6 +157,8 @@ export function computeStepProgress(plan: PlanStep[], fetches: FetchCall[]): Jou
     let status: StepStatus
     if (results.has(step.number)) {
       status = 'done'
+    } else if (step.number < lastCompleted) {
+      status = 'skipped'
     } else if (!activeAssigned) {
       status = 'active'
       activeAssigned = true

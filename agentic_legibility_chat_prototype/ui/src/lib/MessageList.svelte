@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { Message } from '../types'
   import MessageBubble from './MessageBubble.svelte'
+  import ToolCallGroup from './ToolCallGroup.svelte'
+  import StepPills from './StepPills.svelte'
+  import { buildRenderItems } from './toolGroups'
 
   const {
     messages,
@@ -22,6 +25,11 @@
   let listEl = $state<HTMLDivElement | null>(null)
   // True while the user is at (or near) the bottom — auto-scroll follows content
   let isAtBottom = $state(true)
+
+  // Group consecutive tool-call messages into single collapsible bubbles and
+  // attach step pills to the replies that close each run. Non tool-call
+  // messages pass through unchanged. See toolGroups.ts.
+  const renderItems = $derived(buildRenderItems(messages))
 
   function onScroll() {
     if (!listEl) return
@@ -56,8 +64,14 @@
     </div>
   {/if}
 
-  {#each messages as msg (msg.id)}
-    <MessageBubble {msg} {cardView} />
+  {#each renderItems as item (item.id)}
+    {#if item.kind === 'message'}
+      <MessageBubble msg={item.message} {cardView} />
+    {:else if item.kind === 'toolGroup'}
+      <ToolCallGroup group={item.group} />
+    {:else if item.kind === 'stepPills'}
+      <StepPills steps={item.steps} />
+    {/if}
   {/each}
 
   <!-- Streaming assistant bubble -->
