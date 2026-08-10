@@ -4,7 +4,6 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event'
   import { openUrl } from '@tauri-apps/plugin-opener'
   import type { AppConfig, SetupStatus, StateView, StateSummary, Message, ServiceStepEvent, UiInputRequest } from './types'
-  import StateIndicator from './lib/StateIndicator.svelte'
   import UiInputForm from './lib/UiInputForm.svelte'
   import StateSelector from './lib/StateSelector.svelte'
   import ChatWindow from './lib/ChatWindow.svelte'
@@ -310,26 +309,25 @@
   }
 </script>
 
-<div class="flex flex-col h-full bg-gray-50 text-gray-900">
+<div class="flex flex-col h-full bg-white text-gray-900">
   <!-- Top bar -->
-  <header class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
-    <div class="flex-1 min-w-0">
-      {#if currentState}
-        <StateIndicator state={currentState} />
-      {/if}
+  <header class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200">
+    <div class="flex-1 min-w-0 flex items-baseline gap-6">
+      <span class="text-lg font-bold text-black">GOV.UK</span>
+      <span class="truncate text-base text-gray-500">Agentic legibility chat</span>
     </div>
     <button
       onclick={clearChat}
-      class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+      class="text-base text-gray-500 hover:text-gray-700 px-2 py-1 rounded-[10px] hover:bg-gray-100"
     >
       Clear
     </button>
     <button
       onclick={openWizard}
-      class="relative text-xs px-2 py-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+      class="relative text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 text-gray-500 hover:text-gray-700"
       title="Run the setup wizard"
     >
-      ⚙ Setup
+      Setup
       {#if setupStatus && (!setupStatus.has_provider || !setupStatus.has_live_resources_dir)}
         <span
           class="absolute top-0.5 right-0.5 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"
@@ -350,35 +348,35 @@
         : 'Switch to card view — render responses with structured card styling'}
       aria-label={cardView === 'cards' ? 'Switch to text view' : 'Switch to card view'}
       aria-pressed={cardView === 'text'}
-      class="text-xs px-2 py-1 rounded hover:bg-gray-100 {cardView === 'text'
+      class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {cardView === 'text'
         ? 'text-blue-600 bg-blue-50'
         : 'text-gray-500 hover:text-gray-700'}"
     >
-      {cardView === 'cards' ? '🎴 Cards' : '📄 Text'}
+      {cardView === 'cards' ? 'Cards' : 'Text'}
     </button>
     <button
       onclick={() => { showConfig = !showConfig; if (showConfig) showPlayground = false }}
-      class="text-xs px-2 py-1 rounded hover:bg-gray-100 {showConfig ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
+      class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {showConfig ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
     >
-      ⚙ Config
+      Config
     </button>
     <button
       onclick={() => { showPlayground = !showPlayground; if (showPlayground) showConfig = false }}
-      class="text-xs px-2 py-1 rounded hover:bg-gray-100 {showPlayground ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
+      class="text-base px-2 py-1 rounded-[10px] hover:bg-gray-100 {showPlayground ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}"
     >
-      ✎ Playground
+      Playground
     </button>
   </header>
 
   {#if errorMsg}
-    <div class="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700">
+    <div class="bg-red-50 border-b border-red-200 px-4 py-2 text-base text-red-700">
       {errorMsg}
       <button onclick={() => (errorMsg = '')} class="ml-2 text-red-500 hover:text-red-700">✕</button>
     </div>
   {/if}
 
   {#if setupBanner && setupStatus}
-    <div class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-900 flex items-center gap-3">
+    <div class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-base text-amber-900 flex items-center gap-3">
       <span>
         Setup incomplete —
         {#if !setupStatus.has_provider && !setupStatus.has_live_resources_dir}
@@ -391,7 +389,7 @@
       </span>
       <button
         onclick={openWizard}
-        class="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700"
+        class="text-base px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700"
       >
         Open Setup
       </button>
@@ -400,7 +398,7 @@
 
   <div class="flex flex-1 overflow-hidden">
     <!-- Left sidebar: state selector -->
-    <aside class="w-44 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+    <aside class="w-64 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
       <StateSelector
         {allStates}
         currentStateName={currentState?.name ?? ''}

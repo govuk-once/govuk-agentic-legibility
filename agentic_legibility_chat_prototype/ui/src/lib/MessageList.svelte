@@ -63,13 +63,13 @@
   <!-- Streaming assistant bubble -->
   {#if isStreaming && streamingContent}
     <div class="flex">
-      <div class="max-w-[80%] bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm">
+      <div class="max-w-[80%] bg-white rounded-[14px] px-4 py-2.5">
         <MessageBubble msg={{ id: '__streaming__', role: 'assistant', content: streamingContent }} streaming />
       </div>
     </div>
   {:else if isStreaming}
     <div class="flex">
-      <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm text-gray-400 flex items-center gap-1.5">
+      <div class="bg-white border border-gray-200 rounded-[14px] px-4 py-2.5 text-base text-gray-400 flex items-center gap-1.5">
         <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
         <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
         <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
