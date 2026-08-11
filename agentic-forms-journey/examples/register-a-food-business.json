@@ -1,0 +1,60 @@
+{
+  "id": "register-a-food-business",
+  "name": "Register a food business",
+  "submissionEmail": "envhealth@example.gov.uk",
+  "whatHappensNext": "Your registration is passed to environmental health. A food safety officer may arrange an inspection.",
+  "pages": [
+    {
+      "id": "f1",
+      "position": 1,
+      "questionText": "Name of the food business",
+      "isOptional": false,
+      "answerType": "organisation_name"
+    },
+    {
+      "id": "f2",
+      "position": 2,
+      "questionText": "Name of the owner or main contact",
+      "isOptional": false,
+      "answerType": "name"
+    },
+    {
+      "id": "f3",
+      "position": 3,
+      "questionText": "Contact email address",
+      "isOptional": false,
+      "answerType": "email"
+    },
+    {
+      "id": "f4",
+      "position": 4,
+      "questionText": "Owner National Insurance number",
+      "hintText": "We use this to verify the registered owner.",
+      "isOptional": false,
+      "answerType": "national_insurance_number"
+    },
+    {
+      "id": "f5",
+      "position": 5,
+      "questionText": "Date the business will start trading",
+      "isOptional": false,
+      "answerType": "date"
+    },
+    {
+      "id": "f6",
+      "position": 6,
+      "questionText": "What types of food activity will you carry out?",
+      "isOptional": false,
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "checkbox",
+        "selectionOptions": [
+          { "name": "Preparing food" },
+          { "name": "Selling food" },
+          { "name": "Storing food" },
+          { "name": "Distributing food" }
+        ]
+      }
+    }
+  ]
+}
