@@ -293,11 +293,24 @@ async fn get_service(ctx: &AppContext, args: &Value) -> Result<String, String> {
     let name = args["name"]
         .as_str()
         .ok_or("get_service requires a 'name' string argument")?;
+
     let index = ctx.spec_index.as_ref().unwrap().read().await;
-    index
+
+    let service_body = { 
+        index
         .get(DocKind::Service, None, name)
         .map(|d| d.body.clone())
         .ok_or_else(|| not_found("service", name))
+    };
+    
+    if let Ok(ref body) = service_body {
+        // set the service name as the journey
+        let mut tracer = ctx.tracer.write().await;
+        tracer.set_journey(name);
+        tracer.start_trace();
+    }
+
+    service_body
 }
 
 async fn list_plans(ctx: &AppContext) -> Result<String, String> {

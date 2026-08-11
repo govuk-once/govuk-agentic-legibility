@@ -2,6 +2,10 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 
 use config::AppConfig;
+
+mod trace;
+use trace::Tracer;
+
 use llm::types::LLMToolDef;
 use mcp::{
     namespaced_tools, router::McpServerHandle, McpClientEnum, McpRouter, LegibilityChatClient,
@@ -44,6 +48,7 @@ pub struct ManagedState {
     /// Held while waiting for the user to submit a `ui_input` form.
     /// The sender is set by `dispatch_tool` and resolved by `submit_ui_input`.
     pub pending_ui_input: tokio::sync::Mutex<Option<tokio::sync::oneshot::Sender<String>>>,
+    pub tracer: RwLock<Tracer>
 }
 
 // Safety: all fields are Send + Sync via RwLock / Mutex
@@ -169,7 +174,7 @@ pub fn run() {
                 .join("legibility-chat")
                 .join("cards")
         });
-
+    
     // Registries are populated inside `.setup()` (below) so we have an
     // `AppHandle` for `path().resource_dir()` to resolve the bundled
     // `defaults/` resource. Until that completes, commands that read the
@@ -191,6 +196,7 @@ pub fn run() {
             tools: tools_dir,
             cards: cards_dir,
         }),
+        tracer: RwLock::new(Tracer::new())
     };
 
     tauri::Builder::default()

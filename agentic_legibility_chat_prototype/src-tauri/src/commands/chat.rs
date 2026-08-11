@@ -8,6 +8,10 @@ use crate::llm::types::{LLMFunctionDef, LLMRequest, LLMToolDef};
 use crate::mcp::{is_spec_tool, router};
 use crate::state_machine::registry::CardSummary;
 use crate::ManagedState;
+use crate::trace::TraceEvent;
+
+
+
 
 /// Pretty-print the LLM request for `RUST_LOG=legibility_chat=debug`.
 ///
@@ -187,6 +191,12 @@ pub async fn send_message(
     {
         let mut conv = state.conversation.write().unwrap();
         conv.push(ChatMessage::user(&content));
+
+        state.tracer.write().unwrap().add_event(
+            TraceEvent::UserMessage,
+            &content,
+            vec!(("", ""))
+        );
     }
 
     async {
