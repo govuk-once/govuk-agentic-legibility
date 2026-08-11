@@ -106,6 +106,7 @@ coverage/
 
 # Local journey execution traces
 .traces/
+.common-traces/
 
 # SvelteKit
 .svelte-kit/

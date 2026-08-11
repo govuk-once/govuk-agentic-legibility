@@ -1,0 +1,55 @@
+schema_version: "0.1"
+source_trace: "manual-entry-from-conversation-history.jsonl"
+run:
+  id: "cd192ea086094155bda781340388ab5a"
+  journey_id: "change-driving-licence-address"
+  implementation: "agent_assisted_http_frontend"
+  status: "completed"
+initial_context:
+  conversation_fixture:
+    id: "complete-address-manual-entry"
+    version: "1"
+    sha256: "0f25037441eb3b79cb815f9239de088bfa9e7869feeb79a77c4fa99136d3a7ae"
+events:
+  - type: "interaction_available"
+    interaction_id: "choose_address_entry_method"
+  - type: "values_proposed"
+    interaction_id: "choose_address_entry_method"
+    values:
+      use_postcode_lookup: false
+  - type: "values_submitted"
+    values:
+      use_postcode_lookup: false
+    interaction_id: "choose_address_entry_method"
+  - type: "interaction_available"
+    interaction_id: "enter_address_manually"
+  - type: "values_proposed"
+    interaction_id: "enter_address_manually"
+    values:
+      address_line_1: "Flat 4, 81 Station Road"
+      town_or_city: "Bristol"
+      postcode: "BS1 3AB"
+  - type: "values_submitted"
+    values:
+      address_line_1: "Flat 4, 81 Station Road"
+      town_or_city: "Bristol"
+      postcode: "BS1 3AB"
+    interaction_id: "enter_address_manually"
+  - type: "interaction_available"
+    interaction_id: "confirm_new_address"
+  - type: "values_proposed"
+    interaction_id: "confirm_new_address"
+    values:
+      confirmed: true
+  - type: "values_submitted"
+    values:
+      confirmed: true
+    interaction_id: "confirm_new_address"
+  - type: "journey_finished"
+    status: "completed"
+    result:
+      new_address:
+        address_line_1: "Flat 4, 81 Station Road"
+        address_line_2: null
+        town_or_city: "Bristol"
+        postcode: "BS1 3AB"
