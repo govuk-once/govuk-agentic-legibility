@@ -24,7 +24,9 @@ expected:
     branch: "postcode_lookup"
     final:
       status: "completed"
-      values:
+      result:
+      new_address:
         address_line_1: "18 Station Road"
+        address_line_2: null
         town_or_city: "Bristol"
         postcode: "BS1 3AB"

@@ -26,8 +26,9 @@ expected:
     branch: "manual_entry"
     final:
       status: "completed"
-      values:
-        address_line_1: "Flat 4"
-        address_line_2: "81 Station Road"
-        town_or_city: "Bristol"
-        postcode: "BS1 3AB"
+      result:
+        new_address:
+          address_line_1: "Flat 4"
+          address_line_2: "81 Station Road"
+          town_or_city: "Bristol"
+          postcode: "BS1 3AB"
