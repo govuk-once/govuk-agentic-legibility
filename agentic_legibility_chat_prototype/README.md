@@ -101,6 +101,53 @@ pnpm --dir ui check              # svelte-check + tsc, no separate lint/test scr
 
 There is no `pnpm lint`, `pnpm test`, or browser test suite configured for `ui/` at present — `check` (type-checking only) is the only frontend validation gate.
 
+### Integration tests
+
+`src-tauri/tests/` has full-stack integration tests that spawn the real `legibility-chat-mcp` sidecar, run the mock FLEX API (`legibility-chat-mocks`) in-process, and drive the actual `send_message`/`submit_ui_input` Tauri commands — **against your real, configured LLM provider**. Only the FLEX REST API is mocked; the LLM calls are genuine, unscripted, and billed to whatever provider is set in `~/.config/legibility-chat/config.json`.
+
+Because of this, each test run:
+
+- **Requires a real provider configured** (`provider.{base_url,api_key,model}` in your config) — a test fails fast with a clear message if none is set.
+- **Costs real API usage** — the LLM is not mocked, so every run makes genuine, billed calls.
+- **Is not fully deterministic** — the LLM's exact tool-call sequence and phrasing can vary between runs. Tests assert on outcomes (which endpoints got hit, that no tool call failed, that certain trace events occurred) rather than an exact scripted transcript.
+- **Needs the sidecar binary built and copied into `src-tauri/binaries/`** first, the same way `dev.sh` does it — either run `./test-integration.sh` (below), or do it manually:
+
+  ```bash
+  TARGET=$(rustc -vV | grep host | cut -d' ' -f2)
+  cargo build -p legibility-chat-mcp
+  cp target/debug/legibility-chat-mcp "src-tauri/binaries/legibility-chat-mcp-${TARGET}"
+  ```
+
+Each test isolates its own `config.json`/`trace.jsonl`/`trace.state.json` in a fresh tempdir (via `XDG_CONFIG_HOME`) — it won't touch your real trace history — but it does read your real `config.json` once up front to capture provider credentials before overriding the location.
+
+Run the primary end-to-end conversation test via the helper script, which also takes care of the sidecar build step:
+
+```bash
+./test-integration.sh
+```
+
+Run an individual test binary directly with `cargo test` (add `-- --nocapture` to see `println!` output, e.g. the ordered list of tool calls):
+
+```bash
+cargo test -p legibility-chat --test trace_conversation -- --nocapture
+cargo test -p legibility-chat --test change_driving_licence_address_postcode -- --nocapture
+cargo test -p legibility-chat --test change_driving_licence_address_manual -- --nocapture
+cargo test -p legibility-chat --test change_driving_licence_address_llm_choice -- --nocapture
+```
+
+What each covers:
+
+| Test | Scenario |
+|---|---|
+| `trace_conversation` | General open-ended conversation starting in the `Advice` state, asserting only that a `user_message` trace event is recorded (loosest test — the LLM's path through Advice/Plan/Execute isn't pinned) |
+| `change_driving_licence_address_postcode` | Drives the `change_driving_licence_address` service starting in `Execute`, steered toward the postcode-lookup path; asserts `get_service` was called and the postcode/confirm endpoints were hit |
+| `change_driving_licence_address_manual` | Same service, steered toward manual address entry instead |
+| `change_driving_licence_address_llm_choice` | Same service, but the prompt offers both postcode and manual-entry facts and lets the real LLM pick a path itself. This one is the most exposed to real-LLM non-determinism — it can fail if the model tries a path, changes its mind, or ends the conversation before confirming |
+
+Each test converts its trace to YAML and writes a copy under `src-tauri/tests/output/*.yaml` (gitignored) for inspection after the run.
+
+Test harness code shared across these files lives in `src-tauri/tests/common/mod.rs` (not a test itself — Cargo treats a `tests/common/` module specially and doesn't compile it as its own binary).
+
 ## Production build
 
 ```bash
