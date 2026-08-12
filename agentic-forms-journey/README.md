@@ -4,7 +4,7 @@ This demo web app builds upon an earlier [Agentic-forms proof of concept by Maxw
 
 This earlier iteration explored how GOV.UK Forms could be made ligible to AI Agents. This poc took an exported GOV.UK Form in its JSON format and mapped this deterministically to a schema. A deterministically coded agent then executed the form.
 
-The areas brought formward into this repo and referenced in the code are:
+The areas brought forward into this repo and referenced in the code are:
 - `contract-builder.ts` `slugify()`, `answerFragment()` and `buildAgentContract()` .
 - `deterministic.ts`
 - `validate.ts` and the use of `Ajv library`
@@ -15,7 +15,7 @@ Upload the JSON export of a form built on [GOV.UK Forms](https://www.forms.servi
 
 Alongside the chat, the app runs the  determinstic pass from the original poc over the same form and compares the two. This makes it easier to see what the 'live' agent inferred, which questions it answered, where a branch condition in the form was taken. This can help future discussions around where a human should still check the result before trusting it.
 
-It now also has a run log and a compare page: a run can be recorded against a set of criteria, and different methods can be measured against each other. See [Update: run log and compare](#update-run-log-and-compare) below.
+It now also has a run log and a compare page: a run can be recorded as a common trace, a shared event format agreed with other teams building similar prototypes, so different methods can be measured against each other on the same terms. See [Update: run log and compare](#update-run-log-and-compare) below.
 
 ## What the project does
 
@@ -30,11 +30,12 @@ The submit stage is simulated. Nothing is sent to a real government service. A s
 
 ### Update: run log and compare
 
-Two newer pages let you keep a record of a run and measure methods against each other:
+Two newer pages let you keep a portable record of a run and measure methods against each other, using a shared event format called the **common trace**.
 
-- **Run log** (`/log`). Records the latest agent run against four things: time and tokens, the full conversation, what the agent did to each field, and a reserved slot for journey executor actions that other prototypes have in their trace (this demo has no executor). You can name the run and export it as a JSON file, so every method has a portable record.
-**Next steps are to align the log with the common trace in the RFC for other prototypes.**
-- **Compare** (`/compare`). Loads several run logs and puts them side by side: a scorecard, an at a glance chart, and a question by question view of where the methods differ. Only methods that ran the same form are compared, so it stays like for like. It includes example methods to try, and can generate simple "verbose" (like a form filling step by step process) and "aggressive" (fully autonomous) versions from one real run so a single log still has something to compare against. ideally you would compare against variations of the same form but different user inputs.
+A common trace is a small record of what happened during a run: which questions became available, what values were proposed and submitted, and how the run ended. It is agreed with the other teams building similar prototypes, so a run from this app can be compared against theirs on the same terms. It deliberately leaves out the exact wording of the conversation. This prototype keeps that detail in a separate raw trace (`src/lib/raw-trace.ts`), which the common trace's `source_trace` field points to.
+
+- **Run log** (`/log`). Builds a common trace live as the agent runs, turn by turn, and lets you export it, and the full raw trace behind it, as JSON.
+- **Compare** (`/compare`). Loads several common traces and puts them side by side: an event-count scorecard (how many values were proposed, submitted, and so on), and a question by question view of what each method actually submitted. Only methods that ran the same journey are compared, so it stays like for like. It includes example methods to try, and can generate synthetic comparators from one real trace so a single loaded trace still has something to compare against.
 
 ## Main runtime surfaces
 
@@ -107,19 +108,23 @@ The server side logic lives in `src/lib/server`. A single request flows through 
 | --- | --- |
 | `src/routes/+page.svelte` | The full user interface: upload, chat, and results. |
 | `src/routes/api/run/+server.ts` | The `POST /api/run` endpoint that drives one agent turn. |
-| `src/routes/log/+page.svelte` | The `/log` page: one run's four criteria, plus JSON export. |
-| `src/routes/compare/+page.svelte` | The `/compare` page: run logs side by side (scorecard, chart, divergence). |
-| `src/lib/run-log.ts` | The portable run log format (types and Zod schema) shared by both pages. |
-| `src/lib/compare-metrics.ts` | Scorecard and divergence calculations for the compare page. |
-| `src/lib/variants.ts` | Generates synthetic comparator methods from a real run. |
-| `src/lib/fixtures.ts` | Example run logs used by the compare page. |
+| `src/routes/log/+page.svelte` | The `/log` page: the current run's common trace, event by event, plus JSON export. |
+| `src/routes/compare/+page.svelte` | The `/compare` page: common traces side by side (scorecard, chart, divergence). |
+| `src/lib/common-trace.ts` | The common trace format: the shared event types, and the Zod schema used to validate an imported trace. |
+| `src/lib/trace-builder.ts` | Turns the running conversation into a common trace, turn by turn. |
+| `src/lib/raw-trace.ts` | The full detail behind one run: the raw trace a common trace's `source_trace` field points to. |
+| `src/lib/trace-display.ts` | Shared formatting for common trace events (labels, tag colours, value text), used by `/log` and `/compare`. |
+| `src/lib/stores/trace.svelte.ts` | Reactive store holding the current run's common trace and raw trace, so `/log` still shows them after navigating there. |
+| `src/lib/compare-metrics.ts` | Journey grouping, scorecard, and divergence calculations for the compare page. |
+| `src/lib/variants.ts` | Generates synthetic comparator methods from a real trace. |
+| `src/lib/fixtures.ts` | Example common traces used by the compare page. |
 | `src/lib/schemas.ts` | Zod schemas for the uploaded form, the agent's output, and the journey stages. |
+| `src/lib/flow.ts` | Annotates each question with a run's outcome for the journey flow. Used by both the server pipeline and the browser-side trace builder, so it lives outside `server/`. |
 | `src/lib/server/contract-builder.ts` | Builds the shared mapping, JSON Schema, and branching rules from a form. |
 | `src/lib/server/llm.ts` | Talks to the Anthropic Messages API and returns the agent's answers and reply. |
 | `src/lib/server/deterministic.ts` | The fixed baseline run (hard coded agent) from the original poc. |
 | `src/lib/server/journey-runner.ts` | Runs one journey through all five stages. |
 | `src/lib/server/validation.ts` | Ajv validation of answers against the generated schema. |
-| `src/lib/server/flow.ts` | Annotates each question with the agent run's outcome for the journey flow. |
 | `src/lib/server/branch-trace.ts` | Builds one trace row per routing rule. |
 | `src/lib/server/compare.ts` | Ties the two runs together into the comparison response. |
 | `src/lib/server/engine-types.ts` | Shared TypeScript types for the server pipeline. |

@@ -16,7 +16,6 @@ export const SCHEMA_VERSION = "0.1";
 // live agent is named after its role (agent) rather than a specific model, so
 // the name still makes sense if the underlying model changes later.
 export const IMPLEMENTATION_AGENT = "agentic-forms-journey-agent";
-export const IMPLEMENTATION_DETERMINISTIC = "agentic-forms-journey-deterministic";
 export const IMPLEMENTATION_VERBOSE_SYNTHETIC = "agentic-forms-journey-verbose-synthetic";
 export const IMPLEMENTATION_AGGRESSIVE_SYNTHETIC = "agentic-forms-journey-aggressive-synthetic";
 
