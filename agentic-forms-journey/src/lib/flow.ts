@@ -1,4 +1,10 @@
-import type { AgentContract, MappingRow } from "./engine-types";
+// This file lives outside src/lib/server on purpose. It has no dependency
+// that needs to stay on the server (no environment variables, no network
+// calls), and trace-builder.ts needs to call buildJourneyFlow from code that
+// runs in the browser, which SvelteKit will not allow for anything under
+// src/lib/server.
+
+import type { AgentContract, MappingRow } from "./server/engine-types";
 
 // Per-run outcome for one question in the LLM journey flow.
 // - answered: the question was reached and an answer was provided

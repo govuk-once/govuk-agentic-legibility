@@ -58,19 +58,6 @@ export interface BranchTraceRow {
   skippedQuestionTexts: string[];
 }
 
-// Per-turn agent telemetry, captured so a run can be logged and compared
-// against other agentic-form-filling methods on raw time/token cost.
-export interface TurnTelemetry {
-  // Model that produced this turn.
-  model: string;
-  // Wall-clock time spent on the agent call, in milliseconds.
-  latencyMs: number;
-  // Prompt tokens billed for this turn (0 when unavailable, e.g. on error).
-  inputTokens: number;
-  // Completion tokens billed for this turn.
-  outputTokens: number;
-}
-
 // Fill-stage output shape before validate/submit stages run.
 export interface FillResult {
   answers: Record<string, unknown>;
@@ -78,7 +65,7 @@ export interface FillResult {
   rationale: string;
 }
 
-// One turn in the citizen <-> agent conversation.
+// One turn in the user and agent conversation.
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -86,12 +73,13 @@ export interface ChatMessage {
 
 // Fill output plus the agent's chat reply for the conversational flow.
 export interface ChatFillResult extends FillResult {
-  // Natural-language message shown to the citizen.
+  // Natural-language message shown to the user.
   reply: string;
   // True when the agent still needs something before the form can be submitted.
   awaitingInput: boolean;
-  // Time/token cost of producing this turn.
-  telemetry: TurnTelemetry;
+  // Model that produced this turn, kept for reference even though this app
+  // does not track cost or timing.
+  model: string;
 }
 
 // Full output for one run mode across all canonical stages.

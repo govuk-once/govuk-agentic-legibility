@@ -4,14 +4,14 @@
 // exactly the point a user would expect to see it: once its
 // branch gating has resolved, not before.
 //
-// This file has no side effects of its own. It does not create a run id,
+// This file has no knock on effects of its own. It does not create a run id,
 // read the clock, or call any API. Whatever code runs the conversation must
 // create the run id itself, and must tell this module directly whether each
 // turn succeeded or failed, and when the user's journey has actually
 // finished.
 
 import type { AgentContract } from "./server/engine-types";
-import { buildJourneyFlow } from "./server/flow";
+import { buildJourneyFlow } from "./flow";
 import { SCHEMA_VERSION, type CommonTrace, type TerminalStatus, type TraceEvent } from "./common-trace";
 
 // Shapes one field's value into the flat values object the common trace

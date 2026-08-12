@@ -1,49 +1,145 @@
 <script lang="ts">
-  import { runLogStore } from "$lib/stores/run-log.svelte";
-  import type { AgentActionKind, RunLog } from "$lib/run-log";
+  import { traceStore } from "$lib/stores/trace.svelte";
+  import type { TraceEvent } from "$lib/common-trace";
+  import { toJsonl } from "$lib/raw-trace";
 
-  // The log accumulates on the home page and is mirrored to sessionStorage,
+  // The trace accumulates on the home page and is mirrored to sessionStorage,
   // so it is available here after navigation or a refresh.
-  const log = $derived(runLogStore.log);
+  const trace = $derived(traceStore.trace);
+  const rawTrace = $derived(traceStore.rawTrace);
 
-  // Maps an agent action to a GOV.UK tag colour.
-  function actionTag(action: AgentActionKind): string {
-    switch (action) {
-      case "filled":
+  // Maps a run's terminal status to a GOV.UK tag colour.
+  function statusTag(status: string): string {
+    switch (status) {
+      case "completed":
         return "govuk-tag--green";
-      case "skipped":
-        return "govuk-tag--grey";
-      case "undetermined":
-        return "govuk-tag--yellow";
+      case "blocked":
+        return "govuk-tag--orange";
       default:
-        return "govuk-tag--red";
+        return "govuk-tag--grey";
     }
   }
 
-  function actionLabel(action: AgentActionKind): string {
-    return action === "needs-answer" ? "needs answer" : action;
+  // Maps an event type to a GOV.UK tag colour, so the same kind of event is
+  // easy to spot down the list.
+  function eventTag(type: TraceEvent["type"]): string {
+    switch (type) {
+      case "interaction_available":
+        return "govuk-tag--blue";
+      case "values_proposed":
+        return "govuk-tag--teal";
+      case "values_submitted":
+        return "govuk-tag--green";
+      case "answer_presented":
+        return "govuk-tag--purple";
+      case "assistance_failed":
+        return "govuk-tag--red";
+      case "journey_finished":
+        return "govuk-tag--orange";
+      default:
+        return "govuk-tag--grey";
+    }
   }
 
-  // Presents milliseconds as a compact "1.2s" / "840ms" label.
-  function ms(value: number): string {
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
-    return `${Math.round(value)}ms`;
+  // A short, readable label for an event type.
+  function eventLabel(type: TraceEvent["type"]): string {
+    return type.replaceAll("_", " ");
   }
 
-  // The conversation history is also shown row-by-row in the interaction table,
-  // so here it is offered purely as a copy/paste artifact: one readable block in
-  // either plain text or JSON, ready to drop into a reference elsewhere.
-  let convoFormat = $state<"text" | "json">("text");
+  // Renders a single scalar or object value compactly.
+  function formatValue(value: unknown): string {
+    return typeof value === "object" ? JSON.stringify(value) : String(value);
+  }
+
+  // Renders a values object as a compact, readable line. An ordinary scalar
+  // answer stores its value under its own interaction id, so showing that
+  // name again would just repeat what the interaction already is. It is only
+  // shown when the object has more than one named part, such as an address
+  // split into line, town, and postcode.
+  function formatValues(values: Record<string, unknown>, interactionId: string): string {
+    const entries = Object.entries(values);
+    if (entries.length === 1 && entries[0][0] === interactionId) {
+      return formatValue(entries[0][1]);
+    }
+    return entries.map(([key, value]) => `${key}: ${formatValue(value)}`).join(", ");
+  }
+
+  // The one line of detail worth showing for each kind of event.
+  function eventDetail(event: TraceEvent): string {
+    switch (event.type) {
+      case "interaction_available":
+        return "-";
+      case "values_proposed":
+      case "values_submitted":
+        return formatValues(event.values, event.interaction_id);
+      case "answer_presented":
+        return "-";
+      case "assistance_failed":
+        return "The agent call did not produce a usable result this turn.";
+      case "journey_finished":
+        return `${Object.keys(event.result).length} value(s) in the final answer`;
+      default:
+        return "-";
+    }
+  }
+
+  // Which order the table below is shown in. The exported common trace always
+  // stays one flat, time-ordered list, since that order is itself meaningful
+  // and other teams' tools expect it. This only changes how the same events
+  // are laid out on the page: grouped keeps every event for one interaction
+  // together, in the order they happened to it, rather than interleaved with
+  // every other field's events. Chronological is the trace's own order.
+  let eventView = $state<"grouped" | "chronological">("grouped");
+
+  // The events to show, in the chosen order. Grouping never reverses the
+  // order of one interaction's own events relative to each other, so working
+  // out whether a value was revised (see isRevision below) gives the same
+  // answer in both views.
+  const orderedEvents = $derived.by(() => {
+    if (!trace) return [];
+    if (eventView === "chronological") return trace.events;
+
+    const order: string[] = [];
+    const byId = new Map<string, TraceEvent[]>();
+    const runEvents: TraceEvent[] = [];
+    for (const event of trace.events) {
+      const id = "interaction_id" in event ? event.interaction_id : undefined;
+      if (!id) {
+        runEvents.push(event);
+        continue;
+      }
+      if (!byId.has(id)) {
+        order.push(id);
+        byId.set(id, []);
+      }
+      byId.get(id)!.push(event);
+    }
+    return [...order.flatMap((id) => byId.get(id) ?? []), ...runEvents];
+  });
+
+  // True when an earlier event in the currently displayed order already
+  // proposed a value for this same interaction, so this is a revision rather
+  // than the only proposal ever made for that field.
+  function isRevision(events: TraceEvent[], index: number): boolean {
+    const event = events[index];
+    if (event.type !== "values_proposed") return false;
+    return events
+      .slice(0, index)
+      .some(
+        (earlier) => earlier.type === "values_proposed" && earlier.interaction_id === event.interaction_id,
+      );
+  }
+
+  // The Text/JSON format for the raw trace, offered purely as a copy/paste
+  // artifact. The events table above already breaks the same run down
+  // visually.
+  let rawFormat = $state<"text" | "json">("text");
   let copied = $state(false);
 
-  const conversationString = $derived.by(() => {
-    if (!log) return "";
-    if (convoFormat === "json") {
-      return JSON.stringify(log.criteria.conversationHistory, null, 2);
-    }
-    return log.criteria.conversationHistory
-      .map((message) => `${message.role === "user" ? "Citizen" : "Agent"}: ${message.content}`)
-      .join("\n\n");
+  const rawTraceString = $derived.by(() => {
+    if (!rawTrace) return "";
+    if (rawFormat === "json") return toJsonl(rawTrace);
+    return rawTrace.turns.map((turn) => `User: ${turn.user}\n\nAgent: ${turn.agentReply}`).join("\n\n");
   });
 
   // Legacy copy path for when the async Clipboard API is unavailable or blocked
@@ -60,8 +156,8 @@
     area.remove();
   }
 
-  async function copyConversation() {
-    const text = conversationString;
+  async function copyRawTrace() {
+    const text = rawTraceString;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -80,29 +176,29 @@
     if (copied) setTimeout(() => (copied = false), 2000);
   }
 
-  // Optional human-friendly name for this run, saved into the export so the
-  // comparison page can label it meaningfully (e.g. "Parking permit v1").
-  let exportTitle = $state("");
-
-  // Serialises the log (stamped with an export time) and downloads it as JSON,
-  // ready to be compared against logs from other methods.
-  function exportJson() {
-    if (!log) return;
-    const title = exportTitle.trim();
-    const payload: RunLog = {
-      ...log,
-      title: title || log.title,
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  function downloadFile(filename: string, content: string, type: string) {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `run-log-${log.method}-${log.form.id}.json`;
+    anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+  }
+
+  // Downloads the common trace, ready to be compared against other methods.
+  function exportCommonTrace() {
+    if (!trace) return;
+    downloadFile(`common-trace-${trace.run.id}.json`, JSON.stringify(trace, null, 2), "application/json");
+  }
+
+  // Downloads the raw trace this common trace was derived from, matching the
+  // filename the common trace's source_trace field already points to.
+  function exportRawTrace() {
+    if (!rawTrace || !trace) return;
+    downloadFile(trace.source_trace ?? `raw-trace-${rawTrace.runId}.jsonl`, toJsonl(rawTrace), "application/jsonl");
   }
 </script>
 
@@ -112,14 +208,13 @@
 
     <h1 class="govuk-heading-l">Run log</h1>
     <p class="govuk-body-m">
-      Criteria captured for this agent run so it can be compared, like-for-like, against other
-      agentic form-filling methods.
+      A common trace of this agent run can be compared against other prototypes.
     </p>
     <p class="govuk-body-m">
       <a class="govuk-link" href="/compare">Compare against other methods &rarr;</a>
     </p>
 
-    {#if !log}
+    {#if !trace}
       <div class="govuk-inset-text">
         No run recorded yet. Upload a form on the <a class="govuk-link" href="/">home page</a> and
         send the agent a message, then come back here.
@@ -127,244 +222,164 @@
     {:else}
       <dl class="govuk-summary-list">
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Method</dt>
-          <dd class="govuk-summary-list__value"><code>{log.method}</code></dd>
+          <dt class="govuk-summary-list__key">Run</dt>
+          <dd class="govuk-summary-list__value"><code>{trace.run.id}</code></dd>
         </div>
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Model</dt>
-          <dd class="govuk-summary-list__value"><code>{log.model}</code></dd>
+          <dt class="govuk-summary-list__key">Implementation</dt>
+          <dd class="govuk-summary-list__value"><code>{trace.run.implementation}</code></dd>
         </div>
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Form</dt>
+          <dt class="govuk-summary-list__key">Journey</dt>
           <dd class="govuk-summary-list__value">
-            {log.form.name ?? "(unnamed)"} <span class="govuk-hint">{log.form.id}</span>
+            {trace.initial_context?.form.name ?? trace.run.journey_id}
+          </dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Status</dt>
+          <dd class="govuk-summary-list__value">
+            <strong class={`govuk-tag ${statusTag(trace.run.status)}`}>{trace.run.status}</strong>
           </dd>
         </div>
       </dl>
 
-      <div class="govuk-form-group export-name">
-        <label class="govuk-label govuk-label--s" for="exportTitle">Name this run (optional)</label>
-        <div id="exportTitle-hint" class="govuk-hint">
-          Shown as the label on the compare page, so you can tell runs apart. For example, “Parking permit v1”.
-        </div>
-        <input
-          class="govuk-input"
-          id="exportTitle"
-          type="text"
-          bind:value={exportTitle}
-          aria-describedby="exportTitle-hint"
-          placeholder="e.g. Parking permit v1"
-        />
+      <div class="govuk-button-group">
+        <button type="button" class="govuk-button govuk-button--secondary" onclick={exportCommonTrace}>
+          Export common trace (JSON)
+        </button>
+        <button type="button" class="govuk-button govuk-button--secondary" onclick={exportRawTrace}>
+          Export raw trace (JSONL)
+        </button>
       </div>
-      <button type="button" class="govuk-button govuk-button--secondary" onclick={exportJson}>
-        Export JSON
-      </button>
 
-      <!-- 1. Time / tokens -->
-      <h2 class="govuk-heading-m">1. Time &amp; tokens</h2>
-      <dl class="govuk-summary-list govuk-summary-list--no-border metric-grid">
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Turns</dt>
-          <dd class="govuk-summary-list__value">{log.criteria.performance.totals.turns}</dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Input tokens</dt>
-          <dd class="govuk-summary-list__value">{log.criteria.performance.totals.inputTokens}</dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Output tokens</dt>
-          <dd class="govuk-summary-list__value">{log.criteria.performance.totals.outputTokens}</dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Total tokens</dt>
-          <dd class="govuk-summary-list__value">{log.criteria.performance.totals.totalTokens}</dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Wall time</dt>
-          <dd class="govuk-summary-list__value">{ms(log.criteria.performance.totals.wallMs)}</dd>
-        </div>
-      </dl>
+      <h2 class="govuk-heading-m">Events</h2>
+      <p class="govuk-body-m">
+        What happened within each interaction.
+      </p>
+
+      <div class="govuk-button-group" role="group" aria-label="Order to show events in">
+        <button
+          type="button"
+          class={`govuk-button govuk-button--secondary ${eventView === "grouped" ? "is-active" : ""}`}
+          aria-pressed={eventView === "grouped"}
+          onclick={() => (eventView = "grouped")}
+        >
+          By interaction
+        </button>
+        <button
+          type="button"
+          class={`govuk-button govuk-button--secondary ${eventView === "chronological" ? "is-active" : ""}`}
+          aria-pressed={eventView === "chronological"}
+          onclick={() => (eventView = "chronological")}
+        >
+          Chronological
+        </button>
+      </div>
+      {#if eventView === "chronological"}
+        <p class="govuk-hint">
+          The exact order events happened in, exactly as stored in the exported trace.
+        </p>
+      {/if}
 
       <table class="govuk-table">
-        <caption class="govuk-table__caption govuk-table__caption--s">Per turn</caption>
         <thead class="govuk-table__head">
           <tr class="govuk-table__row">
-            <th class="govuk-table__header">Turn</th>
-            <th class="govuk-table__header govuk-table__header--numeric">Input</th>
-            <th class="govuk-table__header govuk-table__header--numeric">Output</th>
-            <th class="govuk-table__header govuk-table__header--numeric">Latency</th>
+            <th class="govuk-table__header">Event</th>
+            <th class="govuk-table__header">Interaction Id</th>
+            <th class="govuk-table__header">Detail</th>
           </tr>
         </thead>
         <tbody class="govuk-table__body">
-          {#each log.criteria.performance.turns as t (t.turn)}
+          {#each orderedEvents as event, i (i)}
+            {@const revised = isRevision(orderedEvents, i)}
             <tr class="govuk-table__row">
-              <td class="govuk-table__cell">{t.turn}</td>
-              <td class="govuk-table__cell govuk-table__cell--numeric">{t.inputTokens}</td>
-              <td class="govuk-table__cell govuk-table__cell--numeric">{t.outputTokens}</td>
-              <td class="govuk-table__cell govuk-table__cell--numeric">{ms(t.latencyMs)}</td>
+              <td class="govuk-table__cell">
+                <strong class={`govuk-tag ${revised ? "govuk-tag--yellow" : eventTag(event.type)}`}>
+                  {eventLabel(event.type)}{revised ? " revised" : ""}
+                </strong>
+              </td>
+              <td class="govuk-table__cell">
+                <code>{"interaction_id" in event ? (event.interaction_id ?? "-") : "-"}</code>
+              </td>
+              <td class="govuk-table__cell">{eventDetail(event)}</td>
             </tr>
           {/each}
         </tbody>
       </table>
 
-      <!-- 2. Conversation history: collapsed copy/paste artifact. The same
-           exchange is broken down visually in the interaction table below. -->
-      <h2 class="govuk-heading-m">2. Conversation history</h2>
+      <h2 class="govuk-heading-m">Raw trace</h2>
+      <p class="govuk-body-m">
+        The full conversation this common trace was derived from.
+      </p>
       <details class="govuk-details">
         <summary class="govuk-details__summary">
           <span class="govuk-details__summary-text">Show full transcript (copy &amp; paste)</span>
         </summary>
         <div class="govuk-details__text">
-          <div class="convo-toolbar">
-            <div class="convo-formats" role="group" aria-label="Transcript format">
-              <button
-                type="button"
-                class={`convo-format ${convoFormat === "text" ? "convo-format--active" : ""}`}
-                aria-pressed={convoFormat === "text"}
-                onclick={() => (convoFormat = "text")}
-              >
-                Text
-              </button>
-              <button
-                type="button"
-                class={`convo-format ${convoFormat === "json" ? "convo-format--active" : ""}`}
-                aria-pressed={convoFormat === "json"}
-                onclick={() => (convoFormat = "json")}
-              >
-                JSON
-              </button>
-            </div>
+          <div class="govuk-button-group" role="group" aria-label="Transcript format">
             <button
               type="button"
-              class="govuk-button govuk-button--secondary convo-copy"
-              onclick={copyConversation}
+              class={`govuk-button govuk-button--secondary ${rawFormat === "text" ? "is-active" : ""}`}
+              aria-pressed={rawFormat === "text"}
+              onclick={() => (rawFormat = "text")}
             >
+              Text
+            </button>
+            <button
+              type="button"
+              class={`govuk-button govuk-button--secondary ${rawFormat === "json" ? "is-active" : ""}`}
+              aria-pressed={rawFormat === "json"}
+              onclick={() => (rawFormat = "json")}
+            >
+              JSON
+            </button>
+            <button type="button" class="govuk-button govuk-button--secondary" onclick={copyRawTrace}>
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre class="convo-pre">{conversationString}</pre>
+          <pre class="raw-pre">{rawTraceString}</pre>
         </div>
       </details>
-
-      <!-- 3. Conversation during interaction -->
-      <h2 class="govuk-heading-m">3. Conversation during interaction</h2>
-      <table class="govuk-table">
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th class="govuk-table__header">Turn</th>
-            <th class="govuk-table__header">Citizen said</th>
-            <th class="govuk-table__header">Agent replied</th>
-            <th class="govuk-table__header">Asked for more?</th>
-            <th class="govuk-table__header">New fields</th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          {#each log.criteria.interaction as row (row.turn)}
-            <tr class="govuk-table__row">
-              <td class="govuk-table__cell">{row.turn}</td>
-              <td class="govuk-table__cell">{row.user}</td>
-              <td class="govuk-table__cell">{row.agent}</td>
-              <td class="govuk-table__cell">
-                <strong class={`govuk-tag ${row.awaitingInput ? "govuk-tag--yellow" : "govuk-tag--green"}`}>
-                  {row.awaitingInput ? "asked" : "no"}
-                </strong>
-              </td>
-              <td class="govuk-table__cell">
-                {row.newFields.length > 0 ? row.newFields.join(", ") : "-"}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-
-      <!-- 4. Things the agent does -->
-      <h2 class="govuk-heading-m">4. Things the agent does</h2>
-      <table class="govuk-table">
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th class="govuk-table__header">Question</th>
-            <th class="govuk-table__header">Action</th>
-            <th class="govuk-table__header">Detail</th>
-            <th class="govuk-table__header">Needs a human?</th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          {#each log.criteria.agentActions as action (action.field)}
-            <tr class="govuk-table__row">
-              <td class="govuk-table__cell">{action.questionText}</td>
-              <td class="govuk-table__cell">
-                <strong class={`govuk-tag ${actionTag(action.action)}`}>{actionLabel(action.action)}</strong>
-              </td>
-              <td class="govuk-table__cell">{action.detail || "-"}</td>
-              <td class="govuk-table__cell">{action.needsHuman ? "yes" : "no"}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-
-      <!-- 5. Executor actions (reserved) -->
-      <h2 class="govuk-heading-m">5. Executor actions</h2>
-      <div class="govuk-inset-text">
-        {log.criteria.executorActions.note}
-      </div>
     {/if}
   </main>
 </div>
 
 <style>
-  .metric-grid :global(.govuk-summary-list__key) {
-    width: 40%;
+
+  .page-fill {
+    font-family: "GDS Transport", arial, sans-serif;
   }
 
-  .export-name {
-    max-width: 30rem;
-  }
-
-  .convo-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.5rem;
-  }
-
-  .convo-formats {
-    display: inline-flex;
-  }
-
-  .convo-format {
-    border: 1px solid #b1b4b6;
-    background: #ffffff;
-    padding: 0.25rem 0.85rem;
-    font: inherit;
-    line-height: 1.5;
-    cursor: pointer;
-  }
-
-  .convo-format + .convo-format {
-    border-left: 0;
-  }
-
-  .convo-format--active {
-    background: #1d70b8;
-    border-color: #1d70b8;
+  :global(.govuk-button--secondary.is-active),
+  :global(.govuk-button--secondary.is-active:hover),
+  :global(.govuk-button--secondary.is-active:focus:not(:active):not(:hover)) {
+    background-color: #1d70b8;
     color: #ffffff;
+    box-shadow: 0 2px 0 #003078;
   }
 
-  .convo-copy {
-    margin-bottom: 0;
+  /* A code element has no bundled GDS monospace typeface to fall back to, so
+     without this it renders in the browser's own default monospace font, at
+     its own default size, which rarely matches the surrounding text. Sizing
+     it relative to its context (em, not rem or px) keeps it matched wherever
+     it appears, whether that is a summary list value or a table cell. */
+  .page-fill :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
   }
 
-  .convo-pre {
-    margin: 0;
+  /* A plain text preview box. There is no GDS "code block" component in this
+     bundle, so this reuses the same monospace treatment as inline code. */
+  .raw-pre {
+    margin: 15px 0 0;
     padding: 0.75rem;
     background: #f3f2f1;
     border: 1px solid #b1b4b6;
     overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-word;
-    font-size: 0.875rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
     line-height: 1.5;
   }
 </style>
