@@ -40,7 +40,7 @@ export interface ValuesProposedEvent {
   values: Record<string, unknown>;
 }
 
-// An answer was presented to the citizen, as opposed to the agent simply
+// An answer was presented to the user, as opposed to the agent simply
 // asking for more information. Kept narrow for now: this app mostly asks
 // questions rather than answering them, so this event is only used for the
 // final confirmation message. It could be expanded upon, or the context of
