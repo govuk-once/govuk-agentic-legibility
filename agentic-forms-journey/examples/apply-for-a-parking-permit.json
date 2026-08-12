@@ -1,0 +1,63 @@
+{
+  "id": "apply-for-a-parking-permit",
+  "name": "Apply for a residents parking permit",
+  "submissionEmail": "parking@example.gov.uk",
+  "whatHappensNext": "We will check your details against the electoral register and email your permit within 10 working days.",
+  "pages": [
+    {
+      "id": "q1",
+      "position": 1,
+      "questionText": "What type of permit do you need?",
+      "isOptional": false,
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Resident permit" },
+          { "name": "Business permit" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Resident permit", "goToPageId": "q3" }
+      ]
+    },
+    {
+      "id": "q2",
+      "position": 2,
+      "questionText": "Business name",
+      "hintText": "The registered name of your business. Only needed for a business permit.",
+      "isOptional": false,
+      "answerType": "organisation_name"
+    },
+    {
+      "id": "q3",
+      "position": 3,
+      "questionText": "Your name",
+      "isOptional": false,
+      "answerType": "name",
+      "answerSettings": { "includeTitle": true }
+    },
+    {
+      "id": "q4",
+      "position": 4,
+      "questionText": "Your home address",
+      "isOptional": false,
+      "answerType": "address"
+    },
+    {
+      "id": "q5",
+      "position": 5,
+      "questionText": "Vehicle registration number",
+      "hintText": "For example AB12 CDE.",
+      "isOptional": false,
+      "answerType": "text"
+    },
+    {
+      "id": "q6",
+      "position": 6,
+      "questionText": "Date you want the permit to start",
+      "isOptional": false,
+      "answerType": "date"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+/*
+ * Local additions to gov.css for this POC.
+ * Loaded AFTER gov.css so these rules take precedence.
+ *  1. GDS Transport @font-face wired to the .ttf files under /static/fonts
+ *     (gov.css ships @font-face blocks with their src: commented out).
+ *  2. govuk-tag component, absent from this gov.css build.
+ */
+
+/* 1. GDS Transport web font -------------------------------------------------- */
+@font-face {
+	font-family: "GDS Transport";
+	font-style: normal;
+	font-weight: 400;
+	src: url(/fonts/GDSTransportWebsite.ttf) format("truetype");
+	font-display: fallback;
+}
+@font-face {
+	font-family: "GDS Transport";
+	font-style: normal;
+	font-weight: 700;
+	src: url(/fonts/GDSTransportWebsite-Bold.ttf) format("truetype");
+	font-display: fallback;
+}
+
+/* 2. Tag component ----------------------------------------------------------- */
+.govuk-tag {
+	font-family: "GDS Transport", arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	font-weight: 400;
+	font-size: 1.1875rem;
+	line-height: 1.3157894737;
+	color: #0f385c;
+	background-color: #d2e2f1;
+	display: inline-block;
+	max-width: 160px;
+	margin-top: -2px;
+	margin-bottom: -3px;
+	padding: 2px 8px 3px;
+	border-radius: 1px;
+	text-decoration: none;
+	overflow-wrap: break-word;
+}
+/* Official GOV.UK tag colours (Frontend v6 values) — design-system.service.gov.uk/components/tag/all-colours */
+.govuk-tag--grey { color: #0b0c0c; background-color: #cecece; }
+.govuk-tag--green { color: #083d29; background-color: #cfe4dc; }
+.govuk-tag--teal { color: #0b4144; background-color: #d0e6e7; }
+.govuk-tag--blue { color: #0f385c; background-color: #d2e2f1; }
+.govuk-tag--purple { color: #2a1950; background-color: #ddd6ec; }
+.govuk-tag--magenta { color: #651b3e; background-color: #f4d7e5; }
+.govuk-tag--red { color: #651b1b; background-color: #f4d7d7; }
+.govuk-tag--orange { color: #7a3c1c; background-color: #fde4d7; }
+.govuk-tag--yellow { color: #7a3c1c; background-color: #ffee80; }
+
+/* 3. Back link component (absent from this gov.css build) -------------------- */
+.govuk-back-link {
+	font-family: "GDS Transport", arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	font-weight: 400;
+	font-size: 1rem;
+	line-height: 1.1428571429;
+	display: inline-block;
+	position: relative;
+	margin-top: 15px;
+	margin-bottom: 15px;
+	padding-left: 14px;
+	border: 0;
+	color: #0b0c0c;
+	text-decoration: underline;
+	text-decoration-thickness: max(1px, 0.0625rem);
+	text-underline-offset: 0.1578em;
+}
+.govuk-back-link:link,
+.govuk-back-link:visited {
+	color: #0b0c0c;
+}
+.govuk-back-link:hover {
+	text-decoration-thickness: max(3px, 0.1875rem, 0.12em);
+	text-decoration-skip-ink: none;
+}
+.govuk-back-link:focus {
+	outline: 3px solid transparent;
+	color: #0b0c0c;
+	background-color: #fd0;
+	box-shadow: 0 -2px #fd0, 0 4px #0b0c0c;
+	text-decoration: none;
+}
+.govuk-back-link::before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 3px;
+	width: 7px;
+	height: 7px;
+	margin: auto 0;
+	transform: rotate(225deg);
+	border: solid;
+	border-width: 1px 1px 0 0;
+	border-color: currentcolor;
+}
+
+/* Sticky footer: fill the viewport so short pages (e.g. the initial upload
+   screen) push the footer to the bottom instead of floating it mid-screen.
+   The SvelteKit body wrapper uses display:contents, so the header, page
+   content, and footer become flex items of the body. */
+.govuk-template__body {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+}
