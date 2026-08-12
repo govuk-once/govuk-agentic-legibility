@@ -322,6 +322,9 @@
               </ul>
             </div>
             <div class="govuk-summary-card__content">
+              <p class="govuk-body-s">
+                <strong class="cmp-field-label">Journey</strong>{method.trace.initial_context?.form.name ?? method.trace.run.journey_id}
+              </p>
               <p class="govuk-body-s cmp-method-impl"><code>{method.trace.run.implementation}</code></p>
               <p class="govuk-body-s">
                 <strong class={`govuk-tag ${statusTag(method.trace.run.status)}`}>{method.trace.run.status}</strong>
@@ -674,6 +677,14 @@
      spaces, stops a long implementation identifier overflowing the card. */
   .cmp-method-impl {
     overflow-wrap: anywhere;
+  }
+
+  /* Now that code no longer renders in a distinct monospace font, the
+     implementation and status lines are still self-explanatory on their own,
+     but a plain journey name needs a label so it doesn't read as a stray
+     line of text. */
+  .cmp-field-label {
+    margin-right: 0.35rem;
   }
 
   /* GDS's own :link/:visited colouring only applies to real anchors, and

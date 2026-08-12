@@ -80,10 +80,25 @@
     URL.revokeObjectURL(url);
   }
 
+  // Turns free text into a short, filename-safe slug: lowercase, anything
+  // that is not a letter or digit collapsed to a single hyphen, leading and
+  // trailing hyphens trimmed.
+  function slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
   // Downloads the common trace, ready to be compared against other methods.
+  // Named after the journey rather than the bare run id, so a folder of
+  // exports stays readable; the leading part of the run id keeps two exports
+  // of the same journey from overwriting each other.
   function exportCommonTrace() {
     if (!trace) return;
-    downloadFile(`common-trace-${trace.run.id}.json`, JSON.stringify(trace, null, 2), "application/json");
+    const journeySlug = slugify(trace.initial_context?.form.name ?? trace.run.journey_id);
+    const filename = `common-trace-${journeySlug}-${trace.run.id.slice(0, 8)}.json`;
+    downloadFile(filename, JSON.stringify(trace, null, 2), "application/json");
   }
 
   // Downloads the raw trace this common trace was derived from, matching the
