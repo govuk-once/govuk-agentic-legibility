@@ -19,7 +19,7 @@ struct LegibilityChatClientInner {
 }
 
 impl LegibilityChatClient {
-    pub async fn new(app: &tauri::AppHandle, live_resources_dir: Option<&str>) -> Result<Self> {
+    pub async fn new<R: tauri::Runtime>(app: &tauri::AppHandle<R>, live_resources_dir: Option<&str>) -> Result<Self> {
         let mut sidecar = app
             .shell()
             .sidecar("legibility-chat-mcp")

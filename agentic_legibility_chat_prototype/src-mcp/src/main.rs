@@ -11,9 +11,6 @@ use protocol::{
     ToolsCapability, ToolsListResult,
 };
 
-mod trace;
-use trace::Tracer;
-
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

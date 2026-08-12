@@ -66,12 +66,12 @@ pnpm install --dir ui
 
 ## Mock server
 
-`mock-server.js` (repo root) is a zero-dependency Node script (`node:http` only, no `npm install` needed) that stands in for the real upstream government APIs referenced by `endpoint:` URLs in a `live_resources_dir/endpoints/*.md` spec directory — so you can exercise the `fetch` tool and full Advice → Plan → Execute flow without live credentials or network access to the real services.
+`src-mocks` (a Rust crate, `legibility-chat-mocks`) stands in for the real upstream government APIs referenced by `endpoint:` URLs in a `live_resources_dir/endpoints/*.md` spec directory — so you can exercise the `fetch` tool and full Advice → Plan → Execute flow without live credentials or network access to the real services. It's also used in-process by the `trace_conversation` integration test (see Validation).
 
 Run it standalone:
 
 ```bash
-node mock-server.js [port]   # default port 8127
+cargo run -p legibility-chat-mocks --bin flex-mock -- [port]   # default port 8127
 ```
 
 Or launch it alongside the app in one step:
@@ -80,16 +80,16 @@ Or launch it alongside the app in one step:
 ./dev-with-mock.sh
 ```
 
-This starts `mock-server.js` in the background, runs `./dev.sh` in the foreground, and stops the mock server when `dev.sh` exits (Ctrl-C, crash, or normal exit). Override the port with `MOCK_PORT=9000 ./dev-with-mock.sh`.
+This builds and starts the mock in the background, runs `./dev.sh` in the foreground, and stops the mock when `dev.sh` exits (Ctrl-C, crash, or normal exit). Override the port with `MOCK_PORT=9000 ./dev-with-mock.sh`.
 
-It covers five path prefixes matching the FLEX API domains used in the bundled specs — `/udp` (One Login User Data Platform), `/dvla` (DVLA driver/vehicle/share-code APIs), `/uns` (Unified Notification Service), `/local-council` (MHCLG local authority lookup), and `/example` (a generic example domain for todos/resources/headers). Each route is a `{ method, path: RegExp, status, handler }` entry in the `ROUTES` array; more specific paths must be listed before overlapping general ones, since the first regex match wins.
+It covers five path prefixes matching the FLEX API domains used in the bundled specs — `/udp` (One Login User Data Platform), `/dvla` (DVLA driver/vehicle/share-code APIs), `/uns` (Unified Notification Service), `/local-council` (MHCLG local authority lookup), and `/example` (a generic example domain for todos/resources/headers), plus the address-lookup routes (`/choose-address-entry-method`, `/find-address-by-postcode`, `/enter-address-manually`, `/confirm-new-address`). Each route is a `Route { method, pattern: Regex, status, handler }` entry in `src-mocks/src/flex.rs`'s route table; more specific paths must be listed before overlapping general ones, since the first regex match wins.
 
 The mock only returns canned data for routes it already knows about — it does **not** read the `live_resources_dir/endpoints/*.md` files at runtime. To keep it in sync with the "expected" service endpoints declared there:
 
 1. For each `.md` file under your `live_resources_dir/endpoints/`, note its frontmatter `method` and `endpoint` (a full URL, e.g. `https://flex.account.gov.uk/dvla/v1/driving-licence`).
-2. In `mock-server.js`, add or update a `ROUTES` entry with the same `method` and a `path` regex matching the URL's path (everything after the host) under the matching prefix section (`/udp`, `/dvla`, `/uns`, `/local-council`, `/example`), with a `handler` returning representative JSON for that response shape.
+2. In `src-mocks/src/flex.rs`, add or update a route entry with the same `method` and a `pattern` regex matching the URL's path (everything after the host) under the matching prefix section (`/udp`, `/dvla`, `/uns`, `/local-council`, `/example`), with a `handler` returning representative JSON for that response shape.
 3. Point the app's `fetch` calls at the mock instead of the real host by changing the affected endpoint spec's `endpoint:` frontmatter from `https://flex.account.gov.uk/...` to `http://localhost:8127/...` (or your chosen `[port]`) in your local `live_resources_dir` copy — `fetch` uses that URL verbatim, there's no built-in host rewriting.
-4. If you remove or rename an endpoint spec, remove or update the corresponding `ROUTES` entry so the mock doesn't drift from what the specs actually describe.
+4. If you remove or rename an endpoint spec, remove or update the corresponding route entry so the mock doesn't drift from what the specs actually describe.
 
 ## Validation
 
@@ -124,8 +124,8 @@ src-mcp/                 legibility-chat-mcp sidecar: fetch/report_service_step/
                           when live_resources_dir is set, spec-lookup + memory tools (context.rs, specs/, tools/spec_tools.rs)
 ui/
   src/lib/                Svelte components (ChatWindow, CardBubble, StateSelector, SetupWizard, PlaygroundPanel, ...)
-mock-server.js            zero-dependency mock of the FLEX API endpoints (see Mock server above)
-dev-with-mock.sh          runs mock-server.js alongside dev.sh
+src-mocks/               legibility-chat-mocks: FLEX API mock (see Mock server above), also used in-process by tests
+dev-with-mock.sh          runs the flex-mock binary alongside dev.sh
 .claude/plans/            design docs for completed and in-flight features
 ```
 

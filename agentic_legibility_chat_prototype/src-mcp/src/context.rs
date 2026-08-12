@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 
 use crate::specs::{spawn_rescan_loop, LoaderHandle, SpecIndex};
 
-use crate::Tracer;
+use legibility_chat_common::trace::Tracer;
 
 /// How often to rescan `LIVE_RESOURCES_DIR` in the background, matching the
 /// legibility-mcp default (`SCAN_INTERVAL_SECS=30`).
@@ -93,6 +93,7 @@ impl AppContext {
         Self {
             spec_index: Some(Arc::new(RwLock::new(index))),
             live_resources_dir: Some(dir),
+            tracer: RwLock::new(Tracer::new()),
             _rescan_handle: None,
         }
     }
@@ -103,6 +104,7 @@ impl AppContext {
         Self {
             spec_index: None,
             live_resources_dir: None,
+            tracer: RwLock::new(Tracer::new()),
             _rescan_handle: None,
         }
     }
