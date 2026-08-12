@@ -1,43 +1,42 @@
-// Pure helpers that turn a set of RunLogs into the numbers and rows the
+// Pure helpers that turn a set of common traces into the numbers and rows the
 // comparison page renders. No framework or server dependency; everything is
-// derived from the logs themselves, so the comparison never needs the original
-// form or an API call.
+// derived from the traces themselves.
 //
-// Framing: one method is the REFERENCE (a baseline, typically the deterministic
-// full journey) and the others are CANDIDATES measured against it. Cost metrics
-// (tokens, wall time) are only ranked among methods that actually used an LLM,
-// because a rule-based method trivially wins on cost and that comparison is noise.
+// Framing: one method is the REFERENCE (a baseline) and the others are
+// CANDIDATES measured against it. The common trace shows how many
+// times a method had to propose a value, and whether it needed the agent to
+// recover from a failed turn.
 
-import type { AgentActionKind, RunLog } from "./run-log";
+import type { CommonTrace, TerminalStatus } from "./common-trace";
+import { lastKnownValue, wasAvailable } from "./trace-display";
 
-// One method loaded into the comparison. `id` is a unique key (methods that
-// share a name across different forms must still be distinguishable); `label` is
-// the human-facing name, which does NOT need to be globally unique because only
-// one form's methods are shown at a time.
+// One method loaded into the comparison. `id` is a unique key; `label` is
+// the human-facing name, which does not need to be globally unique because
+// only one journey's methods are shown at a time.
 export interface Method {
   id: string;
   label: string;
-  log: RunLog;
+  trace: CommonTrace;
 }
 
-// A set of methods that all ran the same form: the unit within which a fair
-// comparison can be drawn.
-export interface FormGroup {
-  formId: string;
-  formName: string | null;
+// A set of methods that all ran the same journey: the unit within which a
+// fair comparison can be drawn.
+export interface JourneyGroup {
+  journeyId: string;
+  journeyName: string | null;
   methods: Method[];
 }
 
-// Groups loaded methods by the form they ran, largest group first. Methods can
-// only be compared within a group, because comparing across different forms
-// (different questions/branching) is not like-for-like.
-export function groupByForm(methods: Method[]): FormGroup[] {
-  const groups = new Map<string, FormGroup>();
+// Groups loaded methods by the journey they ran, largest group first.
+// Methods can only be compared within a group, because comparing across
+// different journeys (different questions/branching) is not like-for-like.
+export function groupByJourney(methods: Method[]): JourneyGroup[] {
+  const groups = new Map<string, JourneyGroup>();
   for (const method of methods) {
-    const id = method.log.form.id;
+    const id = method.trace.run.journey_id;
     let group = groups.get(id);
     if (!group) {
-      group = { formId: id, formName: method.log.form.name, methods: [] };
+      group = { journeyId: id, journeyName: method.trace.initial_context?.form.name ?? null, methods: [] };
       groups.set(id, group);
     }
     group.methods.push(method);
@@ -45,97 +44,47 @@ export function groupByForm(methods: Method[]): FormGroup[] {
   return [...groups.values()].sort((a, b) => b.methods.length - a.methods.length);
 }
 
-// True when a method actually spent tokens (i.e. used an LLM). Rule-based
-// baselines report zero and are excluded from cost rankings.
-export function usesLlm(log: RunLog): boolean {
-  return log.criteria.performance.totals.totalTokens > 0;
-}
-
-// Chooses a sensible default reference (returns its id): prefer a zero-cost
-// (deterministic) baseline if one is loaded, otherwise the first method.
-export function defaultReference(methods: Method[]): string | null {
-  if (methods.length === 0) return null;
-  const baseline = methods.find((m) => !usesLlm(m.log));
-  return (baseline ?? methods[0]).id;
-}
-
-// Scorecard figures for a single method.
+// Event-count figures for a single method.
 export interface MethodMetrics {
-  usesLlm: boolean;
-  turns: number;
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  wallMs: number;
-  questionsAsked: number;
-  fieldsFilled: number;
-  // Filled by the agent but flagged for a human to CONFIRM before submitting.
-  fieldsToConfirm: number;
-  fieldsSkipped: number;
-  // Not filled by the agent; left for a human to FILL IN (e.g. an upload, or a
-  // required answer it could not work out). Optional fields left blank do not count.
-  fieldsToFillByHuman: number;
-  executorActions: number | null; // null when the method has no executor
+  status: TerminalStatus;
+  interactionsAvailable: number;
+  valuesProposed: number;
+  valuesSubmitted: number;
+  assistanceFailures: number;
+  answerPresented: boolean;
 }
 
-export function methodMetrics(log: RunLog): MethodMetrics {
-  const actions = log.criteria.agentActions;
-  const count = (kind: AgentActionKind) => actions.filter((a) => a.action === kind).length;
-  const totals = log.criteria.performance.totals;
-
+export function methodMetrics(trace: CommonTrace): MethodMetrics {
+  const events = trace.events;
   return {
-    usesLlm: usesLlm(log),
-    turns: totals.turns,
-    inputTokens: totals.inputTokens,
-    outputTokens: totals.outputTokens,
-    totalTokens: totals.totalTokens,
-    wallMs: totals.wallMs,
-    questionsAsked: log.criteria.interaction.filter((t) => t.awaitingInput).length,
-    fieldsFilled: count("filled"),
-    fieldsToConfirm: actions.filter((a) => a.action === "filled" && a.needsHuman).length,
-    fieldsSkipped: count("skipped"),
-    fieldsToFillByHuman: actions.filter((a) => a.action !== "filled" && a.needsHuman).length,
-    executorActions: log.criteria.executorActions.available
-      ? log.criteria.executorActions.actions.length
-      : null,
+    status: trace.run.status,
+    interactionsAvailable: new Set(
+      events.filter((e) => e.type === "interaction_available").map((e) => e.interaction_id),
+    ).size,
+    valuesProposed: events.filter((e) => e.type === "values_proposed").length,
+    valuesSubmitted: events.filter((e) => e.type === "values_submitted").length,
+    assistanceFailures: events.filter((e) => e.type === "assistance_failed").length,
+    answerPresented: events.some((e) => e.type === "answer_presented"),
   };
 }
 
 // A scorecard row: one metric across every method.
 export interface ScorecardRow {
-  group: string;
   label: string;
-  values: (number | null)[];
   display: string[];
   better: "lower" | "higher" | null;
   bestIndexes: number[];
-  // True for cost rows: only agentic methods are ranked, and non-agentic cells
-  // are shown as "instant by design" rather than as competitors.
-  agenticOnly: boolean;
 }
 
 export interface Scorecard {
   rows: ScorecardRow[];
-  // Aligned to the methods array: whether each method used an LLM.
-  agenticFlags: boolean[];
 }
 
-function ms(value: number): string {
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
-  return `${Math.round(value)}ms`;
-}
-
-// Works out which method(s) win a row. `eligible` restricts ranking to a subset
-// (used for cost rows). Ties and all-equal rows produce no winner.
-function bestIndexes(
-  values: (number | null)[],
-  better: "lower" | "higher" | null,
-  eligible?: boolean[],
-): number[] {
+// Works out which method(s) win a row. Ties and all-equal rows produce no
+// winner.
+function bestIndexes(values: (number | null)[], better: "lower" | "higher" | null): number[] {
   if (!better) return [];
-  const entries = values
-    .map((v, i) => ({ v, i }))
-    .filter((e): e is { v: number; i: number } => e.v !== null && (!eligible || eligible[e.i]));
+  const entries = values.map((v, i) => ({ v, i })).filter((e): e is { v: number; i: number } => e.v !== null);
   if (entries.length < 2) return [];
   const nums = entries.map((e) => e.v);
   const target = better === "lower" ? Math.min(...nums) : Math.max(...nums);
@@ -144,166 +93,109 @@ function bestIndexes(
 }
 
 export function buildScorecard(methods: Method[]): Scorecard {
-  const metrics = methods.map((m) => methodMetrics(m.log));
-  const agenticFlags = metrics.map((m) => m.usesLlm);
+  const metrics = methods.map((m) => methodMetrics(m.trace));
 
-  const row = (
-    group: string,
-    label: string,
-    pick: (m: MethodMetrics) => number | null,
-    better: "lower" | "higher" | null,
-    opts: { agenticOnly?: boolean; format?: (v: number) => string } = {},
-  ): ScorecardRow => {
+  const numberRow = (label: string, pick: (m: MethodMetrics) => number, better: "lower" | "higher" | null): ScorecardRow => {
     const values = metrics.map(pick);
-    const agenticOnly = opts.agenticOnly ?? false;
-    const format = opts.format ?? String;
-    return {
-      group,
-      label,
-      values,
-      display: values.map((v, i) => {
-        if (v === null) return "n/a";
-        if (agenticOnly && !agenticFlags[i]) return "instant"; // rule-based, no LLM cost
-        return format(v);
-      }),
-      better,
-      agenticOnly,
-      bestIndexes: bestIndexes(values, better, agenticOnly ? agenticFlags : undefined),
-    };
+    return { label, display: values.map(String), better, bestIndexes: bestIndexes(values, better) };
   };
 
   return {
-    agenticFlags,
     rows: [
-      // Behavioural (fair to compare across all methods).
-      row("Interaction", "Conversation turns", (m) => m.turns, "lower"),
-      row("Interaction", "Questions asked of the human", (m) => m.questionsAsked, "lower"),
-      // Cost (only meaningful between agentic methods).
-      row("Cost (agentic only)", "Input tokens", (m) => m.inputTokens, "lower", {
-        agenticOnly: true,
-        format: (v) => v.toLocaleString(),
-      }),
-      row("Cost (agentic only)", "Output tokens", (m) => m.outputTokens, "lower", {
-        agenticOnly: true,
-        format: (v) => v.toLocaleString(),
-      }),
-      row("Cost (agentic only)", "Total tokens", (m) => m.totalTokens, "lower", {
-        agenticOnly: true,
-        format: (v) => v.toLocaleString(),
-      }),
-      row("Cost (agentic only)", "Wall time", (m) => m.wallMs, "lower", {
-        agenticOnly: true,
-        format: ms,
-      }),
-      // Coverage / outcome.
-      row("Agent actions", "Fields filled", (m) => m.fieldsFilled, null),
-      row("Agent actions", "Filled but needs a human to confirm", (m) => m.fieldsToConfirm, "lower"),
-      row("Agent actions", "Skipped via branch", (m) => m.fieldsSkipped, null),
-      row("Agent actions", "Left for a human to fill in", (m) => m.fieldsToFillByHuman, "lower"),
-      row("Executor", "API submissions", (m) => m.executorActions, null),
+      { label: "Status", display: metrics.map((m) => m.status), better: null, bestIndexes: [] },
+      numberRow("Interactions made available", (m) => m.interactionsAvailable, null),
+      numberRow("Values proposed", (m) => m.valuesProposed, "lower"),
+      numberRow("Values submitted", (m) => m.valuesSubmitted, null),
+      numberRow("Assistance failures", (m) => m.assistanceFailures, "lower"),
+      {
+        label: "Answer presented",
+        display: metrics.map((m) => (m.answerPresented ? "yes" : "no")),
+        better: null,
+        bestIndexes: [],
+      },
     ],
   };
 }
 
-// One candidate method's treatment of a question, relative to the reference.
-export interface DivergenceCandidate {
+// One interaction's outcome within a single trace: whether it was reached at
+// all, and, if so, the last value known for it.
+export interface InteractionOutcome {
+  reached: boolean;
+  values: Record<string, unknown> | null;
+  source: "submitted" | "proposed" | null;
+}
+
+function readInteraction(trace: CommonTrace, interactionId: string): InteractionOutcome {
+  const known = lastKnownValue(trace, interactionId);
+  return { reached: wasAvailable(trace, interactionId), values: known?.values ?? null, source: known?.source ?? null };
+}
+
+function sameOutcome(a: InteractionOutcome, b: InteractionOutcome): boolean {
+  return a.source === b.source && JSON.stringify(a.values) === JSON.stringify(b.values);
+}
+
+// One candidate method's outcome for an interaction, relative to the
+// reference.
+export interface DivergenceCandidate extends InteractionOutcome {
   id: string;
   label: string;
-  action: AgentActionKind | null;
-  detail: string | null;
-  needsHuman: boolean;
-  // Differs from the reference if the action kind differs, OR one filled a value
-  // a human must still confirm while the other did not.
   differs: boolean;
 }
 
-// One field's treatment: the reference's handling plus each candidate's.
+// One interaction's outcome: the reference's, plus each candidate's.
 export interface DivergenceRow {
-  field: string;
-  questionText: string;
-  reference: AgentActionKind | null;
-  referenceDetail: string | null;
-  referenceNeedsHuman: boolean;
+  interactionId: string;
+  reference: InteractionOutcome;
   candidates: DivergenceCandidate[];
-  diverges: boolean; // at least one candidate differs from the reference
 }
 
 export interface Divergence {
-  formId: string;
-  formName: string | null;
+  journeyId: string;
+  journeyName: string | null;
   referenceLabel: string;
-  // Candidate column headers (id is a stable, unique key for rendering).
   candidateColumns: { id: string; label: string }[];
-  // Candidates dropped because they ran a different form from the reference.
-  excludedLabels: string[];
   rows: DivergenceRow[];
 }
 
-// Per-question divergence is measured against the REFERENCE method (by id), and
-// only across candidates that ran the same form as the reference.
+// Per-interaction divergence is measured against the REFERENCE method (by
+// id). Callers are expected to pass methods already scoped to one journey
+// group, since comparing across journeys is not like-for-like.
 export function buildDivergence(methods: Method[], referenceId: string | null): Divergence | null {
   if (methods.length < 2) return null;
 
   const reference = methods.find((m) => m.id === referenceId) ?? methods[0];
-  const formId = reference.log.form.id;
-
-  const others = methods.filter((m) => m.id !== reference.id);
-  const candidates = others.filter((m) => m.log.form.id === formId);
-  const excluded = others.filter((m) => m.log.form.id !== formId);
+  const candidates = methods.filter((m) => m.id !== reference.id);
   if (candidates.length < 1) return null;
 
-  // Field order: reference first, then any fields only candidates saw.
+  // Interaction order: the reference's own order of first appearance, then
+  // any interaction candidates reached that the reference never did.
   const order: string[] = [];
-  const questionText = new Map<string, string>();
-  const register = (m: Method) => {
-    for (const action of m.log.criteria.agentActions) {
-      if (!questionText.has(action.field)) {
-        order.push(action.field);
-        questionText.set(action.field, action.questionText);
+  const seen = new Set<string>();
+  const register = (trace: CommonTrace) => {
+    for (const event of trace.events) {
+      if ("interaction_id" in event && event.interaction_id && !seen.has(event.interaction_id)) {
+        seen.add(event.interaction_id);
+        order.push(event.interaction_id);
       }
     }
   };
-  register(reference);
-  candidates.forEach(register);
+  register(reference.trace);
+  candidates.forEach((c) => register(c.trace));
 
-  const actionFor = (m: Method, field: string) =>
-    m.log.criteria.agentActions.find((a) => a.field === field) ?? null;
-
-  const rows: DivergenceRow[] = order.map((field) => {
-    const refAction = actionFor(reference, field);
-    const refKind = refAction ? refAction.action : null;
-    const refHuman = refAction ? refAction.needsHuman : false;
-
-    const candidateCells = candidates.map((c) => {
-      const found = actionFor(c, field);
-      const kind = found ? found.action : null;
-      const human = found ? found.needsHuman : false;
-      return {
-        id: c.id,
-        label: c.label,
-        action: kind,
-        detail: found ? found.detail : null,
-        needsHuman: human,
-        differs: kind !== refKind || human !== refHuman,
-      };
+  const rows: DivergenceRow[] = order.map((interactionId) => {
+    const refOutcome = readInteraction(reference.trace, interactionId);
+    const candidateCells: DivergenceCandidate[] = candidates.map((c) => {
+      const outcome = readInteraction(c.trace, interactionId);
+      return { id: c.id, label: c.label, ...outcome, differs: !sameOutcome(refOutcome, outcome) };
     });
-    return {
-      field,
-      questionText: questionText.get(field) ?? field,
-      reference: refKind,
-      referenceDetail: refAction ? refAction.detail : null,
-      referenceNeedsHuman: refHuman,
-      candidates: candidateCells,
-      diverges: candidateCells.some((c) => c.differs),
-    };
+    return { interactionId, reference: refOutcome, candidates: candidateCells };
   });
 
   return {
-    formId,
-    formName: reference.log.form.name,
+    journeyId: reference.trace.run.journey_id,
+    journeyName: reference.trace.initial_context?.form.name ?? null,
     referenceLabel: reference.label,
     candidateColumns: candidates.map((c) => ({ id: c.id, label: c.label })),
-    excludedLabels: excluded.map((c) => c.label),
     rows,
   };
 }

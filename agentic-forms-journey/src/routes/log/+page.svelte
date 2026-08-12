@@ -1,87 +1,12 @@
 <script lang="ts">
   import { traceStore } from "$lib/stores/trace.svelte";
-  import type { TraceEvent } from "$lib/common-trace";
+  import { eventDetail, eventLabel, eventTag, groupEventsByInteraction, isRevision, statusTag } from "$lib/trace-display";
   import { toJsonl } from "$lib/raw-trace";
 
   // The trace accumulates on the home page and is mirrored to sessionStorage,
   // so it is available here after navigation or a refresh.
   const trace = $derived(traceStore.trace);
   const rawTrace = $derived(traceStore.rawTrace);
-
-  // Maps a run's terminal status to a GOV.UK tag colour.
-  function statusTag(status: string): string {
-    switch (status) {
-      case "completed":
-        return "govuk-tag--green";
-      case "blocked":
-        return "govuk-tag--orange";
-      default:
-        return "govuk-tag--grey";
-    }
-  }
-
-  // Maps an event type to a GOV.UK tag colour, so the same kind of event is
-  // easy to spot down the list.
-  function eventTag(type: TraceEvent["type"]): string {
-    switch (type) {
-      case "interaction_available":
-        return "govuk-tag--blue";
-      case "values_proposed":
-        return "govuk-tag--teal";
-      case "values_submitted":
-        return "govuk-tag--green";
-      case "answer_presented":
-        return "govuk-tag--purple";
-      case "assistance_failed":
-        return "govuk-tag--red";
-      case "journey_finished":
-        return "govuk-tag--orange";
-      default:
-        return "govuk-tag--grey";
-    }
-  }
-
-  // A short, readable label for an event type.
-  function eventLabel(type: TraceEvent["type"]): string {
-    return type.replaceAll("_", " ");
-  }
-
-  // Renders a single scalar or object value compactly.
-  function formatValue(value: unknown): string {
-    return typeof value === "object" ? JSON.stringify(value) : String(value);
-  }
-
-  // Renders a values object as a compact, readable line. An ordinary scalar
-  // answer stores its value under its own interaction id, so showing that
-  // name again would just repeat what the interaction already is. It is only
-  // shown when the object has more than one named part, such as an address
-  // split into line, town, and postcode.
-  function formatValues(values: Record<string, unknown>, interactionId: string): string {
-    const entries = Object.entries(values);
-    if (entries.length === 1 && entries[0][0] === interactionId) {
-      return formatValue(entries[0][1]);
-    }
-    return entries.map(([key, value]) => `${key}: ${formatValue(value)}`).join(", ");
-  }
-
-  // The one line of detail worth showing for each kind of event.
-  function eventDetail(event: TraceEvent): string {
-    switch (event.type) {
-      case "interaction_available":
-        return "-";
-      case "values_proposed":
-      case "values_submitted":
-        return formatValues(event.values, event.interaction_id);
-      case "answer_presented":
-        return "-";
-      case "assistance_failed":
-        return "The agent call did not produce a usable result this turn.";
-      case "journey_finished":
-        return `${Object.keys(event.result).length} value(s) in the final answer`;
-      default:
-        return "-";
-    }
-  }
 
   // Which order the table below is shown in. The exported common trace always
   // stays one flat, time-ordered list, since that order is itself meaningful
@@ -91,44 +16,11 @@
   // every other field's events. Chronological is the trace's own order.
   let eventView = $state<"grouped" | "chronological">("grouped");
 
-  // The events to show, in the chosen order. Grouping never reverses the
-  // order of one interaction's own events relative to each other, so working
-  // out whether a value was revised (see isRevision below) gives the same
-  // answer in both views.
+  // The events to show, in the chosen order.
   const orderedEvents = $derived.by(() => {
     if (!trace) return [];
-    if (eventView === "chronological") return trace.events;
-
-    const order: string[] = [];
-    const byId = new Map<string, TraceEvent[]>();
-    const runEvents: TraceEvent[] = [];
-    for (const event of trace.events) {
-      const id = "interaction_id" in event ? event.interaction_id : undefined;
-      if (!id) {
-        runEvents.push(event);
-        continue;
-      }
-      if (!byId.has(id)) {
-        order.push(id);
-        byId.set(id, []);
-      }
-      byId.get(id)!.push(event);
-    }
-    return [...order.flatMap((id) => byId.get(id) ?? []), ...runEvents];
+    return eventView === "chronological" ? trace.events : groupEventsByInteraction(trace.events);
   });
-
-  // True when an earlier event in the currently displayed order already
-  // proposed a value for this same interaction, so this is a revision rather
-  // than the only proposal ever made for that field.
-  function isRevision(events: TraceEvent[], index: number): boolean {
-    const event = events[index];
-    if (event.type !== "values_proposed") return false;
-    return events
-      .slice(0, index)
-      .some(
-        (earlier) => earlier.type === "values_proposed" && earlier.interaction_id === event.interaction_id,
-      );
-  }
 
   // The Text/JSON format for the raw trace, offered purely as a copy/paste
   // artifact. The events table above already breaks the same run down
@@ -358,18 +250,15 @@
     box-shadow: 0 2px 0 #003078;
   }
 
-  /* A code element has no bundled GDS monospace typeface to fall back to, so
-     without this it renders in the browser's own default monospace font, at
-     its own default size, which rarely matches the surrounding text. Sizing
-     it relative to its context (em, not rem or px) keeps it matched wherever
-     it appears, whether that is a summary list value or a table cell. */
+  /* A code element has no bundled GDS typeface to fall back to on its own, so
+     without this it renders in the browser's own default monospace font
+     instead of matching the rest of the page. */
   .page-fill :global(code) {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.95em;
+    font-family: inherit;
   }
 
   /* A plain text preview box. There is no GDS "code block" component in this
-     bundle, so this reuses the same monospace treatment as inline code. */
+     bundle, so this is just enough to set it apart as a preview. */
   .raw-pre {
     margin: 15px 0 0;
     padding: 0.75rem;
@@ -378,8 +267,6 @@
     overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.95em;
     line-height: 1.5;
   }
 </style>
