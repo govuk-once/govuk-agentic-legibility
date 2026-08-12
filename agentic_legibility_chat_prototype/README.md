@@ -54,6 +54,19 @@ App config lives at `~/.config/legibility-chat/config.json` (`src-tauri/src/conf
 - [Rust](https://www.rust-lang.org/tools/install) (stable toolchain)
 - [Node.js](https://nodejs.org/) 18+ and [pnpm](https://pnpm.io/)
 - Tauri's native dependencies for your OS (e.g. WebKit2GTK on Linux — see the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/))
+- Tauri CLI must be installed globally so `dev.sh` can run it as a `tauri` command on your PATH. 
+
+## Building the sidecar
+
+Before the first run, create the folder the sidecar binary is copied into:
+
+    mkdir -p src-tauri/binaries
+
+This folder is gitignored, so a fresh clone never has it, and `dev.sh` does
+not create it. Without it, `dev.sh` fails at the end with:
+
+    cp: src-tauri/binaries/legibility-chat-mcp-<target-triple>: No such file or directory
+
 
 ## Local development
 
