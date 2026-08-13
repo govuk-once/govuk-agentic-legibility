@@ -1,174 +1,82 @@
-// Generates synthetic comparator methods from a REAL run log.
+// Generates synthetic comparator methods from a REAL common trace.
 //
-// The comparison only works when methods ran the same form. So rather than ship
-// fixed "verbose" / "aggressive" methods on a fictional form, we derive them
-// from whatever real run the user loads: same form, same field keys, same
-// questions, just filled the way a verbose or an over-eager method would.
+// The comparison only works when methods ran the same journey. So rather
+// than create fixed comparators on a fictional journey, these are derived from
+// whatever real trace the user loads: same journey, same interactions, same
+// final answers, just reached a different way.
 //
-// These are clearly labelled "(synthetic)" so they are never mistaken for real
-// runs. A file/upload field is treated as something no method can do on the
-// citizen's behalf, so it is always left for a human to fill in.
 
-import type { AgentAction, ChatMessage, RunLog } from "./run-log";
+import {
+  IMPLEMENTATION_AGGRESSIVE_SYNTHETIC,
+  IMPLEMENTATION_VERBOSE_SYNTHETIC,
+  type CommonTrace,
+  type TraceEvent,
+} from "./common-trace";
 
-const isFile = (a: AgentAction) => a.answerType === "file";
-
-// Builds the conversation transcript from a set of interaction turns.
-function transcript(turns: { user: string; agent: string }[]): ChatMessage[] {
-  const out: ChatMessage[] = [];
-  for (const t of turns) {
-    out.push({ role: "user", content: t.user });
-    out.push({ role: "assistant", content: t.agent });
-  }
-  return out;
+// Every value in an object, replaced with a placeholder, so a synthetic
+// "still drafting" proposal is obviously not a real guess.
+function placeholderValues(values: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.keys(values).map((key) => [key, "…"]));
 }
 
-// The verbose questionnaire: asks one question per field and over-collects,
-// filling even the fields a branch would skip. Uploads still need a human.
-function verboseFrom(base: RunLog): RunLog {
-  const fields = base.criteria.agentActions;
-
-  const agentActions: AgentAction[] = fields.map((f) => ({
-    field: f.field,
-    questionText: f.questionText,
-    answerType: f.answerType,
-    action: isFile(f) ? "needs-answer" : "filled",
-    detail: isFile(f)
-      ? "Upload: the citizen must provide this."
-      : "Asked the citizen directly (over-collected, even where a branch made it unnecessary).",
-    needsHuman: isFile(f),
-  }));
-
-  // One asking turn per non-upload field.
-  const askable = fields.filter((f) => !isFile(f));
-  const perIn = 1900;
-  const perOut = 260;
-  const perMs = 2600;
-
-  const interactionCore = askable.map((f, i) => ({
-    turn: i + 1,
-    user: "(citizen answers)",
-    agent: `Please provide: ${f.questionText}`,
-    awaitingInput: true,
-    newFields: [f.field],
-  }));
-  // A final turn asking for the uploads, if any.
-  const uploads = fields.filter(isFile);
-  const interaction =
-    uploads.length > 0
-      ? [
-          ...interactionCore,
-          {
-            turn: interactionCore.length + 1,
-            user: "(citizen answers)",
-            agent: `Please upload: ${uploads.map((u) => u.questionText).join(", ")}`,
-            awaitingInput: true,
-            newFields: [] as string[],
-          },
-        ]
-      : interactionCore;
-
-  const perfTurns = interaction.map((t) => ({
-    turn: t.turn,
-    model: "synthetic-verbose",
-    latencyMs: perMs,
-    inputTokens: perIn,
-    outputTokens: perOut,
-  }));
-  const nTurns = perfTurns.length;
-
-  return {
-    schemaVersion: 1,
-    method: "verbose questionnaire (synthetic)",
-    description:
-      "Synthetic comparator, generated from this form. Asks one question per field instead of inferring, and over-collects fields a branch would have skipped.",
-    form: base.form,
-    model: "synthetic-verbose",
-    exportedAt: null,
-    criteria: {
-      performance: {
-        totals: {
-          turns: nTurns,
-          inputTokens: perIn * nTurns,
-          outputTokens: perOut * nTurns,
-          totalTokens: (perIn + perOut) * nTurns,
-          wallMs: perMs * nTurns,
-        },
-        turns: perfTurns,
-      },
-      conversationHistory: transcript(interaction),
-      interaction,
-      agentActions,
-      executorActions: { available: false, note: "Synthetic, no executor.", actions: [] },
-    },
-  };
-}
-
-// The aggressive auto-filler: fills everything in one pass by guessing, asks
-// nothing, and flags every guess for a human to confirm. Branch-skipped fields
-// stay skipped; uploads are left for a human.
-function aggressiveFrom(base: RunLog): RunLog {
-  const fields = base.criteria.agentActions;
-
-  const agentActions: AgentAction[] = fields.map((f) => {
-    if (f.action === "skipped") {
-      return { ...f, detail: "Skipped (assumed branch).", needsHuman: false };
-    }
-    if (isFile(f)) {
-      return {
-        field: f.field,
-        questionText: f.questionText,
-        answerType: f.answerType,
-        action: "needs-answer",
-        detail: "Upload: the citizen must provide this.",
-        needsHuman: true,
-      };
-    }
-    return {
-      field: f.field,
-      questionText: f.questionText,
-      answerType: f.answerType,
-      action: "filled",
-      detail: "Guessed in a single pass (unconfirmed).",
-      needsHuman: true,
-    };
+// A single-pass comparator: keeps only the LAST proposal for each
+// interaction (dropping any earlier revisions) and drops any assistance
+// failures, modelling a method that filled everything in one go with no
+// back-and-forth. The final submitted answers are unchanged.
+function singlePassFrom(base: CommonTrace, runId: string): CommonTrace {
+  const lastProposalIndex = new Map<string, number>();
+  base.events.forEach((event, i) => {
+    if (event.type === "values_proposed") lastProposalIndex.set(event.interaction_id, i);
   });
 
-  const filledFields = agentActions.filter((a) => a.action === "filled").map((a) => a.field);
-
-  const interaction = [
-    {
-      turn: 1,
-      user: "(one request)",
-      agent: "Filled everything I could guess. Please review the details before submitting.",
-      awaitingInput: false,
-      newFields: filledFields,
-    },
-  ];
+  const events: TraceEvent[] = base.events.filter((event, i) => {
+    if (event.type === "assistance_failed") return false;
+    if (event.type === "values_proposed") return lastProposalIndex.get(event.interaction_id) === i;
+    return true;
+  });
 
   return {
-    schemaVersion: 1,
-    method: "aggressive autofill (synthetic)",
-    description:
-      "Synthetic comparator, generated from this form. Fills every field in one pass by guessing, asks nothing, and flags every guess for a human to confirm.",
-    form: base.form,
-    model: "synthetic-autofill",
-    exportedAt: null,
-    criteria: {
-      performance: {
-        totals: { turns: 1, inputTokens: 1800, outputTokens: 320, totalTokens: 2120, wallMs: 2000 },
-        turns: [{ turn: 1, model: "synthetic-autofill", latencyMs: 2000, inputTokens: 1800, outputTokens: 320 }],
-      },
-      conversationHistory: transcript(interaction),
-      interaction,
-      agentActions,
-      executorActions: { available: false, note: "Synthetic, no executor.", actions: [] },
-    },
+    ...base,
+    source_trace: null,
+    run: { ...base.run, id: runId, implementation: IMPLEMENTATION_AGGRESSIVE_SYNTHETIC },
+    events,
   };
 }
 
-// Produces verbose + aggressive comparators for the given real run, on the same
-// form so they can be compared against it directly.
-export function deriveComparators(base: RunLog): RunLog[] {
-  return [verboseFrom(base), aggressiveFrom(base)];
+// A revision-heavy comparator: gives every interaction an extra placeholder
+// proposal before its real first proposal, modelling a method that drafts
+// an answer before settling on it. Any revisions or failures already in the
+// base trace are kept, so this only ever adds more back-and-forth, never
+// less. The final submitted answers are unchanged.
+function revisionHeavyFrom(base: CommonTrace, runId: string): CommonTrace {
+  const firstProposalIndex = new Map<string, number>();
+  base.events.forEach((event, i) => {
+    if (event.type === "values_proposed" && !firstProposalIndex.has(event.interaction_id)) {
+      firstProposalIndex.set(event.interaction_id, i);
+    }
+  });
+
+  const events: TraceEvent[] = [];
+  base.events.forEach((event, i) => {
+    if (event.type === "values_proposed" && firstProposalIndex.get(event.interaction_id) === i) {
+      events.push({ type: "values_proposed", interaction_id: event.interaction_id, values: placeholderValues(event.values) });
+    }
+    events.push(event);
+  });
+
+  return {
+    ...base,
+    source_trace: null,
+    run: { ...base.run, id: runId, implementation: IMPLEMENTATION_VERBOSE_SYNTHETIC },
+    events,
+  };
+}
+
+// Produces revision-heavy and single-pass comparators for the given real
+// trace, on the same journey so they can be compared against it directly.
+// Run ids are supplied by the caller rather than generated here, matching
+// this file's pure, no-side-effects style: it does not read the clock or
+// create ids of its own.
+export function deriveComparators(base: CommonTrace, runIds: { revisionHeavy: string; singlePass: string }): CommonTrace[] {
+  return [revisionHeavyFrom(base, runIds.revisionHeavy), singlePassFrom(base, runIds.singlePass)];
 }

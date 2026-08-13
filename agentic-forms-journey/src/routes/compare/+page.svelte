@@ -1,35 +1,62 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { runLogStore } from "$lib/stores/run-log.svelte";
-  import { parseRunLog, type AgentActionKind, type RunLog } from "$lib/run-log";
+  import { traceStore } from "$lib/stores/trace.svelte";
+  import {
+    IMPLEMENTATION_AGGRESSIVE_SYNTHETIC,
+    IMPLEMENTATION_VERBOSE_SYNTHETIC,
+    parseCommonTrace,
+    type CommonTrace,
+    type TraceEvent,
+  } from "$lib/common-trace";
   import { SAMPLE_METHODS } from "$lib/fixtures";
   import { deriveComparators } from "$lib/variants";
   import {
     buildDivergence,
     buildScorecard,
-    defaultReference,
-    groupByForm,
+    groupByJourney,
     methodMetrics,
     type Method,
+    type MethodMetrics,
   } from "$lib/compare-metrics";
+  import { eventDetail, eventLabel, eventTag, formatValues, groupEventsByInteraction, implementationLabel, statusTag } from "$lib/trace-display";
 
   let methods = $state<Method[]>([]);
   let importError = $state<string | null>(null);
   // Neutral feedback (not an error) — e.g. an imported file was already loaded.
   let importNotice = $state<string | null>(null);
-  let activeFormId = $state<string | null>(null);
-  let referenceId = $state<string | null>(null);
-  let glanceMetric = $state<"tokens" | "turns" | "questions" | "filled" | "fill">("tokens");
+  let activeJourneyId = $state<string | null>(null);
+  let glanceMetric = $state<"proposed" | "submitted" | "available" | "outstanding" | "failures">("proposed");
 
   onMount(() => {
-    if (runLogStore.log) addLog(runLogStore.log);
+    if (traceStore.trace) addMethod(traceStore.trace);
   });
 
-  // A globally-unique key for a method. The display label stays the plain method
-  // name; labels only need to be unique within one form, and one form is shown
-  // at a time, so the same name on two different forms is fine.
-  function uniqueId(log: RunLog): string {
-    const base = `${log.method}::${log.form.id}`;
+  // Whether each accordion section is open. This app has no bundled GOV.UK
+  // Frontend JavaScript, so the accordion's open/closed behaviour (normally
+  // driven by that script) is reproduced here instead; the real govuk-accordion
+  // markup and CSS classes still do the rendering. All three start open.
+  type AccordionSection = "glance" | "scorecard" | "divergence";
+  let sectionsOpen = $state<Record<AccordionSection, boolean>>({
+    glance: true,
+    scorecard: true,
+    divergence: true,
+  });
+
+  function toggleSection(section: AccordionSection) {
+    sectionsOpen[section] = !sectionsOpen[section];
+  }
+
+  const allSectionsOpen = $derived(Object.values(sectionsOpen).every(Boolean));
+
+  function toggleAllSections() {
+    const next = !allSectionsOpen;
+    sectionsOpen = { glance: next, scorecard: next, divergence: next };
+  }
+
+  // A globally-unique key for a method, based on the run id every common
+  // trace already carries.
+  function uniqueId(trace: CommonTrace): string {
+    const base = trace.run.id;
     const existing = new Set(methods.map((m) => m.id));
     if (!existing.has(base)) return base;
     let n = 2;
@@ -37,45 +64,41 @@
     return `${base}#${n}`;
   }
 
-  // Adds a log unless an identical one is already loaded. Returns true if it
-  // was added, false if it was skipped as a duplicate (so callers can tell the
-  // user rather than fail silently).
-  function addLog(log: RunLog): boolean {
-    const duplicate = methods.some(
-      (m) =>
-        m.log.method === log.method &&
-        m.log.form.id === log.form.id &&
-        m.log.criteria.performance.totals.totalTokens === log.criteria.performance.totals.totalTokens &&
-        m.log.criteria.interaction.length === log.criteria.interaction.length,
-    );
-    if (duplicate) return false;
-    methods = [...methods, { id: uniqueId(log), label: makeLabel(log), log }];
-    return true;
-  }
-
-  // A display label that is unique WITHIN its form group. Prefers the run's
-  // own title (set at export) so runs are recognisable, falling back to the
-  // method name. Two runs that resolve to the same label on the same form get a
-  // suffix to tell them apart; the same label across different forms does not
-  // (those never appear side by side).
-  function makeLabel(log: RunLog): string {
-    const base = log.title?.trim() || log.method;
-    const sameForm = methods.filter((m) => m.log.form.id === log.form.id);
-    const existing = new Set(sameForm.map((m) => m.label));
+  // A display label that is unique WITHIN its journey group. Labels only
+  // need to be unique within one journey, because only one journey's methods
+  // are shown at a time.
+  function makeLabel(trace: CommonTrace): string {
+    const base = implementationLabel(trace.run.implementation);
+    const sameJourney = methods.filter((m) => m.trace.run.journey_id === trace.run.journey_id);
+    const existing = new Set(sameJourney.map((m) => m.label));
     if (!existing.has(base)) return base;
     let n = 2;
     while (existing.has(`${base} (${n})`)) n += 1;
     return `${base} (${n})`;
   }
 
-  function loadSamples() {
-    for (const log of SAMPLE_METHODS) addLog(log);
+  // Adds a trace unless the same run is already loaded (by run id). Returns
+  // true if it was added, false if it was skipped as a duplicate, so callers
+  // can tell the user rather than fail silently.
+  function addMethod(trace: CommonTrace): boolean {
+    if (methods.some((m) => m.trace.run.id === trace.run.id)) return false;
+    methods = [...methods, { id: uniqueId(trace), label: makeLabel(trace), trace }];
+    return true;
   }
 
-  // Builds synthetic verbose + aggressive comparators from a real run, on the
-  // same form, so a single real log has something to compare against.
-  function generateComparators(base: RunLog) {
-    for (const log of deriveComparators(base)) addLog(log);
+  function loadSamples() {
+    for (const trace of SAMPLE_METHODS) addMethod(trace);
+  }
+
+  // Builds revision-heavy + single-pass comparators from a real trace, on
+  // the same journey, so a single loaded method has something to compare
+  // against.
+  function generateComparators(base: Method) {
+    const generated = deriveComparators(base.trace, {
+      revisionHeavy: crypto.randomUUID(),
+      singlePass: crypto.randomUUID(),
+    });
+    for (const trace of generated) addMethod(trace);
   }
 
   function removeMethod(id: string) {
@@ -97,8 +120,8 @@
     const skipped: string[] = [];
     for (const file of files) {
       try {
-        const log = parseRunLog(JSON.parse(await file.text()));
-        if (!addLog(log)) skipped.push(file.name);
+        const trace = parseCommonTrace(JSON.parse(await file.text()));
+        if (!addMethod(trace)) skipped.push(file.name);
       } catch (error) {
         const detail = error instanceof Error ? error.message.split("\n")[0] : "unknown error";
         errors.push(`${file.name}: ${detail}`);
@@ -112,115 +135,83 @@
     target.value = "";
   }
 
-  // Methods can only be compared within one form. Group them, then work inside
-  // the active group (default: the largest).
-  const formGroups = $derived(groupByForm(methods));
+  // Methods can only be compared within one journey. Group them, then work
+  // inside the active group (default: the largest).
+  const journeyGroups = $derived(groupByJourney(methods));
   const activeGroup = $derived(
-    formGroups.find((g) => g.formId === activeFormId) ?? formGroups[0] ?? null,
+    journeyGroups.find((g) => g.journeyId === activeJourneyId) ?? journeyGroups[0] ?? null,
   );
-  const otherGroups = $derived(formGroups.filter((g) => g !== activeGroup));
+  const otherGroups = $derived(journeyGroups.filter((g) => g !== activeGroup));
 
-  // Reference (baseline for divergence) within the active group, by id.
-  const activeReference = $derived.by(() => {
-    const groupMethods = activeGroup?.methods ?? [];
-    if (referenceId && groupMethods.some((m) => m.id === referenceId)) return referenceId;
-    return defaultReference(groupMethods);
-  });
-
-  // Active methods, reference first.
-  const orderedMethods = $derived.by<Method[]>(() => {
-    const groupMethods = activeGroup?.methods ?? [];
-    const ref = groupMethods.find((m) => m.id === activeReference);
-    return ref ? [ref, ...groupMethods.filter((m) => m.id !== activeReference)] : groupMethods;
-  });
+  // The active methods, in the order they were loaded. The reference
+  // (baseline for the scorecard and divergence) is simply whichever one is
+  // first; there is no separate picker for it.
+  const orderedMethods = $derived<Method[]>(activeGroup?.methods ?? []);
+  const activeReference = $derived(orderedMethods[0]?.id ?? null);
 
   const scorecard = $derived(orderedMethods.length > 0 ? buildScorecard(orderedMethods) : null);
   const divergence = $derived(buildDivergence(orderedMethods, activeReference));
-
-  const scorecardGroups = $derived.by(() => {
-    if (!scorecard) return [];
-    const out: { name: string; rows: typeof scorecard.rows }[] = [];
-    for (const row of scorecard.rows) {
-      let g = out.find((x) => x.name === row.group);
-      if (!g) {
-        g = { name: row.group, rows: [] };
-        out.push(g);
-      }
-      g.rows.push(row);
-    }
-    return out;
-  });
-
-  // "At a glance" bar chart data for the chosen headline metric.
-  const glanceOptions = {
-    tokens: {
-      label: "Total tokens",
-      explain: "Total tokens the method spent (its LLM cost).",
-      format: (v: number) => v.toLocaleString(),
-    },
-    turns: {
-      label: "Conversation turns",
-      explain: "Number of back-and-forth exchanges (one = the citizen sends a message and the agent replies).",
-      format: (v: number) => String(v),
-    },
-    questions: {
-      label: "Questions asked of the human",
-      explain: "How many turns the agent had to ask the citizen for more information.",
-      format: (v: number) => String(v),
-    },
-    filled: {
-      label: "Filled by the agent",
-      explain: "Fields the agent filled in. Which of those still need a human to confirm is shown in “What each method did”.",
-      format: (v: number) => String(v),
-    },
-    fill: {
-      label: "Left for a human to fill in",
-      explain: "Fields the agent could not complete (e.g. an upload), left for a human to provide.",
-      format: (v: number) => String(v),
-    },
-  } as const;
-
-  const glance = $derived.by(() => {
-    const rows = orderedMethods.map((m) => {
-      const mm = methodMetrics(m.log);
-      const value =
-        glanceMetric === "tokens"
-          ? mm.totalTokens
-          : glanceMetric === "turns"
-            ? mm.turns
-            : glanceMetric === "questions"
-              ? mm.questionsAsked
-              : glanceMetric === "filled"
-                ? mm.fieldsFilled
-                : mm.fieldsToFillByHuman;
-      return { id: m.id, label: m.label, value };
-    });
-    const max = Math.max(1, ...rows.map((r) => r.value));
-    return { rows, max };
-  });
 
   function isReference(id: string): boolean {
     return id === activeReference;
   }
 
-  function actionTag(action: AgentActionKind | null): string {
-    switch (action) {
-      case "filled":
-        return "govuk-tag--green";
-      case "skipped":
-        return "govuk-tag--grey";
-      case "undetermined":
-        return "govuk-tag--yellow";
-      case "needs-answer":
-        return "govuk-tag--red";
-      default:
-        return "govuk-tag--grey";
-    }
-  }
+  // Whether a generated comparator is already in the active group, so the
+  // "generate" button does not offer to pile up duplicates.
+  const hasSyntheticComparator = $derived(
+    (activeGroup?.methods ?? []).some(
+      (m) =>
+        m.trace.run.implementation === IMPLEMENTATION_VERBOSE_SYNTHETIC ||
+        m.trace.run.implementation === IMPLEMENTATION_AGGRESSIVE_SYNTHETIC,
+    ),
+  );
 
-  function actionLabel(action: AgentActionKind | null): string {
-    if (action === null) return "not seen";
-    return action === "needs-answer" ? "needs answer" : action;
+  // "At a glance" bar chart data for the chosen headline metric. The common
+  // trace carries no timing or token cost, so these are event counts.
+  const glanceOptions = {
+    proposed: {
+      label: "Values proposed",
+      explain: "How many times the method proposed a value, across every interaction, including revisions.",
+      pick: (m: MethodMetrics) => m.valuesProposed,
+    },
+    submitted: {
+      label: "Values submitted",
+      explain: "How many interactions the method submitted a final value for.",
+      pick: (m: MethodMetrics) => m.valuesSubmitted,
+    },
+    available: {
+      label: "Interactions made available",
+      explain: "How many distinct interactions the method's journey reached.",
+      pick: (m: MethodMetrics) => m.interactionsAvailable,
+    },
+    outstanding: {
+      label: "Left without a submitted value",
+      explain: "Interactions that became available but never got a final submitted value, such as an upload left for a human.",
+      pick: (m: MethodMetrics) => m.interactionsAvailable - m.valuesSubmitted,
+    },
+    failures: {
+      label: "Assistance failures",
+      explain: "How many turns the agent call itself failed to produce a usable result.",
+      pick: (m: MethodMetrics) => m.assistanceFailures,
+    },
+  } as const;
+
+  const glance = $derived.by(() => {
+    const rows = orderedMethods.map((m) => {
+      const metrics = methodMetrics(m.trace);
+      return { id: m.id, label: m.label, value: glanceOptions[glanceMetric].pick(metrics) };
+    });
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    return { rows, max };
+  });
+
+  // The events belonging to one method, for the "event by event" breakdown,
+  // grouped by interaction rather than left in raw chronological order so
+  // every event for one question sits together. The run-level
+  // journey_finished event is summarised separately in the method's card
+  // above, so it is left out here.
+  function methodEvents(method: Method): TraceEvent[] {
+    return groupEventsByInteraction(method.trace.events.filter((event) => event.type !== "journey_finished"));
   }
 </script>
 
@@ -230,9 +221,10 @@
 
     <h1 class="govuk-heading-l">Compare methods</h1>
     <p class="govuk-body">
-      Put different form-filling methods side by side. Methods can only be compared when they ran the
-      <strong>same form</strong> (same questions, same branching), so the page compares one form at a
-      time. Load the sample methods to see how it works, or import run logs of your own.
+      Put different form-filling methods side by side, using their common traces. Methods can only be
+      compared when they ran the <strong>same journey</strong> (same questions, same branching), so the
+      page compares one journey at a time. Load the sample methods to see how it works, or import common
+      traces of your own.
     </p>
 
     <div class="cmp-controls">
@@ -240,7 +232,7 @@
         Load sample methods
       </button>
       <label class="govuk-button govuk-button--secondary cmp-import">
-        Import log(s)…
+        Import trace(s)…
         <input class="cmp-import__input" type="file" accept="application/json" multiple onchange={handleImport} />
       </label>
       {#if methods.length > 0}
@@ -258,28 +250,28 @@
 
     {#if methods.length === 0}
       <div class="govuk-inset-text">
-        No methods loaded. Press <strong>Load sample methods</strong> to see three example agents
-        compared on one form, or import a <code>RunLog</code> JSON exported from the
+        No methods loaded. Press <strong>Load sample methods</strong> to see three example methods
+        compared on one journey, or import a common trace JSON file exported from the
         <a class="govuk-link" href="/log">run log</a> page.
       </div>
     {:else if activeGroup}
-      <!-- Which form is being compared -->
-      {#if formGroups.length > 1}
-        <div class="govuk-form-group cmp-formpick">
-          <label class="govuk-label govuk-label--s" for="formpick">Form being compared</label>
-          <div id="formpick-hint" class="govuk-hint">
-            Each form is a separate comparison. Only methods that ran the selected form are shown below.
+      <!-- Which journey is being compared -->
+      {#if journeyGroups.length > 1}
+        <div class="govuk-form-group cmp-journeypick">
+          <label class="govuk-label govuk-label--s" for="journeypick">Journey being compared</label>
+          <div id="journeypick-hint" class="govuk-hint">
+            Each journey is a separate comparison. Only methods that ran the selected journey are shown below.
           </div>
           <select
             class="govuk-select"
-            id="formpick"
-            aria-describedby="formpick-hint"
-            value={activeGroup.formId}
-            onchange={(e) => (activeFormId = (e.currentTarget as HTMLSelectElement).value)}
+            id="journeypick"
+            aria-describedby="journeypick-hint"
+            value={activeGroup.journeyId}
+            onchange={(e) => (activeJourneyId = (e.currentTarget as HTMLSelectElement).value)}
           >
-            {#each formGroups as group (group.formId)}
-              <option value={group.formId}>
-                {group.formName ?? group.formId}, {group.methods.length} method{group.methods.length === 1 ? "" : "s"}
+            {#each journeyGroups as group (group.journeyId)}
+              <option value={group.journeyId}>
+                {group.journeyName ?? group.journeyId}, {group.methods.length} method{group.methods.length === 1 ? "" : "s"}
               </option>
             {/each}
           </select>
@@ -287,24 +279,24 @@
       {:else}
         <p class="govuk-body">
           Comparing <strong>{activeGroup.methods.length}</strong> method{activeGroup.methods.length === 1 ? "" : "s"}
-          that ran <strong>{activeGroup.formName ?? activeGroup.formId}</strong>.
+          that ran <strong>{activeGroup.journeyName ?? activeGroup.journeyId}</strong>.
         </p>
       {/if}
 
       {#if activeGroup.methods.length < 2}
         <div class="govuk-inset-text">
           <p class="govuk-body">
-            Only one method ran <strong>{activeGroup.formName ?? activeGroup.formId}</strong>, so
-            there's nothing to compare yet. Import another method's log for this form, or generate
-            synthetic comparators from this run to see how it stacks up against a verbose and an
-            over-eager method.
+            Only one method ran <strong>{activeGroup.journeyName ?? activeGroup.journeyId}</strong>, so
+            there's nothing to compare yet. Import another method's trace for this journey, or generate
+            synthetic comparators from this run to see how it stacks up against a revision-heavy and a
+            single-pass method.
           </p>
           <button
             type="button"
             class="govuk-button govuk-button--secondary cmp-gen"
-            onclick={() => generateComparators(activeGroup.methods[0].log)}
+            onclick={() => generateComparators(activeGroup.methods[0])}
           >
-            Generate verbose + aggressive comparators
+            Generate revision-heavy + single-pass comparators
           </button>
         </div>
       {/if}
@@ -313,210 +305,294 @@
       <h2 class="govuk-heading-m">The methods</h2>
       <div class="cmp-methods">
         {#each orderedMethods as method (method.id)}
-          <div class={`cmp-method ${isReference(method.id) ? "cmp-method--ref" : ""}`}>
-            <div class="cmp-method__head">
-              <h3 class="govuk-heading-s cmp-method__name">{method.label}</h3>
-              {#if isReference(method.id)}
-                <strong class="govuk-tag govuk-tag--blue">baseline</strong>
-              {/if}
-              <button
-                type="button"
-                class="cmp-method__remove"
-                onclick={() => removeMethod(method.id)}
-                aria-label={`Remove ${method.label}`}
-              >
-                Remove
-              </button>
+          <div class="govuk-summary-card">
+            <div class="govuk-summary-card__title-wrapper">
+              <h3 class="govuk-summary-card__title">{method.label}</h3>
+              <ul class="govuk-summary-card__actions">
+                {#if isReference(method.id)}
+                  <li class="govuk-summary-card__action">
+                    <strong class="govuk-tag govuk-tag--blue">baseline</strong>
+                  </li>
+                {/if}
+                <li class="govuk-summary-card__action">
+                  <button type="button" class="cmp-remove" onclick={() => removeMethod(method.id)}>
+                    Remove<span class="govuk-visually-hidden"> {method.label}</span>
+                  </button>
+                </li>
+              </ul>
             </div>
-            <p class="govuk-body-s cmp-method__meta">
-              {method.log.form.name ?? method.log.form.id} · method: {method.log.method} · model: {method.log.model}
-            </p>
-            <p class="govuk-body-s">{method.log.description ?? "No description provided."}</p>
+            <div class="govuk-summary-card__content">
+              <p class="govuk-body-s">
+                <strong class="cmp-field-label">Journey</strong>{method.trace.initial_context?.form.name ?? method.trace.run.journey_id}
+              </p>
+              <p class="govuk-body-s cmp-method-impl"><code>{method.trace.run.implementation}</code></p>
+              <p class="govuk-body-s">
+                <strong class={`govuk-tag ${statusTag(method.trace.run.status)}`}>{method.trace.run.status}</strong>
+              </p>
+            </div>
           </div>
         {/each}
       </div>
 
-      {#if activeGroup.methods.length >= 2 && !activeGroup.methods.some((m) => m.log.method.includes("(synthetic)"))}
+      {#if activeGroup.methods.length >= 2 && !hasSyntheticComparator}
         <p class="govuk-body">
           <button
             type="button"
             class="govuk-button govuk-button--secondary cmp-gen"
-            onclick={() => generateComparators(orderedMethods[0].log)}
+            onclick={() => generateComparators(orderedMethods[0])}
           >
-            Add synthetic verbose + aggressive comparators
+            Add revision-heavy + single-pass comparators
           </button>
         </p>
       {/if}
 
       {#if activeGroup.methods.length >= 2 && scorecard}
-        <!-- At a glance -->
-        <h2 class="govuk-heading-m">At a glance</h2>
-        <div class="govuk-form-group cmp-measure">
-          <label class="govuk-label govuk-label--s" for="measure">Measure</label>
-          <select
-            class="govuk-select"
-            id="measure"
-            value={glanceMetric}
-            onchange={(e) => (glanceMetric = (e.currentTarget as HTMLSelectElement).value as typeof glanceMetric)}
-          >
-            <option value="tokens">Total tokens</option>
-            <option value="turns">Conversation turns</option>
-            <option value="questions">Questions asked of the human</option>
-            <option value="filled">Filled by the agent</option>
-            <option value="fill">Left for a human to fill in</option>
-          </select>
-        </div>
-        <div class="cmp-bars">
-          {#each glance.rows as row (row.id)}
-            <div class="cmp-bar">
-              <div class="govuk-body-s cmp-bar__label">{row.label}</div>
-              <div class="cmp-bar__track">
-                <div class="cmp-bar__fill" style={`width:${(row.value / glance.max) * 100}%`}></div>
-              </div>
-              <div class="govuk-body-s cmp-bar__value">{glanceOptions[glanceMetric].format(row.value)}</div>
+        <!-- This app has no bundled GOV.UK Frontend JavaScript, so the
+             open/closed behaviour that script would normally drive is
+             reproduced here in Svelte; govuk-frontend-supported switches on
+             the same CSS the real script relies on. -->
+        <div class="govuk-accordion govuk-frontend-supported">
+          <button type="button" class="govuk-accordion__show-all" aria-expanded={allSectionsOpen} onclick={toggleAllSections}>
+            <span class={`govuk-accordion-nav__chevron ${allSectionsOpen ? "" : "govuk-accordion-nav__chevron--down"}`}></span>
+            <span class="govuk-accordion__show-all-text">{allSectionsOpen ? "Hide all sections" : "Show all sections"}</span>
+          </button>
+
+          <!-- At a glance -->
+          <div class={`govuk-accordion__section ${sectionsOpen.glance ? "govuk-accordion__section--expanded" : ""}`}>
+            <div class="govuk-accordion__section-header">
+              <h2 class="govuk-accordion__section-heading">
+                <button
+                  type="button"
+                  class="govuk-accordion__section-button"
+                  aria-expanded={sectionsOpen.glance}
+                  aria-controls="cmp-section-glance"
+                  onclick={() => toggleSection("glance")}
+                >
+                  <span class="govuk-accordion__section-heading-text">
+                    <span class="govuk-accordion__section-heading-text-focus">At a glance</span>
+                  </span>
+                  <span class="govuk-accordion__section-toggle" data-nosnippet>
+                    <span class="govuk-accordion__section-toggle-focus">
+                      <span class={`govuk-accordion-nav__chevron ${sectionsOpen.glance ? "" : "govuk-accordion-nav__chevron--down"}`}></span>
+                      <span class="govuk-accordion__section-toggle-text">{sectionsOpen.glance ? "Hide" : "Show"}</span>
+                    </span>
+                  </span>
+                </button>
+              </h2>
             </div>
-          {/each}
-        </div>
-        <p class="govuk-hint">{glanceOptions[glanceMetric].explain} Bar length is relative to the largest.</p>
-
-        <!-- Scorecard -->
-        <h2 class="govuk-heading-m">Scorecard</h2>
-        <p class="govuk-hint">
-          A ✓ marks the best value where lower is better. Cost is only ranked among methods that used
-          an LLM.
-        </p>
-        <div class="cmp-scroll">
-          <table class="govuk-table">
-            <thead class="govuk-table__head">
-              <tr class="govuk-table__row">
-                <th class="govuk-table__header" scope="col">Metric</th>
-                {#each orderedMethods as method (method.id)}
-                  <th class="govuk-table__header govuk-table__header--numeric" scope="col">
-                    {method.label}
-                    {#if isReference(method.id)}<br /><span class="cmp-th-note">baseline</span>{/if}
-                  </th>
-                {/each}
-              </tr>
-            </thead>
-            <tbody class="govuk-table__body">
-              {#each scorecardGroups as group (group.name)}
-                <tr class="govuk-table__row cmp-rowgroup">
-                  <th class="govuk-table__header" colspan={orderedMethods.length + 1} scope="colgroup">{group.name}</th>
-                </tr>
-                {#each group.rows as srow (srow.label)}
-                  <tr class="govuk-table__row">
-                    <td class="govuk-table__cell">{srow.label}</td>
-                    {#each srow.display as value, i (i)}
-                      <td
-                        class={`govuk-table__cell govuk-table__cell--numeric ${srow.bestIndexes.includes(i) ? "cmp-best" : ""} ${srow.agenticOnly && !scorecard.agenticFlags[i] ? "cmp-muted" : ""}`}
-                      >
-                        {value}{#if srow.bestIndexes.includes(i)}&nbsp;✓{/if}
-                      </td>
-                    {/each}
-                  </tr>
-                {/each}
-              {/each}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Divergence -->
-        <h2 class="govuk-heading-m">What each method did, question by question</h2>
-        {#if divergence}
-          <div class="govuk-form-group cmp-refpick">
-            <label class="govuk-label govuk-label--s" for="refpick">Baseline to compare against</label>
-            <select
-              class="govuk-select"
-              id="refpick"
-              value={activeReference}
-              onchange={(e) => (referenceId = (e.currentTarget as HTMLSelectElement).value)}
-            >
-              {#each activeGroup.methods as method (method.id)}
-                <option value={method.id}>{method.label}</option>
-              {/each}
-            </select>
-          </div>
-          <p class="govuk-hint">
-            Each candidate is marked <strong>same</strong> or <strong>differs</strong> versus the
-            baseline (<strong>{divergence.referenceLabel}</strong>). “⚠ unverified” means the value was
-            filled but a human still needs to confirm it.
-          </p>
-          <div class="cmp-scroll">
-            <table class="govuk-table">
-              <thead class="govuk-table__head">
-                <tr class="govuk-table__row">
-                  <th class="govuk-table__header" scope="col">Question</th>
-                  <th class="govuk-table__header" scope="col">
-                    {divergence.referenceLabel}<br /><span class="cmp-th-note">baseline</span>
-                  </th>
-                  {#each divergence.candidateColumns as col (col.id)}
-                    <th class="govuk-table__header" scope="col">{col.label}</th>
+            <div id="cmp-section-glance" class="govuk-accordion__section-content">
+              <div class="govuk-form-group cmp-measure">
+                <label class="govuk-label govuk-label--s" for="measure">Measure</label>
+                <select
+                  class="govuk-select"
+                  id="measure"
+                  value={glanceMetric}
+                  onchange={(e) => (glanceMetric = (e.currentTarget as HTMLSelectElement).value as typeof glanceMetric)}
+                >
+                  {#each Object.entries(glanceOptions) as [key, option] (key)}
+                    <option value={key}>{option.label}</option>
                   {/each}
-                </tr>
-              </thead>
-              <tbody class="govuk-table__body">
-                {#each divergence.rows as drow (drow.field)}
-                  <tr class="govuk-table__row">
-                    <td class="govuk-table__cell">{drow.questionText}</td>
-                    <td class="govuk-table__cell" title={drow.referenceDetail ?? ""}>
-                      <strong class={`govuk-tag ${actionTag(drow.reference)}`}>{actionLabel(drow.reference)}</strong>
-                      {#if drow.referenceNeedsHuman}<span class="cmp-unverified">⚠ unverified</span>{/if}
-                    </td>
-                    {#each drow.candidates as cand (cand.id)}
-                      <td class={`govuk-table__cell ${cand.differs ? "cmp-differs" : ""}`} title={cand.detail ?? ""}>
-                        <strong class={`govuk-tag ${actionTag(cand.action)}`}>{actionLabel(cand.action)}</strong>
-                        {#if cand.needsHuman}<span class="cmp-unverified">⚠ unverified</span>{/if}
-                        <span class={`cmp-flag ${cand.differs ? "cmp-flag--differs" : "cmp-flag--same"}`}>
-                          {cand.differs ? "differs" : "same"}
-                        </span>
-                      </td>
-                    {/each}
-                  </tr>
+                </select>
+              </div>
+              <div class="cmp-bars">
+                {#each glance.rows as row (row.id)}
+                  <div class="cmp-bar">
+                    <div class="govuk-body-s cmp-bar__label">{row.label}</div>
+                    <div class="cmp-bar__track">
+                      <div class="cmp-bar__fill" style={`width:${(row.value / glance.max) * 100}%`}></div>
+                    </div>
+                    <div class="govuk-body-s cmp-bar__value">{row.value}</div>
+                  </div>
                 {/each}
-              </tbody>
-            </table>
+              </div>
+              <p class="govuk-hint">{glanceOptions[glanceMetric].explain} Bar length is relative to the largest.</p>
+            </div>
           </div>
 
-          <!-- Turn-by-turn detail -->
-          <h2 class="govuk-heading-m">Turn-by-turn</h2>
-          <p class="govuk-hint">How each method's conversation actually went, turn by turn.</p>
+          <!-- Scorecard -->
+          <div class={`govuk-accordion__section ${sectionsOpen.scorecard ? "govuk-accordion__section--expanded" : ""}`}>
+            <div class="govuk-accordion__section-header">
+              <h2 class="govuk-accordion__section-heading">
+                <button
+                  type="button"
+                  class="govuk-accordion__section-button"
+                  aria-expanded={sectionsOpen.scorecard}
+                  aria-controls="cmp-section-scorecard"
+                  onclick={() => toggleSection("scorecard")}
+                >
+                  <span class="govuk-accordion__section-heading-text">
+                    <span class="govuk-accordion__section-heading-text-focus">Scorecard</span>
+                  </span>
+                  <span class="govuk-accordion__section-toggle" data-nosnippet>
+                    <span class="govuk-accordion__section-toggle-focus">
+                      <span class={`govuk-accordion-nav__chevron ${sectionsOpen.scorecard ? "" : "govuk-accordion-nav__chevron--down"}`}></span>
+                      <span class="govuk-accordion__section-toggle-text">{sectionsOpen.scorecard ? "Hide" : "Show"}</span>
+                    </span>
+                  </span>
+                </button>
+              </h2>
+            </div>
+            <div id="cmp-section-scorecard" class="govuk-accordion__section-content">
+              <p class="govuk-hint">A ✓ marks the best value where lower is better.</p>
+              <div class="cmp-scroll">
+                <table class="govuk-table">
+                  <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                      <th class="govuk-table__header" scope="col">Metric</th>
+                      {#each orderedMethods as method (method.id)}
+                        <th class="govuk-table__header govuk-table__header--numeric" scope="col">
+                          {method.label}
+                          {#if isReference(method.id)}<br /><span class="cmp-th-note">baseline</span>{/if}
+                        </th>
+                      {/each}
+                    </tr>
+                  </thead>
+                  <tbody class="govuk-table__body">
+                    {#each scorecard.rows as srow (srow.label)}
+                      <tr class="govuk-table__row">
+                        <td class="govuk-table__cell">{srow.label}</td>
+                        {#each srow.display as value, i (i)}
+                          <td class={`govuk-table__cell govuk-table__cell--numeric ${srow.bestIndexes.includes(i) ? "cmp-best" : ""}`}>
+                            {value}{#if srow.bestIndexes.includes(i)}&nbsp;✓{/if}
+                          </td>
+                        {/each}
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Divergence -->
+          <div class={`govuk-accordion__section ${sectionsOpen.divergence ? "govuk-accordion__section--expanded" : ""}`}>
+            <div class="govuk-accordion__section-header">
+              <h2 class="govuk-accordion__section-heading">
+                <button
+                  type="button"
+                  class="govuk-accordion__section-button"
+                  aria-expanded={sectionsOpen.divergence}
+                  aria-controls="cmp-section-divergence"
+                  onclick={() => toggleSection("divergence")}
+                >
+                  <span class="govuk-accordion__section-heading-text">
+                    <span class="govuk-accordion__section-heading-text-focus">What information was submitted</span>
+                  </span>
+                  <span class="govuk-accordion__section-toggle" data-nosnippet>
+                    <span class="govuk-accordion__section-toggle-focus">
+                      <span class={`govuk-accordion-nav__chevron ${sectionsOpen.divergence ? "" : "govuk-accordion-nav__chevron--down"}`}></span>
+                      <span class="govuk-accordion__section-toggle-text">{sectionsOpen.divergence ? "Hide" : "Show"}</span>
+                    </span>
+                  </span>
+                </button>
+              </h2>
+            </div>
+            <div id="cmp-section-divergence" class="govuk-accordion__section-content">
+              {#if divergence}
+                <p class="govuk-hint">
+                  Compared against the baseline, <strong>{divergence.referenceLabel}</strong> (the first
+                  method loaded). A cell that differs from the baseline is highlighted.
+                </p>
+                <div class="cmp-scroll">
+                  <table class="govuk-table cmp-divergence">
+                    <thead class="govuk-table__head">
+                      <tr class="govuk-table__row">
+                        <th class="govuk-table__header" scope="col">Interaction</th>
+                        <th class="govuk-table__header" scope="col">
+                          {divergence.referenceLabel}<br /><span class="cmp-th-note">baseline</span>
+                        </th>
+                        {#each divergence.candidateColumns as col (col.id)}
+                          <th class="govuk-table__header" scope="col">{col.label}</th>
+                        {/each}
+                      </tr>
+                    </thead>
+                    <tbody class="govuk-table__body">
+                      {#each divergence.rows as drow (drow.interactionId)}
+                        <tr class="govuk-table__row">
+                          <td class="govuk-table__cell"><code>{drow.interactionId}</code></td>
+                          <td class="govuk-table__cell">
+                            {#if !drow.reference.reached}
+                              <span class="govuk-hint">not reached</span>
+                            {:else if !drow.reference.values}
+                              <strong class="govuk-tag govuk-tag--grey">no value yet</strong>
+                            {:else}
+                              <strong class={`govuk-tag ${drow.reference.source === "submitted" ? "govuk-tag--green" : "govuk-tag--teal"}`}>
+                                {drow.reference.source}
+                              </strong>
+                              <div class="govuk-body-s cmp-value">{formatValues(drow.reference.values, drow.interactionId)}</div>
+                            {/if}
+                          </td>
+                          {#each drow.candidates as cand (cand.id)}
+                            <td class={`govuk-table__cell ${cand.differs ? "cmp-differs" : ""}`}>
+                              {#if !cand.reached}
+                                <span class="govuk-hint">not reached</span>
+                              {:else if !cand.values}
+                                <strong class="govuk-tag govuk-tag--grey">no value yet</strong>
+                              {:else}
+                                <strong class={`govuk-tag ${cand.source === "submitted" ? "govuk-tag--green" : "govuk-tag--teal"}`}>
+                                  {cand.source}
+                                </strong>
+                                <div class="govuk-body-s cmp-value">{formatValues(cand.values, drow.interactionId)}</div>
+                              {/if}
+                            </td>
+                          {/each}
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {/if}
+            </div>
+          </div>
+        </div>
+
+        <!-- Event-by-event detail -->
+        {#if divergence}
+          <h2 class="govuk-heading-m">Event by event</h2>
+          <p class="govuk-hint">Each method's own common trace events, in interaction order.</p>
           {#each orderedMethods as method (method.id)}
             <details class="govuk-details">
               <summary class="govuk-details__summary">
-                <span class="govuk-details__summary-text">{method.label}, {method.log.criteria.interaction.length} turn{method.log.criteria.interaction.length === 1 ? "" : "s"}</span>
+                <span class="govuk-details__summary-text">{method.label}, {methodEvents(method).length} event{methodEvents(method).length === 1 ? "" : "s"}</span>
               </summary>
               <div class="govuk-details__text">
-                <ol class="cmp-turns">
-                  {#each method.log.criteria.interaction as turn (turn.turn)}
-                    <li class="cmp-turn">
-                      <span class="cmp-turn__tag">Turn {turn.turn}</span>
-                      <span class="cmp-turn__body">
-                        <span class="govuk-body-s cmp-turn__line"><strong>Citizen:</strong> {turn.user}</span>
-                        <span class="govuk-body-s cmp-turn__line">
-                          <strong>{turn.awaitingInput ? "Agent asks:" : "Agent:"}</strong> {turn.agent}
-                        </span>
-                        {#if turn.newFields.length > 0}
-                          <span class="govuk-body-s cmp-turn__fields">filled this turn: {turn.newFields.join(", ")}</span>
-                        {/if}
-                      </span>
-                    </li>
-                  {/each}
-                </ol>
+                <table class="govuk-table">
+                  <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                      <th class="govuk-table__header">Event</th>
+                      <th class="govuk-table__header">Interaction</th>
+                      <th class="govuk-table__header">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody class="govuk-table__body">
+                    {#each methodEvents(method) as event, i (i)}
+                      <tr class="govuk-table__row">
+                        <td class="govuk-table__cell">
+                          <strong class={`govuk-tag ${eventTag(event.type)}`}>{eventLabel(event.type)}</strong>
+                        </td>
+                        <td class="govuk-table__cell">
+                          <code>{"interaction_id" in event ? (event.interaction_id ?? "-") : "-"}</code>
+                        </td>
+                        <td class="govuk-table__cell">{eventDetail(event)}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
               </div>
             </details>
           {/each}
         {/if}
       {/if}
 
-      <!-- Methods on other forms -->
+      <!-- Methods on other journeys -->
       {#if otherGroups.length > 0}
         <div class="govuk-inset-text">
-          Also loaded, but on other forms (not comparable with the above):
+          Also loaded, but on other journeys (not comparable with the above):
           <ul class="govuk-list govuk-list--bullet cmp-other">
-            {#each otherGroups as group (group.formId)}
+            {#each otherGroups as group (group.journeyId)}
               <li>
-                <strong>{group.formName ?? group.formId}</strong>: {group.methods.map((m) => m.label).join(", ")}
-                {#if formGroups.length > 1}(select it in “Form being compared” to view){/if}
+                <strong>{group.journeyName ?? group.journeyId}</strong>: {group.methods.map((m) => m.label).join(", ")}
+                {#if journeyGroups.length > 1}(select it in “Journey being compared” to view){/if}
               </li>
             {/each}
           </ul>
@@ -531,6 +607,13 @@
      bespoke element inherits it too, instead of falling back to a serif. */
   .cmp {
     font-family: "GDS Transport", arial, sans-serif;
+  }
+
+  /* A code element has no bundled GDS typeface to fall back to on its own, so
+     without this it renders in the browser's own default monospace font
+     instead of matching the rest of the page. */
+  .cmp :global(code) {
+    font-family: inherit;
   }
 
   .cmp-controls {
@@ -567,9 +650,8 @@
     cursor: pointer;
   }
 
-  .cmp-formpick,
-  .cmp-measure,
-  .cmp-refpick {
+  .cmp-journeypick,
+  .cmp-measure {
     max-width: 30rem;
   }
 
@@ -577,45 +659,52 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
     gap: 1rem;
-    margin-bottom: 1rem;
+    /* govuk-heading-m has no top margin of its own, so without this the
+       heading straight after this grid sits flush against the cards. */
+    margin-bottom: 30px;
   }
 
-  .cmp-method {
-    border: 1px solid #b1b4b6;
-    border-top: 4px solid #b1b4b6;
-    padding: 0.75rem 1rem 1rem;
+  /* GDS gives every govuk-summary-card the same bottom margin, which looks
+     uneven inside a grid where cards already have row gaps. */
+  .cmp-methods :global(.govuk-summary-card) {
+    margin-bottom: 0;
   }
 
-  .cmp-method--ref {
-    border-top-color: #1d70b8;
-    background: #f0f6fb;
+  /* A govuk-summary-list splits into a fixed-percentage two column layout,
+     which assumes a wider container than one card in a three-up grid gives
+     it; that squeezed "Implementation" into an unreadable wrap. A plain line
+     does not have that assumption. Breaking on any character, not just
+     spaces, stops a long implementation identifier overflowing the card. */
+  .cmp-method-impl {
+    overflow-wrap: anywhere;
   }
 
-  .cmp-method__head {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
+  /* Now that code no longer renders in a distinct monospace font, the
+     implementation and status lines are still self-explanatory on their own,
+     but a plain journey name needs a label so it doesn't read as a stray
+     line of text. */
+  .cmp-field-label {
+    margin-right: 0.35rem;
   }
 
-  .cmp-method__name {
-    margin: 0;
-  }
-
-  .cmp-method__remove {
-    margin-left: auto;
+  /* GDS's own :link/:visited colouring only applies to real anchors, and
+     this needs a JS action rather than a navigation, so the one thing worth
+     a custom rule is the colour a real govuk-link would have had. */
+  .cmp-remove {
     border: 0;
     background: transparent;
     color: #1d70b8;
     text-decoration: underline;
     cursor: pointer;
     font: inherit;
+    /* govuk-summary-card__actions sets font-weight: 700 for its whole action
+       list, meant for adjacent text like "baseline"; a link should not be bold. */
+    font-weight: 400;
     padding: 0;
   }
 
-  .cmp-method__meta {
-    margin: 0 0 0.5rem;
-    color: #505a5f;
+  .cmp-remove:hover {
+    color: #003078;
   }
 
   .cmp-bars {
@@ -658,18 +747,9 @@
     overflow-x: auto;
   }
 
-  .cmp-rowgroup th {
-    background: #f3f2f1;
-  }
-
   .cmp-best {
     font-weight: 700;
     color: #00703c;
-  }
-
-  .cmp-muted {
-    color: #768692;
-    font-style: italic;
   }
 
   .cmp-th-note {
@@ -683,62 +763,17 @@
     background: #fff7bf;
   }
 
-  .cmp-flag {
-    display: inline-block;
-    margin-left: 0.35rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
+  /* Without a minimum, a divergence table with several candidate columns
+     squeezes each one down to little more than the tag's own width. */
+  .cmp-divergence :global(th),
+  .cmp-divergence :global(td) {
+    min-width: 10rem;
   }
 
-  .cmp-flag--differs {
-    color: #d4351c;
-    font-weight: 700;
-  }
-
-  .cmp-flag--same {
-    color: #768692;
-  }
-
-  .cmp-unverified {
-    display: inline-block;
-    margin-left: 0.35rem;
-    font-size: 0.75rem;
-    color: #b58840;
-  }
-
-  .cmp-turns {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .cmp-turn {
-    display: grid;
-    grid-template-columns: 4.5rem 1fr;
-    gap: 0.75rem;
-  }
-
-  .cmp-turn__tag {
-    font-weight: 700;
-    color: #1d70b8;
-  }
-
-  .cmp-turn__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .cmp-turn__line {
-    margin: 0;
-  }
-
-  .cmp-turn__fields {
-    margin: 0;
-    color: #505a5f;
+  /* A govuk-tag has no bottom margin of its own, so the value line under it
+     would otherwise sit flush against it. */
+  .cmp-value {
+    margin-top: 0.35rem;
   }
 
   .cmp-other {

@@ -1,6 +1,6 @@
 import { env } from "$env/dynamic/private";
 import { LlmChatSchema } from "$lib/schemas";
-import type { AgentContract, ChatFillResult, ChatMessage, TurnTelemetry } from "./engine-types";
+import type { AgentContract, ChatFillResult, ChatMessage } from "./engine-types";
 
 // Builds a forced-tool schema from the actual form fields, so the model is
 // guided to put each value in the right field (key, type, enum, object shape,
@@ -39,7 +39,7 @@ function buildProgressTool(contract: AgentContract) {
   };
 }
 
-// Tidies the citizen-facing chat reply: turns any literal "\n" escape sequences the
+// Tidies the user-facing chat reply: turns any literal "\n" escape sequences the
 // model typed into real newlines and collapses excess blank lines.
 function cleanReply(reply: string): string {
   return reply
@@ -50,7 +50,7 @@ function cleanReply(reply: string): string {
 }
 
 // The agent brief: fill what it can, infer where sensible, and only ask the
-// citizen for the minimum it genuinely cannot work out on its own.
+// user for the minimum it genuinely cannot work out on its own.
 const SYSTEM_BRIEF = [
   "You are a capable AI agent completing a UK government form on behalf of a citizen through a short chat.",
   "You are given the form's fields (mapping), its answer schema, and its branching rules.",
@@ -77,7 +77,7 @@ const SYSTEM_BRIEF = [
 ].join("\n");
 
 // Runs one agent turn over the whole conversation and returns updated answers
-// plus the reply to show the citizen.
+// plus the reply to show the user.
 export async function runLlmChat(
   contract: AgentContract,
   messages: ChatMessage[],
@@ -117,8 +117,6 @@ export async function runLlmChat(
     requestBody.temperature = 0.2;
   }
 
-  // Time the round-trip so the run log can report raw latency per turn.
-  const startedAt = Date.now();
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -135,16 +133,6 @@ export async function runLlmChat(
 
   const body = (await response.json()) as {
     content?: Array<{ type: string; input?: unknown }>;
-    usage?: { input_tokens?: number; output_tokens?: number };
-  };
-  const latencyMs = Date.now() - startedAt;
-
-  // Anthropic returns token counts in `usage`; default to 0 if absent.
-  const telemetry: TurnTelemetry = {
-    model,
-    latencyMs,
-    inputTokens: body.usage?.input_tokens ?? 0,
-    outputTokens: body.usage?.output_tokens ?? 0,
   };
 
   const toolCall = body.content?.find((block) => block.type === "tool_use");
@@ -158,9 +146,9 @@ export async function runLlmChat(
     reply: cleanReply(chat.reply),
     awaitingInput: chat.awaiting_input ?? false,
     decision: chat.awaiting_input
-      ? "Waiting on more information from the citizen"
+      ? "Waiting on more information from the user"
       : "Completed answers from the conversation",
     rationale: `Filled ${Object.keys(chat.final_answers).length} field(s) from the conversation.`,
-    telemetry,
+    model,
   };
 }
