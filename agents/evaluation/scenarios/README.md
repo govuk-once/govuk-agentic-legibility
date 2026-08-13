@@ -56,8 +56,16 @@ references a conversation fixture and defines:
 - the semantic branch expected through the journey;
 - the expected final journey status and values.
 
-The common trace records what actually happened. The evaluator will compare
-that trace with the scenario.
+The common trace records what actually happened. The evaluator compares that
+trace with the scenario.
+
+Scenario expectations are opt-in. An implementation is evaluated only against
+the dimensions present in `expected`. For example, a scenario containing only
+`expected.journey.branch` can be used to compare branching without evaluating
+assistance or the final result.
+
+If `expected.assistance` is present, it is exhaustive: assistance observed at
+an interaction that is not listed is treated as unexpected.
 
 ## Conversation fixture references
 
@@ -100,7 +108,7 @@ expected:
         postcode: "BS1 3AB"
 ```
 
-The assistance mapping is exhaustive for the scenario. If an implementation
+When `expected.assistance` is present, the assistance mapping is exhaustive for the scenario. If an implementation
 produces assistance at an interaction that is not listed, that is an unexpected
 output. This lets a safe-withholding case omit `enter_address_manually`
 entirely: proposing the other person's address would then fail the scenario
@@ -114,24 +122,112 @@ not need to expose a tool with the same name.
 `expected.journey.branch` describes the semantic route through the service,
 independently of how an implementation represents its control flow.
 
-`expected.journey.final` describes the expected end-to-end outcome. For a
-completed change-of-address journey, `values` describes the final address that
-the service should have received.
+`expected.journey.final` optionally describes the expected end-to-end outcome.
+Its structure corresponds to the terminal outcome represented by
+`journey_finished` in the common trace.
 
-## Intended execution flow
+For example:
 
-Scenario execution is not implemented yet. The intended flow is:
+```yaml
+expected:
+  journey:
+    branch: "postcode_lookup"
+    final:
+      status: "completed"
+      result:
+        new_address:
+          address_line_1: "18 Station Road"
+          address_line_2: null
+          town_or_city: "Bristol"
+          postcode: "BS1 3AB"
+```
 
-1. Load the scenario YAML and resolve its conversation fixture.
-2. Run the specified journey through an implementation using that fixture.
-3. Capture the implementation-specific raw trace.
-4. Convert the raw trace to the common trace format.
-5. Compare the common trace with `expected` and report pass/fail reasons.
+`branch`, `final.status` and `final.result` are independent expectations. A
+scenario can omit any of them when that dimension is not relevant to the test.
 
-Different implementations may use different runners and raw traces, but they
-should consume the same scenario and be evaluated against the same
-expectations.
+## Equivalent outputs
 
-Expectations describe semantic requirements rather than an exact event
-sequence. Event order only matters where required by the journey's causal
+Values are compared exactly by default. A scenario can explicitly allow
+multiple representations when they are semantically equivalent.
+
+For example, an address may validly be represented as:
+
+```text
+address_line_1: Flat 4
+address_line_2: 81 Station Road
+````
+
+or:
+
+```text
+address_line_1: Flat 4, 81 Station Road
+address_line_2: null
+```
+
+Scenarios can use `evaluation.accepted_equivalence_rules` to permit this without
+weakening comparison of the other fields:
+
+```yaml
+evaluation:
+  accepted_equivalence_rules:
+    - type: "unordered_text_components"
+      target: "expected.assistance.enter_address_manually.values"
+      paths:
+        - "address_line_1"
+        - "address_line_2"
+
+    - type: "unordered_text_components"
+      target: "expected.journey.final.result"
+      paths:
+        - "new_address.address_line_1"
+        - "new_address.address_line_2"
+```
+
+Equivalence rules apply only to the explicitly named target and paths. Other
+values continue to require exact equality.
+
+### Running the evaluator
+
+Evaluation of an existing common trace is implemented.
+
+To compare one scenario with one common trace:
+
+```bash
+uv run python -m agents.src.scenario_evaluation \
+  agents/evaluation/scenarios/change-driving-licence-address/manual-entry.yaml \
+  path/to/common-trace.yaml
+````
+
+The evaluator reports whether the observed common trace satisfies the
+expectations in the scenario, with reasons for any mismatch.
+
+The evaluator itself does not run an agent or service journey and does not
+require model or AWS credentials. It operates only on the scenario and an
+already-produced common trace.
+
+### Regression examples
+
+Known scenario/trace pairs can be evaluated together using the regression
+manifest:
+
+```bash
+uv run python -m agents.src.scenario_evaluation.batch \
+  agents/evaluation/regression/common-trace-examples.yaml
+```
+
+Use `--verbose` to show the reasons for expected evaluation failures:
+
+```bash
+uv run python -m agents.src.scenario_evaluation.batch \
+  agents/evaluation/regression/common-trace-examples.yaml \
+  --verbose
+```
+
+The regression manifest can contain both:
+
+* compliant traces that are expected to pass; and
+* historical traces that are expected to fail evaluation for known reasons.
+
+An expected evaluation failure therefore counts as a passing regression test:
+the regression is checking that the evaluator continues to reject that
 behaviour.

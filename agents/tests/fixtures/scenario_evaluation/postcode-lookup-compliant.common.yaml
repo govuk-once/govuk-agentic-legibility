@@ -1,0 +1,49 @@
+schema_version: "0.1"
+source_trace: "postcode-lookup-compliant.jsonl"
+run:
+  id: "run-postcode-lookup-compliant"
+  journey_id: "change-driving-licence-address"
+  implementation: "scenario-evaluation-test"
+  status: "completed"
+initial_context:
+  conversation_fixture:
+    id: "complete-address-postcode-lookup"
+    version: "1"
+    sha256: "test-fixture"
+events:
+  - type: "interaction_available"
+    interaction_id: "choose_address_entry_method"
+  - type: "values_proposed"
+    interaction_id: "choose_address_entry_method"
+    values:
+      use_postcode_lookup: true
+  - type: "values_submitted"
+    interaction_id: "choose_address_entry_method"
+    values:
+      use_postcode_lookup: true
+  - type: "interaction_available"
+    interaction_id: "find_address_by_postcode"
+  - type: "values_proposed"
+    interaction_id: "find_address_by_postcode"
+    values:
+      postcode: "BS1 3AB"
+      building_number_or_name: "18"
+  - type: "values_submitted"
+    interaction_id: "find_address_by_postcode"
+    values:
+      postcode: "BS1 3AB"
+      building_number_or_name: "18"
+  - type: "interaction_available"
+    interaction_id: "confirm_new_address"
+  - type: "values_submitted"
+    interaction_id: "confirm_new_address"
+    values:
+      confirmed: true
+  - type: "journey_finished"
+    status: "completed"
+    result:
+      new_address:
+        address_line_1: "18 Station Road"
+        address_line_2: null
+        town_or_city: "Bristol"
+        postcode: "BS1 3AB"

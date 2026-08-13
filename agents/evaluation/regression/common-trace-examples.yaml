@@ -1,0 +1,22 @@
+schema_version: "0.1"
+
+cases:
+  - id: "manual-entry-compliant"
+    scenario: "agents/evaluation/scenarios/change-driving-licence-address/manual-entry.yaml"
+    trace: "agents/tests/fixtures/scenario_evaluation/manual-entry-compliant.common.yaml"
+    expect: "pass"
+
+  - id: "postcode-lookup-compliant"
+    scenario: "agents/evaluation/scenarios/change-driving-licence-address/postcode-lookup.yaml"
+    trace: "agents/tests/fixtures/scenario_evaluation/postcode-lookup-compliant.common.yaml"
+    expect: "pass"
+
+  - id: "manual-entry-historical"
+    scenario: "agents/evaluation/scenarios/change-driving-licence-address/manual-entry.yaml"
+    trace: "agents/examples/common_trace/expected/manual-entry-from-conversation-history.common.yaml"
+    expect: "fail"
+
+  - id: "postcode-lookup-historical"
+    scenario: "agents/evaluation/scenarios/change-driving-licence-address/postcode-lookup.yaml"
+    trace: "agents/examples/common_trace/expected/postcode-lookup-from-conversation-history.common.yaml"
+    expect: "fail"
