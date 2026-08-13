@@ -1,0 +1,14 @@
+[package]
+name = "legibility-chat-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { version = "1.24.0", features = ["v4"] }
+strum = { version = "0.28", features = ["derive"] }
+strum_macros = "0.28"
+dirs = "5"
+fs4 = "1"
+serde_yaml = "0.9"

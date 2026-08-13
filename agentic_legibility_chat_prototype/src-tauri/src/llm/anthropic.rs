@@ -241,10 +241,10 @@ fn translate_tool_choice(choice: &Value) -> Value {
 // ── HTTP calls ───────────────────────────────────────────────────────────
 
 /// Streaming completion against Anthropic's `/v1/messages`.
-pub async fn stream(
+pub async fn stream<R: tauri::Runtime>(
     config: &ProviderConfig,
     request: &LLMRequest,
-    app: &AppHandle,
+    app: &AppHandle<R>,
 ) -> Result<CompletionOutcome> {
     let client = build_client()?;
     let url = endpoint_url(&config.base_url);
@@ -488,12 +488,12 @@ fn parse_message_delta(data: &str) -> Vec<RawEvent> {
     }
 }
 
-fn apply_event(
+fn apply_event<R: tauri::Runtime>(
     event: RawEvent,
     content_buf: &mut String,
     tool_accum: &mut HashMap<usize, ToolCallAccum>,
     finish_reason: &mut String,
-    app: &AppHandle,
+    app: &AppHandle<R>,
 ) {
     match event {
         RawEvent::Text(t) => {

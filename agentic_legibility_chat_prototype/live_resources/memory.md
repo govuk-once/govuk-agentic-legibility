@@ -1,1 +1,1 @@
-- User successfully updated their driving licence address to 32 Elm Street, Bristol, BR52HOD.
+- User wants to change the address on their driving licence via the DVLA 'Change driving licence address' service.

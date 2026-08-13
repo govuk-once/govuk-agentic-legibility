@@ -1,0 +1,9 @@
+[package]
+name = "legibility-chat-mocks"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = { workspace = true }
+tiny_http = "0.12"
+regex = "1"
