@@ -2,6 +2,9 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 
 use config::AppConfig;
+
+use legibility_chat_common::trace::Tracer;
+
 use llm::types::LLMToolDef;
 use mcp::{
     namespaced_tools, router::McpServerHandle, McpClientEnum, McpRouter, LegibilityChatClient,
@@ -13,11 +16,11 @@ use state_machine::{
     registry::{CardRegistry, StateRegistry, ToolRegistry},
 };
 
-mod commands;
-mod config;
-mod llm;
+pub mod commands;
+pub mod config;
+pub mod llm;
 pub mod mcp;
-mod state_machine;
+pub mod state_machine;
 
 #[derive(Clone)]
 pub struct PlaygroundDirs {
@@ -44,6 +47,7 @@ pub struct ManagedState {
     /// Held while waiting for the user to submit a `ui_input` form.
     /// The sender is set by `dispatch_tool` and resolved by `submit_ui_input`.
     pub pending_ui_input: tokio::sync::Mutex<Option<tokio::sync::oneshot::Sender<String>>>,
+    pub tracer: RwLock<Tracer>
 }
 
 // Safety: all fields are Send + Sync via RwLock / Mutex
@@ -71,9 +75,9 @@ unsafe impl Sync for ManagedState {}
 /// we also call `tools_list()` on the fresh sidecar and merge in anything it
 /// advertises that isn't already in `state_tools` — markdown-sourced defs
 /// win on name conflicts, mirroring `merge_router_tools` in `commands/chat.rs`.
-pub async fn build_router(
+pub async fn build_router<R: tauri::Runtime>(
     live_resources_dir: Option<&str>,
-    app_handle: Option<&tauri::AppHandle>,
+    app_handle: Option<&tauri::AppHandle<R>>,
     state_tools: Vec<LLMToolDef>,
     previous: Option<McpRouter>,
 ) -> anyhow::Result<McpRouter> {
@@ -120,6 +124,75 @@ pub async fn build_router(
     });
 
     Ok(McpRouter::from_servers(servers))
+}
+
+/// Resolves the bundled `defaults/` dir, seeds the user-writable
+/// states/tools/cards dirs from it (non-destructive — only writes when they're
+/// empty), loads the three registries, and picks an initial state —
+/// writing all of it into `ManagedState`. Needs a real `AppHandle` for
+/// `path().resource_dir()`, so this can't run before Tauri's `.setup()` (or
+/// an equivalent `tauri::test` app handle).
+pub fn seed_and_load_registries<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    // `resource_dir()` returns the bundled resources path in production
+    // builds, but during `tauri dev` the bundler doesn't run, so
+    // `bundle.resources` from tauri.conf.json is ignored and resource_dir()
+    // just points at the exe's directory (target/debug/). Fall back to the
+    // compile-time source-tree path so dev builds find defaults/*.md
+    // without any extra setup.
+    let defaults_root = {
+        let bundled = app
+            .path()
+            .resource_dir()
+            .ok()
+            .map(|d| d.join("defaults"));
+        let source_tree = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/defaults");
+        match bundled {
+            Some(b) if b.exists() => b,
+            _ => source_tree,
+        }
+    };
+    let playground = app.state::<ManagedState>().playground_dirs.read().unwrap().clone();
+
+    // Seed (non-destructive — only writes when user dirs are empty) then
+    // load. If loading fails we log and continue with empty registries
+    // rather than panicking, so a broken defaults/ bundle doesn't kill the
+    // whole app.
+    if let Err(e) = seed_playground_dirs(&defaults_root, &playground.states, &playground.tools) {
+        eprintln!("loader: failed to seed playground dirs: {e:#}");
+    }
+    if let Err(e) = seed_cards_dir(&defaults_root, &playground.cards) {
+        eprintln!("loader: failed to seed cards dir: {e:#}");
+    }
+
+    let state_reg = load_state_registry(&playground.states).unwrap_or_else(|e| {
+        eprintln!("loader: state registry empty: {e:#}");
+        StateRegistry::empty()
+    });
+    let tool_reg = load_tool_registry(&playground.tools).unwrap_or_else(|e| {
+        eprintln!("loader: tool registry empty: {e:#}");
+        ToolRegistry::empty()
+    });
+    let card_reg = load_card_registry(&playground.cards).unwrap_or_else(|e| {
+        eprintln!("loader: card registry empty: {e:#}");
+        CardRegistry::empty()
+    });
+
+    // Pick a starting state from the loaded registry. Sort alphabetically so
+    // the choice is deterministic across launches (the user can change it via
+    // the State Selector). Empty string is fine if no states were found — the
+    // UI handles that.
+    let initial_state_name = {
+        let mut summaries = state_reg.all_summaries();
+        summaries.sort_by(|a, b| a.name.cmp(&b.name));
+        summaries.into_iter().next().map(|s| s.name).unwrap_or_default()
+    };
+
+    let state = app.state::<ManagedState>();
+    *state.state_registry.write().unwrap() = state_reg;
+    *state.tool_registry.write().unwrap() = tool_reg;
+    *state.card_registry.write().unwrap() = card_reg;
+    *state.current_state.write().unwrap() = initial_state_name;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -169,7 +242,7 @@ pub fn run() {
                 .join("legibility-chat")
                 .join("cards")
         });
-
+    
     // Registries are populated inside `.setup()` (below) so we have an
     // `AppHandle` for `path().resource_dir()` to resolve the bundled
     // `defaults/` resource. Until that completes, commands that read the
@@ -191,6 +264,7 @@ pub fn run() {
             tools: tools_dir,
             cards: cards_dir,
         }),
+        tracer: RwLock::new(Tracer::new())
     };
 
     tauri::Builder::default()
@@ -199,87 +273,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(managed)
         .setup(move |app| {
-            // ── Seed + load registries ─────────────────────────────────────
             // We need an `AppHandle` to resolve the bundled `defaults/`
             // resource dir, so this runs inside `.setup()` rather than in
             // `run()`. The ManagedState was constructed with empty
             // registries; we populate them now before any command can fire.
             let handle = app.handle().clone();
-
-            // `resource_dir()` returns the bundled resources path in
-            // production builds, but during `tauri dev` the bundler doesn't
-            // run, so `bundle.resources` from tauri.conf.json is ignored
-            // and resource_dir() just points at the exe's directory
-            // (target/debug/). Fall back to the compile-time source-tree
-            // path so dev builds find defaults/*.md without any extra
-            // setup.
-            let defaults_root = {
-                let bundled = handle
-                    .path()
-                    .resource_dir()
-                    .ok()
-                    .map(|d| d.join("defaults"));
-                let source_tree = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("resources/defaults");
-                match bundled {
-                    Some(b) if b.exists() => b,
-                    _ => source_tree,
-                }
-            };
-            let playground = handle.state::<ManagedState>().playground_dirs.read().unwrap().clone();
-
-            // Seed (non-destructive — only writes when user dirs are empty)
-            // then load. If loading fails we log and continue with empty
-            // registries rather than panicking, so a broken defaults/
-            // bundle doesn't kill the whole app.
-            if let Err(e) = seed_playground_dirs(
-                &defaults_root,
-                &playground.states,
-                &playground.tools,
-            ) {
-                eprintln!("loader: failed to seed playground dirs: {e:#}");
-            }
-            if let Err(e) = seed_cards_dir(&defaults_root, &playground.cards) {
-                eprintln!("loader: failed to seed cards dir: {e:#}");
-            }
-
-            let state_reg = load_state_registry(&playground.states)
-                .unwrap_or_else(|e| {
-                    eprintln!("loader: state registry empty: {e:#}");
-                    StateRegistry::empty()
-                });
-            let tool_reg = load_tool_registry(&playground.tools)
-                .unwrap_or_else(|e| {
-                    eprintln!("loader: tool registry empty: {e:#}");
-                    ToolRegistry::empty()
-                });
-            let card_reg = load_card_registry(&playground.cards)
-                .unwrap_or_else(|e| {
-                    eprintln!("loader: card registry empty: {e:#}");
-                    CardRegistry::empty()
-                });
-
-            // Pick a starting state from the loaded registry. Sort
-            // alphabetically so the choice is deterministic across launches
-            // (the user can change it via the State Selector). Empty string
-            // is fine if no states were found — the UI handles that.
-            let initial_state_name = {
-                let mut summaries = state_reg.all_summaries();
-                summaries.sort_by(|a, b| a.name.cmp(&b.name));
-                summaries
-                    .into_iter()
-                    .next()
-                    .map(|s| s.name)
-                    .unwrap_or_default()
-            };
-
-            {
-                let state = handle.state::<ManagedState>();
-                *state.state_registry.write().unwrap() = state_reg;
-                *state.tool_registry.write().unwrap() = tool_reg;
-                *state.card_registry.write().unwrap() = card_reg;
-                *state.current_state.write().unwrap() = initial_state_name;
-            }
+            seed_and_load_registries(&handle);
 
             // Build the MCP router in the background so first message isn't slow.
             let handle = app.handle().clone();
