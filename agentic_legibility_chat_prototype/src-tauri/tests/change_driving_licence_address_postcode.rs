@@ -77,6 +77,12 @@ async fn drives_change_driving_licence_address_service_via_postcode_lookup() {
         "expected at least one values_submitted event (a real fetch response recorded \
          through the mock FLEX API). YAML:\n{yaml_text}"
     );
+    assert!(
+        has_event("values_proposed"),
+        "expected at least one values_proposed event (the JSON body of a real fetch \
+         request, e.g. to find-address-by-postcode or confirm-new-address, recorded \
+         before the request was sent). YAML:\n{yaml_text}"
+    );
 
     common::teardown(harness).await;
 }

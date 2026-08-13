@@ -19,14 +19,16 @@ pub async fn fetch(ctx: &AppContext, args: &serde_json::Value) -> String {
     let interaction_id = args["interaction_id"].as_str();
 
     // Add trace logging before request is made
-    if let Ok(body_values) = serde_json::from_str(&args["body"].to_string()) {
-        let mut tracer = ctx.tracer.write().await;
-        tracer.add_event(
-            TraceEvent::ValuesProposed,
-            interaction_id,
-            &url,
-            body_values
-        );
+    if let Some(body_str) = args["body"].as_str() {
+        if let Ok(body_values) = serde_json::from_str(body_str) {
+            let mut tracer = ctx.tracer.write().await;
+            tracer.add_event(
+                TraceEvent::ValuesProposed,
+                interaction_id,
+                &url,
+                body_values
+            );
+        }
     }
 
     let mut request = ureq::request(&method, url);
@@ -80,6 +82,46 @@ pub async fn fetch(ctx: &AppContext, args: &serde_json::Value) -> String {
             format!("HTTP {}\n{}", status, truncated)
         }
         Err(e) => format!("[fetch error] {}", e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression test for a bug where `args["body"]` (a `serde_json::Value`
+    /// string) was fed straight into `.to_string()` before parsing, which
+    /// re-serializes it with an extra layer of quoting/escaping — so a
+    /// well-formed JSON body always failed to parse and `ValuesProposed` was
+    /// silently never logged. Uses an unreachable URL so the test doesn't
+    /// depend on network access: the trace write happens before the request
+    /// is made, so the request's own (expected) failure doesn't matter here.
+    #[tokio::test]
+    async fn fetch_logs_values_proposed_for_a_json_body() {
+        static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+
+        let ctx = AppContext::disabled_for_test();
+        let args = serde_json::json!({
+            "url": "http://127.0.0.1:1",
+            "method": "POST",
+            "body": "{\"postcode\":\"SW1A 1AA\"}",
+        });
+        fetch(&ctx, &args).await;
+
+        let trace_path = tmp.path().join("legibility-chat").join("trace.jsonl");
+        let contents = std::fs::read_to_string(&trace_path)
+            .unwrap_or_else(|e| panic!("no trace.jsonl written: {e}"));
+
+        std::env::remove_var("XDG_CONFIG_HOME");
+
+        assert!(
+            contents.contains("\"type\":\"ValuesProposed\""),
+            "expected a ValuesProposed trace line, got:\n{contents}"
+        );
     }
 }
 
