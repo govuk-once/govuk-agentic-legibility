@@ -23,8 +23,18 @@ Before running it:
 Run all scenarios for the change-address journey with:
 
 ```bash
-gds-cli <profile> -- uv run python -m agents.src.scenario_evaluation.run \
+gds-cli aws <profile> uv run python -m agents.src.scenario_evaluation.run \
   agents/evaluation/scenarios/change-driving-licence-address
+```
+
+Or for multiple runs:
+
+```bash
+gds-cli aws <profile> \
+  uv run python -m agents.src.scenario_evaluation.run \
+  agents/evaluation/scenarios/change-driving-licence-address \
+  --repeat 10 \
+  --concurrency 10
 ```
 
 For each scenario the runner:

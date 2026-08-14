@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
+from threading import Event, Lock
 from typing import Any
 
+from agents.src.scenario_evaluation.evaluator import (
+    EvaluationIssue,
+    EvaluationResult,
+)
 from agents.src.scenario_evaluation.run import (
+    ScenarioJob,
+    ScenarioRunResult,
     _automatic_user_result,
     _latest_proposed_values,
+    _run_batch,
     run_scenario_file,
 )
 
@@ -119,7 +128,7 @@ def test_missing_proposal_does_not_fall_back_to_expected_values(tmp_path: Path) 
     scenario_path = tmp_path / "scenario.yaml"
     scenario_path.write_text(_scenario_yaml(), encoding="utf-8")
     client = FakeJourneyApplication()
-    client.trace = lambda _run_id: []  # type: ignore[method-assign]
+    client.trace = lambda _run_id: []  # type: ignore[assignment]
 
     result = run_scenario_file(
         scenario_path,
@@ -132,6 +141,114 @@ def test_missing_proposal_does_not_fall_back_to_expected_values(tmp_path: Path) 
     assert result.execution_error is not None
     assert "No propose_values action" in result.execution_error
     assert client.submissions == []
+
+
+def test_batch_repeats_concurrently_and_persists_structured_results(
+    tmp_path: Path,
+) -> None:
+    """Repeated jobs are bounded, durable and distinguish fail from error."""
+    jobs = [
+        ScenarioJob(Path("manual.yaml"), "manual-entry", 1),
+        ScenarioJob(Path("manual.yaml"), "manual-entry", 2),
+        ScenarioJob(Path("postcode.yaml"), "postcode-lookup", 1),
+        ScenarioJob(Path("postcode.yaml"), "postcode-lookup", 2),
+    ]
+    lock = Lock()
+    two_started = Event()
+    active = 0
+    maximum_active = 0
+    started = 0
+
+    def run_job(job: ScenarioJob) -> ScenarioRunResult:
+        nonlocal active, maximum_active, started
+        with lock:
+            active += 1
+            started += 1
+            maximum_active = max(maximum_active, active)
+            if started >= 2:
+                two_started.set()
+        assert two_started.wait(timeout=1)
+        try:
+            if job.scenario_id == "postcode-lookup" and job.attempt == 1:
+                evaluation = EvaluationResult(
+                    scenario_id=job.scenario_id,
+                    passed=False,
+                    issues=(
+                        EvaluationIssue(
+                            path="expected.assistance",
+                            message="unexpected proposal",
+                        ),
+                    ),
+                )
+                error = None
+            elif job.scenario_id == "postcode-lookup" and job.attempt == 2:
+                evaluation = None
+                error = "model request failed"
+            else:
+                evaluation = EvaluationResult(
+                    scenario_id=job.scenario_id,
+                    passed=True,
+                    issues=(),
+                )
+                error = None
+            return ScenarioRunResult(
+                scenario_id=job.scenario_id,
+                run_id=f"{job.scenario_id}-{job.attempt}",
+                raw_trace_path=None,
+                common_trace_path=None,
+                evaluation=evaluation,
+                execution_error=error,
+                attempt=job.attempt,
+                duration_ms=12.5,
+            )
+        finally:
+            with lock:
+                active -= 1
+
+    summary = _run_batch(
+        jobs,
+        batch_id="batch-one",
+        api_base_url="http://unused",
+        run_output_dir=tmp_path / "runs",
+        batch_output_dir=tmp_path / "batches",
+        concurrency=2,
+        job_runner=run_job,
+    )
+
+    assert maximum_active == 2
+    assert (summary.passed, summary.failed, summary.errors) == (2, 1, 1)
+
+    records = [
+        json.loads(line)
+        for line in summary.results_path.read_text().splitlines()
+    ]
+    assert len(records) == 4
+    assert {record["outcome"] for record in records} == {"pass", "fail", "error"}
+    assert {
+        (record["scenario_id"], record["attempt"]) for record in records
+    } == {
+        ("manual-entry", 1),
+        ("manual-entry", 2),
+        ("postcode-lookup", 1),
+        ("postcode-lookup", 2),
+    }
+    failed = next(record for record in records if record["outcome"] == "fail")
+    assert failed["issues"] == [
+        {"path": "expected.assistance", "message": "unexpected proposal"}
+    ]
+    errored = next(record for record in records if record["outcome"] == "error")
+    assert errored["execution_error"] == "model request failed"
+
+    for record in records:
+        evaluation_path = record["evaluation"]
+        assert evaluation_path is not None
+        assert Path(evaluation_path).exists()
+
+    summary_payload = json.loads(summary.summary_path.read_text())
+    assert summary_payload["total"] == 4
+    assert summary_payload["passed"] == 2
+    assert summary_payload["failed"] == 1
+    assert summary_payload["errors"] == 1
 
 
 def test_proposal_lookup_is_scoped_to_current_interaction() -> None:

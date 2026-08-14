@@ -7,9 +7,14 @@ import json
 import subprocess  # nosec B404 - fixed local common-trace CLI invocation
 import sys
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Protocol
+from uuid import uuid4
 
 import requests
 
@@ -26,6 +31,8 @@ TraceConverter = Callable[[Path, Path], Path]
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:8001"
 DEFAULT_OUTPUT_DIR = Path(".traces") / "evaluation-runs"
+DEFAULT_BATCH_OUTPUT_DIR = Path(".traces") / "evaluation-batches"
+DEFAULT_CONCURRENCY = 10
 MAX_INTERACTIONS = 20
 
 
@@ -56,19 +63,51 @@ class ScenarioRunResult:
     common_trace_path: Path | None
     evaluation: EvaluationResult | None
     execution_error: str | None
+    attempt: int = 1
+    duration_ms: float = 0.0
 
     @property
     def passed(self) -> bool:
         """Return whether both execution and semantic evaluation passed."""
-        return (
-            self.execution_error is None
-            and self.evaluation is not None
-            and self.evaluation.passed
-        )
+        return self.outcome == "pass"
+
+    @property
+    def outcome(self) -> str:
+        """Return pass, fail or error for aggregate reporting."""
+        if self.execution_error is not None or self.evaluation is None:
+            return "error"
+        return "pass" if self.evaluation.passed else "fail"
+
+
+@dataclass(frozen=True)
+class ScenarioJob:
+    """One repeated execution of one scenario."""
+
+    scenario_path: Path
+    scenario_id: str
+    attempt: int
+
+
+@dataclass(frozen=True)
+class BatchSummary:
+    """Persistent aggregate outcome for one runner invocation."""
+
+    batch_id: str
+    total: int
+    passed: int
+    failed: int
+    errors: int
+    results_path: Path
+    summary_path: Path
 
 
 class JourneyApplicationClient:
-    """HTTP adapter for the current journey application."""
+    """HTTP adapter for the current journey application.
+
+    Args:
+        base_url: Base URL for the running journey application.
+        timeout_seconds: HTTP request timeout in seconds.
+    """
 
     def __init__(
         self,
@@ -76,10 +115,13 @@ class JourneyApplicationClient:
         *,
         timeout_seconds: float = 120.0,
     ) -> None:
-        """Create a client for a running journey application."""
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
         self._session = requests.Session()
+
+    def close(self) -> None:
+        """Close this job's HTTP session."""
+        self._session.close()
 
     def start(self, journey_id: str, fixture_id: str) -> JsonObject:
         """Start an assisted journey using a conversation fixture."""
@@ -202,7 +244,7 @@ def run_scenario_file(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run one scenario, or all scenario YAML files in a directory."""
+    """Run scenarios repeatedly with bounded concurrency and persistent results."""
     parser = argparse.ArgumentParser(
         description=(
             "Run scenarios through the current journey application, convert raw "
@@ -212,30 +254,299 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("scenarios", type=Path, help="Scenario YAML file or directory")
     parser.add_argument("--api-base-url", default=DEFAULT_API_BASE_URL)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--batch-output-dir",
+        type=Path,
+        default=DEFAULT_BATCH_OUTPUT_DIR,
+        help="Directory for batch manifests, results JSONL and summaries",
+    )
+    parser.add_argument(
+        "--repeat",
+        type=_positive_int,
+        default=1,
+        help="Number of executions per scenario (default: 1)",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=_positive_int,
+        default=DEFAULT_CONCURRENCY,
+        help=f"Maximum executions in flight (default: {DEFAULT_CONCURRENCY})",
+    )
+    parser.add_argument(
+        "--batch-id",
+        help="Optional explicit batch identifier; generated when omitted",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print the detailed result for every execution",
+    )
     args = parser.parse_args(argv)
 
     try:
         paths = _scenario_paths(args.scenarios)
-    except ScenarioExecutionError as error:
+        jobs = _scenario_jobs(paths, args.repeat)
+        batch_id = args.batch_id or _new_batch_id()
+        summary = _run_batch(
+            jobs,
+            batch_id=batch_id,
+            api_base_url=args.api_base_url,
+            run_output_dir=args.output_dir,
+            batch_output_dir=args.batch_output_dir,
+            concurrency=args.concurrency,
+            verbose=args.verbose,
+        )
+    except (ScenarioExecutionError, EvaluationInputError) as error:
         print(f"ERROR: {error}")
         return 2
 
-    client = JourneyApplicationClient(args.api_base_url)
-    results: list[ScenarioRunResult] = []
-    for path in paths:
-        try:
-            result = run_scenario_file(path, client, args.output_dir)
-        except EvaluationInputError as error:
-            print(f"ERROR {path}: {error}")
-            return 2
-        results.append(result)
-        _print_result(result)
+    print(
+        f"\n{summary.total} runs: {summary.passed} passed, "
+        f"{summary.failed} failed, {summary.errors} errors"
+    )
+    print(f"batch results: {summary.results_path}")
+    print(f"batch summary: {summary.summary_path}")
+    return 0 if summary.failed == 0 and summary.errors == 0 else 1
 
-    passed = sum(result.passed for result in results)
-    failed = len(results) - passed
-    noun = "scenario" if len(results) == 1 else "scenarios"
-    print(f"\n{len(results)} {noun}: {passed} passed, {failed} failed")
-    return 0 if failed == 0 else 1
+
+def _run_batch(
+    jobs: Sequence[ScenarioJob],
+    *,
+    batch_id: str,
+    api_base_url: str,
+    run_output_dir: Path,
+    batch_output_dir: Path,
+    concurrency: int,
+    verbose: bool = False,
+    job_runner: Callable[[ScenarioJob], ScenarioRunResult] | None = None,
+) -> BatchSummary:
+    """Execute jobs concurrently while the calling thread persists batch records."""
+    batch_dir = batch_output_dir / batch_id
+    if batch_dir.exists():
+        raise ScenarioExecutionError(f"Batch output already exists: {batch_dir}")
+    batch_dir.mkdir(parents=True)
+
+    started_at = datetime.now(UTC)
+    results_path = batch_dir / "results.jsonl"
+    summary_path = batch_dir / "summary.json"
+    results_path.write_text("", encoding="utf-8")
+    _write_json(
+        batch_dir / "batch.json",
+        {
+            "schema_version": "0.1",
+            "batch_id": batch_id,
+            "started_at": started_at.isoformat(),
+            "repeat": _repeat_from_jobs(jobs),
+            "concurrency": concurrency,
+            "total": len(jobs),
+            "scenarios": sorted({str(job.scenario_path) for job in jobs}),
+        },
+    )
+
+    runner = job_runner
+    if runner is None:
+        runner = partial(
+            _execute_job,
+            api_base_url=api_base_url,
+            run_output_dir=run_output_dir,
+        )
+    counts = {"pass": 0, "fail": 0, "error": 0} # nosec B105 - it thinks this is a hardcoded password for some reason?
+    progress_interval = max(1, len(jobs) // 20)
+
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        future_to_job = {executor.submit(runner, job): job for job in jobs}
+        for completed, future in enumerate(as_completed(future_to_job), start=1):
+            job = future_to_job[future]
+            try:
+                result = future.result()
+            except Exception as error:  # noqa: BLE001 - preserve long-running batch
+                result = ScenarioRunResult(
+                    scenario_id=job.scenario_id,
+                    run_id=None,
+                    raw_trace_path=None,
+                    common_trace_path=None,
+                    evaluation=None,
+                    execution_error=(
+                        f"Unexpected runner error: {type(error).__name__}: {error}"
+                    ),
+                    attempt=job.attempt,
+                )
+
+            record = _result_record(
+                batch_id,
+                job,
+                result,
+                run_output_dir=run_output_dir,
+            )
+            _append_jsonl(results_path, record)
+            _write_run_evaluation(record, result, run_output_dir)
+            counts[result.outcome] += 1
+
+            if verbose or len(jobs) <= 20:
+                _print_result(result)
+            elif completed % progress_interval == 0 or completed == len(jobs):
+                _print_progress(completed, len(jobs), counts)
+
+    completed_at = datetime.now(UTC)
+    summary_payload = {
+        "schema_version": "0.1",
+        "batch_id": batch_id,
+        "started_at": started_at.isoformat(),
+        "completed_at": completed_at.isoformat(),
+        "duration_ms": round(
+            (completed_at - started_at).total_seconds() * 1000,
+            3,
+        ),
+        "total": len(jobs),
+        "passed": counts["pass"],
+        "failed": counts["fail"],
+        "errors": counts["error"],
+        "results": str(results_path),
+    }
+    _write_json(summary_path, summary_payload)
+    return BatchSummary(
+        batch_id=batch_id,
+        total=len(jobs),
+        passed=counts["pass"],
+        failed=counts["fail"],
+        errors=counts["error"],
+        results_path=results_path,
+        summary_path=summary_path,
+    )
+
+
+def _execute_job(
+    job: ScenarioJob,
+    *,
+    api_base_url: str,
+    run_output_dir: Path,
+) -> ScenarioRunResult:
+    """Execute one job with its own HTTP session and measure elapsed time."""
+    started = perf_counter()
+    client = JourneyApplicationClient(api_base_url)
+    try:
+        result = run_scenario_file(job.scenario_path, client, run_output_dir)
+    finally:
+        client.close()
+    return replace(
+        result,
+        attempt=job.attempt,
+        duration_ms=round((perf_counter() - started) * 1000, 3),
+    )
+
+
+def _scenario_jobs(paths: Sequence[Path], repeat: int) -> list[ScenarioJob]:
+    jobs: list[ScenarioJob] = []
+    for path in paths:
+        scenario = load_document(path)
+        scenario_id = _required_string(scenario, "id", "scenario")
+        jobs.extend(
+            ScenarioJob(path, scenario_id, attempt)
+            for attempt in range(1, repeat + 1)
+        )
+    return jobs
+
+
+def _result_record(
+    batch_id: str,
+    job: ScenarioJob,
+    result: ScenarioRunResult,
+    *,
+    run_output_dir: Path,
+) -> JsonObject:
+    evaluation_path = (
+        run_output_dir / result.scenario_id / result.run_id / "evaluation.json"
+        if result.run_id is not None
+        else None
+    )
+    issues: list[JsonObject] = []
+    if result.evaluation is not None:
+        issues = [
+            {"path": issue.path, "message": issue.message}
+            for issue in result.evaluation.issues
+        ]
+    return {
+        "schema_version": "0.1",
+        "batch_id": batch_id,
+        "scenario_id": result.scenario_id,
+        "scenario_path": str(job.scenario_path),
+        "attempt": result.attempt,
+        "run_id": result.run_id,
+        "outcome": result.outcome,
+        "issues": issues,
+        "execution_error": result.execution_error,
+        "duration_ms": result.duration_ms,
+        "raw_trace": (
+            str(result.raw_trace_path) if result.raw_trace_path is not None else None
+        ),
+        "common_trace": (
+            str(result.common_trace_path)
+            if result.common_trace_path is not None
+            else None
+        ),
+        "evaluation": str(evaluation_path) if evaluation_path is not None else None,
+    }
+
+
+def _write_run_evaluation(
+    record: ReadOnlyJsonObject,
+    result: ScenarioRunResult,
+    run_output_dir: Path,
+) -> None:
+    if result.run_id is None:
+        return
+    path = run_output_dir / result.scenario_id / result.run_id / "evaluation.json"
+    _write_json(path, record)
+
+
+def _append_jsonl(path: Path, value: ReadOnlyJsonObject) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(value), separators=(",", ":")))
+        handle.write("\n")
+
+
+def _write_json(path: Path, value: ReadOnlyJsonObject) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"{json.dumps(dict(value), indent=2, sort_keys=True)}\n",
+        encoding="utf-8",
+    )
+
+
+def _repeat_from_jobs(jobs: Sequence[ScenarioJob]) -> int:
+    attempts_by_scenario: dict[str, int] = {}
+    for job in jobs:
+        attempts_by_scenario[job.scenario_id] = max(
+            attempts_by_scenario.get(job.scenario_id, 0),
+            job.attempt,
+        )
+    return max(attempts_by_scenario.values(), default=0)
+
+
+def _new_batch_id() -> str:
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return f"{timestamp}-{uuid4().hex[:8]}"
+
+
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be an integer") from error
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed
+
+
+def _print_progress(
+    completed: int,
+    total: int,
+    counts: Mapping[str, int],
+) -> None:
+    print(
+        f"{completed}/{total} completed | PASS {counts['pass']} | "
+        f"FAIL {counts['fail']} | ERROR {counts['error']}"
+    )
 
 
 def _drive_run(
@@ -472,7 +783,10 @@ def _combine_errors(first: str | None, second: str) -> str:
 
 
 def _print_result(result: ScenarioRunResult) -> None:
-    print(f"{'PASS' if result.passed else 'FAIL'} {result.scenario_id}")
+    print(
+        f"{result.outcome.upper()} {result.scenario_id} "
+        f"(attempt {result.attempt})"
+    )
     if result.execution_error is not None:
         print(f"  - execution: {result.execution_error}")
     if result.evaluation is not None:
