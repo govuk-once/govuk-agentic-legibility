@@ -155,7 +155,7 @@ For example, an address may validly be represented as:
 ```text
 address_line_1: Flat 4
 address_line_2: 81 Station Road
-````
+```
 
 or:
 
@@ -186,6 +186,22 @@ evaluation:
 Equivalence rules apply only to the explicitly named target and paths. Other
 values continue to require exact equality.
 
+`accepted_values` can be used when a single field has a small set of explicitly
+acceptable representations:
+
+```yaml
+evaluation:
+  accepted_equivalence_rules:
+    - type: "accepted_values"
+      target: >-
+        expected.assistance.find_address_by_postcode.values.building_number_or_name
+      values:
+        - "18"
+        - "18 Station Road"
+```
+
+Values not listed in the rule still fail the expectation.
+
 ### Running the evaluator
 
 Evaluation of an existing common trace is implemented.
@@ -196,7 +212,7 @@ To compare one scenario with one common trace:
 uv run python -m agents.src.scenario_evaluation \
   agents/evaluation/scenarios/change-driving-licence-address/manual-entry.yaml \
   path/to/common-trace.yaml
-````
+```
 
 The evaluator reports whether the observed common trace satisfies the
 expectations in the scenario, with reasons for any mismatch.
@@ -231,3 +247,16 @@ The regression manifest can contain both:
 An expected evaluation failure therefore counts as a passing regression test:
 the regression is checking that the evaluator continues to reject that
 behaviour.
+
+## End-to-end execution
+
+The current prototype has an implementation-specific runner that executes
+scenarios end to end, produces raw and common traces, and evaluates the result.
+
+See [`../README.md`](../README.md) for the overall evaluation process and
+[`../../src/scenario_evaluation/README.md`](../../src/scenario_evaluation/README.md)
+for runner commands, repeated execution and batch outputs.
+
+Different implementations may use different runners and raw traces, but they
+should consume the same scenarios and ultimately be evaluated against the same
+expectations.

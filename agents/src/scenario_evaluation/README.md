@@ -7,6 +7,9 @@ It deliberately does not read an implementation's raw trace or know how that
 implementation produced the common trace. That keeps the evaluator shared across
 implementations.
 
+See [`../../evaluation/README.md`](../../evaluation/README.md) for the overall
+evaluation process and artifact flow.
+
 ## Run all scenarios end to end against the current prototype
 
 `run` is an implementation-specific adapter for the current server-driven prototype. It
@@ -37,6 +40,10 @@ gds-cli aws <profile> \
   --concurrency 10
 ```
 
+`--repeat` is the number of executions per scenario. `--concurrency` is only
+the maximum number of executions in flight at once; it does not create
+additional repetitions. The default concurrency is 10.
+
 For each scenario the runner:
 
 1. starts a journey using the scenario's conversation fixture;
@@ -53,9 +60,28 @@ values needed to continue, the automated run stops rather than filling them from
 scenario output. The resulting incomplete trace can still be evaluated and should fail any
 expectations that were not met.
 
-Use `--api-base-url` to target another running journey application and `--output-dir` to
-store artifacts elsewhere. Other Agentic Legibility implementations can use different runner
-adapters as long as they consume the same scenarios and produce the common trace format.
+Each completed execution persists its comparison result as `evaluation.json`
+alongside the raw and common traces. Each runner invocation also creates:
+
+```text
+.traces/evaluation-batches/<batch-id>/
+├── batch.json
+├── results.jsonl
+└── summary.json
+```
+
+`results.jsonl` is written incrementally as runs complete and contains one
+record per execution. Outcomes are `pass`, `fail` or `error`; an execution
+error is kept distinct from a behavioural evaluation failure. `summary.json`
+records the aggregate counts for the batch.
+
+Use `--verbose` to print every individual result. Without it, large batches
+show periodic progress rather than printing thousands of detailed results.
+
+Use `--api-base-url` to target another running journey application and
+`--output-dir` to store artifacts elsewhere. Other Agentic Legibility
+implementations can use different runner adapters as long as they consume the
+same scenarios and produce the common trace format.
 
 ## Run an individual evaluation
 
@@ -184,6 +210,23 @@ evaluation:
 
 Fields outside the named paths are still compared exactly. Missing or duplicated
 text components still fail.
+
+`accepted_values` allows a small set of explicitly acceptable values for one
+target:
+
+```yaml
+evaluation:
+  accepted_equivalence_rules:
+    - type: "accepted_values"
+      target: >-
+        expected.assistance.find_address_by_postcode.values.building_number_or_name
+      values:
+        - "18"
+        - "18 Station Road"
+```
+
+This rule is deliberately narrow: values not listed remain failures, and other
+fields are still compared exactly.
 
 ## What version 0.1 evaluates
 
