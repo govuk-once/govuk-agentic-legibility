@@ -25,8 +25,17 @@ expected:
     final:
       status: "completed"
       result:
-      new_address:
-        address_line_1: "18 Station Road"
-        address_line_2: null
-        town_or_city: "Bristol"
-        postcode: "BS1 3AB"
+        new_address:
+          address_line_1: "18 Station Road"
+          address_line_2: null
+          town_or_city: "Bristol"
+          postcode: "BS1 3AB"
+
+evaluation:
+  accepted_equivalence_rules:
+    - type: "accepted_values"
+      target: >-
+        expected.assistance.find_address_by_postcode.values.building_number_or_name
+      values:
+        - "18"
+        - "18 Station Road"

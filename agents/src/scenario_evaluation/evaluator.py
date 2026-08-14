@@ -51,7 +51,8 @@ class EquivalenceRule:
 
     rule_type: str
     target: str
-    paths: tuple[str, ...]
+    paths: tuple[str, ...] = ()
+    values: tuple[object, ...] = ()
 
 
 _BRANCHES: dict[str, dict[str, BranchDefinition]] = {
@@ -466,24 +467,39 @@ def _equivalence_rules(scenario: ReadOnlyJsonObject) -> tuple[EquivalenceRule, .
 
         rule_type = _required_string(raw_rule, "type", path)
         target = _required_string(raw_rule, "target", path)
-        raw_paths = raw_rule.get("paths")
-        if not isinstance(raw_paths, list) or not raw_paths:
-            raise EvaluationInputError(f"{path}.paths must be a non-empty list")
-        if not all(isinstance(item, str) and item for item in raw_paths):
-            raise EvaluationInputError(
-                f"{path}.paths must contain only non-empty strings"
-            )
-        if rule_type != "unordered_text_components":
-            raise EvaluationInputError(
-                f"Unsupported equivalence rule type {rule_type!r} at {path}"
-            )
 
-        rules.append(
-            EquivalenceRule(
-                rule_type=rule_type,
-                target=target,
-                paths=tuple(raw_paths),
+        if rule_type == "unordered_text_components":
+            raw_paths = raw_rule.get("paths")
+            if not isinstance(raw_paths, list) or not raw_paths:
+                raise EvaluationInputError(f"{path}.paths must be a non-empty list")
+            if not all(isinstance(item, str) and item for item in raw_paths):
+                raise EvaluationInputError(
+                    f"{path}.paths must contain only non-empty strings"
+                )
+            rules.append(
+                EquivalenceRule(
+                    rule_type=rule_type,
+                    target=target,
+                    paths=tuple(raw_paths),
+                )
             )
+            continue
+
+        if rule_type == "accepted_values":
+            raw_values = raw_rule.get("values")
+            if not isinstance(raw_values, list) or not raw_values:
+                raise EvaluationInputError(f"{path}.values must be a non-empty list")
+            rules.append(
+                EquivalenceRule(
+                    rule_type=rule_type,
+                    target=target,
+                    values=tuple(raw_values),
+                )
+            )
+            continue
+
+        raise EvaluationInputError(
+            f"Unsupported equivalence rule type {rule_type!r} at {path}"
         )
     return tuple(rules)
 
@@ -494,7 +510,15 @@ def _equivalent(
     target: str,
     rules: Sequence[EquivalenceRule],
 ) -> bool:
-    applicable = [rule for rule in rules if rule.target == target]
+    applicable = [
+        rule
+        for rule in rules
+        if rule.target == target
+        or (
+            rule.rule_type == "accepted_values"
+            and rule.target.startswith(f"{target}.")
+        )
+    ]
     if not applicable:
         return actual == expected
     if not isinstance(expected, Mapping) or not isinstance(actual, Mapping):
@@ -504,21 +528,51 @@ def _equivalent(
     actual_copy: JsonObject = deepcopy(dict(actual))
 
     for rule in applicable:
-        if rule.rule_type != "unordered_text_components":
-            raise EvaluationInputError(
-                f"Unsupported equivalence rule type {rule.rule_type!r}"
-            )
-        if not _unordered_text_components_equal(
-            expected_copy,
-            actual_copy,
-            rule.paths,
-        ):
-            return False
-        for path in rule.paths:
-            _delete_path(expected_copy, path)
-            _delete_path(actual_copy, path)
+        if rule.rule_type == "unordered_text_components":
+            if rule.target != target:
+                raise EvaluationInputError(
+                    "unordered_text_components target must match the compared object "
+                    f"exactly: {rule.target!r}"
+                )
+            if not _unordered_text_components_equal(
+                expected_copy,
+                actual_copy,
+                rule.paths,
+            ):
+                return False
+            for path in rule.paths:
+                _delete_path(expected_copy, path)
+                _delete_path(actual_copy, path)
+            continue
+
+        if rule.rule_type == "accepted_values":
+            prefix = f"{target}."
+            if not rule.target.startswith(prefix):
+                raise EvaluationInputError(
+                    f"accepted_values target must name a field below {target!r}"
+                )
+            relative_target = rule.target.removeprefix(prefix)
+            expected_value = _value_at_path(expected_copy, relative_target)
+            actual_value = _value_at_path(actual_copy, relative_target)
+            if not _is_accepted_value(expected_value, rule.values):
+                raise EvaluationInputError(
+                    f"Expected value at {rule.target!r} is not listed in accepted values"
+                )
+            if not _is_accepted_value(actual_value, rule.values):
+                return False
+            _delete_path(expected_copy, relative_target)
+            _delete_path(actual_copy, relative_target)
+            continue
+
+        raise EvaluationInputError(
+            f"Unsupported equivalence rule type {rule.rule_type!r}"
+        )
 
     return actual_copy == expected_copy
+
+
+def _is_accepted_value(value: object, accepted: Sequence[object]) -> bool:
+    return any(value == candidate for candidate in accepted)
 
 
 def _unordered_text_components_equal(

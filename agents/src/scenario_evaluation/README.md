@@ -161,3 +161,43 @@ with the same scenario and common trace vocabulary.
 The evaluator does not require an exact overall event sequence. It checks only the
 behaviour explicitly requested by the scenario and the causal journey evidence
 needed for those expectations.
+
+## Run scenarios end to end against the current prototype
+
+`run` is an implementation-specific adapter for the current server-driven prototype. It
+keeps the scenario and evaluator implementation-independent, but automates the steps needed
+to produce a fresh common trace from the journey application.
+
+Before running it:
+
+1. authenticate for the model provider using the normal development credentials;
+2. start the mock DVLA service used by the journey application;
+3. start the journey application with agent assistance enabled (by default at
+   `http://127.0.0.1:8001`).
+
+Run all scenarios for the change-address journey with:
+
+```bash
+uv run python -m agents.src.scenario_evaluation.run \
+  agents/evaluation/scenarios/change-driving-licence-address
+```
+
+For each scenario the runner:
+
+1. starts a journey using the scenario's conversation fixture;
+2. reads the agent's `propose_values` output from the implementation raw trace;
+3. simulates the user accepting those proposed form values without editing them;
+4. submits final confirmation deterministically rather than treating confirmation as an
+   agent decision;
+5. saves the raw trace under `.traces/evaluation-runs/`;
+6. converts it with `agents.src.common_trace`;
+7. evaluates the resulting common trace against the scenario.
+
+This is deliberately not an actor-agent simulation. If the implementation does not propose
+values needed to continue, the automated run stops rather than filling them from the expected
+scenario output. The resulting incomplete trace can still be evaluated and should fail any
+expectations that were not met.
+
+Use `--api-base-url` to target another running journey application and `--output-dir` to
+store artifacts elsewhere. Other Agentic Legibility implementations can use different runner
+adapters as long as they consume the same scenarios and produce the common trace format.

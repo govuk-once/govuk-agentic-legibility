@@ -30,6 +30,14 @@ HISTORICAL_MANUAL_TRACE_PATH = (
     / "agents/examples/common_trace/expected/"
     "manual-entry-from-conversation-history.common.yaml"
 )
+POSTCODE_SCENARIO_PATH = (
+    REPO_ROOT
+    / "agents/evaluation/scenarios/change-driving-licence-address/postcode-lookup.yaml"
+)
+COMPLIANT_POSTCODE_TRACE_PATH = (
+    REPO_ROOT
+    / "agents/tests/fixtures/scenario_evaluation/postcode-lookup-compliant.common.yaml"
+)
 
 
 def manual_scenario() -> dict[str, Any]:
@@ -416,6 +424,65 @@ def test_assistance_failure_fails_when_assistance_is_evaluated() -> None:
 
     assert not result.passed
     assert any("assistance failed" in issue.message for issue in result.issues)
+
+
+def test_accepted_values_allows_explicit_alternative_scalar() -> None:
+    """A scalar may match one of a scenario's explicitly accepted representations."""
+    scenario = deepcopy(manual_scenario())
+    scenario["evaluation"]["accepted_equivalence_rules"].append(
+        {
+            "type": "accepted_values",
+            "target": (
+                "expected.assistance.enter_address_manually.values.town_or_city"
+            ),
+            "values": ["Bristol", "City of Bristol"],
+        }
+    )
+    trace = manual_trace()
+    _proposal(trace, "enter_address_manually")["values"]["town_or_city"] = (
+        "City of Bristol"
+    )
+
+    result = evaluate_common_trace(scenario, trace)
+
+    assert result.passed
+
+
+def test_accepted_values_rejects_unlisted_scalar() -> None:
+    """An accepted-values rule does not weaken unrelated scalar comparison."""
+    scenario = deepcopy(manual_scenario())
+    scenario["evaluation"]["accepted_equivalence_rules"].append(
+        {
+            "type": "accepted_values",
+            "target": (
+                "expected.assistance.enter_address_manually.values.town_or_city"
+            ),
+            "values": ["Bristol", "City of Bristol"],
+        }
+    )
+    trace = manual_trace()
+    _proposal(trace, "enter_address_manually")["values"]["town_or_city"] = "Bath"
+
+    result = evaluate_common_trace(scenario, trace)
+
+    assert not result.passed
+    assert any(
+        issue.path == "expected.assistance.enter_address_manually.values"
+        for issue in result.issues
+    )
+
+
+def test_postcode_scenario_accepts_full_street_lookup_value() -> None:
+    """The real postcode scenario accepts the observed full-street lookup input."""
+    scenario = load_document(POSTCODE_SCENARIO_PATH)
+    trace = load_document(COMPLIANT_POSTCODE_TRACE_PATH)
+    _proposal(trace, "find_address_by_postcode")["values"][
+        "building_number_or_name"
+    ] = "18 Station Road"
+
+    result = evaluate_common_trace(scenario, trace)
+
+    assert result.passed, [f"{issue.path}: {issue.message}" for issue in result.issues]
 
 
 def test_unsupported_branch_is_configuration_error() -> None:
