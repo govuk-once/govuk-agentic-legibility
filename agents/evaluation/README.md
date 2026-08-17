@@ -38,11 +38,16 @@ next journey step.
 
 ## Running the current prototype
 
-Start the mock DVLA service and journey application, authenticate for the model
-provider, then run:
+Start the mock DVLA service and journey application in the normal way, e.g.
 
 ```bash
-gds-cli aws once-ailegibility-development-admin \
+gds-cli aws <profile> -- just api
+```
+
+Then run:
+
+```bash
+gds-cli aws <profile> \
   uv run python -m agents.src.scenario_evaluation.run \
   agents/evaluation/scenarios/change-driving-licence-address
 ```
@@ -72,7 +77,7 @@ rather than inferred by the agent.
 To repeat each scenario and bound the number of executions in flight:
 
 ```bash
-gds-cli aws once-ailegibility-development-admin \
+gds-cli aws <profile> \
   uv run python -m agents.src.scenario_evaluation.run \
   agents/evaluation/scenarios/change-driving-licence-address \
   --repeat 1000 \
