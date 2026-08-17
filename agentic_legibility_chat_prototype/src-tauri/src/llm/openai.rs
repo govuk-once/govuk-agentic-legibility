@@ -29,10 +29,10 @@ pub fn endpoint_url(base_url: &str) -> String {
 }
 
 /// Streaming completion against any OpenAI-compatible endpoint.
-pub async fn stream(
+pub async fn stream<R: tauri::Runtime>(
     config: &ProviderConfig,
     request: &LLMRequest,
-    app: &AppHandle,
+    app: &AppHandle<R>,
 ) -> Result<CompletionOutcome> {
     let client = build_client()?;
     let url = endpoint_url(&config.base_url);
@@ -119,12 +119,12 @@ fn build_client() -> Result<reqwest::Client> {
         .context("building HTTP client")
 }
 
-fn apply_event(
+fn apply_event<R: tauri::Runtime>(
     event: RawEvent,
     content_buf: &mut String,
     tool_accum: &mut HashMap<usize, ToolCallAccum>,
     finish_reason: &mut String,
-    app: &AppHandle,
+    app: &AppHandle<R>,
 ) {
     match event {
         RawEvent::Text(t) => {

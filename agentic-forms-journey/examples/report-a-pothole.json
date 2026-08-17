@@ -1,0 +1,49 @@
+{
+  "id": "report-a-pothole",
+  "name": "Report a pothole",
+  "submissionEmail": "highways@example.gov.uk",
+  "privacyPolicyUrl": "https://example.gov.uk/privacy",
+  "supportEmail": "support@example.gov.uk",
+  "whatHappensNext": "A highways inspector will assess the pothole within 5 working days. We will not normally contact you unless we need more information.",
+  "pages": [
+    {
+      "id": "p1",
+      "position": 1,
+      "questionText": "Where is the pothole?",
+      "hintText": "Give the street and nearest house number or landmark.",
+      "isOptional": false,
+      "answerType": "address"
+    },
+    {
+      "id": "p2",
+      "position": 2,
+      "questionText": "Describe the pothole",
+      "hintText": "Include rough size and anything that makes it dangerous.",
+      "isOptional": false,
+      "answerType": "text",
+      "answerSettings": { "inputType": "long_text" }
+    },
+    {
+      "id": "p3",
+      "position": 3,
+      "questionText": "How many potholes are there at this location?",
+      "isOptional": true,
+      "answerType": "number"
+    },
+    {
+      "id": "p4",
+      "position": 4,
+      "questionText": "Upload a photo of the pothole",
+      "isOptional": true,
+      "answerType": "file"
+    },
+    {
+      "id": "p5",
+      "position": 5,
+      "questionText": "Your email address",
+      "hintText": "So we can contact you if we need more detail.",
+      "isOptional": true,
+      "answerType": "email"
+    }
+  ]
+}

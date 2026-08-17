@@ -3,8 +3,11 @@ set -e
 
 MOCK_PORT="${MOCK_PORT:-8127}"
 
+echo "Building mock FLEX API server..."
+cargo build -p legibility-chat-mocks --bin flex-mock
+
 echo "Starting mock FLEX API server on port $MOCK_PORT..."
-node mock-server.js "$MOCK_PORT" &
+./target/debug/flex-mock "$MOCK_PORT" &
 MOCK_PID=$!
 
 cleanup() {

@@ -8,6 +8,10 @@ use crate::llm::types::{LLMFunctionDef, LLMRequest, LLMToolDef};
 use crate::mcp::{is_spec_tool, router};
 use crate::state_machine::registry::CardSummary;
 use crate::ManagedState;
+use legibility_chat_common::trace::TraceEvent;
+
+
+
 
 /// Pretty-print the LLM request for `RUST_LOG=legibility_chat=debug`.
 ///
@@ -179,14 +183,21 @@ fn merge_router_tools(
 }
 
 #[tauri::command]
-pub async fn send_message(
+pub async fn send_message<R: tauri::Runtime>(
     content: String,
     state: tauri::State<'_, ManagedState>,
-    app: AppHandle,
+    app: AppHandle<R>,
 ) -> Result<(), String> {
     {
         let mut conv = state.conversation.write().unwrap();
         conv.push(ChatMessage::user(&content));
+
+        let _ = state.tracer.write().unwrap().add_event(
+            TraceEvent::UserMessage,
+            None,
+            &content,
+            std::collections::HashMap::new()
+        );
     }
 
     async {
@@ -237,7 +248,7 @@ pub async fn clear_conversation(state: tauri::State<'_, ManagedState>) -> Result
 
 // ── Main conversational loop ─────────────────────────────────────────────
 
-async fn run_main_loop(state: &ManagedState, app: &AppHandle) -> anyhow::Result<()> {
+async fn run_main_loop<R: tauri::Runtime>(state: &ManagedState, app: &AppHandle<R>) -> anyhow::Result<()> {
     loop {
         let (system_prompt, tool_names, history, provider) = {
             let current = state.current_state.read().unwrap().clone();
@@ -358,9 +369,9 @@ struct EvalResult {
     result: String,
 }
 
-async fn evaluate_state(
+async fn evaluate_state<R: tauri::Runtime>(
     state: &ManagedState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
 ) -> anyhow::Result<Option<EvalResult>> {
     let (current, valid_transitions, history, analyser_provider, change_state_def) = {
         let current = state.current_state.read().unwrap().clone();
@@ -441,9 +452,9 @@ async fn evaluate_state(
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-pub fn handle_change_state(
+pub fn handle_change_state<R: tauri::Runtime>(
     state: &ManagedState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     args: &serde_json::Value,
 ) -> String {
     let target_str = args["target_state"].as_str().unwrap_or("").to_string();
@@ -647,9 +658,9 @@ struct ServiceStepEvent {
     status: String,
 }
 
-fn handle_report_service_step(
+fn handle_report_service_step<R: tauri::Runtime>(
     state: &ManagedState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     args: &serde_json::Value,
 ) -> String {
     let service_id = match args["service_id"].as_str() {
@@ -778,9 +789,9 @@ struct UiInputRequestedEvent {
     options: Option<Vec<String>>,
 }
 
-async fn handle_ui_input(
+async fn handle_ui_input<R: tauri::Runtime>(
     state: &ManagedState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     args: &serde_json::Value,
 ) -> String {
     let input_type = args["input_type"].as_str().unwrap_or("text").to_string();
@@ -793,15 +804,31 @@ async fn handle_ui_input(
     let (tx, rx) = tokio::sync::oneshot::channel::<String>();
     *state.pending_ui_input.lock().await = Some(tx);
 
+    let _ = state.tracer.write().unwrap().add_event(
+        TraceEvent::InteractionAvailable,
+        Some(name.as_str()),
+        "",
+        std::collections::HashMap::new()
+    );
+
     app.emit("ui-input-requested", UiInputRequestedEvent {
         input_type,
-        name,
+        name: name.clone(),
         description,
         options,
     }).ok();
 
     // LLM loop pauses here until the user submits via submit_ui_input
-    rx.await.unwrap_or_else(|_| "[ui_input cancelled]".to_string())
+    let answer = rx.await.unwrap_or_else(|_| "[ui_input cancelled]".to_string());
+
+    let _ = state.tracer.write().unwrap().add_event(
+        TraceEvent::AnswerPresented,
+        Some(name.as_str()),
+        "",
+        std::collections::HashMap::new()
+    );
+
+    answer
 }
 
 #[tauri::command]
@@ -815,9 +842,9 @@ pub async fn submit_ui_input(
     Ok(())
 }
 
-async fn dispatch_tool(
+async fn dispatch_tool<R: tauri::Runtime>(
     state: &ManagedState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     name: &str,
     args: serde_json::Value,
 ) -> String {

@@ -1,0 +1,287 @@
+{
+  "id": "sample-apply-for-a-blue-badge",
+  "name": "Apply for a Blue Badge (disabled person's parking permit)",
+  "pages": [
+    {
+      "id": "p_name",
+      "position": 1,
+      "questionText": "What is the full name of the person the badge is for?",
+      "hintText": "Give the name of the disabled person, even if you are applying on their behalf.",
+      "answerType": "name",
+      "answerSettings": { "includeTitle": true }
+    },
+    {
+      "id": "p_dob",
+      "position": 2,
+      "questionText": "What is their date of birth?",
+      "hintText": "For example, 27 3 1980.",
+      "answerType": "date"
+    },
+    {
+      "id": "p_address",
+      "position": 3,
+      "questionText": "What is their home address?",
+      "hintText": "The badge is issued by the council for this address.",
+      "answerType": "address"
+    },
+    {
+      "id": "p_applicant",
+      "position": 4,
+      "questionText": "Who is this application for?",
+      "hintText": "This decides which eligibility questions you will be asked.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Myself, an adult" },
+          { "name": "My child, aged 3 to 16" },
+          { "name": "My child, aged 2 or under" },
+          { "name": "An organisation that transports disabled people" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Myself, an adult", "goToPageId": "p_route" },
+        { "answerValue": "My child, aged 2 or under", "goToPageId": "p_child_medical" },
+        { "answerValue": "An organisation that transports disabled people", "goToPageId": "p_org_name" }
+      ]
+    },
+    {
+      "id": "p_child_mobility",
+      "position": 5,
+      "questionText": "How far can the child walk without stopping or severe difficulty?",
+      "hintText": "Only asked for a child aged 3 to 16.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Less than 50 metres" },
+          { "name": "50 to 100 metres" },
+          { "name": "More than 100 metres" }
+        ]
+      }
+    },
+    {
+      "id": "p_child_danger",
+      "position": 6,
+      "questionText": "Which of these apply when the child is travelling?",
+      "hintText": "Select all that apply.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "checkbox",
+        "selectionOptions": [
+          { "name": "Uses bulky medical equipment that cannot be carried around" },
+          { "name": "Is a danger to themselves or others near moving traffic" },
+          { "name": "Needs constant supervision for a medical condition" },
+          { "name": "None of these" }
+        ]
+      }
+    },
+    {
+      "id": "p_route",
+      "position": 7,
+      "questionText": "How does the applicant qualify for a Blue Badge?",
+      "hintText": "Some benefits mean you qualify automatically. Otherwise the council arranges an assessment.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Receives a qualifying benefit" },
+          { "name": "Needs a mobility assessment" },
+          { "name": "Registered severely sight impaired (blind)" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Needs a mobility assessment", "goToPageId": "p_assess_walk" },
+        { "answerValue": "Registered severely sight impaired (blind)", "goToPageId": "p_photo" }
+      ]
+    },
+    {
+      "id": "p_benefit",
+      "position": 8,
+      "questionText": "Which qualifying benefit does the applicant receive?",
+      "hintText": "Only asked when qualifying through a benefit.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Personal Independence Payment (PIP)" },
+          { "name": "Disability Living Allowance (DLA), higher rate mobility" },
+          { "name": "War Pensioners' Mobility Supplement" },
+          { "name": "Armed Forces Independence Payment" },
+          { "name": "None of these" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Disability Living Allowance (DLA), higher rate mobility", "goToPageId": "p_photo" },
+        { "answerValue": "War Pensioners' Mobility Supplement", "goToPageId": "p_photo" },
+        { "answerValue": "Armed Forces Independence Payment", "goToPageId": "p_photo" },
+        { "answerValue": "None of these", "goToPageId": "p_assess_walk" }
+      ]
+    },
+    {
+      "id": "p_pip_points",
+      "position": 9,
+      "questionText": "How many points did the applicant score for the PIP 'moving around' activity?",
+      "hintText": "Only asked for PIP. 8 or more points qualifies automatically.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "12 points" },
+          { "name": "10 points" },
+          { "name": "8 points" },
+          { "name": "Fewer than 8 points" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "12 points", "goToPageId": "p_photo" },
+        { "answerValue": "10 points", "goToPageId": "p_photo" },
+        { "answerValue": "8 points", "goToPageId": "p_photo" },
+        { "answerValue": "Fewer than 8 points", "goToPageId": "p_assess_walk" }
+      ]
+    },
+    {
+      "id": "p_assess_walk",
+      "position": 10,
+      "questionText": "During a mobility assessment, how is the applicant's walking affected?",
+      "hintText": "Choose the option that best describes most journeys.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Cannot walk at all" },
+          { "name": "Has severe difficulty walking" },
+          { "name": "Has some difficulty but manages" },
+          { "name": "Has no walking difficulty" }
+        ]
+      }
+    },
+    {
+      "id": "p_assess_other",
+      "position": 11,
+      "questionText": "Do any of these other conditions apply?",
+      "hintText": "Select all that apply. Choosing 'None of these' with no walking difficulty means the applicant is not eligible.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "checkbox",
+        "selectionOptions": [
+          { "name": "Severe upper-limb disability, drives but cannot use parking meters" },
+          { "name": "Hidden disability causing very significant difficulty walking" },
+          { "name": "Terminal illness that seriously limits mobility" },
+          { "name": "None of these" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Severe upper-limb disability, drives but cannot use parking meters", "goToPageId": "p_photo" },
+        { "answerValue": "Hidden disability causing very significant difficulty walking", "goToPageId": "p_photo" },
+        { "answerValue": "Terminal illness that seriously limits mobility", "goToPageId": "p_photo" },
+        { "answerValue": "None of these", "goToPageId": "CHECK_ANSWERS" }
+      ]
+    },
+    {
+      "id": "p_child_medical",
+      "position": 12,
+      "questionText": "Which medical statements apply to the child aged 2 or under?",
+      "hintText": "Select all that apply.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "checkbox",
+        "selectionOptions": [
+          { "name": "Must always be near a vehicle for emergency medical treatment" },
+          { "name": "Must have bulky medical equipment carried at all times" },
+          { "name": "Neither of these" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Neither of these", "goToPageId": "CHECK_ANSWERS" }
+      ]
+    },
+    {
+      "id": "p_gp_details",
+      "position": 13,
+      "questionText": "Name and address of the applicant's GP or medical specialist",
+      "hintText": "Optional. Helps the council confirm a medical condition.",
+      "isOptional": true,
+      "answerType": "text",
+      "answerSettings": { "inputType": "long_text" }
+    },
+    {
+      "id": "p_photo",
+      "position": 14,
+      "questionText": "How will you provide a photo for the badge?",
+      "hintText": "The badge shows a photo of the disabled person.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Upload a digital photo now" },
+          { "name": "Bring one to the council office" },
+          { "name": "Reuse the photo from a previous badge" }
+        ]
+      }
+    },
+    {
+      "id": "p_prev_badge",
+      "position": 15,
+      "questionText": "If this is a renewal, what is the previous badge number?",
+      "hintText": "Optional. Leave blank for a first application.",
+      "isOptional": true,
+      "answerType": "text",
+      "answerSettings": { "inputType": "single_line" }
+    },
+    {
+      "id": "p_declaration",
+      "position": 16,
+      "questionText": "Do you confirm the information given is true and complete?",
+      "hintText": "You must confirm to submit a personal application.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Yes, I confirm" },
+          { "name": "No" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "Yes, I confirm", "goToPageId": "CHECK_ANSWERS" },
+        { "answerValue": "No", "goToPageId": "CHECK_ANSWERS" }
+      ]
+    },
+    {
+      "id": "p_org_name",
+      "position": 17,
+      "questionText": "What is the name of the organisation?",
+      "hintText": "Only asked for an organisation application.",
+      "answerType": "organisation_name"
+    },
+    {
+      "id": "p_org_count",
+      "position": 18,
+      "questionText": "How many disabled people does the organisation care for or transport?",
+      "answerType": "number"
+    },
+    {
+      "id": "p_org_contact",
+      "position": 19,
+      "questionText": "What is the organisation's contact email address?",
+      "answerType": "email"
+    },
+    {
+      "id": "p_org_declaration",
+      "position": 20,
+      "questionText": "Does the organisation meet the conditions for an organisational Blue Badge?",
+      "hintText": "The vehicles must be used mainly to transport disabled people.",
+      "answerType": "selection",
+      "answerSettings": {
+        "selectionType": "radio",
+        "selectionOptions": [
+          { "name": "Yes, it meets the conditions" },
+          { "name": "No, it does not" }
+        ]
+      },
+      "routing": [
+        { "answerValue": "No, it does not", "goToPageId": "CHECK_ANSWERS" }
+      ]
+    }
+  ]
+}
