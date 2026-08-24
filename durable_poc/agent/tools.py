@@ -66,6 +66,26 @@ async def start_workflow(
     return handle.id
 
 
+async def list_active_workflows(
+    *,
+    temporal_client: Any,
+) -> list[dict[str, str]]:
+    """List running SFSMInterpreter workflows on Temporal.
+
+    Args:
+        temporal_client: A Temporal client instance.
+
+    Returns:
+        A list of dicts with 'id' and 'status' for each running workflow.
+    """
+    results: list[dict[str, str]] = []
+    async for execution in temporal_client.list_workflows(
+        "WorkflowType = 'SFSMInterpreter' AND ExecutionStatus = 'Running'"
+    ):
+        results.append({"id": execution.id, "status": execution.status})
+    return results
+
+
 async def get_workflow_state(
     *,
     workflow_id: str,
@@ -93,8 +113,11 @@ async def submit_input(
     token: str,
     value: Any,
     temporal_client: Any,
-) -> None:
-    """Submit user input to a workflow awaiting a response.
+) -> dict[str, Any]:
+    """Submit user input and return the new workflow state.
+
+    Follows the HATEOAS pattern: the response is self-describing,
+    containing the next awaiting state and transcript.
 
     Args:
         workflow_id: The Temporal workflow ID to submit to.
@@ -102,10 +125,16 @@ async def submit_input(
         value: The user's input value.
         temporal_client: A Temporal client instance.
 
+    Returns:
+        The new workflow state (awaiting + transcript) after submission.
+
     Raises:
         Exception: If the workflow rejects the input (e.g. token mismatch).
     """
     handle = temporal_client.get_workflow_handle(workflow_id)
     await handle.execute_update(
         "submit_input", InputSubmission(token=token, value=value)
+    )
+    return await get_workflow_state(
+        workflow_id=workflow_id, temporal_client=temporal_client
     )

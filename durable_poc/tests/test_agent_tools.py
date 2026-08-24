@@ -12,6 +12,7 @@ from agent.tools import (
     WorkflowServerError,
     get_workflow_definition,
     get_workflow_state,
+    list_active_workflows,
     start_workflow,
     submit_input,
 )
@@ -35,12 +36,39 @@ class FakeWorkflowHandle:
         self.update_calls.append({"update_name": update_name, "arg": arg})
 
 
+@dataclass
+class FakeWorkflowExecution:
+    """Minimal Temporal workflow execution info for list results."""
+
+    id: str
+    status: str
+
+
+class FakeWorkflowListIterator:
+    """Async iterator over fake workflow executions."""
+
+    def __init__(self, executions: list[FakeWorkflowExecution]) -> None:
+        self._executions = executions
+        self._index = 0
+
+    def __aiter__(self) -> "FakeWorkflowListIterator":
+        return self
+
+    async def __anext__(self) -> FakeWorkflowExecution:
+        if self._index >= len(self._executions):
+            raise StopAsyncIteration
+        execution = self._executions[self._index]
+        self._index += 1
+        return execution
+
+
 class FakeTemporalClient:
     """Minimal Temporal client for testing."""
 
     def __init__(self) -> None:
         self.started_workflows: list[dict[str, Any]] = []
         self.handles: dict[str, FakeWorkflowHandle] = {}
+        self.workflow_executions: list[FakeWorkflowExecution] = []
 
     async def start_workflow(
         self,
@@ -59,6 +87,9 @@ class FakeTemporalClient:
 
     def get_workflow_handle(self, workflow_id: str) -> FakeWorkflowHandle:
         return self.handles[workflow_id]
+
+    def list_workflows(self, query: str) -> FakeWorkflowListIterator:
+        return FakeWorkflowListIterator(self.workflow_executions)
 
 
 # ---------------------------------------------------------------------------
@@ -201,13 +232,25 @@ async def test_get_workflow_state_returns_none_awaiting_when_processing() -> Non
 
 
 @pytest.mark.asyncio
-async def test_submit_input_calls_execute_update() -> None:
-    """A valid submission calls execute_update with the correct payload."""
+async def test_submit_input_calls_execute_update_and_returns_new_state() -> None:
+    """A valid submission advances the workflow and returns the new state."""
     temporal_client = FakeTemporalClient()
-    handle = FakeWorkflowHandle(id="wf-1")
+    handle = FakeWorkflowHandle(
+        id="wf-1",
+        query_responses={
+            "awaiting": {
+                "token": "tkn_2",
+                "prompt": "Enter your postcode",
+                "schema": {"kind": "string"},
+            },
+            "transcript": [
+                {"step": 1, "timestamp": "2024-01-01T00:00:00", "message": "Confirmed"}
+            ],
+        },
+    )
     temporal_client.handles["wf-1"] = handle
 
-    await submit_input(
+    result = await submit_input(
         workflow_id="wf-1",
         token="tkn_1",
         value="SW1A 2AA",
@@ -219,6 +262,9 @@ async def test_submit_input_calls_execute_update() -> None:
     assert call["update_name"] == "submit_input"
     assert call["arg"].token == "tkn_1"
     assert call["arg"].value == "SW1A 2AA"
+    assert result["awaiting"]["token"] == "tkn_2"
+    assert result["awaiting"]["prompt"] == "Enter your postcode"
+    assert len(result["transcript"]) == 1
 
 
 @pytest.mark.asyncio
@@ -238,3 +284,35 @@ async def test_submit_input_surfaces_validation_error() -> None:
             value="anything",
             temporal_client=temporal_client,
         )
+
+
+# ---------------------------------------------------------------------------
+# list_active_workflows
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_active_workflows_returns_running_workflows() -> None:
+    """Returns summaries for running SFSMInterpreter workflows."""
+    temporal_client = FakeTemporalClient()
+    temporal_client.workflow_executions = [
+        FakeWorkflowExecution(id="sfsm-dvla.change_of_address-0.2.0", status="RUNNING"),
+        FakeWorkflowExecution(id="sfsm-dvla.change_of_address-0.2.1", status="RUNNING"),
+    ]
+
+    result = await list_active_workflows(temporal_client=temporal_client)
+
+    assert len(result) == 2
+    assert result[0] == {"id": "sfsm-dvla.change_of_address-0.2.0", "status": "RUNNING"}
+    assert result[1] == {"id": "sfsm-dvla.change_of_address-0.2.1", "status": "RUNNING"}
+
+
+@pytest.mark.asyncio
+async def test_list_active_workflows_returns_empty_when_none_running() -> None:
+    """Returns an empty list when no workflows are active."""
+    temporal_client = FakeTemporalClient()
+    temporal_client.workflow_executions = []
+
+    result = await list_active_workflows(temporal_client=temporal_client)
+
+    assert result == []
