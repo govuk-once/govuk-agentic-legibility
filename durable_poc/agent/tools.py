@@ -45,8 +45,23 @@ async def start_workflow(
     temporal_client: Any,
     task_queue: str,
 ) -> str:
-    """Start a workflow on Temporal. Implementation pending."""
-    raise NotImplementedError
+    """Start a workflow execution on Temporal.
+
+    Args:
+        definition: The FSM workflow definition dict.
+        temporal_client: A Temporal client instance.
+        task_queue: The Temporal task queue to use.
+
+    Returns:
+        The Temporal workflow ID for the started execution.
+    """
+    handle = await temporal_client.start_workflow(
+        "SFSMInterpreter",
+        arg=definition,
+        id=f"sfsm-{definition.get('id', 'unknown')}-{definition.get('version', '0')}",
+        task_queue=task_queue,
+    )
+    return handle.id
 
 
 async def get_workflow_state(
