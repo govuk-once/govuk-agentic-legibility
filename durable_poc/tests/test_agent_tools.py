@@ -1,0 +1,240 @@
+"""Tests for the agent tool functions that bridge to Temporal and the workflow server."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+import pytest
+
+from agent.tools import (
+    WorkflowServerError,
+    get_workflow_definition,
+    get_workflow_state,
+    start_workflow,
+    submit_input,
+)
+
+
+@dataclass
+class FakeWorkflowHandle:
+    """Minimal Temporal workflow handle for testing."""
+
+    id: str
+    query_responses: dict[str, Any] = field(default_factory=dict)
+    update_calls: list[dict[str, Any]] = field(default_factory=list)
+    update_error: Exception | None = None
+
+    async def query(self, query_name: str) -> Any:
+        return self.query_responses.get(query_name)
+
+    async def execute_update(self, update_name: str, arg: Any) -> None:
+        if self.update_error:
+            raise self.update_error
+        self.update_calls.append({"update_name": update_name, "arg": arg})
+
+
+class FakeTemporalClient:
+    """Minimal Temporal client for testing."""
+
+    def __init__(self) -> None:
+        self.started_workflows: list[dict[str, Any]] = []
+        self.handles: dict[str, FakeWorkflowHandle] = {}
+
+    async def start_workflow(
+        self,
+        workflow: str,
+        *,
+        arg: Any,
+        id: str,
+        task_queue: str,
+    ) -> FakeWorkflowHandle:
+        self.started_workflows.append(
+            {"workflow": workflow, "arg": arg, "id": id, "task_queue": task_queue}
+        )
+        handle = FakeWorkflowHandle(id=id)
+        self.handles[id] = handle
+        return handle
+
+    def get_workflow_handle(self, workflow_id: str) -> FakeWorkflowHandle:
+        return self.handles[workflow_id]
+
+
+# ---------------------------------------------------------------------------
+# get_workflow_definition
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_definition_returns_parsed_definition() -> None:
+    """A successful fetch returns the workflow definition dict."""
+    definition = {
+        "workflow_id": 1,
+        "schema": "sfsm/0.2",
+        "id": "dvla.change_of_address",
+        "version": "0.2.0",
+        "entry": "main",
+        "processes": {},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == "http://localhost:8080/api/v1/workflows/1"
+        return httpx.Response(200, json=definition)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await get_workflow_definition(
+            workflow_id=1,
+            http_client=client,
+            base_url="http://localhost:8080",
+        )
+
+    assert result == definition
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_definition_raises_on_http_error() -> None:
+    """An HTTP error from the workflow server surfaces as WorkflowServerError."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": "Not found"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(WorkflowServerError, match="404"):
+            await get_workflow_definition(
+                workflow_id=99,
+                http_client=client,
+                base_url="http://localhost:8080",
+            )
+
+
+# ---------------------------------------------------------------------------
+# start_workflow
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_returns_workflow_id() -> None:
+    """Starting a workflow returns the Temporal workflow ID."""
+    temporal_client = FakeTemporalClient()
+    definition = {
+        "schema": "sfsm/0.2",
+        "id": "dvla.change_of_address",
+        "version": "0.2.0",
+        "entry": "main",
+        "processes": {},
+    }
+
+    workflow_id = await start_workflow(
+        definition=definition,
+        temporal_client=temporal_client,
+        task_queue="sfsm-queue",
+    )
+
+    assert workflow_id is not None
+    assert len(temporal_client.started_workflows) == 1
+    started = temporal_client.started_workflows[0]
+    assert started["workflow"] == "SFSMInterpreter"
+    assert started["arg"] == definition
+    assert started["task_queue"] == "sfsm-queue"
+
+
+# ---------------------------------------------------------------------------
+# get_workflow_state
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_state_returns_awaiting_and_transcript() -> None:
+    """When the workflow is waiting for input, state includes the awaiting info."""
+    temporal_client = FakeTemporalClient()
+    handle = FakeWorkflowHandle(
+        id="wf-1",
+        query_responses={
+            "awaiting": {
+                "token": "tkn_1",
+                "prompt": "Enter your postcode",
+                "schema": {"kind": "string"},
+            },
+            "transcript": [
+                {"step": 1, "timestamp": "2024-01-01T00:00:00", "message": "Started"}
+            ],
+        },
+    )
+    temporal_client.handles["wf-1"] = handle
+
+    state = await get_workflow_state(
+        workflow_id="wf-1",
+        temporal_client=temporal_client,
+    )
+
+    assert state["awaiting"] is not None
+    assert state["awaiting"]["token"] == "tkn_1"
+    assert state["awaiting"]["prompt"] == "Enter your postcode"
+    assert len(state["transcript"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_state_returns_none_awaiting_when_processing() -> None:
+    """When the workflow is not waiting for input, awaiting is None."""
+    temporal_client = FakeTemporalClient()
+    handle = FakeWorkflowHandle(
+        id="wf-2",
+        query_responses={"awaiting": None, "transcript": []},
+    )
+    temporal_client.handles["wf-2"] = handle
+
+    state = await get_workflow_state(
+        workflow_id="wf-2",
+        temporal_client=temporal_client,
+    )
+
+    assert state["awaiting"] is None
+    assert state["transcript"] == []
+
+
+# ---------------------------------------------------------------------------
+# submit_input
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_submit_input_calls_execute_update() -> None:
+    """A valid submission calls execute_update with the correct payload."""
+    temporal_client = FakeTemporalClient()
+    handle = FakeWorkflowHandle(id="wf-1")
+    temporal_client.handles["wf-1"] = handle
+
+    await submit_input(
+        workflow_id="wf-1",
+        token="tkn_1",
+        value="SW1A 2AA",
+        temporal_client=temporal_client,
+    )
+
+    assert len(handle.update_calls) == 1
+    call = handle.update_calls[0]
+    assert call["update_name"] == "submit_input"
+    assert call["arg"].token == "tkn_1"
+    assert call["arg"].value == "SW1A 2AA"
+
+
+@pytest.mark.asyncio
+async def test_submit_input_surfaces_validation_error() -> None:
+    """A token mismatch from the workflow validator propagates to the caller."""
+    temporal_client = FakeTemporalClient()
+    handle = FakeWorkflowHandle(
+        id="wf-1",
+        update_error=Exception("Token mismatch. Expected tkn_2"),
+    )
+    temporal_client.handles["wf-1"] = handle
+
+    with pytest.raises(Exception, match="Token mismatch"):
+        await submit_input(
+            workflow_id="wf-1",
+            token="tkn_1",
+            value="anything",
+            temporal_client=temporal_client,
+        )
