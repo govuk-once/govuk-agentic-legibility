@@ -17,6 +17,13 @@ This project allows the user to define complex, long-running, asynchronous proce
 ## Project Structure
 ```text
 durable_poc/
+├── agent/
+│   ├── __init__.py
+│   ├── agent.py         # Strands agent composition (WorkflowAgent class)
+│   ├── chat.py          # Gradio chat UI entrypoint
+│   ├── tools.py         # Tool functions bridging agent to Temporal
+│   └── prompts/
+│       └── system.txt   # Agent system prompt with integrity constraints
 ├── src/
 │   ├── model.py         # Pydantic models enforcing the JSON definition schema
 │   ├── paths.py         # Dot-path resolution and string interpolation
@@ -28,63 +35,165 @@ durable_poc/
 │   ├── worker.py        # Temporal worker bootstrap
 │   └── client.py        # Client helpers (start, query, update)
 ├── tests/
-│   ├── test_pure.py     # Unit tests for paths and predicates
-│   └── test_workflow.py # Integration tests using Temporal's Time-Skipping server
+│   ├── test_agent.py        # Agent composition and session state tests
+│   ├── test_agent_tools.py  # Tool function unit tests
+│   ├── test_chat.py         # Gradio chat interface tests
+│   ├── test_pure.py         # Unit tests for paths and predicates
+│   └── test_workflow.py     # Integration tests using local Temporal server
 ├── stub_server.py       # FastAPI mock backend (Photo upload & DVLA polling)
-└── demo.py              # Interactive terminal CLI frontend
+└── demo.py              # Interactive terminal CLI frontend (legacy)
 ```
 
 ## Prerequisites
-You will need Python 3.12+ and the Temporal CLI installed.
 
-Install Temporal CLI: Follow the official instructions for your OS (e.g., brew install temporal).
+- Python 3.14+ and [uv](https://docs.astral.sh/uv/) installed
+- Temporal CLI installed (`brew install temporal`)
 
-Install Python Dependencies:
+Install dependencies:
 
-```Bash
+```bash
 just build
 ```
 
 Run the tests:
+
 ```bash
-just check
+just test-poc
 ```
-The test suite validates both the pure Python logic (path resolution, predicates) and the Temporal integration. The integration tests use Temporal's WorkflowEnvironment.start_time_skipping(), allowing workflows with multi-day timeouts to execute in milliseconds.
 
-## Running the Interactive Demo
-The project includes an interactive terminal demo (demo.py) that executes a complex "Change of Address" workflow. It prompts you for inputs, validates UK postcodes, simulates uploading a photo, and executes a long-running API polling loop.
+The test suite validates the pure Python logic (path resolution, predicates), Temporal integration (using a local dev server), agent tool functions, and the chat interface wiring.
 
-To run the demo, you will need to open four separate terminal windows.
+## Running the Agentic Chat Interface
+
+The project includes a conversational AI agent that guides users through workflows using natural language. The agent uses Claude via AWS Bedrock and maintains workflow state using the HATEOAS pattern — each tool response is self-describing, carrying the continuation token and next expected input.
+
+### Prerequisites
+
+1. **Python 3.14+** and **uv** installed
+2. **Temporal CLI** installed (`brew install temporal`)
+3. **AWS credentials** with `bedrock:InvokeModel` permission for Claude Sonnet in your target region
+4. **Workflow server** running (serves workflow definitions)
+
+### Required credentials
+
+The agent calls Claude via Amazon Bedrock. You need valid AWS credentials configured via any standard method (environment variables, `~/.aws/credentials`, SSO, etc.). Verify with:
+
+```bash
+aws sts get-caller-identity
+```
+
+The default model is `us.anthropic.claude-sonnet-4-20250514-v1:0` in `eu-west-2`. Override with environment variables if needed:
+
+```bash
+export BEDROCK_MODEL_ID="us.anthropic.claude-sonnet-4-20250514-v1:0"
+export AWS_REGION="eu-west-2"
+```
+
+### Running the demo
+
+You need four terminal windows, all running from the repository root.
 
 #### Terminal 1: Temporal Server
-Start the local Temporal development server:
 
-```Bash
+```bash
+temporal server start-dev
+```
+
+Runs on `localhost:7233`. The Temporal UI is available at `http://localhost:8233`.
+
+#### Terminal 2: Workflow Definition Server
+
+The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`. If you have the server script:
+
+```bash
+# (server-specific command — already running on localhost:8080)
+```
+
+Verify it is responding:
+
+```bash
+curl http://localhost:8080/api/v1/workflows
+```
+
+#### Terminal 3: Temporal Worker
+
+Starts the Python worker that executes the FSM interpreter and activities:
+
+```bash
+cd durable_poc
+PYTHONPATH=. uv run python -m src.worker
+```
+
+The worker connects to Temporal on `localhost:7233` and listens on the `sfsm-queue` task queue.
+
+#### Terminal 4: Gradio Chat UI
+
+Launch the chat interface:
+
+```bash
+cd durable_poc
+PYTHONPATH=. uv run python -m agent.chat
+```
+
+Open `http://localhost:7860` in your browser.
+
+### Using the chat
+
+Type a natural language message to start a workflow:
+
+> "I need to change the address on my driving licence."
+
+The agent will:
+1. Fetch the appropriate workflow definition from the server
+2. Start a Temporal workflow execution
+3. Present each step conversationally, interpreting your responses into the structured values the workflow expects
+
+To resume an existing workflow in a new session, say something like:
+
+> "I need to check on my driving licence task."
+
+The agent will query Temporal for running workflows and pick up where you left off.
+
+### Configuration
+
+| Environment variable | Default | Purpose |
+|---------------------|---------|---------|
+| `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server address |
+| `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server |
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-sonnet-4-20250514-v1:0` | Bedrock model identifier |
+| `AWS_REGION` | `eu-west-2` | AWS region for Bedrock |
+
+---
+
+## Running the Terminal CLI Demo (legacy)
+
+The project also includes an interactive terminal demo (demo.py) that executes workflows without an AI agent. This requires the same Temporal server and worker, plus a stub backend server.
+
+#### Terminal 1: Temporal Server
+
+```bash
 temporal server start-dev
 ```
 
 #### Terminal 2: Backend Stub Server
-Start the FastAPI server. This acts as the external APIs (Post Office postcode lookup, DVLA photo upload, and DVLA asynchronous polling endpoint).
 
-```Bash
+```bash
 python stub_server.py
 ```
 (Runs on http://localhost:8000)
 
 #### Terminal 3: Temporal Worker
-Start the Python Temporal Worker that executes the FSM interpreter and activities.
 
-```Bash
-export PYTHONPATH=. 
-python -m src.worker
+```bash
+cd durable_poc
+PYTHONPATH=. uv run python -m src.worker
 ```
 
 #### Terminal 4: The Interactive CLI
-Run the frontend script. This script reads workflow.json, dynamically patches the 4-day timeouts down to 10 seconds for demo purposes, starts the workflow, and renders the prompts to your terminal.
 
-```Bash
-export PYTHONPATH=.
-python demo.py
+```bash
+cd durable_poc
+PYTHONPATH=. uv run python -m src.demo
 ```
 
 Follow the prompts in this terminal to step through the state machine.

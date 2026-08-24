@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from agent.agent import PROMPT_PATH, WorkflowAgent
+from agent.agent import PROMPT_PATH, WorkflowAgent, build_contextual_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,48 @@ def test_system_prompt_contains_integrity_instructions() -> None:
     assert "workflow" in content.lower()
     assert "skip" in content.lower() or "deviate" in content.lower()
     assert "submit_input" in content or "submit" in content.lower()
+
+
+# ---------------------------------------------------------------------------
+# Contextual prompt building
+# ---------------------------------------------------------------------------
+
+
+def test_build_contextual_prompt_without_state() -> None:
+    """Without workflow state, the prompt is just the user message."""
+    result = build_contextual_prompt("Hello", context=None)
+    assert result == "Hello"
+
+
+def test_build_contextual_prompt_with_awaiting_state() -> None:
+    """With active workflow state, the prompt includes continuation context."""
+    context = {
+        "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
+        "awaiting": {
+            "token": "tkn_3",
+            "prompt": "Please enter your new postcode.",
+            "schema": {"kind": "string", "pattern": "[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}"},
+        },
+    }
+    result = build_contextual_prompt("SW1A 2AA", context=context)
+
+    assert "sfsm-dvla.change_of_address-0.2.0" in result
+    assert "tkn_3" in result
+    assert "Please enter your new postcode." in result
+    assert "SW1A 2AA" in result
+
+
+def test_build_contextual_prompt_with_completed_workflow() -> None:
+    """When awaiting is None, the context still includes the workflow ID."""
+    context = {
+        "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
+        "awaiting": None,
+    }
+    result = build_contextual_prompt("What happened?", context=context)
+
+    assert "sfsm-dvla.change_of_address-0.2.0" in result
+    assert "not currently awaiting" in result.lower() or "no pending" in result.lower()
+    assert "What happened?" in result
 
 
 # ---------------------------------------------------------------------------
@@ -180,3 +222,102 @@ async def test_submit_input_tool_delegates_and_returns_new_state() -> None:
     assert handle.update_calls[0]["arg"].token == "tkn_1"
     assert handle.update_calls[0]["arg"].value is True
     assert result["awaiting"]["token"] == "tkn_2"
+
+
+# ---------------------------------------------------------------------------
+# Session state updates
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_updates_session_state() -> None:
+    """Starting a workflow sets the session state with workflow_id and awaiting."""
+    temporal_client = FakeTemporalClient()
+
+    definition = {
+        "schema": "sfsm/0.2",
+        "id": "dvla.change_of_address",
+        "version": "0.2.0",
+        "entry": "main",
+        "processes": {},
+    }
+
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json=definition))
+    http_client = httpx.AsyncClient(transport=transport)
+
+    agent = WorkflowAgent(
+        temporal_client=temporal_client,
+        http_client=http_client,
+        workflow_server_url="http://localhost:8080",
+        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        region_name="eu-west-2",
+    )
+
+    assert agent.session_state is None
+
+    await agent.call_tool("start_workflow", definition=definition)
+
+    assert agent.session_state is not None
+    assert agent.session_state["workflow_id"] == "sfsm-dvla.change_of_address-0.2.0"
+
+
+@pytest.mark.asyncio
+async def test_submit_input_updates_session_state() -> None:
+    """Submitting input updates session state with the new awaiting info."""
+    temporal_client = FakeTemporalClient()
+    handle = FakeWorkflowHandle(
+        id="wf-1",
+        query_responses={
+            "awaiting": {"token": "tkn_2", "prompt": "Next?", "schema": {"kind": "boolean"}},
+            "transcript": [{"step": 1, "timestamp": "t", "message": "Done"}],
+        },
+    )
+    temporal_client.handles["wf-1"] = handle
+
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={}))
+    http_client = httpx.AsyncClient(transport=transport)
+
+    agent = WorkflowAgent(
+        temporal_client=temporal_client,
+        http_client=http_client,
+        workflow_server_url="http://localhost:8080",
+        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        region_name="eu-west-2",
+    )
+
+    await agent.call_tool("submit_input", workflow_id="wf-1", token="tkn_1", value="yes")
+
+    assert agent.session_state is not None
+    assert agent.session_state["workflow_id"] == "wf-1"
+    assert agent.session_state["awaiting"]["token"] == "tkn_2"
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_state_updates_session_state() -> None:
+    """Querying workflow state also updates session state."""
+    temporal_client = FakeTemporalClient()
+    handle = FakeWorkflowHandle(
+        id="wf-1",
+        query_responses={
+            "awaiting": {"token": "tkn_1", "prompt": "Name?", "schema": {"kind": "string"}},
+            "transcript": [],
+        },
+    )
+    temporal_client.handles["wf-1"] = handle
+
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={}))
+    http_client = httpx.AsyncClient(transport=transport)
+
+    agent = WorkflowAgent(
+        temporal_client=temporal_client,
+        http_client=http_client,
+        workflow_server_url="http://localhost:8080",
+        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        region_name="eu-west-2",
+    )
+
+    await agent.call_tool("get_workflow_state", workflow_id="wf-1")
+
+    assert agent.session_state is not None
+    assert agent.session_state["workflow_id"] == "wf-1"
+    assert agent.session_state["awaiting"]["token"] == "tkn_1"

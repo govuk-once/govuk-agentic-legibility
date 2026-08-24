@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from agent.chat import create_app, create_chat_fn
 
 
 class FakeAgent:
     """Agent that records calls and returns a canned response."""
 
-    def __init__(self, response: str = "I can help with that.") -> None:
+    def __init__(
+        self,
+        response: str = "I can help with that.",
+        session_state: dict[str, Any] | None = None,
+    ) -> None:
         self.response = response
-        self.calls: list[str] = []
+        self.session_state = session_state
+        self.calls: list[dict[str, Any]] = []
 
-    def respond(self, message: str) -> str:
-        self.calls.append(message)
+    def respond(self, message: str, *, context: dict[str, Any] | None = None) -> str:
+        self.calls.append({"message": message, "context": context})
         return self.response
 
 
@@ -22,25 +29,44 @@ def test_chat_fn_delegates_message_to_agent() -> None:
     agent = FakeAgent(response="Let me start that workflow for you.")
     chat_fn = create_chat_fn(agent)
 
-    result = chat_fn("I need to change my address", [])
+    result, state = chat_fn("I need to change my address", [], None)
 
     assert result == "Let me start that workflow for you."
-    assert agent.calls == ["I need to change my address"]
+    assert agent.calls[0]["message"] == "I need to change my address"
 
 
-def test_chat_fn_accepts_history_parameter() -> None:
-    """The chat function accepts conversation history without error."""
-    agent = FakeAgent()
+def test_chat_fn_passes_state_as_context() -> None:
+    """When session state exists, it is passed to the agent as context."""
+    session_state = {
+        "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
+        "awaiting": {
+            "token": "tkn_2",
+            "prompt": "Enter your postcode.",
+            "schema": {"kind": "string"},
+        },
+    }
+    agent = FakeAgent(session_state=session_state)
     chat_fn = create_chat_fn(agent)
 
-    history: list[dict[str, str]] = [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi there"},
-    ]
-    result = chat_fn("What can you help with?", history)
+    result, new_state = chat_fn("SW1A 2AA", [], None)
 
-    assert isinstance(result, str)
-    assert agent.calls == ["What can you help with?"]
+    assert agent.calls[0]["context"] == session_state
+
+
+def test_chat_fn_returns_updated_state_from_agent() -> None:
+    """The chat function returns the agent's session_state after respond()."""
+    agent = FakeAgent(
+        session_state={
+            "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
+            "awaiting": {"token": "tkn_1", "prompt": "Confirm?", "schema": {"kind": "boolean"}},
+        }
+    )
+    chat_fn = create_chat_fn(agent)
+
+    _result, state = chat_fn("I need to change my address", [], None)
+
+    assert state is not None
+    assert state["workflow_id"] == "sfsm-dvla.change_of_address-0.2.0"
 
 
 def test_create_app_returns_gradio_interface() -> None:
