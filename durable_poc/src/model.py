@@ -106,7 +106,16 @@ class EndState(BaseState):
     return_: Any | None = Field(default=None, alias="return")
 
 
-State = InputState | OutputState | CallState | ChoiceState | AssignState | InvokeState | WaitState | EndState
+State = (
+    InputState
+    | OutputState
+    | CallState
+    | ChoiceState
+    | AssignState
+    | InvokeState
+    | WaitState
+    | EndState
+)
 
 
 class Process(BaseModel):

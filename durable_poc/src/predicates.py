@@ -20,7 +20,6 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
             return path_val == cmp_val
         return str(path_val).strip().lower() == str(cmp_val).strip().lower()
 
-
     elif op in ["lt", "lte", "gt", "gte"]:
         path_val = resolve_path(context, condition["path"])
         cmp_val = _resolve_value(condition, context)
@@ -28,11 +27,15 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
             return False
         try:
             p_num, c_num = float(path_val), float(cmp_val)
-            if op == "lt":  return bool(p_num < c_num)
-            if op == "lte": return bool(p_num <= c_num)
-            if op == "gt":  return bool(p_num > c_num)
-            if op == "gte": return bool(p_num >= c_num)
-        except (ValueError, TypeError):
+            if op == "lt":
+                return bool(p_num < c_num)
+            if op == "lte":
+                return bool(p_num <= c_num)
+            if op == "gt":
+                return bool(p_num > c_num)
+            if op == "gte":
+                return bool(p_num >= c_num)
+        except ValueError, TypeError:
             return False
 
     elif op == "is_true":
@@ -71,7 +74,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         if now_ts is None or target_ts is None:
             return False
         return bool(now_ts > target_ts)
-    
+
     elif op == "contains":
         path_val = resolve_path(context, condition["path"])
         cmp_val = _resolve_value(condition, context)

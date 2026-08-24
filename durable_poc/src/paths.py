@@ -12,7 +12,7 @@ DURATION_RE = re.compile(
 
 def resolve_path(context: dict[str, Any], path: str) -> Any:
     """Resolve a dot-separated path against a context dictionary.
-    
+
     Returns None if the path cannot be resolved.
     """
     parts = path.split(".")
@@ -44,10 +44,11 @@ def set_path(context: dict[str, Any], path: str, value: Any) -> None:
 
 def interpolate(template: str, context: dict[str, Any]) -> str:
     """Replace {{path.to.var}} in strings with resolved context values."""
+
     def replacer(match: re.Match[str]) -> str:
         val = resolve_path(context, match.group(1))
         return str(val) if val is not None else ""
-    
+
     return re.sub(r"\{\{(.*?)\}\}", replacer, template)
 
 
@@ -67,11 +68,11 @@ def parse_duration(duration_str: str) -> timedelta:
     match = DURATION_RE.match(duration_str)
     if not match:
         raise ValueError(f"Invalid duration format: {duration_str}")
-    
+
     groups = match.groupdict(default="0")
     days = int(groups["days"])
     hours = int(groups["hours"])
     minutes = int(groups["minutes"])
     seconds = float(groups["seconds"])
-    
+
     return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)

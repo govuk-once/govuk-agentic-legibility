@@ -67,7 +67,9 @@ async def http_call(params: CallParams) -> dict[str, Any]:
     return _project_capture(full_context, params.capture)
 
 
-def _project_capture(full_context: dict[str, Any], capture_spec: dict[str, Any]) -> dict[str, Any]:
+def _project_capture(
+    full_context: dict[str, Any], capture_spec: dict[str, Any]
+) -> dict[str, Any]:
     """Apply the capture specification to the raw HTTP context."""
     from src.paths import resolve_path  # Local import to prevent circularity
 
@@ -77,7 +79,7 @@ def _project_capture(full_context: dict[str, Any], capture_spec: dict[str, Any])
             result[key] = resolve_path(full_context, spec)
         elif isinstance(spec, dict):
             source_list = resolve_path(full_context, spec.get("from", ""))
-            
+
             if isinstance(source_list, list):
                 picks = spec.get("pick")
                 max_items = spec.get("max_items")
@@ -107,4 +109,6 @@ class NotifyParams:
 @activity.defn
 async def notify(params: NotifyParams) -> None:
     """Mock notification activity."""
-    logger.info(f"Notifying via {params.channel} using {params.template}: {params.params}")
+    logger.info(
+        f"Notifying via {params.channel} using {params.template}: {params.params}"
+    )

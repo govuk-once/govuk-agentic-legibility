@@ -169,9 +169,7 @@ class JourneyRunService:
         self._trace_directory = trace_directory
         self._client_factory = client_factory
         self._assistant = assistant
-        self._fixture_repository = (
-            fixture_repository or ConversationFixtureRepository()
-        )
+        self._fixture_repository = fixture_repository or ConversationFixtureRepository()
         self._runs: dict[str, _Run] = {}
 
     def list_fixtures(self) -> list[ConversationFixtureSummary]:
@@ -387,9 +385,7 @@ class JourneyRunService:
             interaction=interaction,
             trigger=trigger,
         )
-        conversation_payload = [
-            item.model_dump(mode="json") for item in conversation
-        ]
+        conversation_payload = [item.model_dump(mode="json") for item in conversation]
         run.trace.record_agent_invoked(
             model_id=self._assistant.model_id,
             prompt_id=self._assistant.prompt_id,
@@ -484,9 +480,7 @@ class JourneyRunService:
             terminal=terminal,
             interaction=run.executor.current_interaction(run.response),
             fixture=(
-                run.loaded_fixture.summary()
-                if run.loaded_fixture is not None
-                else None
+                run.loaded_fixture.summary() if run.loaded_fixture is not None else None
             ),
             conversation=run.conversation(),
             assistance=run.latest_assistance,

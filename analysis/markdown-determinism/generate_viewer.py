@@ -6,6 +6,7 @@ from typing import Any
 DEFAULT_RUNS_DIR = Path("runs")
 DEFAULT_OUTPUT_PATH = Path("viewer.html")
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate a standalone HTML viewer for saved experiment runs."
@@ -88,9 +89,7 @@ def count_non_valid_occurrences(variants_data: dict[str, Any]) -> int:
 
 
 def fallback_completed_runs(variants_data: dict[str, Any]) -> int:
-    return count_variant_occurrences(variants_data) + count_non_valid_occurrences(
-        variants_data
-    )
+    return count_variant_occurrences(variants_data) + count_non_valid_occurrences(variants_data)
 
 
 def build_run_record(run_path: Path) -> dict[str, Any] | None:
@@ -1312,10 +1311,7 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(html, encoding="utf-8")
-    print(
-        "Generated standalone report at "
-        f"{args.output.resolve()} using {len(runs)} run(s)."
-    )
+    print(f"Generated standalone report at {args.output.resolve()} using {len(runs)} run(s).")
 
 
 if __name__ == "__main__":

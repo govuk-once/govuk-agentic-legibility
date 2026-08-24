@@ -96,16 +96,16 @@ class JourneyDefinition:
 
 class JourneyClient:
     """Call a service implementing the server-driven journey protocol.
-            Args:
-            base_url: Base URL of the journey service.
-            session: Optional HTTP session for tests and connection reuse.
-            headers: Headers applied to every request, such as authentication material.
-            timeout_seconds: Timeout applied to each HTTP request.
-            supported_protocol_versions: Protocol versions accepted by this client.
-            on_exchange: Optional observer for sanitised HTTP request/response traces.
+        Args:
+        base_url: Base URL of the journey service.
+        session: Optional HTTP session for tests and connection reuse.
+        headers: Headers applied to every request, such as authentication material.
+        timeout_seconds: Timeout applied to each HTTP request.
+        supported_protocol_versions: Protocol versions accepted by this client.
+        on_exchange: Optional observer for sanitised HTTP request/response traces.
 
-        Raises:
-            ValueError: If the base URL is missing a scheme or host.
+    Raises:
+        ValueError: If the base URL is missing a scheme or host.
     """
 
     def __init__(
@@ -333,7 +333,7 @@ class JourneyClient:
         try:
             response.raise_for_status()
         except requests.RequestException as exc:
-            response_body = _response_body(response) # type: ignore
+            response_body = _response_body(response)  # type: ignore
             status_code = response.status_code
             detail = _body_detail(response_body)
             message = f"Journey service request failed: {method} {path}"
@@ -433,9 +433,7 @@ def _optional_operation(
     if raw_operation is None:
         return None
     if not isinstance(raw_operation, Mapping):
-        raise JourneyProtocolError(
-            f"Journey contract field {key!r} must be an object"
-        )
+        raise JourneyProtocolError(f"Journey contract field {key!r} must be an object")
     return _parse_operation(raw_operation)
 
 
@@ -444,9 +442,7 @@ def _required_guidance_operation(
     name: str,
 ) -> Operation:
     if operation is None:
-        raise JourneyProtocolError(
-            f"Journey does not advertise the {name!r} operation"
-        )
+        raise JourneyProtocolError(f"Journey does not advertise the {name!r} operation")
     return operation
 
 
@@ -456,7 +452,7 @@ def _validated_guidance[GuidanceModel: GuidanceDirectory | GuidanceDocument](
     path: str,
 ) -> GuidanceModel:
     try:
-        return model.model_validate(payload) # type: ignore
+        return model.model_validate(payload)  # type: ignore
     except ValidationError as exc:
         msg = f"Journey guidance response for {path} is malformed: {exc}"
         raise JourneyProtocolError(msg) from exc
@@ -496,7 +492,7 @@ def _required_string(container: Mapping[str, Any], key: str) -> str:
 def _response_body(response: HttpResponse) -> object | None:
     try:
         return response.json()
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return response.text.strip() or None
 
 
@@ -513,9 +509,7 @@ def _body_detail(body: object | None) -> str | None:
 def _redact_fields(value: object, fields: frozenset[str]) -> object:
     if isinstance(value, Mapping):
         return {
-            str(key): "[redacted]"
-            if key in fields
-            else _redact_fields(item, fields)
+            str(key): "[redacted]" if key in fields else _redact_fields(item, fields)
             for key, item in value.items()
         }
     if isinstance(value, list):
