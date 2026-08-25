@@ -37,7 +37,9 @@ def api_protocol() -> JourneyProtocolDefinition:
         continuation_token_response_field="continuation_token",
         continuation_token_request_field="continuation_token",
         terminal_statuses=frozenset({"completed"}),
-        non_terminal_statuses=frozenset({"in_progress"}),
+        non_terminal_statuses=frozenset(
+            {"in_progress", "ready_for_confirmation"}
+        ),
     )
 
 
@@ -70,6 +72,26 @@ def interaction_response(
                 "type": "object",
                 "properties": properties,
                 "required": list(properties),
+            },
+        },
+        "next_action": {"method": "POST", "path": "/next"},
+    }
+
+
+def confirmation_response(
+    interaction_id: str = "review_address",
+) -> dict[str, Any]:
+    """Return a service-owned confirmation interaction."""
+    return {
+        "status": "ready_for_confirmation",
+        "continuation_token": f"token-{interaction_id}",
+        "interaction": {
+            "id": interaction_id,
+            "content": {"title": interaction_id},
+            "input_schema": {
+                "type": "object",
+                "properties": {"confirmed": {"type": "boolean"}},
+                "required": ["confirmed"],
             },
         },
         "next_action": {"method": "POST", "path": "/next"},
@@ -426,6 +448,54 @@ def test_fixture_generates_default_proposals_at_each_interaction(
         "agent_invoked",
         "agent_responded",
     ]
+
+
+def test_confirmation_state_does_not_invoke_assistant(tmp_path: Path) -> None:
+    """Service-owned confirmation remains a user decision, not an agent proposal."""
+    factory = FakeClientFactory(
+        [
+            interaction_response(),
+            confirmation_response("review-something-else"),
+            {"status": "completed"},
+        ]
+    )
+    assistant = FakeAssistant(
+        [
+            AssistanceAction(
+                type="propose_values",
+                values={"use_postcode_lookup": True},
+            )
+        ]
+    )
+    service = JourneyRunService(
+        trace_directory=tmp_path,
+        client_factory=factory,
+        assistant=assistant,
+        fixture_repository=fixture_repository(tmp_path),
+    )
+
+    started = service.start(
+        "change-driving-licence-address",
+        fixture_id="address-context",
+    )
+    confirmation = service.submit(
+        started.run_id,
+        {"use_postcode_lookup": True},
+    )
+    completed = service.submit(
+        started.run_id,
+        {"confirmed": True},
+    )
+
+    assert confirmation.status == "ready_for_confirmation"
+    assert confirmation.assistance is None
+    assert confirmation.assistance_error is None
+    assert completed.terminal
+    assert len(assistant.requests) == 1
+    assert assistant.requests[0].interaction["id"] == "choose_address_entry_method"
+
+    events = service.trace_events(started.run_id)
+    assert [event["type"] for event in events].count("agent_invoked") == 1
 
 
 def test_new_message_extends_context_without_adding_agent_proposal(

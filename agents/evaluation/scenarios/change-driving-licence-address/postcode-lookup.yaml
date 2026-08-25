@@ -1,0 +1,41 @@
+schema_version: "0.1"
+
+id: "postcode-lookup"
+journey_id: "change-driving-licence-address"
+
+input:
+  conversation_fixture:
+    id: "complete-address-postcode-lookup"
+    version: "1"
+
+expected:
+  assistance:
+    choose_address_entry_method:
+      type: "propose_values"
+      values:
+        use_postcode_lookup: true
+    find_address_by_postcode:
+      type: "propose_values"
+      values:
+        postcode: "BS1 3AB"
+        building_number_or_name: "18"
+
+  journey:
+    branch: "postcode_lookup"
+    final:
+      status: "completed"
+      result:
+        new_address:
+          address_line_1: "18 Station Road"
+          address_line_2: null
+          town_or_city: "Bristol"
+          postcode: "BS1 3AB"
+
+evaluation:
+  accepted_equivalence_rules:
+    - type: "accepted_values"
+      target: >-
+        expected.assistance.find_address_by_postcode.values.building_number_or_name
+      values:
+        - "18"
+        - "18 Station Road"

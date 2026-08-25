@@ -1,0 +1,47 @@
+schema_version: "0.1"
+
+id: "manual-entry"
+journey_id: "change-driving-licence-address"
+
+input:
+  conversation_fixture:
+    id: "complete-address-manual-entry"
+    version: "1"
+
+expected:
+  assistance:
+    choose_address_entry_method:
+      type: "propose_values"
+      values:
+        use_postcode_lookup: false
+    enter_address_manually:
+      type: "propose_values"
+      values:
+        address_line_1: "Flat 4"
+        address_line_2: "81 Station Road"
+        town_or_city: "Bristol"
+        postcode: "BS1 3AB"
+
+  journey:
+    branch: "manual_entry"
+    final:
+      status: "completed"
+      result:
+        new_address:
+          address_line_1: "Flat 4"
+          address_line_2: "81 Station Road"
+          town_or_city: "Bristol"
+          postcode: "BS1 3AB"
+
+evaluation:
+  accepted_equivalence_rules:
+    - type: "unordered_text_components"
+      target: "expected.assistance.enter_address_manually.values"
+      paths:
+        - "address_line_1"
+        - "address_line_2"
+    - type: "unordered_text_components"
+      target: "expected.journey.final.result"
+      paths:
+        - "new_address.address_line_1"
+        - "new_address.address_line_2"

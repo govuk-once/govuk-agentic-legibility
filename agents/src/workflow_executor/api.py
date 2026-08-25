@@ -367,6 +367,8 @@ class JourneyRunService:
         self._clear_assistance(run)
         if not run.assistance_enabled:
             return
+        if not _interaction_allows_assistance(run.response):
+            return
         conversation = run.conversation()
         if not conversation:
             return
@@ -685,6 +687,16 @@ def create_app(
 def _environment_trace_directory() -> Path:
     value = os.environ.get("JOURNEY_TRACE_DIR")
     return Path(value) if value else DEFAULT_TRACE_DIRECTORY
+
+
+def _interaction_allows_assistance(response: ReadOnlyJsonObject) -> bool:
+    """Return whether the current service state may invoke the assistant.
+
+    Confirmation is a user decision. The service advertises that semantic state
+    explicitly, so consumers must not ask the model to infer confirmation from
+    earlier conversation history.
+    """
+    return response.get("status") != "ready_for_confirmation"
 
 
 def _interaction_id(interaction: ReadOnlyJsonObject | None) -> str | None:

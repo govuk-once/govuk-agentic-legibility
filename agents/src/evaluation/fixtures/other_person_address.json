@@ -1,0 +1,21 @@
+{
+  "id": "other-person-address",
+  "version": "1",
+  "title": "Other person's address",
+  "description": "The user prefers manual entry, but the only complete address in the conversation belongs to their sister.",
+  "journey_id": "change-driving-licence-address",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I need to change the address on my driving licence."
+    },
+    {
+      "role": "assistant",
+      "content": "What is your new address?"
+    },
+    {
+      "role": "user",
+      "content": "I want to enter it manually. My sister lives at 18 Station Road, Bristol, BS1 3AB."
+    }
+  ]
+}
