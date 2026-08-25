@@ -11,6 +11,42 @@ import gradio as gr
 logger = logging.getLogger(__name__)
 
 
+def get_options_from_state(state: dict[str, Any] | None) -> list[str]:
+    """Extract human-readable options from current awaiting schema in session state."""
+    if not state:
+        return []
+    awaiting = state.get("awaiting")
+    if not awaiting:
+        return []
+
+    schema = awaiting.get("schema", {})
+    kind = schema.get("kind")
+
+    # 1. Handle Enum options
+    if kind == "enum":
+        labels = schema.get("labels", {})
+        values = schema.get("values", [])
+        return [labels.get(v, v) for v in values]
+
+    # 2. Handle select_one / address search results
+    if kind == "select_one":
+        options = awaiting.get("options", [])
+        choices = []
+        for opt in options:
+            if isinstance(opt, dict):
+                label = opt.get("single_line") or opt.get("label") or opt.get("uprn") or str(opt)
+                choices.append(label)
+            else:
+                choices.append(str(opt))
+        return choices
+
+    # 3. Handle Boolean choices
+    if kind == "boolean":
+        return ["Yes", "No"]
+
+    return []
+
+
 def create_chat_fn(
     agent: Any,
 ) -> Callable[[str, list[Any], dict[str, Any] | None], Any]:
@@ -74,19 +110,62 @@ def create_app(agent: Any) -> gr.Blocks:
         )
         chatbot = gr.Chatbot()
         session_state = gr.State(value=None)
-        msg = gr.Textbox(placeholder="Type a message...", show_label=False)
+
+        with gr.Row():
+            msg = gr.Textbox(placeholder="Type a message or select an option below...", show_label=False, scale=4)
+            send_btn = gr.Button("Send", scale=1)
+
+        # Container for clickable option buttons
+        choice_dataset = gr.Dataset(
+            components=[gr.Textbox(visible=False)],
+            label="Available Options",
+            samples=[],
+            visible=False,
+        )
 
         async def respond(
             message: str, history: list[Any], state: dict[str, Any] | None
-        ) -> tuple[str, list[Any], dict[str, Any] | None]:
+        ) -> tuple[str, list[Any], dict[str, Any] | None, dict[str, Any]]:
+            if not message.strip():
+                return "", history, state, gr.update()
+
             response, new_state = await chat_fn(message, history, state)
             history = history + [
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": response},
             ]
-            return "", history, new_state
 
-        msg.submit(respond, [msg, chatbot, session_state], [msg, chatbot, session_state])
+            # Extract options and update sample buttons
+            options = get_options_from_state(new_state)
+            samples = [[opt] for opt in options]
+            dataset_update = gr.update(samples=samples, visible=bool(options))
+
+            return "", history, new_state, dataset_update
+
+        # Handlers for sending text via Enter key or Send button
+        msg.submit(
+            respond,
+            [msg, chatbot, session_state],
+            [msg, chatbot, session_state, choice_dataset],
+        )
+        send_btn.click(
+            respond,
+            [msg, chatbot, session_state],
+            [msg, chatbot, session_state, choice_dataset],
+        )
+
+        # Handler for clicking an option button
+        async def on_select_option(
+            evt_data: gr.SelectData, history: list[Any], state: dict[str, Any] | None
+        ) -> tuple[str, list[Any], dict[str, Any] | None, dict[str, Any]]:
+            selected_value = evt_data.value[0]
+            return await respond(selected_value, history, state)
+
+        choice_dataset.select(
+            on_select_option,
+            inputs=[chatbot, session_state],
+            outputs=[msg, chatbot, session_state, choice_dataset],
+        )
 
     return app
 

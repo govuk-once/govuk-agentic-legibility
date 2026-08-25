@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -84,11 +85,10 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
             val_str = val_str[1:-1]
         return val_str
 
-    if kind == "object" and isinstance(value, str):
+    if kind in ("object", "file_ref", "select_one") and isinstance(value, str):
         try:
             parsed = json.loads(value)
-            if isinstance(parsed, dict):
-                return parsed
+            return parsed
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -211,6 +211,27 @@ class WorkflowAgent:
             "awaiting": state.get("awaiting"),
         }
 
+    async def _wait_for_next_state(
+        self, workflow_id: str, max_wait_sec: float = 15.0, poll_interval_sec: float = 1.0
+    ) -> dict[str, Any]:
+        """Poll Temporal while the workflow executes non-input background steps."""
+        temporal_client = await self._get_temporal_client()
+        start_time = asyncio.get_running_loop().time()
+
+        while (asyncio.get_running_loop().time() - start_time) < max_wait_sec:
+            state = await tool_functions.get_workflow_state(
+                workflow_id=workflow_id, temporal_client=temporal_client
+            )
+            # Stop polling if the workflow is awaiting user input or has completed/failed
+            if state.get("awaiting") or state.get("status") in ("success", "failed", "cancelled", "needs_attention"):
+                return state
+
+            await asyncio.sleep(poll_interval_sec)
+
+        return await tool_functions.get_workflow_state(
+            workflow_id=workflow_id, temporal_client=temporal_client
+        )
+
     def _build_tools(self) -> list[Any]:
         owner = self
 
@@ -306,6 +327,9 @@ class WorkflowAgent:
                     value=value,
                     temporal_client=temporal_client,
                 )
+                if not state.get("awaiting"):
+                    state = await owner._wait_for_next_state(workflow_id)
+
                 owner._update_session_state(workflow_id, state)
                 return state
             except Exception:
