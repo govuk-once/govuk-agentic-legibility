@@ -16,14 +16,14 @@ async def main() -> None:
 
     # Load your schema (assuming it's saved as workflow.json)
     print("Loading definition...")
-    file_path = Path(f"{os.getcwd()}/durable_poc/dvla_coa_adv_schema.json")
+    file_path = Path(f"{os.getcwd()}/dvla_coa_schema.json")
     with open(file_path, "r") as f:
         definition = json.load(f)
 
     # Patch long timeouts for human interaction
     # Change 5-minute poll interval to 2 seconds, and 4-day wait to 10 seconds
     print("Patching time intervals...")
-    definition["processes"]["finalisation"]["vars"]["poll_interval"] = "PT2S"
+    definition["processes"]["address_update"]["vars"]["poll_interval"] = "PT2S"
     definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT15S"
 
     definition.setdefault("vars", {})["env"] = {

@@ -78,8 +78,11 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
     if kind == "boolean" and not isinstance(value, bool):
         return str(value).strip().lower() in _TRUTHY
 
-    if kind == "string" and not isinstance(value, str):
-        return str(value)
+    if kind == "string":
+        val_str = str(value).strip()
+        if (val_str.startswith('"') and val_str.endswith('"')) or (val_str.startswith("'") and val_str.endswith("'")):
+            val_str = val_str[1:-1]
+        return val_str
 
     if kind == "object" and isinstance(value, str):
         try:

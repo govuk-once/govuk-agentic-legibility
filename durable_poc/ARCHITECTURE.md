@@ -162,7 +162,7 @@ The composition layer that wires the Strands agent to the tool functions.
 ```python
 WorkflowAgent(
     workflow_server_url="http://localhost:8080",
-    model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
+    model_id="anthropic.claude-sonnet-4-6",
     region_name="eu-west-2",
     temporal_address="localhost:7233",
     task_queue="sfsm-queue",

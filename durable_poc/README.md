@@ -82,7 +82,7 @@ The agent calls Claude via Amazon Bedrock. You need valid AWS credentials config
 aws sts get-caller-identity
 ```
 
-The default model is `us.anthropic.claude-sonnet-4-20250514-v1:0` in `eu-west-2`. Override with environment variables if needed:
+The default model is `anthropic.claude-sonnet-4-6` in `eu-west-2`. Override with environment variables if needed:
 
 ```bash
 export BEDROCK_MODEL_ID="anthropic.claude-sonnet-4-6"
@@ -156,7 +156,7 @@ The agent will query Temporal for running workflows and pick up where you left o
 |---------------------|---------|---------|
 | `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server address |
 | `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server |
-| `BEDROCK_MODEL_ID` | `us.anthropic.claude-sonnet-4-20250514-v1:0` | Bedrock model identifier |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model identifier |
 | `AWS_REGION` | `eu-west-2` | AWS region for Bedrock |
 
 ---
