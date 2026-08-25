@@ -10,7 +10,7 @@ import gradio as gr
 
 def create_chat_fn(
     agent: Any,
-) -> Callable[[str, list[Any], dict[str, Any] | None], tuple[str, dict[str, Any] | None]]:
+) -> Callable[[str, list[Any], dict[str, Any] | None], Any]:
     """Create the chat function that Gradio will call on each user message.
 
     The function follows the HATEOAS pattern: the agent's session_state
@@ -21,14 +21,14 @@ def create_chat_fn(
         agent: A WorkflowAgent instance (or any object with respond/session_state).
 
     Returns:
-        A function with signature (message, history, state) -> (response, state).
+        An async function with signature (message, history, state) -> (response, state).
     """
 
-    def chat_fn(
+    async def chat_fn(
         message: str, history: list[Any], state: dict[str, Any] | None
     ) -> tuple[str, dict[str, Any] | None]:
         context = state if state is not None else getattr(agent, "session_state", None)
-        response = agent.respond(message, context=context)
+        response = await agent.respond(message, context=context)
         new_state = getattr(agent, "session_state", None)
         return response, new_state
 
@@ -56,10 +56,10 @@ def create_app(agent: Any) -> gr.Blocks:
         session_state = gr.State(value=None)
         msg = gr.Textbox(placeholder="Type a message...", show_label=False)
 
-        def respond(
+        async def respond(
             message: str, history: list[Any], state: dict[str, Any] | None
         ) -> tuple[str, list[Any], dict[str, Any] | None]:
-            response, new_state = chat_fn(message, history, state)
+            response, new_state = await chat_fn(message, history, state)
             history = history + [
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": response},
@@ -71,26 +71,17 @@ def create_app(agent: Any) -> gr.Blocks:
     return app
 
 
-async def main() -> None:
-    """Connect to services and launch the chat UI."""
-    import httpx
-    from temporalio.client import Client
-
+def main() -> None:
+    """Launch the chat UI. Temporal connects lazily on first tool call."""
     from agent.agent import WorkflowAgent
 
-    temporal_client = await Client.connect(
-        os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
-    )
-    http_client = httpx.AsyncClient()
-
     agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
         workflow_server_url=os.environ.get("WORKFLOW_SERVER_URL", "http://localhost:8080"),
         model_id=os.environ.get(
             "BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v1:0"
         ),
         region_name=os.environ.get("AWS_REGION", "eu-west-2"),
+        temporal_address=os.environ.get("TEMPORAL_ADDRESS", "localhost:7233"),
     )
 
     app = create_app(agent)
@@ -98,6 +89,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(main())
+    main()

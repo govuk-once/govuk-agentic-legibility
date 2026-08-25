@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import httpx
 from strands import Agent, tool
 from strands.models import BedrockModel
+from temporalio.client import Client as TemporalClient
 
 from agent import tools as tool_functions
+
+logger = logging.getLogger(__name__)
 
 PROMPT_PATH = Path(__file__).with_name("prompts") / "system.txt"
 
@@ -53,29 +57,70 @@ def build_contextual_prompt(
     return f"{state_description}\nUser message: {user_message}"
 
 
+_TRUTHY = frozenset({"true", "yes", "y", "yeah", "sure", "confirm", "1"})
+
+
+def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
+    """Coerce a tool argument to the type the workflow schema expects.
+
+    LLMs sometimes pass values as the wrong JSON type (e.g. "Yes" instead of
+    true, or "42" instead of 42). This uses the known schema from session state
+    to coerce to the correct Python type before submission to Temporal.
+    """
+    if session_state is None:
+        return value
+    awaiting = session_state.get("awaiting")
+    if not awaiting:
+        return value
+    schema = awaiting.get("schema", {})
+    kind = schema.get("kind")
+
+    if kind == "boolean" and not isinstance(value, bool):
+        return str(value).strip().lower() in _TRUTHY
+
+    if kind == "string" and not isinstance(value, str):
+        return str(value)
+
+    if kind == "object" and isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return value
+
+
 class WorkflowAgent:
-    """Composes the Strands agent with workflow tools bound to live dependencies.
+    """Composes the Strands agent with workflow tools.
+
+    The agent exists independently of Temporal. A Temporal connection is
+    established lazily on the first tool call that requires it, ensuring the
+    gRPC channel binds to the active event loop (e.g. Gradio's uvicorn loop).
 
     Args:
-        temporal_client: A Temporal client instance.
-        http_client: An httpx async client for the workflow server.
         workflow_server_url: Base URL of the workflow definition server.
         model_id: Bedrock model or inference-profile identifier.
         region_name: AWS region for the Bedrock model.
+        temporal_address: Temporal server address (connected lazily).
+        task_queue: Temporal task queue for workflow executions.
     """
 
     def __init__(
         self,
         *,
-        temporal_client: Any,
-        http_client: httpx.AsyncClient,
         workflow_server_url: str,
         model_id: str,
         region_name: str,
+        temporal_address: str = "localhost:7233",
+        task_queue: str = "sfsm-queue",
     ) -> None:
-        self._temporal_client = temporal_client
-        self._http_client = http_client
         self._workflow_server_url = workflow_server_url
+        self._temporal_address = temporal_address
+        self._task_queue = task_queue
+        self._temporal_client: TemporalClient | None = None
+        self._http_client: httpx.AsyncClient | None = None
         self._system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
         self._model = BedrockModel(
             model_id=model_id,
@@ -90,6 +135,18 @@ class WorkflowAgent:
             tools=self._tools,
             callback_handler=None,
         )
+
+    async def _get_temporal_client(self) -> TemporalClient:
+        if self._temporal_client is None:
+            self._temporal_client = await TemporalClient.connect(
+                self._temporal_address
+            )
+        return self._temporal_client
+
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        if self._http_client is None:
+            self._http_client = httpx.AsyncClient()
+        return self._http_client
 
     @property
     def session_state(self) -> dict[str, Any] | None:
@@ -107,7 +164,7 @@ class WorkflowAgent:
                 return await t(**kwargs)
         raise ValueError(f"Unknown tool: {name}")
 
-    def respond(
+    async def respond(
         self, user_message: str, *, context: dict[str, Any] | None = None
     ) -> str:
         """Send a user message to the agent and return the text response.
@@ -124,7 +181,7 @@ class WorkflowAgent:
             The agent's text response.
         """
         prompt = build_contextual_prompt(user_message, context=context)
-        result = self._agent(prompt)
+        result = await self._agent.invoke_async(prompt)
         return str(result)
 
     def _update_session_state(
@@ -136,9 +193,6 @@ class WorkflowAgent:
         }
 
     def _build_tools(self) -> list[Any]:
-        temporal_client = self._temporal_client
-        http_client = self._http_client
-        workflow_server_url = self._workflow_server_url
         owner = self
 
         @tool
@@ -148,29 +202,34 @@ class WorkflowAgent:
             Args:
                 workflow_id: The numeric workflow ID.
             """
+            http_client = await owner._get_http_client()
             return await tool_functions.get_workflow_definition(
                 workflow_id=workflow_id,
                 http_client=http_client,
-                base_url=workflow_server_url,
+                base_url=owner._workflow_server_url,
             )
 
         @tool
-        async def start_workflow(definition: dict[str, Any]) -> dict[str, str]:
-            """Start a new workflow execution on Temporal.
+        async def start_workflow(workflow_id: int) -> dict[str, Any]:
+            """Fetch a workflow definition by numeric ID and start it on Temporal.
 
             Args:
-                definition: The full workflow definition dict.
+                workflow_id: The numeric workflow ID from the workflow server.
             """
-            workflow_id = await tool_functions.start_workflow(
-                definition=definition,
+            http_client = await owner._get_http_client()
+            temporal_client = await owner._get_temporal_client()
+            temporal_workflow_id = await tool_functions.start_workflow(
+                workflow_id=workflow_id,
+                http_client=http_client,
+                base_url=owner._workflow_server_url,
                 temporal_client=temporal_client,
-                task_queue="sfsm-queue",
+                task_queue=owner._task_queue,
             )
             state = await tool_functions.get_workflow_state(
-                workflow_id=workflow_id, temporal_client=temporal_client
+                workflow_id=temporal_workflow_id, temporal_client=temporal_client
             )
-            owner._update_session_state(workflow_id, state)
-            return {"workflow_id": workflow_id, **state}
+            owner._update_session_state(temporal_workflow_id, state)
+            return {"workflow_id": temporal_workflow_id, **state}
 
         @tool
         async def get_workflow_state(workflow_id: str) -> dict[str, Any]:
@@ -179,6 +238,7 @@ class WorkflowAgent:
             Args:
                 workflow_id: The Temporal workflow ID.
             """
+            temporal_client = await owner._get_temporal_client()
             state = await tool_functions.get_workflow_state(
                 workflow_id=workflow_id,
                 temporal_client=temporal_client,
@@ -195,18 +255,29 @@ class WorkflowAgent:
                 token: The input token from the awaiting state.
                 value: The structured value to submit.
             """
-            state = await tool_functions.submit_input(
-                workflow_id=workflow_id,
-                token=token,
-                value=value,
-                temporal_client=temporal_client,
+            value = _coerce_value(value, owner._session_state)
+            logger.info(
+                "submit_input called: workflow_id=%r, token=%r, value=%r (type=%s)",
+                workflow_id, token, value, type(value).__name__,
             )
-            owner._update_session_state(workflow_id, state)
-            return state
+            try:
+                temporal_client = await owner._get_temporal_client()
+                state = await tool_functions.submit_input(
+                    workflow_id=workflow_id,
+                    token=token,
+                    value=value,
+                    temporal_client=temporal_client,
+                )
+                owner._update_session_state(workflow_id, state)
+                return state
+            except Exception:
+                logger.exception("submit_input failed")
+                raise
 
         @tool
         async def list_active_workflows() -> list[dict[str, str]]:
             """List running workflows that the user may want to resume."""
+            temporal_client = await owner._get_temporal_client()
             return await tool_functions.list_active_workflows(
                 temporal_client=temporal_client,
             )

@@ -43,20 +43,27 @@ async def get_workflow_definition(
 
 async def start_workflow(
     *,
-    definition: dict[str, Any],
+    workflow_id: int,
+    http_client: httpx.AsyncClient,
+    base_url: str,
     temporal_client: Any,
     task_queue: str,
 ) -> str:
-    """Start a workflow execution on Temporal.
+    """Fetch a workflow definition and start it on Temporal.
 
     Args:
-        definition: The FSM workflow definition dict.
+        workflow_id: Numeric ID of the workflow to fetch and start.
+        http_client: An httpx async client instance.
+        base_url: Base URL of the workflow server.
         temporal_client: A Temporal client instance.
         task_queue: The Temporal task queue to use.
 
     Returns:
         The Temporal workflow ID for the started execution.
     """
+    definition = await get_workflow_definition(
+        workflow_id=workflow_id, http_client=http_client, base_url=base_url
+    )
     handle = await temporal_client.start_workflow(
         "SFSMInterpreter",
         arg=definition,

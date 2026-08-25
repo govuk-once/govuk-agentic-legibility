@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from agent.agent import PROMPT_PATH, WorkflowAgent, build_contextual_prompt
+from agent.agent import PROMPT_PATH, WorkflowAgent, _coerce_value, build_contextual_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +93,59 @@ def test_system_prompt_contains_integrity_instructions() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Value coercion
+# ---------------------------------------------------------------------------
+
+
+def _state_with_schema(kind: str, **extra: Any) -> dict[str, Any]:
+    schema = {"kind": kind, **extra}
+    return {"workflow_id": "wf-1", "awaiting": {"token": "t", "prompt": "?", "schema": schema}}
+
+
+def test_coerce_boolean_from_string_yes() -> None:
+    assert _coerce_value("Yes", _state_with_schema("boolean")) is True
+
+
+def test_coerce_boolean_from_string_no() -> None:
+    assert _coerce_value("no", _state_with_schema("boolean")) is False
+
+
+def test_coerce_boolean_from_string_true() -> None:
+    assert _coerce_value("true", _state_with_schema("boolean")) is True
+
+
+def test_coerce_boolean_passthrough_when_already_bool() -> None:
+    assert _coerce_value(False, _state_with_schema("boolean")) is False
+
+
+def test_coerce_string_from_non_string() -> None:
+    assert _coerce_value(42, _state_with_schema("string")) == "42"
+
+
+def test_coerce_string_passthrough() -> None:
+    assert _coerce_value("SW1A 2AA", _state_with_schema("string")) == "SW1A 2AA"
+
+
+def test_coerce_object_from_json_string() -> None:
+    result = _coerce_value('{"ref": "photo.png"}', _state_with_schema("object"))
+    assert result == {"ref": "photo.png"}
+
+
+def test_coerce_object_passthrough_when_already_dict() -> None:
+    val = {"ref": "photo.png", "content_type": "image/png"}
+    assert _coerce_value(val, _state_with_schema("object")) == val
+
+
+def test_coerce_no_state_returns_unchanged() -> None:
+    assert _coerce_value("Yes", None) == "Yes"
+
+
+def test_coerce_no_awaiting_returns_unchanged() -> None:
+    state = {"workflow_id": "wf-1", "awaiting": None}
+    assert _coerce_value("Yes", state) == "Yes"
+
+
+# ---------------------------------------------------------------------------
 # Contextual prompt building
 # ---------------------------------------------------------------------------
 
@@ -135,27 +188,36 @@ def test_build_contextual_prompt_with_completed_workflow() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helper to create agent with pre-injected fakes
+# ---------------------------------------------------------------------------
+
+
+def make_test_agent(
+    temporal_client: FakeTemporalClient,
+    http_handler: Any = None,
+) -> WorkflowAgent:
+    """Create a WorkflowAgent with fakes injected, bypassing lazy connection."""
+    if http_handler is None:
+        http_handler = lambda r: httpx.Response(200, json={})  # noqa: E731
+    transport = httpx.MockTransport(http_handler)
+    agent = WorkflowAgent(
+        workflow_server_url="http://localhost:8080",
+        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        region_name="eu-west-2",
+    )
+    agent._temporal_client = temporal_client
+    agent._http_client = httpx.AsyncClient(transport=transport)
+    return agent
+
+
+# ---------------------------------------------------------------------------
 # Tool closures
 # ---------------------------------------------------------------------------
 
 
 def test_agent_exposes_expected_tool_names() -> None:
     """The agent is constructed with the correct set of tool functions."""
-    temporal_client = FakeTemporalClient()
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={})
-
-    transport = httpx.MockTransport(handler)
-    http_client = httpx.AsyncClient(transport=transport)
-
-    agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
-        workflow_server_url="http://localhost:8080",
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        region_name="eu-west-2",
-    )
+    agent = make_test_agent(FakeTemporalClient())
 
     tool_names = agent.tool_names()
     assert "get_workflow_definition" in tool_names
@@ -178,16 +240,7 @@ async def test_get_workflow_state_tool_delegates_to_tools_module() -> None:
     )
     temporal_client.handles["wf-1"] = handle
 
-    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={}))
-    http_client = httpx.AsyncClient(transport=transport)
-
-    agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
-        workflow_server_url="http://localhost:8080",
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        region_name="eu-west-2",
-    )
+    agent = make_test_agent(temporal_client)
 
     result = await agent.call_tool("get_workflow_state", workflow_id="wf-1")
     assert result["awaiting"]["token"] == "tkn_1"
@@ -206,16 +259,7 @@ async def test_submit_input_tool_delegates_and_returns_new_state() -> None:
     )
     temporal_client.handles["wf-1"] = handle
 
-    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={}))
-    http_client = httpx.AsyncClient(transport=transport)
-
-    agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
-        workflow_server_url="http://localhost:8080",
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        region_name="eu-west-2",
-    )
+    agent = make_test_agent(temporal_client)
 
     result = await agent.call_tool("submit_input", workflow_id="wf-1", token="tkn_1", value=True)
     assert len(handle.update_calls) == 1
@@ -233,29 +277,22 @@ async def test_submit_input_tool_delegates_and_returns_new_state() -> None:
 async def test_start_workflow_updates_session_state() -> None:
     """Starting a workflow sets the session state with workflow_id and awaiting."""
     temporal_client = FakeTemporalClient()
-
     definition = {
         "schema": "sfsm/0.2",
         "id": "dvla.change_of_address",
         "version": "0.2.0",
         "entry": "main",
+        "executor": {},
         "processes": {},
     }
 
-    transport = httpx.MockTransport(lambda r: httpx.Response(200, json=definition))
-    http_client = httpx.AsyncClient(transport=transport)
-
-    agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
-        workflow_server_url="http://localhost:8080",
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        region_name="eu-west-2",
+    agent = make_test_agent(
+        temporal_client,
+        http_handler=lambda r: httpx.Response(200, json=definition),
     )
 
     assert agent.session_state is None
-
-    await agent.call_tool("start_workflow", definition=definition)
+    await agent.call_tool("start_workflow", workflow_id=1)
 
     assert agent.session_state is not None
     assert agent.session_state["workflow_id"] == "sfsm-dvla.change_of_address-0.2.0"
@@ -274,17 +311,7 @@ async def test_submit_input_updates_session_state() -> None:
     )
     temporal_client.handles["wf-1"] = handle
 
-    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={}))
-    http_client = httpx.AsyncClient(transport=transport)
-
-    agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
-        workflow_server_url="http://localhost:8080",
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        region_name="eu-west-2",
-    )
-
+    agent = make_test_agent(temporal_client)
     await agent.call_tool("submit_input", workflow_id="wf-1", token="tkn_1", value="yes")
 
     assert agent.session_state is not None
@@ -305,17 +332,7 @@ async def test_get_workflow_state_updates_session_state() -> None:
     )
     temporal_client.handles["wf-1"] = handle
 
-    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={}))
-    http_client = httpx.AsyncClient(transport=transport)
-
-    agent = WorkflowAgent(
-        temporal_client=temporal_client,
-        http_client=http_client,
-        workflow_server_url="http://localhost:8080",
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        region_name="eu-west-2",
-    )
-
+    agent = make_test_agent(temporal_client)
     await agent.call_tool("get_workflow_state", workflow_id="wf-1")
 
     assert agent.session_state is not None

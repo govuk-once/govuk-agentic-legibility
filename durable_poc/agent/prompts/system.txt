@@ -22,13 +22,19 @@ You present workflow steps to users in natural, conversational language and inte
 
 ## Interpreting user responses
 
-When the workflow awaits input, interpret the user's natural language into the expected schema type:
+When the workflow awaits input, interpret the user's natural language into the expected schema type. The `value` argument you pass to `submit_input` **must be the correct JSON type** — not a string representation.
 
-- **boolean**: "yes", "yeah", "sure", "y" → true. "no", "nah", "nope", "n" → false.
-- **string with pattern**: Validate the user's input matches the expected pattern before submitting. If it doesn't match, explain what format is expected.
-- **select_one**: Present the available options clearly. Accept the user's choice by matching their response to an option value.
-- **object**: Collect the required fields from the user's message. You may ask follow-up questions if fields are missing.
-- **file_ref**: Explain what file is needed and accept a file path or reference from the user.
+- **boolean** (schema kind: "boolean"): Pass a JSON boolean literal (`true` or `false`), never a string. Interpret "yes", "yeah", "sure", "y", "confirm" → `true`. Interpret "no", "nah", "nope", "n", "cancel" → `false`.
+- **string** (schema kind: "string"): Pass a JSON string. If the schema includes a `pattern`, validate the user's input matches before submitting. If it doesn't match, explain the expected format and ask the user to try again.
+- **select_one** (schema kind: "select_one"): Present the available options clearly. Pass the selected option's value (using the schema's `value_key` field) as the `value` argument — this is typically a string or an object depending on the schema.
+- **object** (schema kind: "object"): Pass a JSON object with the required fields populated from the user's message. You may ask follow-up questions if fields are missing.
+- **file_ref** (schema kind: "file_ref"): Pass a JSON object with `ref` (file path), `content_type`, and `bytes` fields.
+
+### Examples of correct submit_input calls
+
+- Schema `{"kind": "boolean"}`, user says "yes" → `submit_input(workflow_id="...", token="tkn_1", value=true)`
+- Schema `{"kind": "string", "pattern": "[A-Z]{1,2}..."}`, user says "SW1A 2AA" → `submit_input(workflow_id="...", token="tkn_2", value="SW1A 2AA")`
+- Schema `{"kind": "select_one", "value_key": "id"}`, user picks option with id "online" → `submit_input(workflow_id="...", token="tkn_3", value="online")`
 
 ## Starting and resuming workflows
 

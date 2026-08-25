@@ -147,24 +147,33 @@ async def test_get_workflow_definition_raises_on_http_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_start_workflow_returns_workflow_id() -> None:
-    """Starting a workflow returns the Temporal workflow ID."""
+async def test_start_workflow_fetches_definition_and_starts() -> None:
+    """Starting a workflow fetches the definition then starts it on Temporal."""
     temporal_client = FakeTemporalClient()
     definition = {
         "schema": "sfsm/0.2",
         "id": "dvla.change_of_address",
         "version": "0.2.0",
         "entry": "main",
+        "executor": {},
         "processes": {},
     }
 
-    workflow_id = await start_workflow(
-        definition=definition,
-        temporal_client=temporal_client,
-        task_queue="sfsm-queue",
-    )
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == "http://localhost:8080/api/v1/workflows/1"
+        return httpx.Response(200, json=definition)
 
-    assert workflow_id is not None
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        workflow_id = await start_workflow(
+            workflow_id=1,
+            http_client=client,
+            base_url="http://localhost:8080",
+            temporal_client=temporal_client,
+            task_queue="sfsm-queue",
+        )
+
+    assert workflow_id == "sfsm-dvla.change_of_address-0.2.0"
     assert len(temporal_client.started_workflows) == 1
     started = temporal_client.started_workflows[0]
     assert started["workflow"] == "SFSMInterpreter"

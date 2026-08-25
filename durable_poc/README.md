@@ -85,7 +85,7 @@ aws sts get-caller-identity
 The default model is `us.anthropic.claude-sonnet-4-20250514-v1:0` in `eu-west-2`. Override with environment variables if needed:
 
 ```bash
-export BEDROCK_MODEL_ID="us.anthropic.claude-sonnet-4-20250514-v1:0"
+export BEDROCK_MODEL_ID="anthropic.claude-sonnet-4-6"
 export AWS_REGION="eu-west-2"
 ```
 
@@ -103,11 +103,7 @@ Runs on `localhost:7233`. The Temporal UI is available at `http://localhost:8233
 
 #### Terminal 2: Workflow Definition Server
 
-The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`. If you have the server script:
-
-```bash
-# (server-specific command — already running on localhost:8080)
-```
+The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`. The workflow server code is [here](https://github.com/govuk-once/spike-legibility-workflow-server). Clone it and follow the instructions to run it.
 
 Verify it is responding:
 
