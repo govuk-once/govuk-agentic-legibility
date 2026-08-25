@@ -138,13 +138,22 @@ class WorkflowAgent:
 
     async def _get_temporal_client(self) -> TemporalClient:
         if self._temporal_client is None:
-            self._temporal_client = await TemporalClient.connect(
-                self._temporal_address
-            )
+            logger.info("Connecting to Temporal at %s", self._temporal_address)
+            try:
+                self._temporal_client = await TemporalClient.connect(
+                    self._temporal_address
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to connect to Temporal at %s", self._temporal_address
+                )
+                raise
+            logger.info("Connected to Temporal")
         return self._temporal_client
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         if self._http_client is None:
+            logger.info("Creating HTTP client for %s", self._workflow_server_url)
             self._http_client = httpx.AsyncClient()
         return self._http_client
 
@@ -181,8 +190,15 @@ class WorkflowAgent:
             The agent's text response.
         """
         prompt = build_contextual_prompt(user_message, context=context)
-        result = await self._agent.invoke_async(prompt)
-        return str(result)
+        logger.info("Agent invoked with prompt length=%d context=%s", len(prompt), bool(context))
+        try:
+            result = await self._agent.invoke_async(prompt)
+        except Exception:
+            logger.exception("Agent invoke_async failed")
+            raise
+        response = str(result)
+        logger.info("Agent responded with length=%d", len(response))
+        return response
 
     def _update_session_state(
         self, workflow_id: str, state: dict[str, Any]
@@ -202,12 +218,19 @@ class WorkflowAgent:
             Args:
                 workflow_id: The numeric workflow ID.
             """
-            http_client = await owner._get_http_client()
-            return await tool_functions.get_workflow_definition(
-                workflow_id=workflow_id,
-                http_client=http_client,
-                base_url=owner._workflow_server_url,
-            )
+            logger.info("Tool get_workflow_definition called: workflow_id=%d", workflow_id)
+            try:
+                http_client = await owner._get_http_client()
+                result = await tool_functions.get_workflow_definition(
+                    workflow_id=workflow_id,
+                    http_client=http_client,
+                    base_url=owner._workflow_server_url,
+                )
+            except Exception:
+                logger.exception("Tool get_workflow_definition failed for workflow_id=%d", workflow_id)
+                raise
+            logger.info("Tool get_workflow_definition succeeded: id=%s", result.get("id", "?"))
+            return result
 
         @tool
         async def start_workflow(workflow_id: int) -> dict[str, Any]:
@@ -216,19 +239,25 @@ class WorkflowAgent:
             Args:
                 workflow_id: The numeric workflow ID from the workflow server.
             """
-            http_client = await owner._get_http_client()
-            temporal_client = await owner._get_temporal_client()
-            temporal_workflow_id = await tool_functions.start_workflow(
-                workflow_id=workflow_id,
-                http_client=http_client,
-                base_url=owner._workflow_server_url,
-                temporal_client=temporal_client,
-                task_queue=owner._task_queue,
-            )
-            state = await tool_functions.get_workflow_state(
-                workflow_id=temporal_workflow_id, temporal_client=temporal_client
-            )
+            logger.info("Tool start_workflow called: workflow_id=%d", workflow_id)
+            try:
+                http_client = await owner._get_http_client()
+                temporal_client = await owner._get_temporal_client()
+                temporal_workflow_id = await tool_functions.start_workflow(
+                    workflow_id=workflow_id,
+                    http_client=http_client,
+                    base_url=owner._workflow_server_url,
+                    temporal_client=temporal_client,
+                    task_queue=owner._task_queue,
+                )
+                state = await tool_functions.get_workflow_state(
+                    workflow_id=temporal_workflow_id, temporal_client=temporal_client
+                )
+            except Exception:
+                logger.exception("Tool start_workflow failed for workflow_id=%d", workflow_id)
+                raise
             owner._update_session_state(temporal_workflow_id, state)
+            logger.info("Tool start_workflow succeeded: temporal_id=%s", temporal_workflow_id)
             return {"workflow_id": temporal_workflow_id, **state}
 
         @tool
@@ -238,12 +267,18 @@ class WorkflowAgent:
             Args:
                 workflow_id: The Temporal workflow ID.
             """
-            temporal_client = await owner._get_temporal_client()
-            state = await tool_functions.get_workflow_state(
-                workflow_id=workflow_id,
-                temporal_client=temporal_client,
-            )
+            logger.info("Tool get_workflow_state called: workflow_id=%s", workflow_id)
+            try:
+                temporal_client = await owner._get_temporal_client()
+                state = await tool_functions.get_workflow_state(
+                    workflow_id=workflow_id,
+                    temporal_client=temporal_client,
+                )
+            except Exception:
+                logger.exception("Tool get_workflow_state failed for workflow_id=%s", workflow_id)
+                raise
             owner._update_session_state(workflow_id, state)
+            logger.info("Tool get_workflow_state succeeded: workflow_id=%s", workflow_id)
             return state
 
         @tool
@@ -277,10 +312,17 @@ class WorkflowAgent:
         @tool
         async def list_active_workflows() -> list[dict[str, str]]:
             """List running workflows that the user may want to resume."""
-            temporal_client = await owner._get_temporal_client()
-            return await tool_functions.list_active_workflows(
-                temporal_client=temporal_client,
-            )
+            logger.info("Tool list_active_workflows called")
+            try:
+                temporal_client = await owner._get_temporal_client()
+                result = await tool_functions.list_active_workflows(
+                    temporal_client=temporal_client,
+                )
+            except Exception:
+                logger.exception("Tool list_active_workflows failed")
+                raise
+            logger.info("Tool list_active_workflows returned %d workflow(s)", len(result))
+            return result
 
         return [
             get_workflow_definition,
