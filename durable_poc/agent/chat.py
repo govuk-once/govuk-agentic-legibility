@@ -12,30 +12,64 @@ logger = logging.getLogger(__name__)
 
 
 def get_options_from_state(state: dict[str, Any] | None) -> list[str]:
-    """Extract human-readable options from current awaiting schema in session state."""
+    """Extract human-readable options generically from current awaiting schema in session state."""
     if not state:
         return []
     awaiting = state.get("awaiting")
-    if not awaiting:
+    if not awaiting or not isinstance(awaiting, dict):
         return []
 
     schema = awaiting.get("schema", {})
+    if not isinstance(schema, dict):
+        schema = {}
     kind = schema.get("kind")
 
     # 1. Handle Enum options
     if kind == "enum":
         labels = schema.get("labels", {})
         values = schema.get("values", [])
-        return [labels.get(v, v) for v in values]
+        if not isinstance(labels, dict):
+            labels = {}
+        if isinstance(values, list):
+            return [str(labels.get(v, v)) for v in values]
 
-    # 2. Handle select_one / address search results
-    if kind == "select_one":
-        options = awaiting.get("options", [])
+    # 2. Generic Selection Handler (select_one, select_many, lists)
+    if kind in ("select_one", "select_many"):
+        raw_options = awaiting.get("options")
+        options = raw_options if isinstance(raw_options, list) else []
+
+        # Key names configured dynamically in schema definition
+        label_key = schema.get("label_key")
+        value_key = schema.get("value_key")
+
         choices = []
         for opt in options:
             if isinstance(opt, dict):
-                label = opt.get("single_line") or opt.get("label") or opt.get("uprn") or str(opt)
-                choices.append(label)
+                # Priority:
+                # 1. Explicit schema label_key (e.g., "label" for organ donation)
+                # 2. Common display keys across domain schemas
+                # 3. Explicit schema value_key (e.g., "uprn" or "id")
+                # 4. First non-None string value in the dict
+                label = None
+                if label_key and opt.get(label_key) is not None:
+                    label = opt.get(label_key)
+                else:
+                    label = (
+                        opt.get("label")
+                        or opt.get("single_line")
+                        or opt.get("name")
+                        or opt.get("title")
+                        or (opt.get(value_key) if value_key else None)
+                        or opt.get("id")
+                        or opt.get("uprn")
+                    )
+
+                if label is None:
+                    # Fallback to the first string value inside the object if available
+                    str_vals = [v for v in opt.values() if isinstance(v, str)]
+                    label = str_vals[0] if str_vals else str(opt)
+
+                choices.append(str(label))
             else:
                 choices.append(str(opt))
         return choices
@@ -50,7 +84,7 @@ def get_options_from_state(state: dict[str, Any] | None) -> list[str]:
 def create_chat_fn(
     agent: Any,
 ) -> Callable[[str, list[Any], dict[str, Any] | None], Any]:
-    """Create the chat function that Gradio will call on each user message.
+    """Create the chat function that Gradio will call on each user message."
 
     The function follows the HATEOAS pattern: the agent's session_state
     (workflow_id + awaiting) is read before each turn to provide context,
@@ -112,7 +146,11 @@ def create_app(agent: Any) -> gr.Blocks:
         session_state = gr.State(value=None)
 
         with gr.Row():
-            msg = gr.Textbox(placeholder="Type a message or select an option below...", show_label=False, scale=4)
+            msg = gr.Textbox(
+                placeholder="Type a message or select an option below...",
+                show_label=False,
+                scale=4,
+            )
             send_btn = gr.Button("Send", scale=1)
 
         # Container for clickable option buttons
@@ -126,7 +164,7 @@ def create_app(agent: Any) -> gr.Blocks:
         async def respond(
             message: str, history: list[Any], state: dict[str, Any] | None
         ) -> tuple[str, list[Any], dict[str, Any] | None, dict[str, Any]]:
-            if not message.strip():
+            if not message or not str(message).strip():
                 return "", history, state, gr.update()
 
             response, new_state = await chat_fn(message, history, state)
@@ -135,7 +173,7 @@ def create_app(agent: Any) -> gr.Blocks:
                 {"role": "assistant", "content": response},
             ]
 
-            # Extract options and update sample buttons
+            # Extract options and update sample buttons safely
             options = get_options_from_state(new_state)
             samples = [[opt] for opt in options]
             dataset_update = gr.update(samples=samples, visible=bool(options))
@@ -154,11 +192,12 @@ def create_app(agent: Any) -> gr.Blocks:
             [msg, chatbot, session_state, choice_dataset],
         )
 
-        # Handler for clicking an option button
+        # Robust extraction of value from gr.SelectData (string vs list handling)
         async def on_select_option(
             evt_data: gr.SelectData, history: list[Any], state: dict[str, Any] | None
         ) -> tuple[str, list[Any], dict[str, Any] | None, dict[str, Any]]:
-            selected_value = evt_data.value[0]
+            val = evt_data.value
+            selected_value = val[0] if isinstance(val, (list, tuple)) else str(val)
             return await respond(selected_value, history, state)
 
         choice_dataset.select(
@@ -180,7 +219,9 @@ def main() -> None:
 
     from agent.agent import WorkflowAgent
 
-    workflow_server_url = os.environ.get("WORKFLOW_SERVER_URL", "http://localhost:8080")
+    workflow_server_url = os.environ.get(
+        "WORKFLOW_SERVER_URL", "http://localhost:8080"
+    )
     model_id = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6")
     region_name = os.environ.get("AWS_REGION", "eu-west-2")
     temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")

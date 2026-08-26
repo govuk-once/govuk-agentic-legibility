@@ -45,8 +45,8 @@ def build_contextual_prompt(
         state_description = (
             f"Active workflow: {workflow_id}\n"
             f"Currently awaiting input:\n"
-            f"  token: {awaiting['token']}\n"
-            f"  prompt: {awaiting['prompt']}\n"
+            f"  token: {awaiting.get('token')}\n"
+            f"  prompt: {awaiting.get('prompt')}\n"
             f"  schema: {json.dumps(awaiting.get('schema', {}))}\n"
         )
     else:
@@ -71,8 +71,9 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
     if session_state is None:
         return value
     awaiting = session_state.get("awaiting")
-    if not awaiting:
+    if not awaiting or not isinstance(awaiting, dict):
         return value
+
     schema = awaiting.get("schema", {})
     kind = schema.get("kind")
 
@@ -81,14 +82,15 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
 
     if kind == "string":
         val_str = str(value).strip()
-        if (val_str.startswith('"') and val_str.endswith('"')) or (val_str.startswith("'") and val_str.endswith("'")):
+        if (val_str.startswith('"') and val_str.endswith('"')) or (
+            val_str.startswith("'") and val_str.endswith("'")
+        ):
             val_str = val_str[1:-1]
         return val_str
 
     if kind in ("object", "file_ref", "select_one") and isinstance(value, str):
         try:
-            parsed = json.loads(value)
-            return parsed
+            return json.loads(value)
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -124,7 +126,13 @@ class WorkflowAgent:
         self._task_queue = task_queue
         self._temporal_client: TemporalClient | None = None
         self._http_client: httpx.AsyncClient | None = None
-        self._system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
+        
+        # Fallback system prompt if prompt file is missing
+        if PROMPT_PATH.exists():
+            self._system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
+        else:
+            self._system_prompt = "You are an agent interacting with a state machine workflow engine."
+
         self._model = BedrockModel(
             model_id=model_id,
             region_name=region_name,
@@ -138,6 +146,12 @@ class WorkflowAgent:
             tools=self._tools,
             callback_handler=None,
         )
+
+    async def close(self) -> None:
+        """Release open client connections."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
 
     async def _get_temporal_client(self) -> TemporalClient:
         if self._temporal_client is None:
@@ -193,7 +207,11 @@ class WorkflowAgent:
             The agent's text response.
         """
         prompt = build_contextual_prompt(user_message, context=context)
-        logger.info("Agent invoked with prompt length=%d context=%s", len(prompt), bool(context))
+        logger.info(
+            "Agent invoked with prompt length=%d context=%s",
+            len(prompt),
+            bool(context),
+        )
         try:
             result = await self._agent.invoke_async(prompt)
         except Exception:
@@ -212,9 +230,11 @@ class WorkflowAgent:
         }
 
     async def _wait_for_next_state(
-        self, workflow_id: str, max_wait_sec: float = 15.0, poll_interval_sec: float = 1.0
+        self,
+        workflow_id: str,
+        max_wait_sec: float = 15.0,
+        poll_interval_sec: float = 1.0,
     ) -> dict[str, Any]:
-        """Poll Temporal while the workflow executes non-input background steps."""
         temporal_client = await self._get_temporal_client()
         start_time = asyncio.get_running_loop().time()
 
@@ -223,7 +243,12 @@ class WorkflowAgent:
                 workflow_id=workflow_id, temporal_client=temporal_client
             )
             # Stop polling if the workflow is awaiting user input or has completed/failed
-            if state.get("awaiting") or state.get("status") in ("success", "failed", "cancelled", "needs_attention"):
+            if state.get("awaiting") or state.get("status") in (
+                "success",
+                "failed",
+                "cancelled",
+                "needs_attention",
+            ):
                 return state
 
             await asyncio.sleep(poll_interval_sec)

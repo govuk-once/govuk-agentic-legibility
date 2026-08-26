@@ -1,4 +1,5 @@
 {
+  "workflow_id": 2,
   "schema": "sfsm/0.2",
   "id": "dvla.change_of_address",
   "version": "0.2.1",
@@ -133,7 +134,7 @@
         "run_finalisation": {
           "type": "invoke",
           "process": "finalisation",
-          "input": { "address": { "$": "address" }, "job_id": { "$": "job_id"}},
+          "input": { "address": { "$": "address" }, "job_id": { "$": "job_id" } },
           "catch": [ { "on": "delivery_exception", "next": "end_exception" } ],
           "next": "end_complete"
         },
@@ -150,21 +151,15 @@
     "driver_details": {
       "start": "get_driver_details",
       "vars": {
-          "driver": null,
-          "driver_id": null,
-          "first_name": null,
-          "last_name": null,
-          "date_of_birth": null,
-          "line1": null,
-          "postcode": null,
-          "details_confirmed": null,
-          "manual_first_name": null,
-          "manual_last_name": null,
-          "manual_dob": null,
-          "manual_licence_no": null,
-          "manual_address": null,
-          "manual_summary_confirmed": null
-        },
+        "driver": null,
+        "driver_id": null,
+        "details_confirmed": null,
+        "manual_first_name": null,
+        "manual_last_name": null,
+        "manual_dob": null,
+        "manual_licence_no": null,
+        "manual_summary_confirmed": null
+      },
       "states": {
         "get_driver_details": {
           "type": "call",
@@ -177,9 +172,7 @@
             "driver_id": "body.driverViewResponse.driver.drivingLicenceNumber",
             "first_name": "body.driverViewResponse.driver.firstNames",
             "last_name": "body.driverViewResponse.driver.lastName",
-            "date_of_birth": "body.driverViewResponse.driver.dateOfBirth",
-            "line1": "body.driverViewResponse.driver.address.unstructuredAddress.line1",
-            "postcode": "body.driverViewResponse.driver.address.unstructuredAddress.postcode"
+            "date_of_birth": "body.driverViewResponse.driver.dateOfBirth"
           },
           "catch": [ { "on": "any", "next": "end_api_failure" } ],
           "next": "confirm_driver_details"
@@ -264,13 +257,9 @@
       "start": "check_photocard",
       "vars": {
         "photocard_res": null,
-        "expired": null,
-        "photo_id": null,
         "user_wants_upload": false,
         "uploaded_photo": null,
         "photo_validation": null,
-        "uploaded_photo_id": null,
-        "is_icao_compliant": null,
         "upload_attempts": 0
       },
       "states": {
@@ -390,7 +379,7 @@
           "next": "end_invalid_photo"
         },
 
-        "end_photo_reused":  { "type": "end", "status": "success", "outcome": "photo_reused", "return": { "$": "photocard_res.photo_id" } },
+        "end_photo_reused":   { "type": "end", "status": "success", "outcome": "photo_reused", "return": { "$": "photocard_res.photo_id" } },
         "end_uploaded_photo": { "type": "end", "status": "success", "outcome": "photo_updated", "return": { "$": "photo_validation.uploaded_photo_id" } },
         "end_invalid_photo":  { "type": "end", "status": "failed",  "outcome": "invalid_photo" },
         "end_api_failure":    { "type": "end", "status": "failed",  "outcome": "api_failure" }
@@ -400,12 +389,14 @@
     "signature_update": {
       "start": "prompt_new_signature",
       "vars": {
-        "upload_attempts": 0
+        "upload_attempts": 0,
+        "new_signature": null,
+        "signature_accepted": null
       },
       "states": {
         "prompt_new_signature": {
           "type": "input",
-          "prompt": "Please add a new signiture:",
+          "prompt": "Please add a new signature:",
           "schema": { "kind": "string" },
           "assign": "new_signature",
           "next": "add_signature_api"
@@ -470,7 +461,7 @@
           "next": "end_invalid_sig"
         },
 
-        "end_new_sig": { "type": "end", "status": "success", "outcome": "signature_added" },
+        "end_new_sig": { "type": "end", "status": "success", "outcome": "signature_added", "return": { "$": "signature_accepted.signature_id" } },
         "end_invalid_sig":  { "type": "end", "status": "failed",  "outcome": "invalid_signature" },
         "end_api_failure":    { "type": "end", "status": "failed",  "outcome": "api_failure" }
       }
@@ -491,9 +482,7 @@
         "choose_entry_method": {
           "type": "input",
           "prompt": "How would you like to enter your new address?\n1 - Search by Postcode\n2 - Enter Address Manually",
-          "schema": {
-            "kind": "string"
-          },
+          "schema": { "kind": "string" },
           "assign": "entry_method",
           "next": "branch_method"
         },
@@ -505,8 +494,8 @@
             { "when": { "op": "contains", "path": "entry_method", "value": "2" }, "next": "prompt_manual_address" },
             { "when": { "op": "contains", "path": "entry_method", "value": "manual" }, "next": "prompt_manual_address" }
           ],
-        "default": "prompt_postcode"
-      },
+          "default": "prompt_postcode"
+        },
         "prompt_postcode": {
           "type": "input",
           "prompt": "Enter your new UK postcode:",
@@ -639,12 +628,6 @@
           "message": "Your driving licence address update has been submitted. Please wait while your application is processed (this background check typically takes up to 8 hours to complete).",
           "next": "end_ok"
         },
-        "say_update_completed": {
-          "type": "output",
-          "channel": "transcript",
-          "message": "Licence has successfully been submitted.",
-          "next": "end_ok"
-        },
         "say_update_rejected": {
           "type": "output",
           "channel": "transcript",
@@ -662,10 +645,14 @@
         "organ_data": null,
         "update_organ": false,
         "decision": null,
-        "nhs_res": null
+        "organ_options": [
+          { "id": "1", "label": "Donate all organs and tissue" },
+          { "id": "2", "label": "Donate some organs and tissue" },
+          { "id": "3", "label": "Do not donate" }
+        ]
       },
       "states": {
-      "get_organ_status": {
+        "get_organ_status": {
           "type": "call",
           "method": "GET",
           "service": "dvla",
@@ -711,17 +698,13 @@
 
         "prompt_decision": {
           "type": "input",
-          "prompt": "Select your new NHS Organ Donation decision:\n1 - Donate all organs and tissue\n2 - Donate some organs and tissue\n3 - Do not donate",
+          "prompt": "Select your new NHS Organ Donation decision:",
           "schema": {
             "kind": "select_one",
+            "options_from": "organ_options",
             "value_key": "id",
             "label_key": "label"
           },
-          "options": [
-            { "id": "donate_all", "label": "Donate all organs and tissue" },
-            { "id": "donate_some", "label": "Donate some organs and tissue" },
-            { "id": "refuse", "label": "Do not donate" }
-          ],
           "assign": "decision",
           "next": "say_preference_submitted"
         },
@@ -744,7 +727,7 @@
           "type": "end", 
           "status": "success", 
           "outcome": "organ_preference_updated", 
-          "return": { "$": "decision.id" } 
+          "return": { "$": "decision" } 
         },
         "end_no_change": { 
           "type": "end", 
@@ -758,10 +741,9 @@
     "finalisation": {
       "start": "set_deadline",
       "vars": { 
-        "job_id": null, 
-        "poll_interval": "PT5M", 
+        "poll_interval": "PT2S", 
         "poll_window": "PT8H",
-        "reminder_after": "P4D",
+        "reminder_after": "P15S",
         "deadline": null, 
         "job": null,
         "received": null

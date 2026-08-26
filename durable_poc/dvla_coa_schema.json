@@ -1,4 +1,5 @@
-{
+{ 
+  "workflow_id": 1,
   "schema": "sfsm/0.2",
   "id": "dvla.change_of_address",
   "version": "0.2.0",
@@ -240,16 +241,10 @@
       "states": {
         "prompt_address": {
           "type": "input",
-          "prompt": "Please enter your new address.",
+          "prompt": "Please enter your new address:",
           "schema": {
-            "kind": "object",
-            "fields": [
-              { "name": "address_line_1",    "kind": "string", "required": true,  "max_length": 60 },
-              { "name": "address_line_2",    "kind": "string", "required": false, "max_length": 60 },
-              { "name": "town_or_city",     "kind": "string", "required": true,  "max_length": 40 },
-              { "name": "postcode", "kind": "string", "required": true,
-                "pattern": "^[A-Z]{1,2}\\d[A-Z\\d]? ?\\d[A-Z]{2}$", "normalise": "upper_trim" }
-            ]
+            "kind": "string",
+            "max_length": 200
           },
           "assign": "manual",
           "on_invalid": "prompt_address",
@@ -259,10 +254,10 @@
           "type": "end",
           "status": "success",
           "return": {
-            "address_line_1":    { "$": "manual.line1" },
-            "address_line_2":    { "$": "manual.line2" },
-            "town_or_city":     { "$": "manual.town" },
-            "postcode": { "$": "manual.postcode" },
+            "line1":    { "$": "manual" },
+            "line2":    null,
+            "town":     null,
+            "postcode": null,
             "uprn":     null
           }
         }
@@ -360,7 +355,7 @@
 
     "address_update": {
       "start": "submit",
-      "vars": { "poll_interval": "PT5M", "poll_window": "PT8H" },
+      "vars": { "poll_interval": "PT2S", "poll_window": "PT8H" },
       "states": {
         "submit": {
           "type": "call",
@@ -470,7 +465,7 @@
 
     "finalisation": {
       "start": "await_receipt",
-      "vars": { "reminder_after": "P4D", "total_window": "P7D" },
+      "vars": { "reminder_after": "PT15S", "total_window": "P7D" },
       "states": {
         "await_receipt": {
           "type": "input",

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 import logging
 from typing import Any
+import uuid
 
 import httpx
 
@@ -14,6 +16,21 @@ logger = logging.getLogger(__name__)
 
 class WorkflowServerError(Exception):
     """Raised when the workflow definition server returns an error."""
+
+
+def _to_dict(obj: Any) -> Any:
+    """Recursively convert dataclasses or custom objects to plain dictionaries."""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return {k: _to_dict(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_dict(item) for item in obj]
+    if is_dataclass(obj):
+        return asdict(obj)
+    if hasattr(obj, "__dict__"):
+        return {k: _to_dict(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
+    return obj
 
 
 async def get_workflow_definition(
@@ -63,7 +80,11 @@ async def start_workflow(
     definition = await get_workflow_definition(
         workflow_id=workflow_id, http_client=http_client, base_url=base_url
     )
-    temporal_id = f"sfsm-{definition.get('id', 'unknown')}-{definition.get('version', '0')}"
+    
+    # Append unique execution token to prevent duplicate workflow ID errors
+    unique_suffix = str(uuid.uuid4())[:8]
+    temporal_id = f"sfsm-{definition.get('id', 'unknown')}-{unique_suffix}"
+    
     logger.info(
         "Starting workflow on Temporal: id=%s task_queue=%s",
         temporal_id,
@@ -94,7 +115,7 @@ async def list_active_workflows(
         async for execution in temporal_client.list_workflows(
             "WorkflowType = 'SFSMInterpreter' AND ExecutionStatus = 'Running'"
         ):
-            results.append({"id": execution.id, "status": execution.status})
+            results.append({"id": execution.id, "status": str(execution.status)})
     except Exception:
         logger.exception("Failed to list workflows from Temporal")
         raise
@@ -111,17 +132,22 @@ async def get_workflow_state(
     logger.info("Querying workflow state: %s", workflow_id)
     try:
         handle = temporal_client.get_workflow_handle(workflow_id)
-        awaiting = await handle.query("awaiting")
-        transcript = await handle.query("transcript")
+        raw_awaiting = await handle.query("awaiting")
+        raw_transcript = await handle.query("transcript")
     except Exception:
         logger.exception("Failed to query state for workflow %s", workflow_id)
         raise
+
+    # Safely convert dataclasses to standard dictionary representations
+    awaiting = _to_dict(raw_awaiting)
+    transcript = _to_dict(raw_transcript)
+
     if awaiting:
         logger.info(
             "Workflow %s awaiting input: token=%s prompt=%r",
             workflow_id,
-            awaiting.get("token") if isinstance(awaiting, dict) else getattr(awaiting, "token", "?"),
-            awaiting.get("prompt") if isinstance(awaiting, dict) else getattr(awaiting, "prompt", "?"),
+            awaiting.get("token"),
+            awaiting.get("prompt"),
         )
     else:
         logger.info("Workflow %s not awaiting input (processing or completed)", workflow_id)

@@ -1,5 +1,6 @@
 """Pure predicate evaluation without execution engines."""
 
+from datetime import datetime
 from typing import Any
 
 from src.paths import resolve_path
@@ -25,6 +26,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         cmp_val = _resolve_value(condition, context)
         if path_val is None or cmp_val is None:
             return False
+        # Proper tuple syntax for handling exception types
         try:
             p_num, c_num = float(path_val), float(cmp_val)
             if op == "lt":
@@ -35,7 +37,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
                 return bool(p_num > c_num)
             if op == "gte":
                 return bool(p_num >= c_num)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return False
 
     elif op == "is_true":
@@ -68,12 +70,17 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         return not evaluate(sub, context)
 
     elif op == "before_now":
-        # Workaround to keep pure evaluation: context must supply 'now'
         now_ts = resolve_path(context, "__now__")
         target_ts = resolve_path(context, condition["path"])
         if now_ts is None or target_ts is None:
             return False
-        return bool(now_ts > target_ts)
+        # Parse ISO timestamps into datetime objects for safe timezone comparison
+        try:
+            now_dt = datetime.fromisoformat(str(now_ts))
+            target_dt = datetime.fromisoformat(str(target_ts))
+            return bool(now_dt > target_dt)
+        except (ValueError, TypeError):
+            return False
 
     elif op == "contains":
         path_val = resolve_path(context, condition["path"])

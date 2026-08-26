@@ -9,6 +9,7 @@ class StackFrame:
     process_id: str
     state_id: str
     vars: dict[str, Any]
+    invoker_state: Any | None = None
 
 
 @dataclass
