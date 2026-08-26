@@ -21,10 +21,11 @@ async def main() -> None:
         definition = json.load(f)
 
     # Patch long timeouts for human interaction
-    # Change 5-minute poll interval to 2 seconds, and 4-day wait to 10 seconds
+    # Change 5-minute poll interval to 2 seconds, a 5-day delivery wait to 15 seconds and 2-day confirmation wait to 10 seconds
     print("Patching time intervals...")
     definition["processes"]["finalisation"]["vars"]["poll_interval"] = "PT2S"
-    definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT15S"
+    definition["processes"]["finalisation"]["vars"]["delivery_wait"] = "PT15S"
+    definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT10S"
 
     definition.setdefault("vars", {})["env"] = {
         "dvla_base": "http://localhost:8000/app/photo",

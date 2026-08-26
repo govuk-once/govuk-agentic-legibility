@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable
+import mimetypes
+from typing import Any, AsyncGenerator, Callable
 
 import gradio as gr
 
@@ -38,18 +39,12 @@ def get_options_from_state(state: dict[str, Any] | None) -> list[str]:
         raw_options = awaiting.get("options")
         options = raw_options if isinstance(raw_options, list) else []
 
-        # Key names configured dynamically in schema definition
         label_key = schema.get("label_key")
         value_key = schema.get("value_key")
 
         choices = []
         for opt in options:
             if isinstance(opt, dict):
-                # Priority:
-                # 1. Explicit schema label_key (e.g., "label" for organ donation)
-                # 2. Common display keys across domain schemas
-                # 3. Explicit schema value_key (e.g., "uprn" or "id")
-                # 4. First non-None string value in the dict
                 label = None
                 if label_key and opt.get(label_key) is not None:
                     label = opt.get(label_key)
@@ -65,7 +60,6 @@ def get_options_from_state(state: dict[str, Any] | None) -> list[str]:
                     )
 
                 if label is None:
-                    # Fallback to the first string value inside the object if available
                     str_vals = [v for v in opt.values() if isinstance(v, str)]
                     label = str_vals[0] if str_vals else str(opt)
 
@@ -81,10 +75,25 @@ def get_options_from_state(state: dict[str, Any] | None) -> list[str]:
     return []
 
 
+def build_file_payload(file_obj: Any) -> str:
+    """Format uploaded file info into a JSON-like text message for the agent."""
+    file_path = file_obj.name if hasattr(file_obj, "name") else str(file_obj)
+    content_type, _ = mimetypes.guess_type(file_path)
+    content_type = content_type or "image/jpeg"
+    
+    file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+
+    # Formats reference cleanly so agent can map to file_ref schema
+    return (
+        f"[Uploaded File: "
+        f"content_type='{content_type}', bytes={file_size}]"
+    )
+
+
 def create_chat_fn(
     agent: Any,
 ) -> Callable[[str, list[Any], dict[str, Any] | None], Any]:
-    """Create the chat function that Gradio will call on each user message."
+    """Create the chat function that Gradio will call on each user message.
 
     The function follows the HATEOAS pattern: the agent's session_state
     (workflow_id + awaiting) is read before each turn to provide context,
@@ -136,10 +145,10 @@ def create_app(agent: Any) -> gr.Blocks:
     """
     chat_fn = create_chat_fn(agent)
 
-    with gr.Blocks(title="Workflow Assistant") as app:
-        gr.Markdown("# Workflow Assistant")
+    with gr.Blocks(title="GOV.UK Chat Assistant") as app:
+        gr.Markdown("# GOV.UK Chat Assistant")
         gr.Markdown(
-            "I can help you with government service workflows like "
+            "I can help you with government services like "
             "changing the address on your driving licence."
         )
         chatbot = gr.Chatbot()
@@ -149,11 +158,16 @@ def create_app(agent: Any) -> gr.Blocks:
             msg = gr.Textbox(
                 placeholder="Type a message or select an option below...",
                 show_label=False,
-                scale=4,
+                scale=3,
+            )
+            file_upload = gr.File(
+                label="Upload Photo",
+                file_types=["image"],
+                type="filepath",
+                scale=1,
             )
             send_btn = gr.Button("Send", scale=1)
 
-        # Container for clickable option buttons
         choice_dataset = gr.Dataset(
             components=[gr.Textbox(visible=False)],
             label="Available Options",
@@ -162,55 +176,66 @@ def create_app(agent: Any) -> gr.Blocks:
         )
 
         async def respond(
-            message: str, history: list[Any], state: dict[str, Any] | None
-        ) -> tuple[str, list[Any], dict[str, Any] | None, dict[str, Any]]:
-            if not message or not str(message).strip():
-                return "", history, state, gr.update()
+            message: str, file_obj: Any, history: list[Any], state: dict[str, Any] | None
+        ) -> AsyncGenerator[tuple[str, None, list[Any], dict[str, Any] | None, dict[str, Any]], None]:
+            
+            # Combine text and file upload inputs
+            user_payload = message or ""
+            if file_obj is not None:
+                file_info = build_file_payload(file_obj)
+                user_payload = f"{user_payload} {file_info}".strip()
 
-            response, new_state = await chat_fn(message, history, state)
-            history = history + [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": response},
+            if not user_payload:
+                yield "", None, history, state, gr.update()
+                return
+
+            updated_history = history + [{"role": "user", "content": user_payload}]
+            yield "", None, updated_history, state, gr.update()
+
+            response, new_state = await chat_fn(user_payload, history, state)
+
+            final_history = updated_history + [
+                {"role": "assistant", "content": response}
             ]
 
-            # Extract options and update sample buttons safely
             options = get_options_from_state(new_state)
             samples = [[opt] for opt in options]
             dataset_update = gr.update(samples=samples, visible=bool(options))
 
-            return "", history, new_state, dataset_update
+            yield "", None, final_history, new_state, dataset_update
 
-        # Handlers for sending text via Enter key or Send button
+        # Handlers for text submit & button click
         msg.submit(
             respond,
-            [msg, chatbot, session_state],
-            [msg, chatbot, session_state, choice_dataset],
+            [msg, file_upload, chatbot, session_state],
+            [msg, file_upload, chatbot, session_state, choice_dataset],
         )
         send_btn.click(
             respond,
-            [msg, chatbot, session_state],
-            [msg, chatbot, session_state, choice_dataset],
+            [msg, file_upload, chatbot, session_state],
+            [msg, file_upload, chatbot, session_state, choice_dataset],
         )
 
-        # Robust extraction of value from gr.SelectData (string vs list handling)
+        # Dataset option select handler
         async def on_select_option(
             evt_data: gr.SelectData, history: list[Any], state: dict[str, Any] | None
-        ) -> tuple[str, list[Any], dict[str, Any] | None, dict[str, Any]]:
+        ) -> AsyncGenerator[tuple[str, None, list[Any], dict[str, Any] | None, dict[str, Any]], None]:
             val = evt_data.value
             selected_value = val[0] if isinstance(val, (list, tuple)) else str(val)
-            return await respond(selected_value, history, state)
+            async for update in respond(selected_value, None, history, state):
+                yield update
 
         choice_dataset.select(
             on_select_option,
             inputs=[chatbot, session_state],
-            outputs=[msg, chatbot, session_state, choice_dataset],
+            outputs=[msg, file_upload, chatbot, session_state, choice_dataset],
         )
 
     return app
 
 
 def main() -> None:
-    """Launch the chat UI. Temporal connects lazily on first tool call."""
+    """Launch the chat UI."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
