@@ -71,7 +71,12 @@ class SFSMInterpreter:
                 f"Resuming workflow from initial_state context with frames: {self.state.frames}"
             )
         else:
-            entry_process = self.definition.processes[self.definition.entry]
+            entry_process = self.definition.processes.get(self.definition.entry)
+            if not entry_process:
+                raise DefinitionError(
+                    f"Entry process '{self.definition.entry}' not found in processes definition"
+                )
+
             initial_vars = entry_process.vars.copy()
             self.state.frames.append(
                 StackFrame(
@@ -100,14 +105,15 @@ class SFSMInterpreter:
                 and steps_this_run >= min_steps_between_can
             ):
                 workflow.logger.info("Executing Continue-As-New...")
-                workflow.continue_as_new(
-                    "SFSMInterpreter", args=[definition_dict, self.state]
-                )
+                workflow.continue_as_new(definition_dict, self.state)
 
             self.state.step_counter += 1
             steps_this_run += 1
             frame = self.state.frames[-1]
-            process = self.definition.processes[frame.process_id]
+            process = self.definition.processes.get(frame.process_id)
+            if not process:
+                raise DefinitionError(f"Process '{frame.process_id}' not found")
+
             current_state = process.states.get(frame.state_id)
 
             if not current_state:
@@ -135,7 +141,6 @@ class SFSMInterpreter:
             if isinstance(current_state, InputState):
                 token = f"tkn_{self.state.step_counter}"
 
-                # Resolve options if required
                 options = None
                 if current_state.schema_.options_from:
                     options = resolve_path(context, current_state.schema_.options_from)
@@ -183,7 +188,6 @@ class SFSMInterpreter:
                         workflow.logger.warn(
                             f"⚠️ Input timed out at state '{frame.state_id}'"
                         )
-
                 else:
                     await workflow.wait_condition(
                         lambda: self._input_ready_event.is_set()
@@ -339,7 +343,11 @@ class SFSMInterpreter:
                 frame.state_id = current_state.next
 
             elif isinstance(current_state, InvokeState):
-                target_proc = self.definition.processes[current_state.process]
+                target_proc = self.definition.processes.get(current_state.process)
+                if not target_proc:
+                    raise DefinitionError(
+                        f"Process '{current_state.process}' invoked by state '{frame.state_id}' not found"
+                    )
 
                 # Advance parent state so returning won't trigger re-invocation loop
                 frame.state_id = current_state.next
@@ -348,10 +356,9 @@ class SFSMInterpreter:
                     process_id=current_state.process,
                     state_id=target_proc.start,
                     vars=target_proc.vars.copy(),
-                    invoker_state=current_state,  # Explicit invoker reference
+                    invoker_state=current_state,
                 )
 
-                # Resolve sub-process input arguments
                 resolved_inputs = {}
                 if current_state.input:
                     resolved_inputs = resolve_dict(current_state.input, context)
@@ -368,6 +375,10 @@ class SFSMInterpreter:
                 workflow.logger.info(f"💤 Sleeping for {dur_val}")
                 if isinstance(dur_val, str):
                     await workflow.sleep(parse_duration(dur_val))
+                else:
+                    raise DefinitionError(
+                        f"WaitState duration in '{frame.state_id}' must resolve to a valid string, got {type(dur_val).__name__}"
+                    )
                 frame.state_id = current_state.next
 
             elif isinstance(current_state, EndState):
