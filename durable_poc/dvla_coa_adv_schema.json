@@ -424,7 +424,7 @@
       "states": {
         "prompt_new_signature": {
           "type": "input",
-          "prompt": "Please add a new signature:",
+          "prompt": "Please add a digital signature:",
           "schema": { "kind": "string" },
           "assign": "new_signature",
           "next": "add_signature_api"
@@ -573,7 +573,7 @@
         },
         "prompt_select_address": {
           "type": "input",
-          "prompt": "Select your address by entering the uprn code:",
+          "prompt": "Select your address:",
           "schema": {
             "kind": "select_one",
             "options_from": "addresses.addresses",

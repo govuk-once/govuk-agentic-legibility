@@ -52,7 +52,7 @@ def build_contextual_prompt(
     else:
         state_description = (
             f"Active workflow: {workflow_id}\n"
-            f"The workflow is not currently awaiting input (it may be processing or completed).\n"
+            f"The workflow is not currently awaiting input (processing background tasks or completed).\n"
         )
 
     return f"{state_description}\nUser message: {user_message}"
@@ -126,7 +126,7 @@ class WorkflowAgent:
         self._task_queue = task_queue
         self._temporal_client: TemporalClient | None = None
         self._http_client: httpx.AsyncClient | None = None
-        
+        self._agent_lock = asyncio.Lock()
         # Fallback system prompt if prompt file is missing
         if PROMPT_PATH.exists():
             self._system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
@@ -212,11 +212,12 @@ class WorkflowAgent:
             len(prompt),
             bool(context),
         )
-        try:
-            result = await self._agent.invoke_async(prompt)
-        except Exception:
-            logger.exception("Agent invoke_async failed")
-            raise
+        async with self._agent_lock:
+            try:
+                result = await self._agent.invoke_async(prompt)
+            except Exception:
+                logger.exception("Agent invoke_async failed")
+                raise
         response = str(result)
         logger.info("Agent responded with length=%d", len(response))
         return response
@@ -227,35 +228,8 @@ class WorkflowAgent:
         self._session_state = {
             "workflow_id": workflow_id,
             "awaiting": state.get("awaiting"),
+            "transcript": state.get("transcript", []),
         }
-
-    async def _wait_for_next_state(
-        self,
-        workflow_id: str,
-        max_wait_sec: float = 15.0,
-        poll_interval_sec: float = 1.0,
-    ) -> dict[str, Any]:
-        temporal_client = await self._get_temporal_client()
-        start_time = asyncio.get_running_loop().time()
-
-        while (asyncio.get_running_loop().time() - start_time) < max_wait_sec:
-            state = await tool_functions.get_workflow_state(
-                workflow_id=workflow_id, temporal_client=temporal_client
-            )
-            # Stop polling if the workflow is awaiting user input or has completed/failed
-            if state.get("awaiting") or state.get("status") in (
-                "success",
-                "failed",
-                "cancelled",
-                "needs_attention",
-            ):
-                return state
-
-            await asyncio.sleep(poll_interval_sec)
-
-        return await tool_functions.get_workflow_state(
-            workflow_id=workflow_id, temporal_client=temporal_client
-        )
 
     def _build_tools(self) -> list[Any]:
         owner = self
@@ -327,6 +301,17 @@ class WorkflowAgent:
                 logger.exception("Tool get_workflow_state failed for workflow_id=%s", workflow_id)
                 raise
             owner._update_session_state(workflow_id, state)
+
+            # Inform Bedrock explicitly to stop re-querying when the state is processing background tasks
+            if not state.get("awaiting"):
+                return {
+                    "workflow_id": workflow_id,
+                    "status": state.get("status", "running"),
+                    "awaiting": None,
+                    "message": "The workflow is currently processing background tasks or timers. Do not query get_workflow_state again until the user responds or a new prompt arrives.",
+                    "transcript": state.get("transcript", []),
+                }
+
             logger.info("Tool get_workflow_state succeeded: workflow_id=%s", workflow_id)
             return state
 
@@ -341,20 +326,20 @@ class WorkflowAgent:
             """
             value = _coerce_value(value, owner._session_state)
             logger.info(
-                "submit_input called: workflow_id=%r, token=%r, value=%r (type=%s)",
-                workflow_id, token, value, type(value).__name__,
+                "submit_input called: workflow_id=%r, token=%r, value=%r",
+                workflow_id, token, value
             )
             try:
                 temporal_client = await owner._get_temporal_client()
-                state = await tool_functions.submit_input(
+                await tool_functions.submit_input(
                     workflow_id=workflow_id,
                     token=token,
                     value=value,
                     temporal_client=temporal_client,
                 )
-                if not state.get("awaiting"):
-                    state = await owner._wait_for_next_state(workflow_id)
-
+                state = await tool_functions.get_workflow_state(
+                    workflow_id=workflow_id, temporal_client=temporal_client
+                )
                 owner._update_session_state(workflow_id, state)
                 return state
             except Exception:
