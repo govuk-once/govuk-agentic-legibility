@@ -2,39 +2,43 @@
 
 ## Overview
 
-The `durable_poc` application is a two-layer system:
+The `durable_poc` application is a two-layer system designed for durable, structured workflow execution paired with a real-time conversational interface:
 
-1. **Executor layer** (`src/`) — A deterministic, durable Finite State Machine interpreter running inside Temporal. It accepts a JSON workflow definition and executes it step by step, suspending at human-in-the-loop input states and resuming when structured input is submitted via Temporal Updates.
+1. **Executor layer** (`src/`) — A deterministic, durable Finite State Machine (FSM) interpreter running inside Temporal. It accepts a JSON workflow definition (`SFSMDefinition`) and executes it step by step across nested process call stacks, suspending at human-in-the-loop input states and resuming when structured input is submitted via Temporal Updates.
 
-2. **Agent layer** (`agent/`) — A conversational front-end powered by an LLM (Claude via AWS Bedrock) using the Strands Agents framework. It translates between natural language and the structured inputs the executor expects, while Temporal remains the single source of truth for workflow state.
+2. **Agent & UI layer** (`agent/` & `chat.py`) — A conversational front-end powered by an LLM (Claude via AWS Bedrock) using the Strands Agents framework, surfaced via a FastAPI WebSocket application. The agent acts strictly as a silent intent parser—translating natural language into structured inputs expected by the executor—while Temporal remains the single source of truth for execution state.
 
 The core research question: **can an LLM agent faithfully execute a strictly-defined process while providing natural language UX — without hallucinating steps, skipping states, or inventing options outside the definition?** Temporal is the integrity guardrail; the agent can only advance the workflow by submitting valid tokens through the executor's update validator.
 
+
 ```
+
 ┌──────────────────────────────────────────────────────────┐
-│                  User (Browser)                           │
+│             User (Browser / HTML JS Frontend)            │
 └────────────────────────┬─────────────────────────────────┘
-                         │ HTTP (Gradio WebSocket)
+│ WebSockets (ws://localhost:7860/ws)
 ┌────────────────────────▼─────────────────────────────────┐
-│  agent/chat.py — Gradio Blocks UI                        │
-│    Routes messages to WorkflowAgent.respond()            │
+│  chat.py — FastAPI Web Server                            │
+│    ├── Silent NLU Intent Parsing via WorkflowAgent       │
+│    └── Background Event Stream (Transcript & Schema UI)  │
 └────────────────────────┬─────────────────────────────────┘
-                         │ async call
+│ async call
 ┌────────────────────────▼─────────────────────────────────┐
 │  agent/agent.py — WorkflowAgent                          │
 │    Strands Agent with @tool closures                     │
 │    Maintains session_state (HATEOAS continuation)        │
 └──────────┬─────────────────────────────┬─────────────────┘
-           │ httpx                       │ Temporal gRPC
+│ httpx                       │ Temporal gRPC
 ┌──────────▼──────────┐     ┌───────────▼─────────────────┐
 │  Workflow Server     │     │  Temporal Server             │
 │  (localhost:8080)    │     │  (localhost:7233)            │
 │  Serves JSON defs    │     │                             │
 └─────────────────────┘     │  ┌─────────────────────┐    │
-                            │  │  SFSMInterpreter    │    │
-                            │  │  (Workflow)          │    │
-                            │  └─────────────────────┘    │
-                            └─────────────────────────────┘
+│  │  SFSMInterpreter    │    │
+│  │  (Workflow)          │    │
+│  └─────────────────────┘    │
+└─────────────────────────────┘
+
 ```
 
 ---
@@ -43,91 +47,87 @@ The core research question: **can an LLM agent faithfully execute a strictly-def
 
 ### `src/model.py` — Schema Models
 
-Pydantic models that parse and validate the JSON workflow definition. The top-level model is `SFSMDefinition`, which contains:
+Pydantic models that parse and validate JSON workflow definitions into an object graph. The top-level model is `SFSMDefinition`, which contains:
 
-- `schema_`: Schema version identifier (e.g. `"sfsm/0.2"`)
+- `schema_`: Schema version identifier (aliased from `schema`, e.g. `"sfsm/0.2"`)
 - `id`: Workflow logical identifier (e.g. `"dvla.change_of_address"`)
 - `version`: Semantic version string
-- `entry`: Name of the starting process
-- `executor`: Configuration for Temporal execution (ID template, timeouts, continue-as-new policy)
-- `processes`: Map of process names to `Process` objects
+- `entry`: Name of the starting entry process
+- `executor`: Configuration for Temporal execution (ID templates, timeouts, continue-as-new thresholds)
+- `processes`: Map of process names to `Process` definition objects
 
-Each `Process` has a `start` state, initial `vars`, and a `states` map. States are discriminated unions:
+Each `Process` has a `start` state ID, initial `vars`, and a `states` map. States are structured model types:
 
 | State type | Purpose |
 |---|---|
-| `InputState` | Suspend workflow, expose a schema for human input |
-| `OutputState` | Emit a transcript message or fire a notification activity |
-| `CallState` | Execute an HTTP call via an activity |
-| `ChoiceState` | Evaluate predicate rules and branch |
-| `AssignState` | Mutate the frame's variable context |
-| `InvokeState` | Push a sub-process frame onto the stack |
-| `WaitState` | Durably sleep for an ISO 8601 duration |
-| `EndState` | Pop the current frame, optionally returning data to the parent |
+| `InputState` | Suspends execution and exposes a schema for human input with optional timeouts and retry routes. |
+| `OutputState` | Emits a transcript entry to audit logs or dispatches external notifications via activities. |
+| `CallState` | Executes HTTP API requests via Temporal activities with capture projections and error catches. |
+| `ChoiceState` | Evaluates predicate rules against runtime context to branch execution. |
+| `AssignState` | Mutates variable context (including date math like `now_plus` and integer `add` operations). |
+| `InvokeState` | Pushes a sub-process stack frame onto the workflow call stack, binding inputs and catch routes. |
+| `WaitState` | Durably sleeps for an ISO 8601 duration string (e.g., `PT5M`, `PT5D`). |
+| `EndState` | Pops the stack frame, returning control and outputs to invoker states or finalizing the workflow. |
 
 ### `src/context.py` — Runtime State
 
-Dataclasses representing the interpreter's mutable state:
+Dataclasses representing the interpreter's mutable runtime context:
 
-- **`InterpreterState`** — The full execution state: a stack of `StackFrame`s, a transcript, a step counter, and an environment dict. This entire object is serializable for Temporal's continue-as-new.
-- **`StackFrame`** — One frame on the call stack: `process_id`, `state_id`, and a `vars` dict (the frame's local variable scope).
-- **`TranscriptEntry`** — A timestamped message emitted by `OutputState` nodes.
-- **`AwaitingInput`** — Published via query when the workflow is waiting for human input: contains `token`, `prompt`, `schema`, optional resolved `options`, and optional `timeout_seconds`.
-- **`InputSubmission`** — The payload submitted via Temporal Update: a `token` (for idempotency/ordering) and an arbitrary `value`.
+- **`InterpreterState`** — The full execution state: a stack of `StackFrame`s, a transcript list, a step counter, and environment dict. Serialized cleanly across Temporal Continue-As-New cycles.
+- **`StackFrame`** — One frame on the process call stack: `process_id`, `state_id`, `vars` (frame scope), and an optional `invoker_state` reference.
+- **`TranscriptEntry`** — Timestamped audit entry emitted by `OutputState` execution.
+- **`AwaitingInput`** — Published via query when a workflow suspends: contains `token`, `prompt`, `schema`, resolved `options`, and optional `timeout_seconds`.
+- **`InputSubmission`** — Payload submitted via Temporal Update: `token` (for verification) and structured `value`.
 
-### `src/interpreter.py` — The Workflow
+### `src/interpreter.py` — The Workflow Execution Loop
 
-`SFSMInterpreter` is a `@workflow.defn` class. Its `run` method is the deterministic execution loop:
+`SFSMInterpreter` is a `@workflow.defn` class. Its `run` method executes a deterministic step loop:
 
-1. Validates the incoming definition dict against `SFSMDefinition`
-2. Initialises the stack (or resumes from a provided `InterpreterState` after continue-as-new)
-3. Loops while frames remain on the stack, dispatching on the current state's type
-4. For `InputState`: publishes `AwaitingInput` via query, then blocks on `workflow.wait_condition` until the `submit_input` update fires (or a timeout expires)
-5. For `CallState`/`OutputState`: delegates to Temporal activities
-6. For `EndState`: pops the frame; if it was the last frame, returns the final result
+1. Validates definition dicts using `SFSMDefinition`.
+2. Initialises the call stack (or resumes from `InterpreterState` after Continue-As-New).
+3. Loops while stack frames exist, resolving current step context (evaluating frame variables, environment variables, step numbers, and `__now__` ISO timestamps).
+4. Handles `InputState`: sets an input token (`tkn_{step}`), resolves options/prompts via `interpolate()` and `resolve_path()`, publishes `AwaitingInput` via query, and awaits an `asyncio.Event` (or a timeout duration).
+5. Handles `InvokeState` / `EndState`: manages sub-process navigation by pushing/popping `StackFrame`s onto `self.state.frames` and passing returned variables safely back into parent scopes via `set_path()`.
+6. Delegates non-deterministic operations (`CallState`, `OutputState`) to Temporal activities.
 
 Key Temporal primitives used:
 
-- **Update** (`submit_input`): Receives user input synchronously, allowing the workflow to validate and reject in the same round-trip. A `_validate_input` validator checks token freshness and schema conformance before the update handler runs.
-- **Query** (`awaiting`, `transcript`): Read-only access to current state without advancing the workflow. Used by the agent to poll what the workflow needs next.
-- **Continue-as-new**: When Temporal suggests it (history size), the interpreter serialises its full state and restarts, keeping history bounded.
+- **Update** (`submit_input`): Synchronous input entry point. A `_validate_input` validator checks schema types and regex constraints before state transitions.
+- **Query** (`awaiting`, `transcript`): Exposes state safely without mutating execution state.
+- **Continue-As-New**: Automatically serializes state and restarts workflow histories when Temporal suggests history truncation.
 
-### `src/paths.py` — Path Resolution
+### `src/paths.py` — Path Resolution & Expression Utilities
 
-Pure utility functions for the interpreter's expression language:
+Utility functions powering context traversal and expression evaluation:
 
-- `resolve_path(context, "a.b.c")` — Dot-path traversal into nested dicts/lists
-- `set_path(context, "a.b", val)` — Dot-path assignment (creates intermediate dicts)
-- `interpolate(template, context)` — Replaces `{{path.to.var}}` placeholders in strings
-- `resolve_dict(data, context)` — Recursively resolves `{"$": "path"}` references in nested structures
-- `parse_duration("PT5M")` — ISO 8601 duration string to `timedelta`
+- `resolve_path(context, "a.b.c")` — Dot-path traversal into dicts and indexed lists.
+- `set_path(context, "a.b", val)` — Dot-path variable mutation.
+- `interpolate(template, context)` — Interpolates `{{path.to.var}}` placeholders.
+- `resolve_dict(data, context)` — Recursively evaluates `{"$": "path"}` reference maps.
+- `parse_duration("PT5M")` — Parses ISO 8601 durations into `timedelta` objects.
 
 ### `src/predicates.py` — Condition Evaluator
 
-Pure function `evaluate(condition, context)` implementing the workflow's branching operators: `eq`, `lt`, `gt`, `is_true`, `is_false`, `not_empty`, `and`, `or`, `not`, `before_now`, `contains`. All evaluation is structural recursion against the context dict — no `eval()` or expression parsing.
+Evaluates branching logic via `evaluate(condition, context)`. Operators include `eq`, `lt`, `lte`, `gt`, `gte`, `is_true`, `is_false`, `not_empty`, `and`, `or`, `not`, `before_now`, and `contains`. All logic uses structural recursion against context dictionaries without string `eval()`.
 
 ### `src/activities.py` — External Integrations
 
-Temporal activities that run outside the deterministic sandbox:
+Out-of-sandbox Temporal activities:
 
-- **`http_call(CallParams)`** — Makes an HTTP request and returns a projected subset of the response (status, headers, body fields) as defined by the `capture` specification. Retryable on 5xx/429.
-- **`notify(NotifyParams)`** — Sends a notification via a named channel (currently logs; production would dispatch to email/SMS/etc).
+- **`http_call(CallParams)`** — Issues HTTP requests via `httpx.AsyncClient` to underlying microservices (e.g., DVLA, Post Office) and projects captured fields out of response bodies/headers. Retries on 5xx/429 status codes via `RetryableHttpError`.
+- **`notify(NotifyParams)`** — Handles external communication channels like email or SMS (mocked via structured logging).
 
 ### `src/errors.py` — Error Taxonomy
 
-- `DefinitionError` — Invalid schema or missing state references (halts the workflow)
-- `ApplicationError` — Base for activity errors that cross into workflow routing
-- `RetryableHttpError` — 5xx/429/timeout (Temporal retries automatically)
-- `ValidationError` — Non-retryable constraint violation (workflow catches and routes)
-- `InputValidationError` — Raised synchronously in the update validator; surfaces to the caller immediately
+- `DefinitionError` — Schema or state reference errors.
+- `ApplicationError` — Base exception for activity boundary errors.
+- `RetryableHttpError` — Transient HTTP failures triggering Temporal retries.
+- `ValidationError` — Non-retryable API constraint violations.
+- `InputValidationError` — Synchronous validation error raised in update handlers.
 
 ### `src/worker.py` — Worker Bootstrap
 
-Entry point: `python -m src.worker`. Connects to Temporal, registers `SFSMInterpreter` and the activities, then runs the worker polling on the `sfsm-queue` task queue.
-
-### `src/client.py` — Client Helpers
-
-Convenience functions wrapping the Temporal Client SDK for starting workflows, submitting input, and querying state. Used by the legacy terminal demo.
+Entry point: `python -m src.worker`. Connects to Temporal at `localhost:7233`, registers `SFSMInterpreter` alongside `http_call` and `notify` activities, and polls the `sfsm-queue` task queue.
 
 ### `src/demo.py` — Terminal CLI (Legacy)
 
@@ -135,150 +135,105 @@ An interactive terminal loop that drives a workflow execution directly via Tempo
 
 ---
 
-## Agent Layer (`agent/`)
+## Agent & UI Layer (`agent/` & `chat.py`)
 
-### `agent/tools.py` — Tool Functions
+### `agent/tools.py` — Agent Tool Integrations
 
-Pure async functions that bridge between the agent and external systems. Each function takes explicit dependencies (http_client, temporal_client) as keyword arguments, making them testable with fakes:
+Pure async functions that bridge between the agent, external API endpoints, and Temporal:
 
-| Function | Purpose | External system |
+| Function | Purpose | Target |
 |---|---|---|
-| `get_workflow_definition(workflow_id, http_client, base_url)` | Fetch a workflow definition by numeric ID | Workflow server (HTTP) |
-| `start_workflow(workflow_id, http_client, base_url, temporal_client, task_queue)` | Fetch definition then start it on Temporal | Both |
-| `list_active_workflows(temporal_client)` | List running SFSMInterpreter executions | Temporal (gRPC) |
-| `get_workflow_state(workflow_id, temporal_client)` | Query awaiting + transcript | Temporal (gRPC) |
-| `submit_input(workflow_id, token, value, temporal_client)` | Submit input via Update, return new state | Temporal (gRPC) |
+| `get_workflow_definition(...)` | Retrieves JSON definition schemas by numeric ID | Workflow Server (HTTP) |
+| `start_workflow(...)` | Fetches definition schema and starts a new Temporal execution | Both |
+| `list_active_workflows(...)` | Queries active running `SFSMInterpreter` executions | Temporal (gRPC) |
+| `get_workflow_state(...)` | Resolves workflow handle, description status, `awaiting`, and `transcript` | Temporal (gRPC) |
+| `submit_input(...)` | Submits input updates synchronously and returns updated state snapshot | Temporal (gRPC) |
 
-`start_workflow` deliberately accepts only the numeric `workflow_id` (not a full definition). It fetches the definition internally, preventing the LLM from fabricating partial or hallucinated workflow JSON.
+- `start_workflow` accepts only a numeric `workflow_id` (not a raw definition), fetching the schema internally to prevent the LLM from fabricating or altering workflow JSON.
+- `submit_input` follows the HATEOAS pattern: after submitting an update, it immediately queries and returns the newly resulting workflow state so the agent context is refreshed in a single round trip.
 
-`submit_input` follows the HATEOAS pattern: after submitting, it immediately queries and returns the new workflow state, so the agent always has the authoritative next step without a separate query call.
+### `agent/agent.py` — WorkflowAgent Architecture
 
-### `agent/agent.py` — WorkflowAgent
+Composes the Bedrock LLM model (`anthropic.claude-sonnet-4-6`) with tool execution closures:
 
-The composition layer that wires the Strands agent to the tool functions.
+- **Lazy Connection Binding**: Temporal (`_get_temporal_client`) and HTTP (`_get_http_client`) clients connect lazily on first execution to ensure gRPC binding to the active event loop (such as FastAPI/uvicorn).
+- **Silent NLU Persona (`agent/prompts/system.txt`)**: System instructions strictly direct the LLM to act as a silent intent parsing engine. The agent's task is solely to inspect user natural language, resolve missing or contextually implied values, and trigger tools. It **never** formats conversational filler or prompt text for display.
+- **Strict JSON Type Coercion (`_coerce_value`)**: Normalizes LLM tool call arguments to conform to schema requirements before submission to Temporal:
+  - `kind: "boolean"` — Coerces string variants (`"yes"`, `"y"`, `"sure"`, `"confirm"`) into primitive boolean `True`/`False`.
+  - `kind: "string"` — Strips escaped string literal quotes and validates regex patterns.
+  - `kind: "select_one"` — When options resolve to full dictionary objects (e.g. UPRN address maps or organ donor choices), coerces string choices into the **entire matching dictionary object**.
+  - `kind: "file_ref"` or `kind: "object"` — Parses incoming file metadata strings into standard dictionary payloads.
+- **HATEOAS Context Injection**: `build_contextual_prompt()` appends current `session_state` (`workflow_id`, `token`, awaiting prompt, and schema) directly into the user message prompt, eliminating reliance on LLM conversation memory.
 
-**Construction:**
+### `chat.py` — WebSockets Web Interface
 
-```python
-WorkflowAgent(
-    workflow_server_url="http://localhost:8080",
-    model_id="anthropic.claude-sonnet-4-6",
-    region_name="eu-west-2",
-    temporal_address="localhost:7233",
-    task_queue="sfsm-queue",
-)
-```
+A standalone FastAPI server driving a GOV.UK-styled web interface:
 
-The agent exists independently of any live connections. Temporal and HTTP clients are `None` at construction time.
-
-**Lazy connection pattern:**
-
-`_get_temporal_client()` and `_get_http_client()` connect on first use. This ensures the gRPC channel binds to whatever event loop is active at call time — critical because Gradio's uvicorn loop differs from the loop that would exist at module import time.
-
-**Tool closures:**
-
-`_build_tools()` creates `@tool`-decorated async closures that capture `owner` (a reference to the agent instance). Each closure:
-1. Acquires the appropriate client via `owner._get_temporal_client()` / `owner._get_http_client()`
-2. For `submit_input`: coerces the `value` argument via `_coerce_value()` (see below)
-3. Delegates to the corresponding function in `agent/tools.py`
-4. Calls `owner._update_session_state()` to keep the HATEOAS continuation state current
-
-**Value coercion (`_coerce_value`):**
-
-LLMs emit tool arguments as JSON, but don't reliably produce the correct JSON type — e.g. passing `"Yes"` (string) when the schema expects a boolean `true`. The `_coerce_value` function inspects the `kind` field from the current awaiting schema in session state and coerces the value:
-
-- `kind: "boolean"` — string → `True`/`False` (matches against a set of truthy words)
-- `kind: "string"` — non-string → `str(value)`
-- `kind: "object"` — JSON string → parsed dict
-
-This is a defensive fallback. The primary mechanism is the system prompt, which explicitly instructs the LLM to pass correctly-typed values. The coercion catches cases where the LLM disregards the instruction — without it, Temporal's update validator would reject the submission and the user would see an opaque error.
-
-**Session state:**
-
-`_session_state` is a dict with `workflow_id` and `awaiting` (the current `AwaitingInput` or `None`). It is updated by every state-changing tool call. The chat layer reads it before each turn and passes it as context to `build_contextual_prompt()`.
-
-**`build_contextual_prompt(user_message, context)`:**
-
-When context exists, the user's message is augmented with the current workflow state (active workflow ID, pending token, prompt text, and input schema). This eliminates reliance on conversation memory for state tracking — the agent always has the authoritative state from Temporal.
-
-**`respond(user_message, context)`:**
-
-Builds the contextual prompt and calls `self._agent.invoke_async(prompt)`. Returns the agent's text response as a string.
-
-### `agent/prompts/system.txt` — System Prompt
-
-The system prompt establishes the agent's behavioural contract:
-
-1. **Role**: Government service workflow assistant
-2. **Integrity rules**: Never skip, invent, or reorder steps. Only present options the schema defines. If a submission is rejected, inform the user.
-3. **Type discipline**: Explicit instruction that `value` passed to `submit_input` must be the correct JSON type (`true`/`false` for booleans, strings for strings, objects for objects) — not a string representation. Includes concrete examples of correct tool calls for each schema kind.
-4. **NLU guidance**: How to interpret natural language into each schema type (boolean, string with pattern, select_one, object, file_ref)
-5. **Tool usage**: When to use each tool (start vs resume, query vs submit)
-6. **Communication style**: Concise, one step at a time, don't dump the full definition
-
-### `agent/chat.py` — Gradio UI
-
-**`create_chat_fn(agent)`** — Returns an async function `(message, history, state) -> (response, state)` that:
-1. Reads session state (from Gradio's `gr.State` or the agent's own `session_state`)
-2. Calls `agent.respond(message, context=state)`
-3. Returns the response and the updated session state
-
-**`create_app(agent)`** — Builds a `gr.Blocks` layout with a Chatbot, State, and Textbox. The `msg.submit` event wires through the chat function, appending messages to history and threading state.
-
-**`main()`** — The entry point (`python -m agent.chat`). Creates a `WorkflowAgent` from environment variables, builds the Gradio app, and launches it. No async setup required — the agent connects to Temporal lazily when the first user message triggers a tool call.
+- **WebSocket Communication (`/ws`)**: Handles real-time bi-directional transport between the browser client and the backend server.
+- **Direct Event Stream Renderer (`stream_background_events`)**: A dedicated background polling loop that queries `get_workflow_state` every 0.5s:
+  - **Transcript Entries**: Reads `OutputState` transcript additions directly from Temporal history and streams them as clean assistant messages to the client.
+  - **Awaiting Prompts**: Detects active input tokens and streams the raw schema prompt text directly to the UI (once per token).
+  - **Dynamic Option Generation (`get_options_from_state`)**: Inspects the schema kind (`boolean`, `enum`, `select_one`) and extracts human-readable option labels, sending an `options` JSON payload to render frontend buttons.
+- **Silent Agent Ingestion**: The WebSocket text handler forwards user input to `agent_instance.respond()`. The LLM's conversational text return is ignored; its output is delivered exclusively through Temporal tool calls (`submit_input`, `start_workflow`).
 
 ---
 
 ## Data Flow: A Complete Turn
 
-1. User types "I need to change my address" in the Gradio UI
-2. `chat.py` calls `agent.respond("I need to change my address", context=None)`
-3. `build_contextual_prompt` returns the raw message (no context yet)
-4. Strands agent receives the message, decides to call `start_workflow(workflow_id=1)`
-5. The tool closure calls `_get_temporal_client()` → connects lazily to Temporal
-6. `tools.start_workflow` fetches the definition from the workflow server, then calls `temporal_client.start_workflow("SFSMInterpreter", arg=definition, ...)`
-7. The Temporal worker picks up the workflow, enters the first `InputState`, publishes `AwaitingInput` via query
-8. The tool closure queries state and updates `session_state` with the workflow_id and awaiting info
-9. The agent sees the returned state (prompt: "Do you confirm you want to change your address?", schema: boolean, token: tkn_1) and formulates a natural language response
-10. The response flows back through Gradio to the user
 
-On the next turn:
-1. User types "yes"
-2. `chat.py` passes `session_state` (containing workflow_id, token, awaiting) as context
-3. `build_contextual_prompt` augments the message with state context
-4. The agent calls `submit_input(workflow_id="sfsm-dvla.change_of_address-0.2.0", token="tkn_1", value="Yes")` — note: the LLM may pass a string
-5. `_coerce_value` sees schema kind is `"boolean"`, coerces `"Yes"` → `True`
-6. Temporal's update validator checks the token matches and type is correct → accepts
-7. The workflow advances to the next state
-8. `submit_input` queries and returns the new state (next prompt, next token)
-9. The agent presents the next step conversationally
+```
+
+User Input          FastAPI (chat.py)          WorkflowAgent           Temporal Engine
+│                        │                        │                        │
+├─ "Change my address" ─►│                        │                        │
+│                        ├─ respond(msg) ────────►│                        │
+│                        │                        ├─ start_workflow(id=1)─►│
+│                        │                        │                        ├─ Start SFSMInterpreter
+│                        │                        │                        ├─ Execute to InputState
+│                        │                        │                        └─ Publish AwaitingInput
+│                        │◄─ Stream Transcript ───┼────────────────────────┤
+│◄─ Render Prompt/Btns ──┤   & Schema Prompt      │                        │
+│                        │                        │                        │
+├─ Click "Yes" ─────────►│                        │                        │
+│                        ├─ respond("Yes") ──────►│                        │
+│                        │                        ├─ submit_input(...) ───►│
+│                        │                        │  (coerces "Yes"->True) │├─ Validate Update
+│                        │                        │                        ├─ Advance FSM Loop
+│                        │                        │                        └─ Reach next InputState
+│                        │◄─ Stream Next Prompt ──┼────────────────────────┤
+│◄─ Render New Step ─────┤   & Updated Options    │                        │
+
+```
+
+1. **Service Initiation**: User submits *"I want to change the address on my driving licence"*.
+2. **Intent Parsing**: `chat.py` passes the message to `WorkflowAgent.respond()`. The LLM calls `get_workflow_definition(workflow_id=1)` followed by `start_workflow(workflow_id=1)`.
+3. **Workflow Execution**: Temporal launches `SFSMInterpreter`. It evaluates `confirm_intent` (`InputState`), publishes token `tkn_1` via query, and halts at `workflow.wait_condition`.
+4. **Direct Stream Rendering**: The background loop in `chat.py` polls `get_workflow_state`, detects token `tkn_1`, and pushes the raw prompt (*"Would you like to proceed with changing the address on your driving licence?"*) and binary options `["Yes", "No"]` straight to the WebSocket.
+5. **Input Submission**: User clicks **Yes**. `chat.py` passes `"Yes"` to the agent.
+6. **Type Coercion & Update**: The agent invokes `submit_input(workflow_id="...", token="tkn_1", value=true)`. `_coerce_value` ensures the value is passed as boolean `True`. Temporal's `_validate_input` validator checks the payload and unblocks the execution loop.
+7. **Sub-process Execution**: The engine transitions through `branch_intent`, invokes `driver_details` sub-process frame onto the stack, executes `http_call` activity to query DVLA records (`/app/dvla/v1/driver-summary`), and halts at `confirm_driver_details`.
+8. **UI State Update**: `stream_background_events` detects the updated transcript and newly generated token `tkn_2`, pushing the interpolated driver details text and new option choices to the user.
 
 ---
 
 ## Key Design Decisions
 
-### Temporal Updates (not Signals) for input
+### 1. Dual-Path Architecture (Agent Intent Parser + Direct System Renderer)
+To guarantee strict regulatory compliance and eliminate LLM text hallucinations, text rendering is completely decoupled from LLM text generation:
+- The **Agent Layer** is strictly an NLU intent parser and tool caller. It maps user natural language into structured API inputs.
+- The **System Engine** reads output transcript entries and schema prompt strings directly from Temporal queries, streaming them straight to the UI.
 
-Updates are synchronous: the submit call blocks until the workflow validates and accepts (or rejects). This means the agent gets immediate feedback on invalid submissions — token mismatch, wrong type, pattern failure — and can inform the user in the same turn.
+### 2. Synchronous Temporal Updates for Input Validation
+Inputs are passed via Temporal Updates (`submit_input`) rather than asynchronous Signals. Updates execute synchronously within the workflow loop; if a token is stale, a pattern check fails, or a type is incorrect, Temporal rejects the update immediately. The agent receives this rejection in the same turn and can request corrections without desynchronizing workflow state.
 
-### HATEOAS continuation state
+### 3. HATEOAS Continuation Pattern
+Every tool execution returns a self-describing state object (`awaiting` token, schema, options, and transcript). The agent does not rely on conversation memory to track workflow progress—the authoritative state is reinjected into the context prompt on every turn.
 
-Each tool response is self-describing: it carries the next expected token, prompt, and schema. The agent never needs to "remember" what step it's on — the state is always derived from Temporal's query response. This makes the system resilient to conversation context loss and prevents the LLM from drifting out of sync with the actual workflow state.
+### 4. Dynamic Option Generation & Type Coercion
+User options are built dynamically from the active input schema (e.g. `select_one` option tables or boolean flags). `_coerce_value` acts as a defensive buffer between the LLM tool call output and Temporal's strict validation handlers, automatically mapping dictionary objects, string primitives, and booleans.
 
-### Agent independence from Temporal at construction
-
-The `WorkflowAgent` takes only configuration strings (addresses, model IDs) at construction. Live connections are deferred until the first tool call. This solves the event loop binding problem: Gradio runs its own uvicorn asyncio loop, which differs from any loop that exists at import/construction time. By connecting lazily inside a tool call, the gRPC channel binds to Gradio's loop.
-
-### Tool design prevents hallucination vectors
-
-- `start_workflow` accepts only a numeric ID and fetches the definition internally — the LLM cannot fabricate workflow content
-- `submit_input` requires a token that must match the workflow's current expectation — stale or invented tokens are rejected by the validator
-- The system prompt forbids presenting options not in the schema, but even if the LLM hallucinates an option, Temporal will reject the submission
-- `_coerce_value` bridges the type-system gap between LLM output (which may produce `"Yes"` instead of `true`) and the strict Temporal validator, preventing opaque errors that would break the conversation flow
-
-### Sub-process stack (not child workflows)
-
-The interpreter uses a frame stack within a single Temporal workflow execution. This keeps the entire state serializable for continue-as-new and avoids the complexity of child workflow signalling and cancellation.
+### 5. Hierarchical Process Frame Stack
+Sub-processes (`driver_details`, `photo_update`, `signature_update`, `select_address`, `organ_donation`, `address_update`, `finalisation`) are managed via an internal `StackFrame` stack within a single Temporal workflow execution. This preserves variable isolation, supports return value mapping, enables continue-as-new serialization, and avoids the operational complexity of child workflow signals.
 
 ---
 
@@ -287,19 +242,19 @@ The interpreter uses a frame stack within a single Temporal workflow execution. 
 | Test file | Scope | Dependencies |
 |---|---|---|
 | `test_pure.py` | `paths.py` and `predicates.py` — pure functions | None |
-| `test_workflow.py` | Full interpreter execution against a local Temporal dev server | `temporal` CLI binary |
+| `test_workflow.py` | Full interpreter execution against local Temporal dev server | `temporal` CLI binary |
 | `test_agent_tools.py` | Tool functions with `FakeTemporalClient` and `httpx.MockTransport` | None |
 | `test_agent.py` | `WorkflowAgent` composition, session state updates, contextual prompt building | None |
-| `test_chat.py` | Gradio chat function delegation and app construction | None |
-
-The fake objects (`FakeTemporalClient`, `FakeWorkflowHandle`, `FakeWorkflowListIterator`) implement the minimal interface the tools expect. `httpx.MockTransport` exercises the real httpx async client code path while controlling responses.
+| `test_chat.py` | FastAPI WebSocket endpoints, message rendering, option generation | None |
 
 ---
 
 ## Entry Points
 
-| Command | What it starts |
-|---|---|
-| `python -m src.worker` | Temporal worker (must be running for any workflow execution) |
-| `python -m agent.chat` | Gradio chat UI on port 7860 |
-| `python -m src.demo` | Legacy terminal CLI |
+| Command | Entry Point File | Description |
+|---|---|---|
+| `python -m src.worker` | `src/worker.py` | **Temporal Worker**: Connects to Temporal (`localhost:7233`) and polls task queue `sfsm-queue`. Must be running for any workflow execution. |
+| `python -m chat` | `chat.py` | **FastAPI Web App & WebSocket UI**: Launches the web application on `http://localhost:7860`. Serves the GOV.UK frontend and manages real-time agent/workflow streaming. |
+| `python -m src.demo` | `src/demo.py` | **Terminal CLI (Legacy)**: Interactive terminal CLI driving workflows directly via raw Temporal queries/updates without the agent layer. |
+
+```

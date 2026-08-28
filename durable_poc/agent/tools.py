@@ -29,7 +29,9 @@ def _to_dict(obj: Any) -> Any:
     if is_dataclass(obj):
         return asdict(obj)
     if hasattr(obj, "__dict__"):
-        return {k: _to_dict(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
+        return {
+            k: _to_dict(v) for k, v in obj.__dict__.items() if not k.startswith("_")
+        }
     return obj
 
 
@@ -46,9 +48,7 @@ async def get_workflow_definition(
         response = await http_client.get(url)
     except httpx.RequestError as e:
         logger.error("HTTP request failed for workflow %d: %s", workflow_id, e)
-        raise WorkflowServerError(
-            f"Failed to connect to workflow server: {e}"
-        ) from e
+        raise WorkflowServerError(f"Failed to connect to workflow server: {e}") from e
     if response.status_code >= 400:
         logger.error(
             "Workflow server returned %d for workflow %d: %s",
@@ -80,11 +80,11 @@ async def start_workflow(
     definition = await get_workflow_definition(
         workflow_id=workflow_id, http_client=http_client, base_url=base_url
     )
-    
+
     # Append unique execution token to prevent duplicate workflow ID errors
     unique_suffix = str(uuid.uuid4())[:8]
     temporal_id = f"sfsm-{definition.get('id', 'unknown')}-{unique_suffix}"
-    
+
     logger.info(
         "Starting workflow on Temporal: id=%s task_queue=%s",
         temporal_id,
@@ -132,6 +132,9 @@ async def get_workflow_state(
     logger.info("Querying workflow state: %s", workflow_id)
     try:
         handle = temporal_client.get_workflow_handle(workflow_id)
+        description = await handle.describe()
+        status_name = description.status.name if description.status else "RUNNING"
+
         raw_awaiting = await handle.query("awaiting")
         raw_transcript = await handle.query("transcript")
     except Exception:
@@ -150,8 +153,16 @@ async def get_workflow_state(
             awaiting.get("prompt"),
         )
     else:
-        logger.info("Workflow %s not awaiting input (processing or completed)", workflow_id)
-    return {"awaiting": awaiting, "transcript": transcript}
+        logger.info(
+            "Workflow %s not awaiting input (status=%s)", workflow_id, status_name
+        )
+
+    return {
+        "workflow_id": workflow_id,
+        "status": status_name,
+        "awaiting": awaiting,
+        "transcript": transcript,
+    }
 
 
 async def submit_input(

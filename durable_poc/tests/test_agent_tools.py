@@ -19,6 +19,16 @@ from agent.tools import (
 
 
 @dataclass
+class FakeWorkflowStatus:
+    name: str = "RUNNING"
+
+
+@dataclass
+class FakeWorkflowDescription:
+    status: FakeWorkflowStatus = field(default_factory=FakeWorkflowStatus)
+
+
+@dataclass
 class FakeWorkflowHandle:
     """Minimal Temporal workflow handle for testing."""
 
@@ -26,6 +36,12 @@ class FakeWorkflowHandle:
     query_responses: dict[str, Any] = field(default_factory=dict)
     update_calls: list[dict[str, Any]] = field(default_factory=list)
     update_error: Exception | None = None
+    execution_status: str = "RUNNING"
+
+    async def describe(self) -> FakeWorkflowDescription:
+        return FakeWorkflowDescription(
+            status=FakeWorkflowStatus(name=self.execution_status)
+        )
 
     async def query(self, query_name: str) -> Any:
         return self.query_responses.get(query_name)
@@ -86,6 +102,8 @@ class FakeTemporalClient:
         return handle
 
     def get_workflow_handle(self, workflow_id: str) -> FakeWorkflowHandle:
+        if workflow_id not in self.handles:
+            self.handles[workflow_id] = FakeWorkflowHandle(id=workflow_id)
         return self.handles[workflow_id]
 
     def list_workflows(self, query: str) -> FakeWorkflowListIterator:
@@ -148,7 +166,7 @@ async def test_get_workflow_definition_raises_on_http_error() -> None:
 
 @pytest.mark.asyncio
 async def test_start_workflow_fetches_definition_and_starts() -> None:
-    """Starting a workflow fetches the definition then starts it on Temporal."""
+    """Starting a workflow fetches definition then starts it with unique prefix."""
     temporal_client = FakeTemporalClient()
     definition = {
         "schema": "sfsm/0.2",
@@ -173,7 +191,7 @@ async def test_start_workflow_fetches_definition_and_starts() -> None:
             task_queue="sfsm-queue",
         )
 
-    assert workflow_id == "sfsm-dvla.change_of_address-0.2.0"
+    assert workflow_id.startswith("sfsm-dvla.change_of_address-")
     assert len(temporal_client.started_workflows) == 1
     started = temporal_client.started_workflows[0]
     assert started["workflow"] == "SFSMInterpreter"
@@ -187,11 +205,12 @@ async def test_start_workflow_fetches_definition_and_starts() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_workflow_state_returns_awaiting_and_transcript() -> None:
-    """When the workflow is waiting for input, state includes the awaiting info."""
+async def test_get_workflow_state_returns_awaiting_status_and_transcript() -> None:
+    """When the workflow is waiting for input, state includes full context."""
     temporal_client = FakeTemporalClient()
     handle = FakeWorkflowHandle(
         id="wf-1",
+        execution_status="RUNNING",
         query_responses={
             "awaiting": {
                 "token": "tkn_1",
@@ -210,6 +229,8 @@ async def test_get_workflow_state_returns_awaiting_and_transcript() -> None:
         temporal_client=temporal_client,
     )
 
+    assert state["workflow_id"] == "wf-1"
+    assert state["status"] == "RUNNING"
     assert state["awaiting"] is not None
     assert state["awaiting"]["token"] == "tkn_1"
     assert state["awaiting"]["prompt"] == "Enter your postcode"
@@ -222,6 +243,7 @@ async def test_get_workflow_state_returns_none_awaiting_when_processing() -> Non
     temporal_client = FakeTemporalClient()
     handle = FakeWorkflowHandle(
         id="wf-2",
+        execution_status="COMPLETED",
         query_responses={"awaiting": None, "transcript": []},
     )
     temporal_client.handles["wf-2"] = handle
@@ -231,6 +253,7 @@ async def test_get_workflow_state_returns_none_awaiting_when_processing() -> Non
         temporal_client=temporal_client,
     )
 
+    assert state["status"] == "COMPLETED"
     assert state["awaiting"] is None
     assert state["transcript"] == []
 

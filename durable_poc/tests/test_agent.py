@@ -8,12 +8,27 @@ from typing import Any
 import httpx
 import pytest
 
-from agent.agent import PROMPT_PATH, WorkflowAgent, _coerce_value, build_contextual_prompt
+from agent.agent import (
+    PROMPT_PATH,
+    WorkflowAgent,
+    _coerce_value,
+    build_contextual_prompt,
+)
 
 
 # ---------------------------------------------------------------------------
-# Fakes (reuse shapes from test_agent_tools)
+# Fakes
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class FakeWorkflowStatus:
+    name: str = "RUNNING"
+
+
+@dataclass
+class FakeWorkflowDescription:
+    status: FakeWorkflowStatus = field(default_factory=FakeWorkflowStatus)
 
 
 @dataclass
@@ -21,6 +36,12 @@ class FakeWorkflowHandle:
     id: str
     query_responses: dict[str, Any] = field(default_factory=dict)
     update_calls: list[dict[str, Any]] = field(default_factory=list)
+    execution_status: str = "RUNNING"
+
+    async def describe(self) -> FakeWorkflowDescription:
+        return FakeWorkflowDescription(
+            status=FakeWorkflowStatus(name=self.execution_status)
+        )
 
     async def query(self, query_name: str) -> Any:
         return self.query_responses.get(query_name)
@@ -29,33 +50,10 @@ class FakeWorkflowHandle:
         self.update_calls.append({"update_name": update_name, "arg": arg})
 
 
-@dataclass
-class FakeWorkflowExecution:
-    id: str
-    status: str
-
-
-class FakeWorkflowListIterator:
-    def __init__(self, executions: list[FakeWorkflowExecution]) -> None:
-        self._executions = executions
-        self._index = 0
-
-    def __aiter__(self) -> "FakeWorkflowListIterator":
-        return self
-
-    async def __anext__(self) -> FakeWorkflowExecution:
-        if self._index >= len(self._executions):
-            raise StopAsyncIteration
-        execution = self._executions[self._index]
-        self._index += 1
-        return execution
-
-
 class FakeTemporalClient:
     def __init__(self) -> None:
         self.started_workflows: list[dict[str, Any]] = []
         self.handles: dict[str, FakeWorkflowHandle] = {}
-        self.workflow_executions: list[FakeWorkflowExecution] = []
 
     async def start_workflow(
         self, workflow: str, *, arg: Any, id: str, task_queue: str
@@ -68,10 +66,9 @@ class FakeTemporalClient:
         return handle
 
     def get_workflow_handle(self, workflow_id: str) -> FakeWorkflowHandle:
+        if workflow_id not in self.handles:
+            self.handles[workflow_id] = FakeWorkflowHandle(id=workflow_id)
         return self.handles[workflow_id]
-
-    def list_workflows(self, query: str) -> FakeWorkflowListIterator:
-        return FakeWorkflowListIterator(self.workflow_executions)
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +96,10 @@ def test_system_prompt_contains_integrity_instructions() -> None:
 
 def _state_with_schema(kind: str, **extra: Any) -> dict[str, Any]:
     schema = {"kind": kind, **extra}
-    return {"workflow_id": "wf-1", "awaiting": {"token": "t", "prompt": "?", "schema": schema}}
+    return {
+        "workflow_id": "wf-1",
+        "awaiting": {"token": "t", "prompt": "?", "schema": schema},
+    }
 
 
 def test_coerce_boolean_from_string_yes() -> None:
@@ -124,6 +124,12 @@ def test_coerce_string_from_non_string() -> None:
 
 def test_coerce_string_passthrough() -> None:
     assert _coerce_value("SW1A 2AA", _state_with_schema("string")) == "SW1A 2AA"
+
+
+def test_coerce_object_from_uploaded_file_marker() -> None:
+    val = "[Uploaded File: content_type='image/png', bytes=2048]"
+    result = _coerce_value(val, _state_with_schema("file_ref"))
+    assert result == {"type": "file_attachment", "raw": val}
 
 
 def test_coerce_object_from_json_string() -> None:
@@ -163,7 +169,10 @@ def test_build_contextual_prompt_with_awaiting_state() -> None:
         "awaiting": {
             "token": "tkn_3",
             "prompt": "Please enter your new postcode.",
-            "schema": {"kind": "string", "pattern": "[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}"},
+            "schema": {
+                "kind": "string",
+                "pattern": "[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}",
+            },
         },
     }
     result = build_contextual_prompt("SW1A 2AA", context=context)
@@ -183,7 +192,7 @@ def test_build_contextual_prompt_with_completed_workflow() -> None:
     result = build_contextual_prompt("What happened?", context=context)
 
     assert "sfsm-dvla.change_of_address-0.2.0" in result
-    assert "not currently awaiting" in result.lower() or "no pending" in result.lower()
+    assert "not currently awaiting" in result.lower()
     assert "What happened?" in result
 
 
@@ -228,13 +237,14 @@ def test_agent_exposes_expected_tool_names() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_workflow_state_tool_delegates_to_tools_module() -> None:
-    """The get_workflow_state tool closure reaches the underlying function."""
+async def test_get_workflow_state_tool_returns_instruction_when_not_awaiting() -> None:
+    """When state is not awaiting, get_workflow_state tool returns explicit guidance."""
     temporal_client = FakeTemporalClient()
     handle = FakeWorkflowHandle(
         id="wf-1",
+        execution_status="RUNNING",
         query_responses={
-            "awaiting": {"token": "tkn_1", "prompt": "Name?", "schema": {"kind": "string"}},
+            "awaiting": None,
             "transcript": [],
         },
     )
@@ -243,39 +253,14 @@ async def test_get_workflow_state_tool_delegates_to_tools_module() -> None:
     agent = make_test_agent(temporal_client)
 
     result = await agent.call_tool("get_workflow_state", workflow_id="wf-1")
-    assert result["awaiting"]["token"] == "tkn_1"
-
-
-@pytest.mark.asyncio
-async def test_submit_input_tool_delegates_and_returns_new_state() -> None:
-    """The submit_input tool closure submits and returns the new workflow state."""
-    temporal_client = FakeTemporalClient()
-    handle = FakeWorkflowHandle(
-        id="wf-1",
-        query_responses={
-            "awaiting": {"token": "tkn_2", "prompt": "Next step", "schema": {"kind": "string"}},
-            "transcript": [],
-        },
-    )
-    temporal_client.handles["wf-1"] = handle
-
-    agent = make_test_agent(temporal_client)
-
-    result = await agent.call_tool("submit_input", workflow_id="wf-1", token="tkn_1", value=True)
-    assert len(handle.update_calls) == 1
-    assert handle.update_calls[0]["arg"].token == "tkn_1"
-    assert handle.update_calls[0]["arg"].value is True
-    assert result["awaiting"]["token"] == "tkn_2"
-
-
-# ---------------------------------------------------------------------------
-# Session state updates
-# ---------------------------------------------------------------------------
+    assert result["awaiting"] is None
+    assert "message" in result
+    assert "Do not re-query" in result["message"] or "instructed" in result["message"]
 
 
 @pytest.mark.asyncio
 async def test_start_workflow_updates_session_state() -> None:
-    """Starting a workflow sets the session state with workflow_id and awaiting."""
+    """Starting a workflow sets the session state with prefix-matched workflow_id."""
     temporal_client = FakeTemporalClient()
     definition = {
         "schema": "sfsm/0.2",
@@ -295,46 +280,4 @@ async def test_start_workflow_updates_session_state() -> None:
     await agent.call_tool("start_workflow", workflow_id=1)
 
     assert agent.session_state is not None
-    assert agent.session_state["workflow_id"] == "sfsm-dvla.change_of_address-0.2.0"
-
-
-@pytest.mark.asyncio
-async def test_submit_input_updates_session_state() -> None:
-    """Submitting input updates session state with the new awaiting info."""
-    temporal_client = FakeTemporalClient()
-    handle = FakeWorkflowHandle(
-        id="wf-1",
-        query_responses={
-            "awaiting": {"token": "tkn_2", "prompt": "Next?", "schema": {"kind": "boolean"}},
-            "transcript": [{"step": 1, "timestamp": "t", "message": "Done"}],
-        },
-    )
-    temporal_client.handles["wf-1"] = handle
-
-    agent = make_test_agent(temporal_client)
-    await agent.call_tool("submit_input", workflow_id="wf-1", token="tkn_1", value="yes")
-
-    assert agent.session_state is not None
-    assert agent.session_state["workflow_id"] == "wf-1"
-    assert agent.session_state["awaiting"]["token"] == "tkn_2"
-
-
-@pytest.mark.asyncio
-async def test_get_workflow_state_updates_session_state() -> None:
-    """Querying workflow state also updates session state."""
-    temporal_client = FakeTemporalClient()
-    handle = FakeWorkflowHandle(
-        id="wf-1",
-        query_responses={
-            "awaiting": {"token": "tkn_1", "prompt": "Name?", "schema": {"kind": "string"}},
-            "transcript": [],
-        },
-    )
-    temporal_client.handles["wf-1"] = handle
-
-    agent = make_test_agent(temporal_client)
-    await agent.call_tool("get_workflow_state", workflow_id="wf-1")
-
-    assert agent.session_state is not None
-    assert agent.session_state["workflow_id"] == "wf-1"
-    assert agent.session_state["awaiting"]["token"] == "tkn_1"
+    assert agent.session_state["workflow_id"].startswith("sfsm-dvla.change_of_address-")

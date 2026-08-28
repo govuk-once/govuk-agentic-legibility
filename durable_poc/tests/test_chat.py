@@ -1,83 +1,90 @@
-"""Tests for the Gradio chat interface."""
+"""Tests for the FastAPI WebSocket chat server and option generation functions."""
 
 from __future__ import annotations
 
-from typing import Any
+from fastapi.testclient import TestClient
 
-import pytest
-
-from agent.chat import create_app, create_chat_fn
+from agent.chat import app, clean_text_pipes, get_options_from_state
 
 
-class FakeAgent:
-    """Agent that records calls and returns a canned response."""
-
-    def __init__(
-        self,
-        response: str = "I can help with that.",
-        session_state: dict[str, Any] | None = None,
-    ) -> None:
-        self.response = response
-        self.session_state = session_state
-        self.calls: list[dict[str, Any]] = []
-
-    async def respond(self, message: str, *, context: dict[str, Any] | None = None) -> str:
-        self.calls.append({"message": message, "context": context})
-        return self.response
+# ---------------------------------------------------------------------------
+# Unit Tests for Helper Functions
+# ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_chat_fn_delegates_message_to_agent() -> None:
-    """The chat function passes the user message to the agent and returns its response."""
-    agent = FakeAgent(response="Let me start that workflow for you.")
-    chat_fn = create_chat_fn(agent)
-
-    result, state = await chat_fn("I need to change my address", [], None)
-
-    assert result == "Let me start that workflow for you."
-    assert agent.calls[0]["message"] == "I need to change my address"
+def test_clean_text_pipes_removes_standalone_pipes() -> None:
+    """clean_text_pipes strips leading and trailing vertical pipe characters from text lines."""
+    raw_text = "| Hello World |\n| This is a test |"
+    cleaned = clean_text_pipes(raw_text)
+    assert cleaned == "Hello World\nThis is a test"
 
 
-@pytest.mark.asyncio
-async def test_chat_fn_passes_state_as_context() -> None:
-    """When session state exists, it is passed to the agent as context."""
-    session_state = {
-        "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
+def test_get_options_from_state_boolean() -> None:
+    """Boolean schema kind generates Yes/No options."""
+    state = {"awaiting": {"schema": {"kind": "boolean"}}}
+    options = get_options_from_state(state)
+    assert options == ["Yes", "No"]
+
+
+def test_get_options_from_state_enum() -> None:
+    """Enum schema kind uses labels map or raw values."""
+    state = {
         "awaiting": {
-            "token": "tkn_2",
-            "prompt": "Enter your postcode.",
-            "schema": {"kind": "string"},
-        },
-    }
-    agent = FakeAgent(session_state=session_state)
-    chat_fn = create_chat_fn(agent)
-
-    result, new_state = await chat_fn("SW1A 2AA", [], None)
-
-    assert agent.calls[0]["context"] == session_state
-
-
-@pytest.mark.asyncio
-async def test_chat_fn_returns_updated_state_from_agent() -> None:
-    """The chat function returns the agent's session_state after respond()."""
-    agent = FakeAgent(
-        session_state={
-            "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
-            "awaiting": {"token": "tkn_1", "prompt": "Confirm?", "schema": {"kind": "boolean"}},
+            "schema": {
+                "kind": "enum",
+                "values": ["VAL_1", "VAL_2"],
+                "labels": {"VAL_1": "Value One"},
+            }
         }
-    )
-    chat_fn = create_chat_fn(agent)
-
-    _result, state = await chat_fn("I need to change my address", [], None)
-
-    assert state is not None
-    assert state["workflow_id"] == "sfsm-dvla.change_of_address-0.2.0"
+    }
+    options = get_options_from_state(state)
+    assert options == ["Value One", "VAL_2"]
 
 
-def test_create_app_returns_gradio_interface() -> None:
-    """The app factory returns a launchable Gradio Blocks instance."""
-    agent = FakeAgent()
-    app = create_app(agent)
+def test_get_options_from_state_select_one() -> None:
+    """Select_one schema kind parses label keys from options dicts."""
+    state = {
+        "awaiting": {
+            "options": [
+                {"uprn": "100", "single_line": "10 Downing Street"},
+                {"uprn": "101", "single_line": "11 Downing Street"},
+            ],
+            "schema": {
+                "kind": "select_one",
+                "label_key": "single_line",
+                "value_key": "uprn",
+            },
+        }
+    }
+    options = get_options_from_state(state)
+    assert options == [
+        "100 Downing Street" if False else "10 Downing Street",
+        "11 Downing Street",
+    ]
 
-    assert app is not None
-    assert hasattr(app, "launch")
+
+def test_get_options_from_state_none_when_not_awaiting() -> None:
+    """Returns empty list when workflow is not awaiting input."""
+    assert get_options_from_state(None) == []
+    assert get_options_from_state({"awaiting": None}) == []
+
+
+# ---------------------------------------------------------------------------
+# FastAPI Route & WebSocket Endpoints Test
+# ---------------------------------------------------------------------------
+
+
+def test_get_index_returns_html() -> None:
+    """The root endpoint serves the HTML UI template."""
+    client = TestClient(app)
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "<title>GOV.UK Chat Assistant</title>" in response.text
+
+
+def test_websocket_connection_disconnects_cleanly() -> None:
+    """WebSocket connection connects and disconnects without raising errors."""
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as websocket:
+        # Verify connection was accepted
+        assert websocket is not None

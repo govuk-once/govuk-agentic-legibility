@@ -260,15 +260,14 @@ class SFSMInterpreter:
                 headers = current_state.headers or {}
                 url = interpolate(current_state.url, context=context)
 
+                service_name = getattr(current_state, "service", None)
                 call_params = activities.CallParams(
                     method=current_state.method,
                     url=url,
                     headers=headers,
                     body=body,
                     capture=current_state.capture,
-                    service=current_service
-                    if (current_service := getattr(current_state, "service", None))
-                    else None,
+                    service=service_name if service_name else "",
                 )
 
                 retry_pol = RetryPolicy(
@@ -349,9 +348,6 @@ class SFSMInterpreter:
                         f"Process '{current_state.process}' invoked by state '{frame.state_id}' not found"
                     )
 
-                # Advance parent state so returning won't trigger re-invocation loop
-                frame.state_id = current_state.next
-
                 new_frame = StackFrame(
                     process_id=current_state.process,
                     state_id=target_proc.start,
@@ -401,26 +397,25 @@ class SFSMInterpreter:
                     if isinstance(invoker, InvokeState):
                         # Safely map return values back into the parent frame context
                         if invoker.assign and ret_val is not None:
-                            set_path(
-                                parent_frame.vars, invoker.assign, ret_val
-                            )
+                            set_path(parent_frame.vars, invoker.assign, ret_val)
                             workflow.logger.info(
                                 f"↩️ Returned {ret_val} into parent var '{invoker.assign}'"
                             )
 
                         # Check and route if an outcome catch condition matches
+                        handled = False
                         if invoker.catch:
                             for c in invoker.catch:
                                 rule_on = c.on if hasattr(c, "on") else c.get("on")
                                 rule_next = (
                                     c.next if hasattr(c, "next") else c.get("next")
                                 )
-                                if (
-                                    rule_on == current_state.outcome
-                                    or rule_on == "any"
-                                ):
+                                if rule_on == current_state.outcome or rule_on == "any":
                                     parent_frame.state_id = rule_next
+                                    handled = True
                                     break
+                        if not handled:
+                            parent_frame.state_id = invoker.next
                 else:
                     return {
                         "status": current_state.status,

@@ -1,10 +1,9 @@
-"""Integration tests for the workflow executor."""
+"""Integration tests for the FSM workflow executor and update validator."""
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
-import os
+import shutil
 
 import pytest
 from temporalio.testing import WorkflowEnvironment
@@ -21,14 +20,22 @@ TEMPORAL_PATH = shutil.which("temporal")
 # Provide mock activities that don't hit the network
 @activity.defn(name="http_call")
 async def mock_http_call(params: CallParams) -> dict[str, Any]:
-    if "search" in params.url:
+    if "driver-summary" in params.url:
         return {
             "status": 200,
-            "addresses": [
-                {"uprn": "1", "single_line": "10 Downing St", "postcode": "SW1A 2AA"}
-            ],
+            "body": {
+                "driverViewResponse": {
+                    "driver": {
+                        "drivingLicenceNumber": "SMITH9090",
+                        "firstNames": "Jane",
+                        "lastName": "Smith",
+                        "dateOfBirth": "1990-01-01",
+                        "email": "jane@example.com",
+                    }
+                }
+            },
         }
-    return {"status": 201, "photo_id": "abc-123"}
+    return {"status": 200, "body": {}}
 
 
 @activity.defn(name="notify")
@@ -37,18 +44,70 @@ async def mock_notify(params: NotifyParams) -> None:
 
 
 @pytest.fixture
-def fsm_definition() -> dict[str, Any]:
-    cwd = Path(os.getcwd())
-    with open(cwd / "durable_poc" / "tests" / "sample_workflow.json") as f:
-        return json.loads(f.read())
+def sample_workflow_def() -> dict[str, Any]:
+    fixture_path = Path(__file__).parent / "sample_workflow.json"
+    with open(fixture_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-@pytest.mark.it("completes the sample workflow")
+@pytest.fixture
+def subprocess_workflow_def() -> dict[str, Any]:
+    return {
+        "schema": "sfsm/0.2",
+        "id": "test.subprocess_stack",
+        "version": "1.0",
+        "entry": "main",
+        "executor": {},
+        "processes": {
+            "main": {
+                "start": "call_sub",
+                "vars": {"child_result": None},
+                "states": {
+                    "call_sub": {
+                        "type": "invoke",
+                        "process": "child_proc",
+                        "input": {"val": "hello"},
+                        "assign": "child_result",
+                        "next": "end_main",
+                    },
+                    "end_main": {
+                        "type": "end",
+                        "status": "success",
+                        "return": {"output": {"$": "child_result"}},
+                    },
+                },
+            },
+            "child_proc": {
+                "start": "ask_child_input",
+                "vars": {},
+                "states": {
+                    "ask_child_input": {
+                        "type": "input",
+                        "prompt": "Child prompt?",
+                        "schema": {"kind": "string"},
+                        "assign": "child_var",
+                        "next": "end_child",
+                    },
+                    "end_child": {
+                        "type": "end",
+                        "status": "success",
+                        "outcome": "completed",
+                        "return": {"echo": {"$": "child_var"}},
+                    },
+                },
+            },
+        },
+    }
+
+
 @pytest.mark.asyncio
-async def test_workflow_execution_completes(fsm_definition: dict[str, Any]) -> None:
+async def test_workflow_execution_completes(
+    sample_workflow_def: dict[str, Any],
+) -> None:
+    """Workflow executes input states, evaluates choice rules, and returns final payload."""
     async with await WorkflowEnvironment.start_local(
-            dev_server_existing_path=TEMPORAL_PATH,
-        ) as env:
+        dev_server_existing_path=TEMPORAL_PATH,
+    ) as env:
         async with Worker(
             env.client,
             task_queue="test-q",
@@ -57,7 +116,7 @@ async def test_workflow_execution_completes(fsm_definition: dict[str, Any]) -> N
         ):
             handle = await env.client.start_workflow(
                 SFSMInterpreter.run,
-                fsm_definition,
+                sample_workflow_def,
                 id="test-wf",
                 task_queue="test-q",
             )
@@ -92,14 +151,14 @@ async def test_workflow_execution_completes(fsm_definition: dict[str, Any]) -> N
             assert result["return"] == {"name": "Alice", "status": "subscribed"}
 
 
-@pytest.mark.it("rejects stale tokens")
 @pytest.mark.asyncio
 async def test_update_validator_rejects_stale_token(
-    fsm_definition: dict[str, Any],
+    sample_workflow_def: dict[str, Any],
 ) -> None:
+    """The update validator rejects updates with mismatched token parameters."""
     async with await WorkflowEnvironment.start_local(
-            dev_server_existing_path=TEMPORAL_PATH,
-        ) as env:
+        dev_server_existing_path=TEMPORAL_PATH,
+    ) as env:
         async with Worker(
             env.client,
             task_queue="test-q",
@@ -108,7 +167,7 @@ async def test_update_validator_rejects_stale_token(
         ):
             handle = await env.client.start_workflow(
                 SFSMInterpreter.run,
-                fsm_definition,
+                sample_workflow_def,
                 id="test-wf-2",
                 task_queue="test-q",
             )
@@ -122,3 +181,81 @@ async def test_update_validator_rejects_stale_token(
 
             # The validator error is nested in the 'cause' of the WorkflowUpdateFailedError
             assert "Token mismatch" in str(excinfo.value.cause)
+
+
+@pytest.mark.asyncio
+async def test_update_validator_rejects_invalid_kind_type(
+    sample_workflow_def: dict[str, Any],
+) -> None:
+    """The update validator rejects submissions that violate schema kind types."""
+    async with await WorkflowEnvironment.start_local(
+        dev_server_existing_path=TEMPORAL_PATH,
+    ) as env:
+        async with Worker(
+            env.client,
+            task_queue="test-q",
+            workflows=[SFSMInterpreter],
+            activities=[mock_http_call, mock_notify],
+        ):
+            handle = await env.client.start_workflow(
+                SFSMInterpreter.run,
+                sample_workflow_def,
+                id="test-wf-type-check",
+                task_queue="test-q",
+            )
+            await env.sleep(0.1)
+
+            awaiting = await handle.query("awaiting")
+            assert awaiting["schema"]["kind"] == "string"
+
+            # First submit valid string to reach boolean prompt
+            await handle.execute_update(
+                "submit_input", InputSubmission(token=awaiting["token"], value="Alice")
+            )
+            await env.sleep(0.1)
+
+            awaiting = await handle.query("awaiting")
+            assert awaiting["schema"]["kind"] == "boolean"
+
+            # Submit string "Yes" instead of boolean True -> validator must reject
+            with pytest.raises(WorkflowUpdateFailedError) as excinfo:
+                await handle.execute_update(
+                    "submit_input",
+                    InputSubmission(token=awaiting["token"], value="Yes"),
+                )
+
+            assert "Expected boolean" in str(excinfo.value.cause)
+
+
+@pytest.mark.asyncio
+async def test_subprocess_stack_invocation(
+    subprocess_workflow_def: dict[str, Any],
+) -> None:
+    """Engine executes sub-processes using stack frames and maps outputs back to parent context."""
+    async with await WorkflowEnvironment.start_local(
+        dev_server_existing_path=TEMPORAL_PATH,
+    ) as env:
+        async with Worker(
+            env.client,
+            task_queue="test-q",
+            workflows=[SFSMInterpreter],
+            activities=[mock_http_call, mock_notify],
+        ):
+            handle = await env.client.start_workflow(
+                SFSMInterpreter.run,
+                subprocess_workflow_def,
+                id="test-wf-subprocess",
+                task_queue="test-q",
+            )
+            await env.sleep(0.1)
+
+            awaiting = await handle.query("awaiting")
+            assert awaiting["prompt"] == "Child prompt?"
+
+            await handle.execute_update(
+                "submit_input", InputSubmission(token=awaiting["token"], value="world")
+            )
+
+            result = await handle.result()
+            assert result["status"] == "success"
+            assert result["return"] == {"output": {"echo": "world"}}

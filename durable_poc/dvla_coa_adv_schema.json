@@ -14,9 +14,9 @@
 
     "main": {
       "start": "confirm_intent",
-      "vars": { 
-        "address": null, 
-        "photo_id": null, 
+      "vars": {
+        "address": null,
+        "photo_id": null,
         "signature_id": null,
         "driver_id": null,
         "email": null,
@@ -89,7 +89,7 @@
           "process": "photo_update",
           "input": { "driver_id": { "$": "driver_id" } },
           "assign": "photo_id",
-          "catch": [ 
+          "catch": [
             { "on": "invalid_photo", "next": "end_rejected" },
             { "on": "api_failure", "next": "end_exception" }
           ],
@@ -101,7 +101,7 @@
           "process": "signature_update",
           "input": { "driver_id": { "$": "driver_id" } },
           "assign": "signature_id",
-          "catch": [ 
+          "catch": [
             { "on": "invalid_signature", "next": "end_rejected" },
             { "on": "api_failure", "next": "end_exception" }
           ],
@@ -136,8 +136,8 @@
         "run_finalisation": {
           "type": "invoke",
           "process": "finalisation",
-          "input": { 
-            "address": { "$": "address" }, 
+          "input": {
+            "address": { "$": "address" },
             "job_id": { "$": "job_id" },
             "driver_id": { "$": "driver_id" },
             "email": { "$": "email" }
@@ -225,7 +225,7 @@
         "prompt_manual_email": {
           "type": "input",
           "prompt": "Please enter your Email Address:",
-          "schema": { 
+          "schema": {
             "kind": "string",
             "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
             "normalise": "lower_trim",
@@ -259,7 +259,7 @@
           "type": "end",
           "status": "success",
           "outcome": "details_confirmed",
-          "return": { 
+          "return": {
             "driver_id": { "$": "driver.driver_id" },
             "email": { "$": "driver.email" }
           }
@@ -268,7 +268,7 @@
           "type": "end",
           "status": "success",
           "outcome": "details_manually_updated",
-          "return": { 
+          "return": {
             "driver_id": { "$": "manual_licence_no" },
             "email": { "$": "manual_email" }
           }
@@ -607,22 +607,22 @@
           "assign": "manual_postcode",
           "next": "end_success_manual"
         },
-        "end_success_selected": { 
-          "type": "end", 
-          "status": "success", 
-          "outcome": "address_selected", 
-          "return": { "single_line": { "$": "selected_address.line1" }, "postcode": { "$": "postcode" } } 
+        "end_success_selected": {
+          "type": "end",
+          "status": "success",
+          "outcome": "address_selected",
+          "return": { "single_line": { "$": "selected_address.line1" }, "postcode": { "$": "postcode" } }
         },
-        "end_success_manual": { 
-          "type": "end", 
-          "status": "success", 
-          "outcome": "address_entered_manually", 
-          "return": { "single_line": { "$": "manual_address" }, "postcode": { "$": "manual_postcode" } } 
+        "end_success_manual": {
+          "type": "end",
+          "status": "success",
+          "outcome": "address_entered_manually",
+          "return": { "single_line": { "$": "manual_address" }, "postcode": { "$": "manual_postcode" } }
         },
-        "end_api_failure": { 
-          "type": "end", 
-          "status": "failed", 
-          "outcome": "api_failure" 
+        "end_api_failure": {
+          "type": "end",
+          "status": "failed",
+          "outcome": "api_failure"
         }
       }
     },
@@ -711,24 +711,24 @@
           "next": "end_no_change"
         },
 
-        "end_updated": { 
-          "type": "end", 
-          "status": "success", 
-          "outcome": "organ_preference_updated", 
-          "return": { "$": "decision" } 
+        "end_updated": {
+          "type": "end",
+          "status": "success",
+          "outcome": "organ_preference_updated",
+          "return": { "$": "decision" }
         },
-        "end_no_change": { 
-          "type": "end", 
-          "status": "success", 
-          "outcome": "organ_preference_unchanged", 
-          "return": null 
+        "end_no_change": {
+          "type": "end",
+          "status": "success",
+          "outcome": "organ_preference_unchanged",
+          "return": null
         }
       }
     },
 
     "address_update": {
       "start": "submit",
-      "vars": { 
+      "vars": {
         "submission": null
       },
       "states": {
@@ -773,12 +773,12 @@
 
     "finalisation": {
       "start": "set_deadline",
-      "vars": { 
-        "poll_interval": "PT5M", 
+      "vars": {
+        "poll_interval": "PT5M",
         "poll_window": "PT24H",
         "reminder_after": "PT2D",
         "delivery_wait": "PT5D",
-        "deadline": null, 
+        "deadline": null,
         "job": null,
         "received": null
       },
@@ -821,7 +821,7 @@
           "channel": "email",
           "to": { "$": "input.email" },
           "template": "coa_application_submitted",
-          "params": { 
+          "params": {
             "postcode": { "$": "input.address.postcode" },
             "email": { "$": "input.email" }
           },

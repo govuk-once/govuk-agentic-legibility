@@ -170,12 +170,12 @@ HTML_TEMPLATE = """
             <span class="tag">Beta</span> This is a new digital service – your feedback helps us to improve it.
         </div>
         <h1>GOV.UK Chat Assistant</h1>
-        
+
         <div id="chat-window">
             <div class="msg assistant">Hello, how can I help you today?</div>
         </div>
         <div id="options-box" class="options-container"></div>
-        
+
         <div class="input-row">
             <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)" />
             <button class="file-upload-btn" onclick="document.getElementById('file-input').click()">Upload Photo</button>
@@ -193,7 +193,7 @@ HTML_TEMPLATE = """
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            
+
             if (data.type === "message") {
                 appendMessage(data.role, data.text);
             } else if (data.type === "options") {
@@ -223,7 +223,7 @@ HTML_TEMPLATE = """
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
+
             const filePayload = `[Uploaded File: content_type='${file.type || 'image/jpeg'}', bytes=${file.size}]`;
             appendMessage("user", `Uploaded: ${file.name}`);
             ws.send(JSON.stringify({ message: filePayload }));
@@ -259,19 +259,19 @@ async def get_index():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    
+
     session_state: dict[str, Any] | None = None
     active_workflow_id: str | None = None
     last_seen_index = 0
     handled_tokens = set()
 
     async def stream_background_events():
-        """OPTION A: Direct Workflow Renderer - Sole emitter for all assistant messages."""
+        """Direct Workflow Renderer - Sole emitter for all assistant messages."""
         nonlocal session_state, active_workflow_id, last_seen_index
-        
+
         while True:
-            await asyncio.sleep(1.0)
-            
+            await asyncio.sleep(0.5)
+
             if session_state and session_state.get("workflow_id"):
                 active_workflow_id = session_state.get("workflow_id")
 
@@ -293,24 +293,32 @@ async def websocket_endpoint(websocket: WebSocket):
             awaiting = updated_state.get("awaiting")
             token = awaiting.get("token") if awaiting else None
 
-            # 1. STREAM SYSTEM TRANSCRIPT ENTRIES DIRECTLY FROM TEMPORAL
+            # STREAM SYSTEM TRANSCRIPT ENTRIES DIRECTLY FROM TEMPORAL
             if current_len > last_seen_index:
                 for idx in range(last_seen_index, current_len):
                     entry = transcript[idx]
-                    msg_text = entry.get("message") if isinstance(entry, dict) else getattr(entry, "message", "")
+                    msg_text = (
+                        entry.get("message")
+                        if isinstance(entry, dict)
+                        else getattr(entry, "message", "")
+                    )
                     clean_msg = clean_text_pipes(msg_text)
                     if clean_msg:
-                        await websocket.send_json({"type": "message", "role": "assistant", "text": clean_msg})
+                        await websocket.send_json(
+                            {"type": "message", "role": "assistant", "text": clean_msg}
+                        )
 
                 last_seen_index = current_len
 
-            # 2. STREAM AWAITING PROMPT DIRECTLY FROM SCHEMA (ONCE PER TOKEN)
+            # STREAM AWAITING PROMPT DIRECTLY FROM SCHEMA (ONCE PER TOKEN)
             if token and token not in handled_tokens:
                 handled_tokens.add(token)
                 prompt_text = awaiting.get("prompt", "")
                 clean_prompt = clean_text_pipes(prompt_text)
                 if clean_prompt:
-                    await websocket.send_json({"type": "message", "role": "assistant", "text": clean_prompt})
+                    await websocket.send_json(
+                        {"type": "message", "role": "assistant", "text": clean_prompt}
+                    )
 
                 options = get_options_from_state(session_state)
                 await websocket.send_json({"type": "options", "options": options})
@@ -326,13 +334,39 @@ async def websocket_endpoint(websocket: WebSocket):
             if not user_msg:
                 continue
 
-            # Bedrock executes tool calls (start_workflow, submit_input).
-            # Bedrock's conversational text return value is IGNORED to prevent duplicate chat bubbles.
-            _ = await agent_instance.respond(user_msg, context=session_state)
+            prev_token = (
+                session_state.get("awaiting", {}).get("token")
+                if session_state and session_state.get("awaiting")
+                else None
+            )
+
+            # Execute agent invocation
+            agent_response = await agent_instance.respond(
+                user_msg, context=session_state
+            )
             session_state = getattr(agent_instance, "session_state", session_state)
-            
+
             if session_state and session_state.get("workflow_id"):
                 active_workflow_id = session_state.get("workflow_id")
+
+            new_token = (
+                session_state.get("awaiting", {}).get("token")
+                if session_state and session_state.get("awaiting")
+                else None
+            )
+
+            if (
+                prev_token
+                and new_token
+                and prev_token == new_token
+                and agent_response
+                and agent_response.strip()
+            ):
+                clean_warning = clean_text_pipes(agent_response)
+                if clean_warning:
+                    await websocket.send_json(
+                        {"type": "message", "role": "assistant", "text": clean_warning}
+                    )
 
             options = get_options_from_state(session_state)
             await websocket.send_json({"type": "options", "options": options})

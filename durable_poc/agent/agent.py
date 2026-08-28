@@ -68,6 +68,9 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
     true, or "42" instead of 42). This uses the known schema from session state
     to coerce to the correct Python type before submission to Temporal.
     """
+    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower() == "true"
+
     if session_state is None:
         return value
     awaiting = session_state.get("awaiting")
@@ -88,11 +91,14 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
             val_str = val_str[1:-1]
         return val_str
 
-    if kind in ("object", "file_ref", "select_one") and isinstance(value, str):
-        try:
-            return json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    if kind in ("object", "file_ref", "select_one"):
+        if isinstance(value, str):
+            if value.startswith("[Uploaded File:"):
+                return {"type": "file_attachment", "raw": value}
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
     return value
 
@@ -127,11 +133,13 @@ class WorkflowAgent:
         self._temporal_client: TemporalClient | None = None
         self._http_client: httpx.AsyncClient | None = None
         self._agent_lock = asyncio.Lock()
-        # Fallback system prompt if prompt file is missing
+
         if PROMPT_PATH.exists():
             self._system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
         else:
-            self._system_prompt = "You are an agent interacting with a state machine workflow engine."
+            self._system_prompt = (
+                "You are an agent interacting with a state machine workflow engine."
+            )
 
         self._model = BedrockModel(
             model_id=model_id,
@@ -222,11 +230,10 @@ class WorkflowAgent:
         logger.info("Agent responded with length=%d", len(response))
         return response
 
-    def _update_session_state(
-        self, workflow_id: str, state: dict[str, Any]
-    ) -> None:
+    def _update_session_state(self, workflow_id: str, state: dict[str, Any]) -> None:
         self._session_state = {
             "workflow_id": workflow_id,
+            "status": state.get("status", "RUNNING"),
             "awaiting": state.get("awaiting"),
             "transcript": state.get("transcript", []),
         }
@@ -241,7 +248,9 @@ class WorkflowAgent:
             Args:
                 workflow_id: The numeric workflow ID.
             """
-            logger.info("Tool get_workflow_definition called: workflow_id=%d", workflow_id)
+            logger.info(
+                "Tool get_workflow_definition called: workflow_id=%d", workflow_id
+            )
             try:
                 http_client = await owner._get_http_client()
                 result = await tool_functions.get_workflow_definition(
@@ -250,9 +259,14 @@ class WorkflowAgent:
                     base_url=owner._workflow_server_url,
                 )
             except Exception:
-                logger.exception("Tool get_workflow_definition failed for workflow_id=%d", workflow_id)
+                logger.exception(
+                    "Tool get_workflow_definition failed for workflow_id=%d",
+                    workflow_id,
+                )
                 raise
-            logger.info("Tool get_workflow_definition succeeded: id=%s", result.get("id", "?"))
+            logger.info(
+                "Tool get_workflow_definition succeeded: id=%s", result.get("id", "?")
+            )
             return result
 
         @tool
@@ -277,10 +291,14 @@ class WorkflowAgent:
                     workflow_id=temporal_workflow_id, temporal_client=temporal_client
                 )
             except Exception:
-                logger.exception("Tool start_workflow failed for workflow_id=%d", workflow_id)
+                logger.exception(
+                    "Tool start_workflow failed for workflow_id=%d", workflow_id
+                )
                 raise
             owner._update_session_state(temporal_workflow_id, state)
-            logger.info("Tool start_workflow succeeded: temporal_id=%s", temporal_workflow_id)
+            logger.info(
+                "Tool start_workflow succeeded: temporal_id=%s", temporal_workflow_id
+            )
             return {"workflow_id": temporal_workflow_id, **state}
 
         @tool
@@ -298,25 +316,30 @@ class WorkflowAgent:
                     temporal_client=temporal_client,
                 )
             except Exception:
-                logger.exception("Tool get_workflow_state failed for workflow_id=%s", workflow_id)
+                logger.exception(
+                    "Tool get_workflow_state failed for workflow_id=%s", workflow_id
+                )
                 raise
             owner._update_session_state(workflow_id, state)
 
-            # Inform Bedrock explicitly to stop re-querying when the state is processing background tasks
             if not state.get("awaiting"):
                 return {
                     "workflow_id": workflow_id,
-                    "status": state.get("status", "running"),
+                    "status": state.get("status", "RUNNING"),
                     "awaiting": None,
-                    "message": "The workflow is currently processing background tasks or timers. Do not query get_workflow_state again until the user responds or a new prompt arrives.",
+                    "message": "The workflow is currently processing background tasks or completed. Do not re-query until instructed.",
                     "transcript": state.get("transcript", []),
                 }
 
-            logger.info("Tool get_workflow_state succeeded: workflow_id=%s", workflow_id)
+            logger.info(
+                "Tool get_workflow_state succeeded: workflow_id=%s", workflow_id
+            )
             return state
 
         @tool
-        async def submit_input(workflow_id: str, token: str, value: Any) -> dict[str, Any]:
+        async def submit_input(
+            workflow_id: str, token: str, value: Any
+        ) -> dict[str, Any]:
             """Submit user input to a workflow and return the new workflow state.
 
             Args:
@@ -327,18 +350,17 @@ class WorkflowAgent:
             value = _coerce_value(value, owner._session_state)
             logger.info(
                 "submit_input called: workflow_id=%r, token=%r, value=%r",
-                workflow_id, token, value
+                workflow_id,
+                token,
+                value,
             )
             try:
                 temporal_client = await owner._get_temporal_client()
-                await tool_functions.submit_input(
+                state = await tool_functions.submit_input(
                     workflow_id=workflow_id,
                     token=token,
                     value=value,
                     temporal_client=temporal_client,
-                )
-                state = await tool_functions.get_workflow_state(
-                    workflow_id=workflow_id, temporal_client=temporal_client
                 )
                 owner._update_session_state(workflow_id, state)
                 return state
@@ -358,7 +380,9 @@ class WorkflowAgent:
             except Exception:
                 logger.exception("Tool list_active_workflows failed")
                 raise
-            logger.info("Tool list_active_workflows returned %d workflow(s)", len(result))
+            logger.info(
+                "Tool list_active_workflows returned %d workflow(s)", len(result)
+            )
             return result
 
         return [

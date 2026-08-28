@@ -1,4 +1,4 @@
-{ 
+{
   "workflow_id": 2,
   "schema": "sfsm/0.2",
   "id": "dvla.change_of_address",

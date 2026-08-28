@@ -1,53 +1,54 @@
 # Durable FSM Workflow Executor
-A deterministic, durable Finite State Machine (FSM) executor built on the Temporal Python SDK.
 
-This project allows the user to define complex, long-running, asynchronous processes entirely in JSON. The Python workflow executor interprets these JSON definitions dynamically without requiring any workflow-specific code. It handles human-in-the-loop interactions, branching logic, sub-processes, durable timers, and external HTTP integrations natively.
+A deterministic, durable Finite State Machine (FSM) executor built on the Temporal Python SDK paired with a real-time, GOV.UK-styled conversational interface.
+
+This project allows complex, long-running, asynchronous business processes to be defined entirely in JSON. The Python workflow executor interprets these definitions dynamically without requiring workflow-specific code. It handles human-in-the-loop interactions, branching logic, sub-processes, durable timers, and external HTTP integrations natively.
+
+The agent layer uses AWS Bedrock (Claude) and the Strands framework purely as a silent NLU intent parser—converting user natural language into structured API calls—while the web UI directly renders transcript outputs and active input schemas straight from Temporal query snapshots.
 
 ## Key Features
-- Zero-Code Workflows: Define states, transitions, HTTP calls, and polling loops entirely in a JSON schema.
 
-- Strict Determinism: All predicates and path resolutions are evaluated using structural recursion. No eval(), exec(), or external expression engines are used, ensuring perfect replayability inside the Temporal sandbox.
-
-- Synchronous Input Validation: Human inputs are submitted via Temporal Updates (not Signals), allowing the workflow to synchronously validate payloads against the schema and reject stale or duplicate tokens.
-
-- Sub-process Stack: Sub-processes execute as frames within the same workflow context (rather than Child Workflows), keeping the entire interpreter state perfectly serializable for continue_as_new.
-
-- Activity Boundaries: HTTP payloads are structurally projected inside the activity. Large or unneeded payloads never cross the workflow boundary, preventing workflow history bloat.
+- **Zero-Code Workflows**: Define states, transitions, HTTP calls, and polling loops entirely in JSON definitions (`SFSMDefinition`).
+- **Strict Determinism**: All predicates and path resolutions are evaluated using structural recursion. No `eval()`, `exec()`, or unsafe expression engines are used, ensuring deterministic replay inside the Temporal sandbox.
+- **Dual-Path Web Architecture**: Decouples LLM processing from UI display. The LLM handles intent parsing and tool invocation, while a background WebSockets stream renders transcript entries (`OutputState`) and interactive prompts (`InputState`) straight from Temporal.
+- **Synchronous Input Validation**: Human inputs are submitted via Temporal Updates (not Signals), allowing the workflow to synchronously validate payloads against the schema and reject stale or duplicate tokens immediately.
+- **Sub-process Stack Frames**: Sub-processes execute as stack frames (`StackFrame`) within a single Temporal workflow context (rather than Child Workflows), supporting return mappings while keeping state serializable for Continue-As-New.
+- **Activity Boundaries**: HTTP payloads are projected inside activities. Large response bodies never cross the workflow boundary, preventing history bloat.
 
 ## Project Structure
+
 ```text
 durable_poc/
 ├── agent/
 │   ├── __init__.py
-│   ├── agent.py         # Strands agent composition (WorkflowAgent class)
-│   ├── chat.py          # Gradio chat UI entrypoint
-│   ├── tools.py         # Tool functions bridging agent to Temporal
+│   ├── agent.py         # Strands agent composition (WorkflowAgent class & coercion)
+│   ├── chat.py          # FastAPI Web Server & WebSockets chat UI entrypoint
+│   ├── tools.py         # Tool functions bridging agent to Temporal & Server
 │   └── prompts/
-│       └── system.txt   # Agent system prompt with integrity constraints
+│       └── system.txt   # Silent NLU system prompt with execution constraints
 ├── src/
 │   ├── model.py         # Pydantic models enforcing the JSON definition schema
-│   ├── paths.py         # Dot-path resolution and string interpolation
+│   ├── paths.py         # Dot-path resolution, string interpolation & ISO durations
 │   ├── predicates.py    # Pure, deterministic condition evaluator
-│   ├── context.py       # Dataclasses for the interpreter state and frame stack
-│   ├── interpreter.py   # The core Temporal Workflow loop
+│   ├── context.py       # Dataclasses for interpreter state, frames & transcripts
+│   ├── interpreter.py   # Core Temporal Workflow loop & sub-process stack
 │   ├── activities.py    # Temporal activities (HTTP requests, notifications)
-│   ├── errors.py        # Error taxonomy (Retryable, Validation, etc.)
+│   ├── errors.py        # Error taxonomy (Retryable, Validation, Definition)
 │   ├── worker.py        # Temporal worker bootstrap
-│   └── client.py        # Client helpers (start, query, update)
+│   └── demo.py          # Interactive terminal CLI frontend (legacy)
 ├── tests/
 │   ├── test_agent.py        # Agent composition and session state tests
 │   ├── test_agent_tools.py  # Tool function unit tests
-│   ├── test_chat.py         # Gradio chat interface tests
+│   ├── test_chat.py         # FastAPI WebSocket interface tests
 │   ├── test_pure.py         # Unit tests for paths and predicates
-│   └── test_workflow.py     # Integration tests using local Temporal server
-├── stub_server.py       # FastAPI mock backend (Photo upload & DVLA polling)
-└── demo.py              # Interactive terminal CLI frontend (legacy)
+│   └── test_workflow.py     # Integration tests using local Temporal dev server
+└── dvla_coa_adv_schema.json # DVLA Change of Address FSM Definition
 ```
 
 ## Prerequisites
 
-- Python 3.14+ and [uv](https://docs.astral.sh/uv/) installed
-- Temporal CLI installed (`brew install temporal`)
+- **Python 3.14+** and [uv](https://docs.astral.sh/uv/) installed
+- **Temporal CLI** installed (`brew install temporal`)
 
 Install dependencies:
 
@@ -61,7 +62,9 @@ Run the tests:
 just test-poc
 ```
 
-The test suite validates the pure Python logic (path resolution, predicates), Temporal integration (using a local dev server), agent tool functions, and the chat interface wiring.
+The test suite validates pure Python logic (path resolution, predicates), Temporal workflow loops (using a local dev server), agent tool functions, and the FastAPI WebSocket interface.
+
+---
 
 ## Running the Agentic Chat Interface
 
@@ -74,7 +77,7 @@ The project includes a conversational AI agent that guides users through workflo
 3. **AWS credentials** with `bedrock:InvokeModel` permission for Claude Sonnet in your target region
 4. **Workflow server** running (serves workflow definitions)
 
-### Required credentials
+### Required Credentials
 
 The agent calls Claude via Amazon Bedrock. You need valid AWS credentials configured via any standard method (environment variables, `~/.aws/credentials`, SSO, etc.). Verify with:
 
@@ -89,7 +92,7 @@ export BEDROCK_MODEL_ID="anthropic.claude-sonnet-4-6"
 export AWS_REGION="eu-west-2"
 ```
 
-### Running the demo
+### Running the Demo
 
 You need four terminal windows, all running from the repository root.
 
@@ -103,7 +106,7 @@ Runs on `localhost:7233`. The Temporal UI is available at `http://localhost:8233
 
 #### Terminal 2: Workflow Definition Server
 
-The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`. The workflow server code is [here](https://github.com/govuk-once/spike-legibility-workflow-server). Clone it and follow the instructions to run it.
+The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`.  The workflow server code is [here](https://github.com/govuk-once/spike-legibility-workflow-server). Clone it and follow the instructions to run it.
 
 Verify it is responding:
 
@@ -122,9 +125,9 @@ PYTHONPATH=. uv run python -m src.worker
 
 The worker connects to Temporal on `localhost:7233` and listens on the `sfsm-queue` task queue.
 
-#### Terminal 4: Gradio Chat UI
+#### Terminal 4: Web Agent Chat UI
 
-Launch the chat interface:
+Launch the WebSockets server and chat interface:
 
 ```bash
 cd durable_poc
@@ -133,37 +136,41 @@ PYTHONPATH=. uv run python -m agent.chat
 
 Open `http://localhost:7860` in your browser.
 
-### Using the chat
+---
+
+## Using the Chat Interface
 
 Type a natural language message to start a workflow:
 
-> "I need to change the address on my driving licence."
+> *"I need to change the address on my driving licence."*
 
 The agent will:
 1. Fetch the appropriate workflow definition from the server
 2. Start a Temporal workflow execution
-3. Present each step conversationally, interpreting your responses into the structured values the workflow expects
+3. Stream prompts, options, and transcript outputs directly via WebSockets to the frontend, interpreting user responses into structured schema values behind the scenes.
 
 To resume an existing workflow in a new session, say something like:
 
-> "I need to check on my driving licence task."
+> *"I need to check on my driving licence task."*
 
 The agent will query Temporal for running workflows and pick up where you left off.
 
-### Configuration
+---
 
-| Environment variable | Default | Purpose |
-|---------------------|---------|---------|
-| `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server address |
-| `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Bedrock model identifier |
+## Configuration Reference
+
+| Environment Variable | Default | Purpose |
+|---|---|---|
+| `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server gRPC address |
+| `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server URL |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | AWS Bedrock Claude model identifier |
 | `AWS_REGION` | `eu-west-2` | AWS region for Bedrock |
 
 ---
 
-## Running the Terminal CLI Demo (legacy)
+## Running the Terminal CLI Demo (Legacy)
 
-The project also includes an interactive terminal demo (demo.py) that executes workflows without an AI agent. This requires the same Temporal server and worker, plus a stub backend server.
+The project also includes an interactive terminal demo (`demo.py`) that executes workflows without an AI agent. This requires the same Temporal server and worker, plus a stub backend server.
 
 #### Terminal 1: Temporal Server
 
@@ -176,7 +183,7 @@ temporal server start-dev
 ```bash
 python stub_server.py
 ```
-(Runs on http://localhost:8000)
+*(Runs on `http://localhost:8000`)*
 
 #### Terminal 3: Temporal Worker
 
@@ -194,7 +201,9 @@ PYTHONPATH=. uv run python -m src.demo
 
 Follow the prompts in this terminal to step through the state machine.
 
-### Available state types:
+---
+
+## State Types Reference
 
 - `input`: Suspends the workflow and exposes an awaited schema. Resumes when a matching payload is submitted via Update. Supports timeouts.
 
