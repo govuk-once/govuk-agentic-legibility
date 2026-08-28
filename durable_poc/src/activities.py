@@ -8,9 +8,15 @@ import os
 import httpx
 from temporalio import activity
 
-from src.errors import RetryableHttpError
+from src.errors import RetryableHttpError, ValidationError
 
 logger = logging.getLogger(__name__)
+
+# Config-driven service routing table (Maps workflow definition 'service' keys to ENV variables)
+SERVICE_ENV_MAP = {
+    "dvla": "DVLA_BASE",
+    "postoffice": "POSTOFFICE_BASE",
+}
 
 
 @dataclass
@@ -21,33 +27,45 @@ class CallParams:
     headers: dict[str, str] | None
     body: dict[str, Any] | None
     capture: dict[str, Any]
+    idempotency_key: str | None = None
 
 
 @activity.defn
 async def http_call(params: CallParams) -> dict[str, Any]:
-    """Execute an HTTP call and return a projected snapshot."""
-    if params.service == "dvla":
-        base_url = os.environ.get("DVLA_BASE", "http://localhost:8000")
-    elif params.service == "postoffice":
-        base_url = os.environ.get("POSTOFFICE_BASE", "http://localhost:8000")
+    """Execute an HTTP call with idempotency headers and projected captures."""
+    if params.service in SERVICE_ENV_MAP:
+        env_var = SERVICE_ENV_MAP[params.service]
+        base_url = os.environ.get(env_var, "http://localhost:8000")
+    elif params.service:
+        # Check if environment variable was supplied directly as service name
+        base_url = os.environ.get(params.service.upper(), "")
+        if not base_url:
+            raise ValidationError(
+                f"Unrecognised or unconfigured HTTP service: '{params.service}'"
+            )
     else:
-        base_url = ""
+        raise ValidationError(
+            "HTTP call state missing required 'service' configuration"
+        )
 
     full_url = f"{base_url}{params.url}"
+
+    request_headers = {**(params.headers or {})}
+    if params.idempotency_key:
+        request_headers["Idempotency-Key"] = params.idempotency_key
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.request(
                 method=params.method,
                 url=full_url,
-                headers=params.headers,
+                headers=request_headers,
                 json=params.body,
                 timeout=15.0,
             )
         except httpx.RequestError as e:
             raise RetryableHttpError(f"HTTP request failed: {e}") from e
 
-    # 5xx and 429 are retryable
     if response.status_code >= 500 or response.status_code == 429:
         raise RetryableHttpError(f"HTTP {response.status_code}")
 
@@ -71,7 +89,7 @@ def _project_capture(
     full_context: dict[str, Any], capture_spec: dict[str, Any]
 ) -> dict[str, Any]:
     """Apply the capture specification to the raw HTTP context."""
-    from src.paths import resolve_path  # Local import to prevent circularity
+    from src.paths import resolve_path
 
     result: dict[str, Any] = {}
     for key, spec in capture_spec.items():

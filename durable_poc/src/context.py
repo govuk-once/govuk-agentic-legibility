@@ -34,6 +34,8 @@ class AwaitingInput:
     schema: dict[str, Any]
     options: Any | None = None
     timeout_seconds: float | None = None
+    state_id: str | None = None
+    state_type: str | None = None
 
 
 @dataclass

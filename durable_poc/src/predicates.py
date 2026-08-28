@@ -37,7 +37,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
                 return bool(p_num > c_num)
             if op == "gte":
                 return bool(p_num >= c_num)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
 
     elif op == "is_true":
@@ -79,7 +79,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
             now_dt = datetime.fromisoformat(str(now_ts))
             target_dt = datetime.fromisoformat(str(target_ts))
             return bool(now_dt > target_dt)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
 
     elif op == "contains":

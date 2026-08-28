@@ -100,6 +100,8 @@ class SFSMInterpreter:
         steps_this_run = 0
 
         while self.state.frames:
+            await asyncio.sleep(0)
+
             if (
                 workflow.info().is_continue_as_new_suggested()
                 and steps_this_run >= min_steps_between_can
@@ -167,6 +169,8 @@ class SFSMInterpreter:
                     timeout_seconds=timeout_duration.total_seconds()
                     if timeout_duration
                     else None,
+                    state_id=frame.state_id,
+                    state_type="InputState",
                 )
                 self._received_input = None
                 self._timeout_triggered = False
@@ -259,15 +263,34 @@ class SFSMInterpreter:
                 body = resolve_dict(current_state.body or {}, context)
                 headers = current_state.headers or {}
                 url = interpolate(current_state.url, context=context)
+                service_name = getattr(current_state, "service", "")
 
-                service_name = getattr(current_state, "service", None)
+                idempotency_key = None
+                if getattr(current_state, "idempotency_key", None):
+                    idempotency_key = interpolate(
+                        current_state.idempotency_key, context
+                    )
+
                 call_params = activities.CallParams(
                     method=current_state.method,
                     url=url,
                     headers=headers,
                     body=body,
                     capture=current_state.capture,
-                    service=service_name if service_name else "",
+                    service=service_name,
+                    idempotency_key=idempotency_key,
+                )
+
+                workflow.logger.info(
+                    f"🌐 HTTP {current_state.method} -> {service_name}:{url}"
+                )
+
+                self.state.transcript.append(
+                    TranscriptEntry(
+                        step=self.state.step_counter,
+                        timestamp=workflow.now().isoformat(),
+                        message=f"[ENGINE LOG] 🌐 Dispatched HTTP {current_state.method} request to service '{service_name}' ({url})",
+                    )
                 )
 
                 retry_pol = RetryPolicy(
@@ -275,7 +298,6 @@ class SFSMInterpreter:
                     non_retryable_error_types=["ValidationError"],
                 )
 
-                workflow.logger.info(f"🌐 HTTP {current_state.method} -> {url}")
                 try:
                     result = await workflow.execute_activity(
                         activities.http_call,
@@ -284,6 +306,14 @@ class SFSMInterpreter:
                         retry_policy=retry_pol,
                     )
                     set_path(frame.vars, current_state.assign, result)
+
+                    self.state.transcript.append(
+                        TranscriptEntry(
+                            step=self.state.step_counter,
+                            timestamp=workflow.now().isoformat(),
+                            message=f"[ENGINE LOG] ✅ HTTP Call completed. Projected output assigned to '{current_state.assign}'",
+                        )
+                    )
                     frame.state_id = current_state.next
                 except Exception as e:
                     workflow.logger.error(f"CallState activity error: {e}")
@@ -348,6 +378,9 @@ class SFSMInterpreter:
                         f"Process '{current_state.process}' invoked by state '{frame.state_id}' not found"
                     )
 
+                # Advance parent state so returning won't trigger re-invocation loop
+                frame.state_id = current_state.next
+
                 new_frame = StackFrame(
                     process_id=current_state.process,
                     state_id=target_proc.start,
@@ -364,6 +397,15 @@ class SFSMInterpreter:
                     f"Invoking sub-process '{current_state.process}' "
                     f"with inputs: {resolved_inputs} | Frame variables initialized to: {new_frame.vars}"
                 )
+
+                self.state.transcript.append(
+                    TranscriptEntry(
+                        step=self.state.step_counter,
+                        timestamp=workflow.now().isoformat(),
+                        message=f"[ENGINE LOG] 🔀 Invoking sub-process stack frame '{current_state.process}' (Start state: '{target_proc.start}')",
+                    )
+                )
+
                 self.state.frames.append(new_frame)
 
             elif isinstance(current_state, WaitState):
@@ -402,7 +444,6 @@ class SFSMInterpreter:
                                 f"↩️ Returned {ret_val} into parent var '{invoker.assign}'"
                             )
 
-                        # Check and route if an outcome catch condition matches
                         handled = False
                         if invoker.catch:
                             for c in invoker.catch:
@@ -414,8 +455,6 @@ class SFSMInterpreter:
                                     parent_frame.state_id = rule_next
                                     handled = True
                                     break
-                        if not handled:
-                            parent_frame.state_id = invoker.next
                 else:
                     return {
                         "status": current_state.status,
@@ -467,3 +506,19 @@ class SFSMInterpreter:
     @workflow.query
     def transcript(self) -> list[TranscriptEntry]:
         return self.state.transcript
+
+    @workflow.query
+    def current_state_info(self) -> dict[str, Any] | None:
+        if not self.state.frames:
+            return None
+        frame = self.state.frames[-1]
+        process = (
+            self.definition.processes.get(frame.process_id) if self.definition else None
+        )
+        state = process.states.get(frame.state_id) if process else None
+        return {
+            "process_id": frame.process_id,
+            "state_id": frame.state_id,
+            "state_type": type(state).__name__ if state else None,
+            "step": self.state.step_counter,
+        }
