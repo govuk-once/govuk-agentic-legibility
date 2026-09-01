@@ -16,6 +16,7 @@ from trivial_form_eval.runner import run_experiment
 INTERRUPT_EXIT_CODE = 130
 EXPERIMENT_CONFIG_FILENAME = "experiment.json"
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     parsed_argv = argv if argv is not None else sys.argv[1:]
@@ -48,23 +49,15 @@ def apply_fixture_config(
     config_path = args.fixture / EXPERIMENT_CONFIG_FILENAME
 
     if not config_path.is_file():
-        parser.error(
-            f"Fixture configuration does not exist: {config_path}"
-        )
+        parser.error(f"Fixture configuration does not exist: {config_path}")
 
     try:
         config_data = json.loads(config_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        parser.error(
-            f"Fixture configuration is not valid JSON: "
-            f"{config_path}: {exc}"
-        )
+        parser.error(f"Fixture configuration is not valid JSON: {config_path}: {exc}")
 
     if not isinstance(config_data, dict):
-        parser.error(
-            f"Fixture configuration must contain a JSON object: "
-            f"{config_path}"
-        )
+        parser.error(f"Fixture configuration must contain a JSON object: {config_path}")
 
     if "fixture" in config_data:
         parser.error(
@@ -91,9 +84,7 @@ def apply_fixture_config(
         attr_name = key.replace("-", "_")
 
         if attr_name not in known_settings:
-            parser.error(
-                f"Unknown setting {key!r} in {config_path}"
-            )
+            parser.error(f"Unknown setting {key!r} in {config_path}")
 
         # Some run settings are irrelevant to dry-run. Ignore them rather
         # than rejecting a configuration shared by both commands.
@@ -134,6 +125,7 @@ def explicit_cli_settings(argv: list[str]) -> set[str]:
 
     return settings
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="trivial-form-eval")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -145,10 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     dry.add_argument(
         "fixture",
         type=Path,
-        help=(
-            "Fixture directory. Experiment settings are loaded from "
-            "<fixture>/experiment.json."
-        ),
+        help=("Fixture directory. Experiment settings are loaded from <fixture>/experiment.json."),
     )
     dry.add_argument("--model")
     dry.add_argument("--debug", action="store_true")
@@ -160,10 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "fixture",
         type=Path,
-        help=(
-            "Fixture directory. Experiment settings are loaded from "
-            "<fixture>/experiment.json."
-        ),
+        help=("Fixture directory. Experiment settings are loaded from <fixture>/experiment.json."),
     )
     run.add_argument("--runs", type=int, default=10)
     run.add_argument("--model")
@@ -173,19 +159,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--stop-after",
         type=int,
-        help=(
-            "Stop after this many completed calls, then still write "
-            "analysis files."
-        ),
+        help=("Stop after this many completed calls, then still write analysis files."),
     )
     run.add_argument(
         "--finalise-on-interrupt",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help=(
-            "On Ctrl+C, stop making calls and still write available "
-            "analysis files."
-        ),
+        help=("On Ctrl+C, stop making calls and still write available analysis files."),
     )
     run.add_argument(
         "--progress",

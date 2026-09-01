@@ -592,7 +592,9 @@ def test_one_message_can_answer_and_propose_without_advancing(
     )
     service = JourneyRunService(
         trace_directory=tmp_path,
-        client_factory=FakeClientFactory([interaction_response(), {"status": "completed"}]),
+        client_factory=FakeClientFactory(
+            [interaction_response(), {"status": "completed"}]
+        ),
         assistant=assistant,
         fixture_repository=fixture_repository(tmp_path),
     )
@@ -675,7 +677,6 @@ def test_next_interaction_does_not_repeat_an_earlier_journey_answer(
         "user_message_added",
         "interaction_opened",
     ]
-
 
 
 def test_journey_answer_records_tool_http_and_guidance_evidence(tmp_path: Path) -> None:

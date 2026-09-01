@@ -154,10 +154,7 @@ def _drive_cli(
     interactions_processed = 0
     current = dict(response)
     while not executor.is_terminal(current):
-        if (
-            max_interactions is not None
-            and interactions_processed >= max_interactions
-        ):
+        if max_interactions is not None and interactions_processed >= max_interactions:
             return current
 
         interaction = executor.current_interaction(current)

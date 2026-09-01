@@ -26,9 +26,7 @@ def write_fixture(path: Path, *, fixture_id: str) -> None:
                 "title": fixture_id,
                 "description": "Test fixture",
                 "journey_id": "example-journey",
-                "conversation": [
-                    {"role": "user", "content": "Use postcode lookup."}
-                ],
+                "conversation": [{"role": "user", "content": "Use postcode lookup."}],
             }
         ),
         encoding="utf-8",

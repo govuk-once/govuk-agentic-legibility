@@ -69,9 +69,7 @@ class JsonlTraceRecorder:
         now = datetime.now(UTC)
         run_id = uuid4().hex
         journey_component = _filename_component(journey_id or "resumed-journey")
-        filename = (
-            f"{now:%Y%m%dT%H%M%SZ}_{journey_component}_{run_id[:8]}.jsonl"
-        )
+        filename = f"{now:%Y%m%dT%H%M%SZ}_{journey_component}_{run_id[:8]}.jsonl"
         return cls(
             directory / filename,
             run_id=run_id,
