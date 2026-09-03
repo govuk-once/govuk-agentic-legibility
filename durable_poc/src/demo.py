@@ -2,8 +2,8 @@
 
 import asyncio
 import json
-from pathlib import Path
 import os
+from pathlib import Path
 
 from temporalio.client import Client, WorkflowExecutionStatus
 from src.context import InputSubmission
@@ -16,23 +16,23 @@ async def main() -> None:
 
     # Load your schema (assuming it's saved as workflow.json)
     print("Loading definition...")
-    file_path = Path(f"{os.getcwd()}/dvla_coa_adv_schema.json")
+    file_path = Path(f"{os.getcwd()}/dwp_ma1_schema.json")
     with open(file_path, "r") as f:
         definition = json.load(f)
 
     # Patch long timeouts for human interaction
-    # Change 5-minute poll interval to 2 seconds, a 5-day delivery wait to 15 seconds and 2-day confirmation wait to 10 seconds
     print("Patching time intervals...")
-    definition["processes"]["finalisation"]["vars"]["poll_interval"] = "PT2S"
-    definition["processes"]["finalisation"]["vars"]["delivery_wait"] = "PT15S"
-    definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT10S"
+    if "finalisation" in definition.get("processes", {}):
+        definition["processes"]["finalisation"]["vars"]["poll_interval"] = "PT2S"
+        definition["processes"]["finalisation"]["vars"]["delivery_wait"] = "PT15S"
+        definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT10S"
 
     definition.setdefault("vars", {})["env"] = {
         "dvla_base": "http://localhost:8000/app/photo",
         "postoffice_base": "http://localhost:8000/app/postoffice",
     }
 
-    print("Starting Change of Address Workflow...")
+    print("Starting Workflow...")
 
     # Start the workflow
     handle = await client.start_workflow(
@@ -71,7 +71,6 @@ async def main() -> None:
         awaiting = await handle.query("awaiting")
 
         if awaiting:
-            # Handle object or dict types returned from query
             schema = (
                 awaiting.schema if hasattr(awaiting, "schema") else awaiting["schema"]
             )
@@ -95,33 +94,31 @@ async def main() -> None:
                 if isinstance(schema, dict)
                 else getattr(schema, "kind", None)
             )
-            val_key = (
-                schema.get("value_key")
-                if isinstance(schema, dict)
-                else getattr(schema, "value_key", None)
-            )
-            label_key = (
-                schema.get("label_key")
-                if isinstance(schema, dict)
-                else getattr(schema, "label_key", None)
-            )
 
             print(f"\n🔵 {prompt}")
 
-            # If it's a select list, render the options
-            if kind == "select_one" and options:
-                for opt in options:
-                    o_val = (
-                        opt.get(val_key)
-                        if isinstance(opt, dict)
-                        else getattr(opt, val_key, None)
-                    )
-                    o_lbl = (
-                        opt.get(label_key)
-                        if isinstance(opt, dict)
-                        else getattr(opt, label_key, None)
-                    )
-                    print(f"   [{o_val}] {o_lbl}")
+            # Safe option key extractor helper
+            def get_opt_val(opt, preferred_key=None):
+                if isinstance(opt, dict):
+                    if preferred_key and preferred_key in opt:
+                        return opt[preferred_key]
+                    return opt.get("value") or opt.get("id") or str(opt)
+                return getattr(opt, "value", getattr(opt, "id", str(opt)))
+
+            def get_opt_label(opt, preferred_key=None):
+                if isinstance(opt, dict):
+                    if preferred_key and preferred_key in opt:
+                        return opt[preferred_key]
+                    return opt.get("label") or opt.get("name") or str(opt)
+                return getattr(opt, "label", getattr(opt, "name", str(opt)))
+
+            # If it's a select list, render the options with 1-based indexing
+            if kind in ["select_one", "select_many"] and options:
+                v_key = schema.get("value_key") if isinstance(schema, dict) else getattr(schema, "value_key", None)
+                l_key = schema.get("label_key") if isinstance(schema, dict) else getattr(schema, "label_key", None)
+                for idx, opt in enumerate(options, 1):
+                    o_lbl = get_opt_label(opt, l_key)
+                    print(f"   [{idx}] {o_lbl}")
 
             # Non-blocking input if workflow provided timeout_seconds, else standard blocking input
             raw_val = None
@@ -153,30 +150,54 @@ async def main() -> None:
                 }
             elif kind == "select_one" and options:
                 raw_str = raw_val.strip()
-                val_key = (
-                    schema.get("value_key", "id")
-                    if isinstance(schema, dict)
-                    else getattr(schema, "value_key", "id")
-                )
+                v_key = schema.get("value_key") if isinstance(schema, dict) else getattr(schema, "value_key", None)
 
                 selected_opt = None
-                for opt in options:
-                    o_val = (
-                        opt.get(val_key)
-                        if isinstance(opt, dict)
-                        else getattr(opt, val_key, None)
-                    )
-                    if str(o_val) == raw_str:
-                        selected_opt = opt
-                        break
 
-                if selected_opt and isinstance(selected_opt, dict):
-                    if val_key in ["uprn", "single_line"]:
+                # 1. Check if user typed a 1-based index (e.g. '1' for option 1)
+                if raw_str.isdigit():
+                    idx = int(raw_str) - 1
+                    if 0 <= idx < len(options):
+                        selected_opt = options[idx]
+
+                # 2. Check match by option value
+                if not selected_opt:
+                    for opt in options:
+                        if str(get_opt_val(opt, v_key)) == raw_str:
+                            selected_opt = opt
+                            break
+
+                if selected_opt:
+                    if v_key in ["uprn", "single_line"]:
                         val = selected_opt
                     else:
-                        val = selected_opt.get(val_key, raw_str)
+                        val = get_opt_val(selected_opt, v_key)
                 else:
                     val = raw_str
+
+            elif kind == "select_many" and options:
+                # Handle comma-separated selections like '1, 2'
+                raw_items = [i.strip() for i in raw_val.strip().split(",") if i.strip()]
+                val = []
+                v_key = schema.get("value_key") if isinstance(schema, dict) else getattr(schema, "value_key", None)
+
+                for raw_str in raw_items:
+                    selected_opt = None
+                    if raw_str.isdigit():
+                        idx = int(raw_str) - 1
+                        if 0 <= idx < len(options):
+                            selected_opt = options[idx]
+
+                    if not selected_opt:
+                        for opt in options:
+                            if str(get_opt_val(opt, v_key)) == raw_str:
+                                selected_opt = opt
+                                break
+
+                    if selected_opt:
+                        val.append(get_opt_val(selected_opt, v_key))
+                    else:
+                        val.append(raw_str)
             else:
                 val = raw_val.strip()
 

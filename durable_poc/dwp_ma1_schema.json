@@ -1,0 +1,1514 @@
+{
+  "workflow_id": 2,
+  "schema": "sfsm/0.2",
+  "id": "dwp.maternity_allowance_ma1_claim",
+  "version": "0.1.0",
+  "entry": "main",
+
+  "executor": {
+    "workflow_id_template": "ma1-claim-{{input.nino}}",
+    "run_timeout": "P90D"
+  },
+
+  "processes": {
+
+    "main": {
+      "start": "confirm_intent",
+      "vars": {
+        "confirmed_intent": null,
+        "meets_eligibility_criteria": null,
+        "meets_core_evidence_criteria": null,
+        "understands_benefits_impact": null,
+        "section1_data": null,
+        "section2_data": null,
+        "section3_data": null,
+        "section4_data": null,
+        "acknowledged_evidence_notice": null
+      },
+      "states": {
+
+        "confirm_intent": {
+          "type": "input",
+          "prompt": "Would you like to apply for Maternity Allowance?",
+          "schema": { "kind": "boolean" },
+          "assign": "confirmed_intent",
+          "next": "branch_intent"
+        },
+
+        "branch_intent": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "confirmed_intent" }, "next": "check_all_eligibility_gates" }
+          ],
+          "default": "say_cancelled"
+        },
+
+        "say_cancelled": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Application cancelled. You can return to GOV.UK at any time to start your claim.",
+          "next": "end_cancelled"
+        },
+
+        "check_all_eligibility_gates": {
+          "type": "input",
+          "prompt": "[Stage 1: Eligibility Check]\nTo receive Maternity Allowance, you must meet ALL of the following criteria:\n• You are NOT receiving Statutory Maternity Pay (SMP) from any employer.\n• You were employed or self-employed for at least 26 weeks in your 66-week Test Period. (Note: Your Test Period is the 66 weeks up to and including the week before your baby is due. The 26 weeks of work do not need to be consecutive, and can be spread across one or multiple jobs).\n• If doing unpaid work for a partner's business, your partner is NOT a salaried director.\n\nDo you meet all these requirements and wish to proceed with your claim?",
+          "schema": { "kind": "boolean" },
+          "assign": "meets_eligibility_criteria",
+          "next": "branch_all_eligibility_gates"
+        },
+
+        "branch_all_eligibility_gates": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "meets_eligibility_criteria" }, "next": "check_all_core_evidence" }
+          ],
+          "default": "say_ineligible_guidance"
+        },
+
+        "say_ineligible_guidance": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "You cannot proceed with this Maternity Allowance claim because you do not meet the core statutory eligibility rules. Please read Page 6 (SMP Rules) and Page 11 (Business/Director Rules) of the MA1 Notes. Alternative support may be available via Universal Credit or the Sure Start Maternity Grant (Form SF100).",
+          "next": "end_ineligible"
+        },
+
+        "check_all_core_evidence": {
+          "type": "input",
+          "prompt": "[Stage 2: Core Evidence Requirements]\nBefore continuing, please confirm you have or can obtain the required evidence to upload during this online application:\n• An official MAT B1 maternity certificate (or doctor/midwife letter confirming due date).\n• An SMP1 form from each employer you worked for during the 15th week before your due week (if applicable).",
+          "schema": { "kind": "boolean" },
+          "assign": "meets_core_evidence_criteria",
+          "next": "branch_all_core_evidence"
+        },
+
+        "branch_all_core_evidence": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "meets_core_evidence_criteria" }, "next": "check_benefits_impact_gate" }
+          ],
+          "default": "say_missing_evidence_guidance"
+        },
+
+        "say_missing_evidence_guidance": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "You cannot complete your application online without uploading official evidence. You must obtain a MAT B1 certificate from your midwife or GP and an SMP1 form from your employer if SMP was refused.",
+          "next": "end_missing_evidence"
+        },
+
+        "check_benefits_impact_gate": {
+          "type": "input",
+          "prompt": "[Stage 3: Impact on Other Benefits]\nImportant Notice:\nClaiming Maternity Allowance may reduce or affect payments for other benefits you or your partner get (including Universal Credit, Employment and Support Allowance, or Carer's Allowance).\n\nDo you confirm you understand these effects and wish to continue claiming Maternity Allowance?",
+          "schema": { "kind": "boolean" },
+          "assign": "understands_benefits_impact",
+          "next": "branch_benefits_impact_gate"
+        },
+
+        "branch_benefits_impact_gate": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "understands_benefits_impact" }, "next": "invoke_section1_about_you" }
+          ],
+          "default": "say_cancelled"
+        },
+
+        "invoke_section1_about_you": {
+          "type": "invoke",
+          "process": "section1_about_you",
+          "assign": "section1_data",
+          "next": "invoke_section2_about_baby"
+        },
+
+        "invoke_section2_about_baby": {
+          "type": "invoke",
+          "process": "section2_about_baby",
+          "assign": "section2_data",
+          "catch": [
+            { "on": "bereavement_offramp", "next": "end_bereavement_offramp" },
+            { "on": "too_early_to_claim", "next": "end_too_early" },
+            { "on": "offramp_paper", "next": "say_offramp_paper_general" }
+          ],
+          "next": "invoke_section3_about_work"
+        },
+
+        "invoke_section3_about_work": {
+          "type": "invoke",
+          "process": "section3_about_work",
+          "input": {
+            "nino": { "$": "section1_data.identity.nino" },
+            "due_date": { "$": "section2_data.due_date" },
+            "calculated_dates": { "$": "section2_data.calculated_dates" }
+          },
+          "assign": "section3_data",
+          "catch": [
+            { "on": "rti_disputed", "next": "say_offramp_paper_rti" },
+            { "on": "offramp_paper", "next": "say_offramp_paper_general" }
+          ],
+          "next": "invoke_section4_about_payment"
+        },
+
+        "say_offramp_paper_rti": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because your employment or earnings records could not be verified automatically online, you must complete your claim using the paper MA1 form and post physical copies of your payslips to: Mail Handling Site A, Wolverhampton, WV98 2FR.",
+          "next": "end_offramp_paper"
+        },
+
+        "say_offramp_paper_general": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "You cannot complete your application using the online service. Please complete your claim using the paper MA1 form and post it along with your supporting evidence to: Mail Handling Site A, Wolverhampton, WV98 2FR.",
+          "next": "end_offramp_paper"
+        },
+
+        "invoke_section4_about_payment": {
+          "type": "invoke",
+          "process": "section4_about_payment",
+          "input": {
+            "is_baby_born": { "$": "section2_data.is_baby_born" },
+            "calculated_dates": { "$": "section2_data.calculated_dates" },
+            "employment_type_15th_week": { "$": "section3_data.employment_type_15th_week" }
+          },
+          "assign": "section4_data",
+          "next": "say_submission_complete"
+        },
+
+        "say_submission_complete": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Your Maternity Allowance claim and uploaded evidence have been submitted successfully!",
+          "next": "end_complete"
+        },
+
+        "end_complete":            { "type": "end", "status": "success", "outcome": "claim_submitted_online" },
+        "end_cancelled":           { "type": "end", "status": "cancelled", "outcome": "user_cancelled" },
+        "end_ineligible":          { "type": "end", "status": "failed",    "outcome": "ineligible_statutory_criteria" },
+        "end_too_early":           { "type": "end", "status": "cancelled", "outcome": "claim_submitted_too_early" },
+        "end_missing_evidence":    { "type": "end", "status": "cancelled", "outcome": "claim_paused_missing_evidence" },
+        "end_offramp_paper":       { "type": "end", "status": "offramp",   "outcome": "offramp_to_paper_ma1" },
+        "end_bereavement_offramp": { "type": "end", "status": "offramp",   "outcome": "bereavement_paper_fallback" },
+        "end_exception":          { "type": "end", "status": "needs_attention", "outcome": "system_exception" }
+      }
+    },
+
+    "section1_about_you": {
+      "start": "prompt_nino",
+      "vars": {
+        "nino": null,
+        "lookup_res": null,
+        "details_confirmed": null,
+        "title": null,
+        "first_name": null,
+        "middle_name": null,
+        "surname": null,
+        "dob": null,
+        "phone": null,
+        "address_line_1": null,
+        "address_line_2": null,
+        "town_or_city": null,
+        "postcode": null,
+        "manual_summary_confirmed": null
+      },
+      "states": {
+
+        "prompt_nino": {
+          "type": "input",
+          "prompt": "Please enter your National Insurance Number to verify your identity:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[A-CEGHJ-PR-TW-Z]{1}[A-CEGHJ-NPR-TW-Z]{1}[0-9]{6}[A-D]{1}$",
+            "normalise": "upper_trim",
+            "invalid_message": "Please enter a valid UK National Insurance number."
+          },
+          "assign": "nino",
+          "next": "lookup_identity_api"
+        },
+
+        "lookup_identity_api": {
+          "type": "call",
+          "method": "POST",
+          "service": "dwp",
+          "url": "/app/dwp/v1/identity-lookup",
+          "body": { "nino": { "$": "nino" } },
+          "idempotency_key": "{{workflow_id}}:identity_lookup_{{nino}}",
+          "assign": "lookup_res",
+          "capture": {
+            "title": "body.title",
+            "first_name": "body.first_name",
+            "middle_name": "body.middle_name",
+            "surname": "body.surname",
+            "date_of_birth": "body.date_of_birth",
+            "phone": "body.phone",
+            "address": "body.address"
+          },
+          "catch": [ { "on": "any", "next": "prompt_manual_title" } ],
+          "default": "prompt_manual_title",
+          "next": "confirm_fetched_identity"
+        },
+
+        "confirm_fetched_identity": {
+          "type": "input",
+          "prompt": "We found the following identity records with DWP:\n• Title: {{lookup_res.title}}\n• First Name: {{lookup_res.first_name}}\n• Middle Name: {{lookup_res.middle_name}}\n• Surname: {{lookup_res.surname}}\n• Date of Birth: {{lookup_res.date_of_birth}}\n• Phone Number: {{lookup_res.phone}}\n• Address Line 1: {{lookup_res.address.address_line_1}}\n• Address Line 2: {{lookup_res.address.address_line_2}}\n• Town or City: {{lookup_res.address.town_or_city}}\n• Postcode: {{lookup_res.address.postcode}}\n\nAre these details correct?",
+          "schema": { "kind": "boolean" },
+          "assign": "details_confirmed",
+          "next": "branch_identity_confirmation"
+        },
+
+        "branch_identity_confirmation": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "details_confirmed" }, "next": "end_identity_success" }
+          ],
+          "default": "prompt_manual_title"
+        },
+
+        "prompt_manual_title": {
+          "type": "input",
+          "prompt": "Please select your Title:",
+          "schema": {
+            "kind": "select_one",
+            "options": [
+              { "value": "mrs", "label": "Mrs" },
+              { "value": "ms", "label": "Ms" },
+              { "value": "miss", "label": "Miss" },
+              { "value": "mr", "label": "Mr" },
+              { "value": "dr", "label": "Dr" }
+            ]
+          },
+          "assign": "title",
+          "next": "prompt_manual_first_name"
+        },
+
+        "prompt_manual_first_name": {
+          "type": "input",
+          "prompt": "Please enter your First Name:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[a-zA-Z\\s\\-']{2,50}$",
+            "invalid_message": "Please enter a valid first name using letters."
+          },
+          "assign": "first_name",
+          "next": "prompt_manual_middle_name"
+        },
+
+        "prompt_manual_middle_name": {
+          "type": "input",
+          "prompt": "Please enter your Middle Name (optional, press Enter to skip):",
+          "schema": { "kind": "string" },
+          "assign": "middle_name",
+          "next": "prompt_manual_surname"
+        },
+
+        "prompt_manual_surname": {
+          "type": "input",
+          "prompt": "Please enter your Surname:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[a-zA-Z\\s\\-']{2,50}$",
+            "invalid_message": "Please enter a valid surname using letters."
+          },
+          "assign": "surname",
+          "next": "prompt_manual_dob"
+        },
+
+        "prompt_manual_dob": {
+          "type": "input",
+          "prompt": "Please enter your Date of Birth (DD/MM/YYYY):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+            "invalid_message": "Please enter a valid date of birth in DD/MM/YYYY format."
+          },
+          "assign": "dob",
+          "next": "prompt_manual_phone"
+        },
+
+        "prompt_manual_phone": {
+          "type": "input",
+          "prompt": "Please enter your UK contact Phone Number:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(?:0|\\+?44)\\d{9,10}$",
+            "invalid_message": "Please enter a valid UK telephone number."
+          },
+          "assign": "phone",
+          "next": "prompt_manual_address_line_1"
+        },
+
+        "prompt_manual_address_line_1": {
+          "type": "input",
+          "prompt": "Please enter your Address Line 1 (Building number and street):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^.{3,100}$",
+            "invalid_message": "Please enter a valid street address."
+          },
+          "assign": "address_line_1",
+          "next": "prompt_manual_address_line_2"
+        },
+
+        "prompt_manual_address_line_2": {
+          "type": "input",
+          "prompt": "Please enter Address Line 2 (optional, press Enter to skip):",
+          "schema": { "kind": "string" },
+          "assign": "address_line_2",
+          "next": "prompt_manual_town_or_city"
+        },
+
+        "prompt_manual_town_or_city": {
+          "type": "input",
+          "prompt": "Please enter your Town or City:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[a-zA-Z\\s\\-']{2,50}$",
+            "invalid_message": "Please enter a valid town or city name."
+          },
+          "assign": "town_or_city",
+          "next": "prompt_manual_postcode"
+        },
+
+        "prompt_manual_postcode": {
+          "type": "input",
+          "prompt": "Please enter your Postcode:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[A-Z]{1,2}[0-9][A-Z0-9]?\\s?[0-9][A-Z]{2}$",
+            "invalid_message": "Please enter a valid UK postcode."
+          },
+          "assign": "postcode",
+          "next": "confirm_manual_summary"
+        },
+
+        "confirm_manual_summary": {
+          "type": "input",
+          "prompt": "[Section 1] Please confirm your entered details:\n• Title: {{title}}\n• First Name: {{first_name}}\n• Middle Name: {{middle_name}}\n• Surname: {{surname}}\n• Date of Birth: {{dob}}\n• Phone Number: {{phone}}\n• Address Line 1: {{address_line_1}}\n• Address Line 2: {{address_line_2}}\n• Town/City: {{town_or_city}}\n• Postcode: {{postcode}}\n\nAre these details correct?",
+          "schema": { "kind": "boolean" },
+          "assign": "manual_summary_confirmed",
+          "next": "branch_manual_summary"
+        },
+
+        "branch_manual_summary": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "manual_summary_confirmed" }, "next": "end_identity_manual" }
+          ],
+          "default": "prompt_manual_title"
+        },
+
+        "end_identity_success": {
+          "type": "end",
+          "status": "success",
+          "outcome": "identity_confirmed_via_dwp",
+          "return": {
+            "identity": {
+              "nino": { "$": "nino" },
+              "title": { "$": "lookup_res.title" },
+              "first_name": { "$": "lookup_res.first_name" },
+              "middle_name": { "$": "lookup_res.middle_name" },
+              "surname": { "$": "lookup_res.surname" },
+              "date_of_birth": { "$": "lookup_res.date_of_birth" },
+              "phone": { "$": "lookup_res.phone" },
+              "address": {
+                "address_line_1": { "$": "lookup_res.address.address_line_1" },
+                "address_line_2": { "$": "lookup_res.address.address_line_2" },
+                "town_or_city": { "$": "lookup_res.address.town_or_city" },
+                "postcode": { "$": "lookup_res.address.postcode" }
+              }
+            }
+          }
+        },
+
+        "end_identity_manual": {
+          "type": "end",
+          "status": "success",
+          "outcome": "identity_entered_manually",
+          "return": {
+            "identity": {
+              "nino": { "$": "nino" },
+              "title": { "$": "title" },
+              "first_name": { "$": "first_name" },
+              "middle_name": { "$": "middle_name" },
+              "surname": { "$": "surname" },
+              "date_of_birth": { "$": "dob" },
+              "phone": { "$": "phone" },
+              "address": {
+                "address_line_1": { "$": "address_line_1" },
+                "address_line_2": { "$": "address_line_2" },
+                "town_or_city": { "$": "town_or_city" },
+                "postcode": { "$": "postcode" }
+              }
+            }
+          }
+        }
+
+      }
+    },
+
+    "section2_about_baby": {
+      "start": "prompt_is_baby_born",
+      "vars": {
+        "is_baby_born": null,
+        "is_stillborn_or_died": null,
+        "actual_birth_date": null,
+        "due_date": null,
+        "calculated_dates": null,
+        "baby_name": null,
+        "born_in_uk": null,
+        "birth_evidence_method": null,
+        "birth_certificate_system_number": null,
+        "matb1_upload_ref": null,
+        "matb1_upload_attempts": 0,
+        "birth_certificate_upload_ref": null,
+        "birth_cert_upload_attempts": 0
+      },
+      "states": {
+        "prompt_is_baby_born": {
+          "type": "input",
+          "prompt": "--- Section 2: About Your Baby ---\nHas your baby already been born?",
+          "schema": { "kind": "boolean" },
+          "assign": "is_baby_born",
+          "next": "branch_baby_status"
+        },
+
+        "branch_baby_status": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "is_baby_born" }, "next": "check_bereavement_status" }
+          ],
+          "default": "prompt_due_date_unborn"
+        },
+
+        "check_bereavement_status": {
+          "type": "input",
+          "prompt": "Was your baby stillborn or did your baby die?",
+          "schema": { "kind": "boolean" },
+          "assign": "is_stillborn_or_died",
+          "next": "branch_bereavement_status"
+        },
+
+        "branch_bereavement_status": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "is_stillborn_or_died" }, "next": "say_bereavement_guidance" }
+          ],
+          "default": "prompt_born_in_uk"
+        },
+
+        "say_bereavement_guidance": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "We are very sorry for your loss. Special rules apply to claims in cases of stillbirth or infant death. Please read Page 4 of the MA1 Notes or contact us on 0800 169 0283 so we can assist you with completing the paper MA1 form and submitting your certificate of stillbirth.",
+          "next": "end_bereavement"
+        },
+
+        "end_bereavement": {
+          "type": "end",
+          "status": "failed",
+          "outcome": "bereavement_offramp"
+        },
+
+        "prompt_born_in_uk": {
+          "type": "input",
+          "prompt": "Was your baby born in the UK?",
+          "schema": { "kind": "boolean" },
+          "assign": "born_in_uk",
+          "next": "branch_born_in_uk"
+        },
+
+        "branch_born_in_uk": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "born_in_uk" }, "next": "prompt_actual_birth_date" }
+          ],
+          "default": "say_offramp_born_outside_uk"
+        },
+
+        "say_offramp_born_outside_uk": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because your baby was born outside the UK, you cannot complete your claim using this online service. Please complete your claim using the paper MA1 form and post it along with your baby's foreign birth certificate and official translation.",
+          "next": "end_offramp_paper"
+        },
+
+        "prompt_actual_birth_date": {
+          "type": "input",
+          "prompt": "Enter your baby's actual date of birth (DD/MM/YYYY):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+            "invalid_message": "Please enter a valid date in DD/MM/YYYY format."
+          },
+          "assign": "actual_birth_date",
+          "next": "evaluate_actual_birth_date"
+        },
+
+        "evaluate_actual_birth_date": {
+          "type": "choice",
+          "rules": [
+            {
+              "when": {
+                "op": "date_before",
+                "path": "__now__",
+                "value_path": "actual_birth_date"
+              },
+              "next": "say_future_birth_date_error"
+            }
+          ],
+          "default": "prompt_due_date_born"
+        },
+
+        "say_future_birth_date_error": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Invalid Birth Date: Your baby's actual date of birth cannot be in the future. If your baby has not been born yet, please go back and select 'No'.",
+          "next": "prompt_actual_birth_date"
+        },
+
+        "prompt_due_date_born": {
+          "type": "input",
+          "prompt": "Enter the date your baby was originally due from your MAT B1 maternity certificate (DD/MM/YYYY):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+            "invalid_message": "Please enter a valid date in DD/MM/YYYY format."
+          },
+          "assign": "due_date",
+          "next": "run_born_timeline_calculations"
+        },
+
+        "prompt_due_date_unborn": {
+          "type": "input",
+          "prompt": "Enter your expected childbirth date from your MAT B1 maternity certificate (DD/MM/YYYY):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+            "invalid_message": "Please enter a valid date in DD/MM/YYYY format."
+          },
+          "assign": "due_date",
+          "next": "run_unborn_timeline_calculations"
+        },
+
+        "run_born_timeline_calculations": {
+          "type": "invoke",
+          "process": "calculate_deadlines",
+          "input": {
+            "due_date": { "$": "due_date" },
+            "actual_birth_date": { "$": "actual_birth_date" },
+            "is_baby_born": true
+          },
+          "assign": "calculated_dates",
+          "next": "evaluate_backdating_limit"
+        },
+
+        "run_unborn_timeline_calculations": {
+          "type": "invoke",
+          "process": "calculate_deadlines",
+          "input": {
+            "due_date": { "$": "due_date" },
+            "is_baby_born": false
+          },
+          "assign": "calculated_dates",
+          "next": "evaluate_pre_birth_window"
+        },
+
+        "evaluate_backdating_limit": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "calculated_dates.is_claim_backdated_over_3_months" }, "next": "say_backdating_warning" }
+          ],
+          "default": "prompt_matb1_file"
+        },
+
+        "say_backdating_warning": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Notice: Maternity Allowance can only be backdated for up to 3 months. Because your claim is submitted more than 3 months after your baby's birth, your payment start date is set automatically to the day after birth, but you risk losing payments for any period prior to the 3-month backdating limit.",
+          "next": "prompt_matb1_file"
+        },
+
+        "evaluate_pre_birth_window": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "calculated_dates.is_too_early" }, "next": "say_too_early_to_claim" }
+          ],
+          "default": "prompt_matb1_file"
+        },
+
+        "say_too_early_to_claim": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "You have applied too early. Claims cannot be submitted earlier than 14 weeks before your due week. Based on your expected due date, your claim window opens on {{calculated_dates.earliest_signing_date}}.",
+          "next": "end_too_early_to_claim"
+        },
+
+        "end_too_early_to_claim": {
+          "type": "end",
+          "status": "failed",
+          "outcome": "too_early_to_claim"
+        },
+
+        "prompt_matb1_file": {
+          "type": "input",
+          "prompt": "Upload a photo or scan of your MAT B1 maternity certificate (JPEG, PNG, or PDF).",
+          "schema": {
+            "kind": "file_ref",
+            "accept": ["image/jpeg", "image/png", "application/pdf"],
+            "allow_skip": false
+          },
+          "assign": "matb1_file",
+          "next": "upload_matb1_api"
+        },
+
+        "upload_matb1_api": {
+          "type": "call",
+          "method": "POST",
+          "service": "dwp",
+          "url": "/app/dwp/v1/upload",
+          "body": {
+            "document_type": "MATB1",
+            "filename": { "$": "matb1_file.ref" },
+            "content_type": { "$": "matb1_file.content_type" },
+            "file_bytes_approx": { "$": "matb1_file.bytes" }
+          },
+          "idempotency_key": "{{workflow_id}}:upload_matb1_{{step}}",
+          "assign": "upload_res",
+          "capture": {
+            "matb1_upload_ref": "body.upload_ref",
+            "matb1_upload_status": "body.status"
+          },
+          "catch": [ { "on": "any", "next": "prompt_matb1_file" } ],
+          "default": "prompt_matb1_file",
+          "next": "check_matb1_upload"
+        },
+
+        "check_matb1_upload": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "upload_res.matb1_upload_ref" }, "next": "check_birth_certificate_required" }
+          ],
+          "default": "increment_matb1_attempts"
+        },
+
+        "increment_matb1_attempts": {
+          "type": "assign",
+          "set": {
+            "matb1_upload_attempts": { "op": "add", "path": "matb1_upload_attempts", "value": 1 }
+          },
+          "next": "evaluate_matb1_attempts"
+        },
+
+        "evaluate_matb1_attempts": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "greater_than_or_equal", "path": "matb1_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+          ],
+          "default": "prompt_retry_matb1"
+        },
+
+        "prompt_retry_matb1": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Upload failed or missing. Please try uploading your MAT B1 certificate again (Attempt {{matb1_upload_attempts}} of 3).",
+          "next": "prompt_matb1_file"
+        },
+
+        "check_birth_certificate_required": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "is_baby_born" }, "next": "prompt_birth_evidence_method" }
+          ],
+          "default": "end_section2"
+        },
+
+        "prompt_birth_evidence_method": {
+          "type": "input",
+          "prompt": "How would you like to provide proof of your baby's birth?",
+          "schema": {
+            "kind": "select_one",
+            "options": [
+              { "value": "system_number", "label": "Enter the 9-digit Birth Certificate System Number" },
+              { "value": "upload_certificate", "label": "Upload a digital copy of the Birth Certificate" }
+            ]
+          },
+          "assign": "birth_evidence_method",
+          "next": "branch_birth_evidence_method"
+        },
+
+        "branch_birth_evidence_method": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "equals", "path": "birth_evidence_method", "value": "system_number" }, "next": "prompt_uk_birth_system_number" }
+          ],
+          "default": "upload_birth_certificate"
+        },
+
+        "prompt_uk_birth_system_number": {
+          "type": "input",
+          "prompt": "Enter the 9-digit System Number from the bottom-left corner of your UK birth certificate:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[0-9]{9}$",
+            "invalid_message": "UK Birth certificate system number must be 9 digits."
+          },
+          "assign": "birth_certificate_system_number",
+          "next": "end_section2"
+        },
+
+        "upload_birth_certificate": {
+          "type": "input",
+          "prompt": "Upload a scan or photo of your baby's birth certificate (JPEG, PNG, or PDF). You must upload this file to complete your application online.",
+          "schema": {
+            "kind": "file_ref",
+            "accept": ["image/jpeg", "image/png", "application/pdf"],
+            "allow_skip": false
+          },
+          "assign": "birth_cert_file",
+          "next": "upload_birth_certificate_api"
+        },
+
+        "upload_birth_certificate_api": {
+          "type": "call",
+          "method": "POST",
+          "service": "dwp",
+          "url": "/app/dwp/v1/upload",
+          "body": {
+            "document_type": "BIRTH_CERT",
+            "filename": { "$": "birth_cert_file.ref" },
+            "content_type": { "$": "birth_cert_file.content_type" },
+            "file_bytes_approx": { "$": "birth_cert_file.bytes" }
+          },
+          "idempotency_key": "{{workflow_id}}:upload_birth_cert_{{step}}",
+          "assign": "upload_res",
+          "capture": {
+            "birth_certificate_upload_ref": "body.upload_ref",
+            "birth_cert_upload_status": "body.status"
+          },
+          "catch": [ { "on": "any", "next": "increment_birth_cert_attempts" } ],
+          "default": "increment_birth_cert_attempts",
+          "next": "check_birth_cert_upload"
+        },
+
+        "check_birth_cert_upload": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "upload_res.birth_certificate_upload_ref" }, "next": "end_section2" }
+          ],
+          "default": "increment_birth_cert_attempts"
+        },
+
+        "increment_birth_cert_attempts": {
+          "type": "assign",
+          "set": {
+            "birth_cert_upload_attempts": { "op": "add", "path": "birth_cert_upload_attempts", "value": 1 }
+          },
+          "next": "evaluate_birth_cert_attempts"
+        },
+
+        "evaluate_birth_cert_attempts": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "greater_than_or_equal", "path": "birth_cert_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+          ],
+          "default": "prompt_retry_birth_cert"
+        },
+
+        "prompt_retry_birth_cert": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Upload failed or missing. Please try uploading your birth certificate again (Attempt {{birth_cert_upload_attempts}} of 3).",
+          "next": "upload_birth_certificate"
+        },
+
+        "end_offramp_paper": {
+          "type": "end",
+          "status": "offramp",
+          "outcome": "offramp_paper"
+        },
+
+        "end_section2": {
+          "type": "end",
+          "status": "success",
+          "return": {
+            "is_baby_born": { "$": "is_baby_born" },
+            "actual_birth_date": { "$": "actual_birth_date" },
+            "due_date": { "$": "due_date" },
+            "calculated_dates": { "$": "calculated_dates" },
+            "baby_name": { "$": "baby_name" },
+            "born_in_uk": { "$": "born_in_uk" },
+            "birth_certificate_system_number": { "$": "birth_certificate_system_number" },
+            "matb1_upload_ref": { "$": "upload_res.matb1_upload_ref" },
+            "birth_certificate_upload_ref": { "$": "upload_res.birth_certificate_upload_ref" }
+          }
+        }
+      }
+    },
+
+    "section3_about_work": {
+      "start": "announce_section3",
+      "vars": {
+        "nino": null,
+        "due_date": null,
+        "calculated_dates": null,
+        "selected_employments": [],
+        "worked_in_15th_week": null,
+        "rti_history": null,
+        "rti_data_confirmed": null,
+        "smp1_upload_ref": null,
+        "smp1_upload_attempts": 0,
+        "se_utr": null,
+        "partner_nino": null,
+        "partner_utr": null,
+        "marriage_cert_upload_ref": null,
+        "marriage_cert_upload_attempts": 0
+      },
+      "states": {
+
+        "announce_section3": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "--- Section 3: About Employment and Earnings ---",
+          "next": "prompt_test_period_employments"
+        },
+
+        "prompt_test_period_employments": {
+          "type": "input",
+          "prompt": "Select all types of employment you have had during your 66-week Test Period:\nNote: You must have worked for at least 26 weeks across all your employments combined.",
+          "schema": {
+            "kind": "select_many",
+            "options": [
+              { "value": "employed", "label": "Employed (including agency work)" },
+              { "value": "self_employed", "label": "Self-employed" },
+              { "value": "unpaid_partner_work", "label": "Unpaid work for your partner's business" },
+              { "value": "worked_outside_uk", "label": "Working outside the UK" }
+            ]
+          },
+          "assign": "selected_employments",
+          "next": "branch_foreign_work_check"
+        },
+
+        "branch_foreign_work_check": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "contains", "path": "selected_employments", "value": "worked_outside_uk" }, "next": "say_offramp_paper_foreign_work" }
+          ],
+          "default": "branch_employed_check"
+        },
+
+        "say_offramp_paper_foreign_work": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because you worked outside the UK during your Test Period, you cannot complete your claim online. Please complete your claim using the paper MA1 form and post it along with your overseas work proof to: Mail Handling Site A, Wolverhampton, WV98 2FR.",
+          "next": "end_offramp_paper"
+        },
+
+        "branch_employed_check": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "contains", "path": "selected_employments", "value": "employed" }, "next": "lookup_hmrc_rti_details" }
+          ],
+          "default": "branch_self_employed_check"
+        },
+
+        "lookup_hmrc_rti_details": {
+          "type": "call",
+          "method": "POST",
+          "service": "hmrc",
+          "url": "/app/hmrc/v1/employment-and-earnings",
+          "body": { "nino": { "$": "input.nino" } },
+          "idempotency_key": "{{workflow_id}}:hmrc_rti_{{input.nino}}",
+          "assign": "rti_history",
+          "capture": {
+            "has_active_employment": "body.has_active_employment",
+            "employers": "body.employers",
+            "highest_13_weeks": "body.highest_13_weeks",
+            "monthly_earnings": "body.monthly_earnings",
+            "average_weekly_earnings": "body.average_weekly_earnings",
+            "average_monthly_earnings": "body.average_monthly_earnings"
+          },
+          "catch": [ { "on": "any", "next": "end_rti_disputed" } ],
+          "default": "end_rti_disputed",
+          "next": "confirm_hmrc_rti_details"
+        },
+
+        "confirm_hmrc_rti_details": {
+          "type": "input",
+          "prompt": "We retrieved your employment records from HMRC for National Insurance number {{input.nino}}:\n\n• Employers Found: {{rti_history.employers}}\n• Average Monthly Earnings: £{{rti_history.average_monthly_earnings}}\n• Average Weekly Earnings (Top 13 Weeks): £{{rti_history.average_weekly_earnings}}\n\nAre these details correct?",
+          "schema": { "kind": "boolean" },
+          "assign": "rti_data_confirmed",
+          "next": "branch_confirm_hmrc_rti"
+        },
+
+        "branch_confirm_hmrc_rti": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "rti_data_confirmed" }, "next": "prompt_worked_in_15th_week" }
+          ],
+          "default": "end_rti_disputed"
+        },
+
+        "prompt_worked_in_15th_week": {
+          "type": "input",
+          "prompt": "Were you working in any of these employments during the 15th week before your due week (the week starting {{input.calculated_dates.smp_qualifying_week}})?",
+          "schema": { "kind": "boolean" },
+          "assign": "worked_in_15th_week",
+          "next": "branch_worked_in_15th_week"
+        },
+
+        "branch_worked_in_15th_week": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "worked_in_15th_week" }, "next": "upload_smp1_form" }
+          ],
+          "default": "branch_self_employed_check"
+        },
+
+        "upload_smp1_form": {
+          "type": "input",
+          "prompt": "Upload a Form SMP1 for each employer you worked for in the 15th week before your due week (JPEG, PNG, or PDF). You must upload this file to complete your application online.",
+          "schema": {
+            "kind": "file_ref",
+            "accept": ["image/jpeg", "image/png", "application/pdf"],
+            "allow_skip": false
+          },
+          "assign": "smp1_file",
+          "next": "upload_smp1_api"
+        },
+
+        "upload_smp1_api": {
+          "type": "call",
+          "method": "POST",
+          "service": "dwp",
+          "url": "/app/dwp/v1/upload",
+          "body": {
+            "document_type": "SMP1",
+            "filename": { "$": "smp1_file.ref" },
+            "content_type": { "$": "smp1_file.content_type" },
+            "file_bytes_approx": { "$": "smp1_file.bytes" }
+          },
+          "idempotency_key": "{{workflow_id}}:upload_smp1_{{step}}",
+          "assign": "upload_res",
+          "capture": {
+            "smp1_upload_ref": "body.upload_ref",
+            "smp1_upload_status": "body.status"
+          },
+          "catch": [ { "on": "any", "next": "increment_smp1_attempts" } ],
+          "default": "increment_smp1_attempts",
+          "next": "check_smp1_upload"
+        },
+
+        "check_smp1_upload": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "upload_res.smp1_upload_ref" }, "next": "branch_self_employed_check" }
+          ],
+          "default": "increment_smp1_attempts"
+        },
+
+        "increment_smp1_attempts": {
+          "type": "assign",
+          "set": {
+            "smp1_upload_attempts": { "op": "add", "path": "smp1_upload_attempts", "value": 1 }
+          },
+          "next": "evaluate_smp1_attempts"
+        },
+
+        "evaluate_smp1_attempts": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "greater_than_or_equal", "path": "smp1_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+          ],
+          "default": "prompt_retry_smp1"
+        },
+
+        "prompt_retry_smp1": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Upload failed or missing. Please try uploading your SMP1 form again (Attempt {{smp1_upload_attempts}} of 3).",
+          "next": "upload_smp1_form"
+        },
+
+        "branch_self_employed_check": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "contains", "path": "selected_employments", "value": "self_employed" }, "next": "prompt_se_utr" }
+          ],
+          "default": "branch_unpaid_partner_check"
+        },
+
+        "prompt_se_utr": {
+          "type": "input",
+          "prompt": "Please enter your 10-digit Unique Taxpayer Reference (UTR) for self-employment:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[0-9]{10}$",
+            "invalid_message": "Unique Taxpayer Reference must be exactly 10 digits."
+          },
+          "assign": "se_utr",
+          "next": "branch_se_utr"
+        },
+
+        "branch_se_utr": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "se_utr" }, "next": "branch_unpaid_partner_check" }
+          ],
+          "default": "end_offramp_paper"
+        },
+
+        "branch_unpaid_partner_check": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "contains", "path": "selected_employments", "value": "unpaid_partner_work" }, "next": "prompt_partner_nino" }
+          ],
+          "default": "end_section3"
+        },
+
+        "prompt_partner_nino": {
+          "type": "input",
+          "prompt": "Please enter your partner's National Insurance Number:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[A-CEGHJ-PR-TW-Z]{1}[A-CEGHJ-NPR-TW-Z]{1}[0-9]{6}[A-D]{1}$",
+            "normalise": "upper_trim",
+            "invalid_message": "Please enter a valid UK National Insurance number."
+          },
+          "assign": "partner_nino",
+          "next": "branch_partner_nino"
+        },
+
+        "branch_partner_nino": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "partner_nino" }, "next": "prompt_partner_utr" }
+          ],
+          "default": "end_offramp_paper"
+        },
+
+        "prompt_partner_utr": {
+          "type": "input",
+          "prompt": "Please enter your partner's 10-digit Unique Taxpayer Reference (UTR):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[0-9]{10}$",
+            "invalid_message": "Partner's Unique Taxpayer Reference must be exactly 10 digits."
+          },
+          "assign": "partner_utr",
+          "next": "branch_partner_utr"
+        },
+
+        "branch_partner_utr": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "partner_utr" }, "next": "upload_marriage_cert" }
+          ],
+          "default": "end_offramp_paper"
+        },
+
+        "upload_marriage_cert": {
+          "type": "input",
+          "prompt": "Upload a digital copy of your Marriage or Civil Partnership Certificate (JPEG, PNG, or PDF). You must upload this file to complete your application online.",
+          "schema": {
+            "kind": "file_ref",
+            "accept": ["image/jpeg", "image/png", "application/pdf"],
+            "allow_skip": false
+          },
+          "assign": "marriage_cert_file",
+          "next": "upload_marriage_cert_api"
+        },
+
+        "upload_marriage_cert_api": {
+          "type": "call",
+          "method": "POST",
+          "service": "dwp",
+          "url": "/app/dwp/v1/upload",
+          "body": {
+            "document_type": "MARRIAGE_CERT",
+            "filename": { "$": "marriage_cert_file.ref" },
+            "content_type": { "$": "marriage_cert_file.content_type" },
+            "file_bytes_approx": { "$": "marriage_cert_file.bytes" }
+          },
+          "idempotency_key": "{{workflow_id}}:upload_marriage_cert_{{step}}",
+          "assign": "upload_res",
+          "capture": {
+            "marriage_cert_upload_ref": "body.upload_ref",
+            "marriage_cert_upload_status": "body.status"
+          },
+          "catch": [ { "on": "any", "next": "increment_marriage_cert_attempts" } ],
+          "default": "increment_marriage_cert_attempts",
+          "next": "check_marriage_cert_upload"
+        },
+
+        "check_marriage_cert_upload": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "not_empty", "path": "upload_res.marriage_cert_upload_ref" }, "next": "end_section3" }
+          ],
+          "default": "increment_marriage_cert_attempts"
+        },
+
+        "increment_marriage_cert_attempts": {
+          "type": "assign",
+          "set": {
+            "marriage_cert_upload_attempts": { "op": "add", "path": "marriage_cert_upload_attempts", "value": 1 }
+          },
+          "next": "evaluate_marriage_cert_attempts"
+        },
+
+        "evaluate_marriage_cert_attempts": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "greater_than_or_equal", "path": "marriage_cert_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+          ],
+          "default": "prompt_retry_marriage_cert"
+        },
+
+        "prompt_retry_marriage_cert": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Upload failed or missing. Please try uploading your Marriage or Civil Partnership Certificate again (Attempt {{marriage_cert_upload_attempts}} of 3).",
+          "next": "upload_marriage_cert"
+        },
+
+        "end_rti_disputed": {
+          "type": "end",
+          "status": "failed",
+          "outcome": "rti_disputed"
+        },
+
+        "end_offramp_paper": {
+          "type": "end",
+          "status": "offramp",
+          "outcome": "offramp_paper"
+        },
+
+        "end_section3": {
+          "type": "end",
+          "status": "success",
+          "return": {
+            "selected_employments": { "$": "selected_employments" },
+            "worked_in_15th_week": { "$": "worked_in_15th_week" },
+            "rti_history": { "$": "rti_history" },
+            "smp1_upload_ref": { "$": "upload_res.smp1_upload_ref" },
+            "se_utr": { "$": "se_utr" },
+            "partner_nino": { "$": "partner_nino" },
+            "partner_utr": { "$": "partner_utr" },
+            "marriage_cert_upload_ref": { "$": "upload_res.marriage_cert_upload_ref" }
+          }
+        }
+
+      }
+    },
+
+    "section4_about_payment": {
+      "start": "prompt_reason_stopped_work",
+      "vars": {
+        "reason_stopped_work": null,
+        "date_stopped_work": null,
+        "is_pregnancy_sickness_in_4wk_window": null,
+        "is_map_flexible": null,
+        "chosen_ma_start_date": null,
+        "payment_frequency": null,
+        "account_holder_name": null,
+        "bank_or_society_name": null,
+        "sort_code": null,
+        "account_number": null,
+        "payment_details_confirmed": null
+      },
+      "states": {
+
+        "prompt_reason_stopped_work": {
+          "type": "input",
+          "prompt": "--- Section 4: Paying You ---\nWhat is your current work status regarding your pregnancy?",
+          "schema": {
+            "kind": "select_one",
+            "options": [
+              { "value": "pregnancy_sick_leave", "label": "Off work with pregnancy-related illness" },
+              { "value": "maternity_leave", "label": "On statutory maternity leave" },
+              { "value": "resigned_or_redundant", "label": "Resigned, contract ended, or made redundant" },
+              { "value": "not_stopped_working", "label": "Still working / have not stopped yet" }
+            ]
+          },
+          "assign": "reason_stopped_work",
+          "next": "branch_reason_stopped_work"
+        },
+
+        "branch_reason_stopped_work": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "equals", "path": "reason_stopped_work", "value": "not_stopped_working" }, "next": "evaluate_map_flexibility" }
+          ],
+          "default": "prompt_date_stopped_work"
+        },
+
+        "prompt_date_stopped_work": {
+          "type": "input",
+          "prompt": "On what date did you stop working or begin your absence/leave (DD/MM/YYYY)?",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+            "invalid_message": "Please enter a valid date in DD/MM/YYYY format."
+          },
+          "assign": "date_stopped_work",
+          "next": "evaluate_map_flexibility"
+        },
+
+        "evaluate_map_flexibility": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "input.is_baby_born" }, "next": "set_non_flexible_early_birth" },
+            { "when": { "op": "equals", "path": "reason_stopped_work", "value": "pregnancy_sick_leave" }, "next": "check_sickness_in_4wk_window" }
+          ],
+          "default": "set_flexible_map"
+        },
+
+        "check_sickness_in_4wk_window": {
+          "type": "input",
+          "prompt": "Was your pregnancy-related sickness absence within 4 weeks of your expected due week?",
+          "schema": { "kind": "boolean" },
+          "assign": "is_pregnancy_sickness_in_4wk_window",
+          "next": "branch_sickness_window"
+        },
+
+        "branch_sickness_window": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "is_pregnancy_sickness_in_4wk_window" }, "next": "set_non_flexible_sickness" }
+          ],
+          "default": "set_flexible_map"
+        },
+
+        "set_non_flexible_early_birth": {
+          "type": "assign",
+          "set": { 
+            "is_map_flexible": false,
+            "chosen_ma_start_date": "Automatic (Day after birth)"
+          },
+          "next": "display_non_flexible_early_birth_window"
+        },
+
+        "set_non_flexible_sickness": {
+          "type": "assign",
+          "set": { 
+            "is_map_flexible": false,
+            "chosen_ma_start_date": { "$": "date_stopped_work" }
+          },
+          "next": "display_non_flexible_sickness_window"
+        },
+
+        "set_flexible_map": {
+          "type": "assign",
+          "set": { "is_map_flexible": true },
+          "next": "display_flexible_payment_window"
+        },
+
+        "display_non_flexible_early_birth_window": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because your baby was born early, your Maternity Allowance Period (MAP) starts automatically on the day after the birth.",
+          "next": "prompt_payment_frequency"
+        },
+
+        "display_non_flexible_sickness_window": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because you are off sick due to pregnancy within 4 weeks of your due week, your Maternity Allowance Period (MAP) starts automatically on the day after your sickness began ({{date_stopped_work}}).",
+          "next": "prompt_payment_frequency"
+        },
+
+        "display_flexible_payment_window": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Your Maternity Allowance Period (MAP) is Flexible. You can choose a start date from 11 weeks before your due date (the week starting {{input.calculated_dates.earliest_signing_date}}) up to the day after your baby is born.",
+          "next": "prompt_flexible_start_date"
+        },
+
+        "prompt_flexible_start_date": {
+          "type": "input",
+          "prompt": "When would you like your Maternity Allowance payments to start (DD/MM/YYYY)? Note: Your payment start date cannot be earlier than 11 weeks before your due week ({{input.calculated_dates.earliest_signing_date}}).",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+            "invalid_message": "Please enter a valid date in DD/MM/YYYY format."
+          },
+          "assign": "chosen_ma_start_date",
+          "next": "evaluate_flexible_start_date"
+        },
+
+        "evaluate_flexible_start_date": {
+          "type": "choice",
+          "rules": [
+            {
+              "when": {
+                "op": "date_before",
+                "path": "chosen_ma_start_date",
+                "value_path": "input.calculated_dates.earliest_signing_date"
+              },
+              "next": "say_start_date_too_early"
+            }
+          ],
+          "default": "prompt_payment_frequency"
+        },
+
+        "say_start_date_too_early": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Invalid Start Date: You cannot choose a Maternity Allowance start date earlier than 11 weeks before your due week ({{input.calculated_dates.earliest_signing_date}}). Please enter a valid start date.",
+          "next": "prompt_flexible_start_date"
+        },
+
+        "prompt_payment_frequency": {
+          "type": "input",
+          "prompt": "How often do you want to receive your Maternity Allowance payments?",
+          "schema": {
+            "kind": "select_one",
+            "options": [
+              { "value": "every_2_weeks", "label": "Every 2 weeks" },
+              { "value": "every_4_weeks", "label": "Every 4 weeks" }
+            ]
+          },
+          "assign": "payment_frequency",
+          "next": "prompt_account_holder_name"
+        },
+
+        "prompt_account_holder_name": {
+          "type": "input",
+          "prompt": "Enter the Name of the Account Holder (as it appears on your account):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^[a-zA-Z\\s\\-'.]{2,100}$",
+            "invalid_message": "Please enter a valid account holder name using letters."
+          },
+          "assign": "account_holder_name",
+          "next": "prompt_bank_or_society_name"
+        },
+
+        "prompt_bank_or_society_name": {
+          "type": "input",
+          "prompt": "Enter the Name of your Bank or Building Society:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^.{2,100}$",
+            "invalid_message": "Please enter a valid bank or building society name."
+          },
+          "assign": "bank_or_society_name",
+          "next": "prompt_sort_code"
+        },
+
+        "prompt_sort_code": {
+          "type": "input",
+          "prompt": "Enter your 6-digit Sort Code (e.g. 20-40-60 or 204060):",
+          "schema": {
+            "kind": "string",
+            "pattern": "^(?:\\d{2}-\\d{2}-\\d{2}|\\d{6})$",
+            "invalid_message": "Please enter a valid 6-digit sort code."
+          },
+          "assign": "sort_code",
+          "next": "prompt_account_number"
+        },
+
+        "prompt_account_number": {
+          "type": "input",
+          "prompt": "Enter your 8-digit Bank Account Number:",
+          "schema": {
+            "kind": "string",
+            "pattern": "^\\d{8}$",
+            "invalid_message": "Account number must be exactly 8 digits."
+          },
+          "assign": "account_number",
+          "next": "confirm_payment_summary"
+        },
+
+        "confirm_payment_summary": {
+          "type": "input",
+          "prompt": "Please review and confirm your payment preferences and bank details:\n• Reason Stopped Work: {{reason_stopped_work}}\n• Date Stopped Work: {{date_stopped_work}}\n• Flexible MAP: {{is_map_flexible}}\n• Chosen Start Date: {{chosen_ma_start_date}}\n• Payment Frequency: {{payment_frequency}}\n• Account Holder: {{account_holder_name}}\n• Bank Name: {{bank_or_society_name}}\n• Sort Code: {{sort_code}}\n• Account Number: {{account_number}}\n\nAre these details correct?",
+          "schema": { "kind": "boolean" },
+          "assign": "payment_details_confirmed",
+          "next": "branch_payment_confirmation"
+        },
+
+        "branch_payment_confirmation": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "payment_details_confirmed" }, "next": "end_section4" }
+          ],
+          "default": "prompt_account_holder_name"
+        },
+
+        "end_section4": {
+          "type": "end",
+          "status": "success",
+          "return": {
+            "reason_stopped_work": { "$": "reason_stopped_work" },
+            "date_stopped_work": { "$": "date_stopped_work" },
+            "is_map_flexible": { "$": "is_map_flexible" },
+            "chosen_ma_start_date": { "$": "chosen_ma_start_date" },
+            "payment_frequency": { "$": "payment_frequency" },
+            "bank_details": {
+              "account_holder_name": { "$": "account_holder_name" },
+              "bank_or_society_name": { "$": "bank_or_society_name" },
+              "sort_code": { "$": "sort_code" },
+              "account_number": { "$": "account_number" }
+            }
+          }
+        }
+
+      }
+    },
+
+    "calculate_deadlines": {
+      "start": "compute_dates",
+      "vars": {
+        "smp_qualifying_week": null,
+        "earliest_signing_date": null,
+        "matb1_issue_date": null,
+        "test_period_start": null,
+        "is_too_early": null,
+        "is_claim_backdated_over_3_months": null
+      },
+      "states": {
+        "compute_dates": {
+          "type": "assign",
+          "set": {
+            "test_period_start": { "op": "date_subtract", "path": "input.due_date", "value": "66 weeks" },
+            "smp_qualifying_week": { "op": "date_subtract", "path": "input.due_date", "value": "15 weeks" },
+            "earliest_signing_date": { "op": "date_subtract", "path": "input.due_date", "value": "14 weeks" },
+            "matb1_issue_date": { "op": "date_subtract", "path": "input.due_date", "value": "20 weeks" }
+          },
+          "next": "evaluate_if_too_early"
+        },
+
+        "evaluate_if_too_early": {
+          "type": "assign",
+          "set": {
+            "is_too_early": {
+              "op": "date_before",
+              "path": "__now__",
+              "value_path": "earliest_signing_date"
+            },
+            "is_claim_backdated_over_3_months": {
+              "op": "date_diff_greater_than",
+              "path": "input.actual_birth_date",
+              "value": "3 months"
+            }
+          },
+          "next": "end_dates_computed"
+        },
+
+        "end_dates_computed": {
+          "type": "end",
+          "status": "success",
+          "outcome": "dates_calculated",
+          "return": {
+            "smp_qualifying_week": { "$": "smp_qualifying_week" },
+            "earliest_signing_date": { "$": "earliest_signing_date" },
+            "matb1_issue_date": { "$": "matb1_issue_date" },
+            "test_period_start": { "$": "test_period_start" },
+            "is_too_early": { "$": "is_too_early" },
+            "is_claim_backdated_over_3_months": { "$": "is_claim_backdated_over_3_months" }
+          }
+        }
+      }
+    }
+
+  }
+}

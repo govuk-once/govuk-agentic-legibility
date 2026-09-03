@@ -5,6 +5,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class OptionItem(BaseModel):
+    value: str
+    label: str
+
+
 class SchemaDefinition(BaseModel):
     model_config = ConfigDict(extra="allow")
     kind: str
@@ -13,9 +18,13 @@ class SchemaDefinition(BaseModel):
     max_length: int | None = None
     invalid_message: str | None = None
     fields: list[dict[str, Any]] | None = None
+    options: list[OptionItem | str | dict[str, Any]] | None = None
     options_from: str | None = None
     value_key: str | None = None
     label_key: str | None = None
+    default: Any | None = None
+    accept: list[str] | None = None
+    allow_skip: bool | None = False
 
 
 class BaseState(BaseModel):
@@ -57,7 +66,7 @@ class CallState(BaseState):
     timeouts: dict[str, str] | None = None
     retry: dict[str, Any] | None = None
     assign: str
-    capture: dict[str, Any]
+    capture: dict[str, Any] | None = None
     catch: list[dict[str, str]] | None = None
     next: str
 
