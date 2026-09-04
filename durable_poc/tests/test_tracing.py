@@ -216,7 +216,7 @@ async def test_tool_spans_are_children_of_manual_parent(otel_provider) -> None:
     agent = _make_agent(temporal_client)
     tracer = trace.get_tracer("test")
 
-    with tracer.start_as_current_span("simulated_parent") as parent:
+    with tracer.start_as_current_span("simulated_parent"):
         await agent.call_tool("get_workflow_state", workflow_id="wf-1")
 
     spans = _spans_by_name(otel_provider)

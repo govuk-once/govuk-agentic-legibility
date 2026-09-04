@@ -6,6 +6,11 @@ from typing import Any
 import shutil
 
 import pytest
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from temporalio.contrib.opentelemetry import TracingInterceptor
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 from temporalio.client import WorkflowUpdateFailedError
@@ -170,3 +175,101 @@ async def test_idempotency_key_header_forwarding(
     )
 
     assert params.idempotency_key == "idempotency-key-12345"
+
+
+@pytest.mark.asyncio
+async def test_workflow_traces_propagate_across_boundary(
+    sample_workflow_def: dict[str, Any],
+) -> None:
+    """Interpreter spans on the worker share the trace_id from the client-side spans."""
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+    # Also attach our exporter to the global provider so interpreter spans
+    # (which use trace.get_tracer at module level) are captured here too.
+    global_provider = trace.get_tracer_provider()
+    if hasattr(global_provider, "add_span_processor"):
+        global_provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+    tracer = provider.get_tracer("test.integration")
+    tracing_interceptor = TracingInterceptor(tracer=tracer)
+
+    async with await WorkflowEnvironment.start_local(
+        dev_server_existing_path=TEMPORAL_PATH,
+        interceptors=[tracing_interceptor],
+    ) as env:
+        async with Worker(
+            env.client,
+            task_queue="test-trace-q",
+            workflows=[SFSMInterpreter],
+            activities=[mock_http_call, mock_notify],
+            interceptors=[tracing_interceptor],
+        ):
+            with tracer.start_as_current_span("test_root"):
+                handle = await env.client.start_workflow(
+                    SFSMInterpreter.run,
+                    sample_workflow_def,
+                    id="test-wf-traces",
+                    task_queue="test-trace-q",
+                )
+                await env.sleep(0.1)
+
+                awaiting = await handle.query("awaiting")
+                assert awaiting is not None
+
+                await handle.execute_update(
+                    "submit_input",
+                    InputSubmission(token=awaiting["token"], value="Alice"),
+                )
+                await env.sleep(0.1)
+
+                awaiting = await handle.query("awaiting")
+                await handle.execute_update(
+                    "submit_input",
+                    InputSubmission(token=awaiting["token"], value=True),
+                )
+                result = await handle.result()
+                assert result["status"] == "success"
+
+    finished = exporter.get_finished_spans()
+    span_names = [s.name for s in finished]
+
+    assert "test_root" in span_names
+
+    interpreter_spans = [
+        s for s in finished if s.name.startswith("interpreter.")
+    ]
+    assert len(interpreter_spans) >= 2, (
+        f"Expected at least 2 interpreter spans (2x InputState), got {len(interpreter_spans)}: "
+        f"{[s.name for s in interpreter_spans]}"
+    )
+
+    input_spans = [s for s in interpreter_spans if s.name == "interpreter.InputState"]
+    # Temporal replays workflow history from the start on each new task,
+    # so a plain TracerProvider (without ReplaySafeTracerProvider) may
+    # produce duplicate spans for replayed states. Deduplicate by state_id,
+    # preferring spans that completed fully (have the "outcome" attribute).
+    seen_states: dict[str, Any] = {}
+    for span in input_spans:
+        state_id = span.attributes.get("state_id")
+        if state_id not in seen_states or "outcome" in span.attributes:
+            seen_states[state_id] = span
+
+    assert len(seen_states) == 2, (
+        f"Expected 2 unique InputState state_ids, got {list(seen_states.keys())}"
+    )
+
+    for span in seen_states.values():
+        assert "state_id" in span.attributes
+        assert "process_id" in span.attributes
+        assert "schema_kind" in span.attributes
+        assert "token" in span.attributes
+        assert span.attributes["outcome"] == "received"
+
+    assert seen_states["ask_name"].attributes["schema_kind"] == "string"
+    assert seen_states["ask_name"].attributes["prompt"] == "What is your name?"
+
+    assert seen_states["ask_subscribe"].attributes["schema_kind"] == "boolean"
+
+    provider.shutdown()
