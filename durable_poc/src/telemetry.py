@@ -1,14 +1,17 @@
-from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, Span
+from __future__ import annotations
+
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult, BatchSpanProcessor
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, Span, TracerProvider
 from opentelemetry.context import Context
 import boto3
 from botocore.exceptions import ClientError
 from pathlib import Path
 import json
 from datetime import datetime as dt
+import os
 import sys
 import logging
-from typing import Sequence
+from typing import Any, Sequence
 
 
 def get_logger() -> logging.Logger:
@@ -138,5 +141,79 @@ class S3SpanExporter(SpanExporter):
     def shutdown(self) -> None:
         result = self.flush_traces()
         logger.info(f"S3 Exporter shutdown with result {result}")
+
+
+def _attach_exporters(
+    provider: Any,
+    *,
+    file_path: Path | None = None,
+    s3_bucket: str | None = None,
+    s3_region: str = "eu-west-2",
+    s3_prefix: str = "traces",
+) -> None:
+    if file_path:
+        provider.add_span_processor(BatchSpanProcessor(FileSpanExporter(file_path)))
+        logger.info(f"Attached FileSpanExporter -> {file_path}")
+    if s3_bucket:
+        provider.add_span_processor(
+            BatchSpanProcessor(S3SpanExporter(s3_bucket, s3_region, s3_prefix))
+        )
+        logger.info(f"Attached S3SpanExporter -> s3://{s3_bucket}/{s3_prefix}")
+
+
+def create_agent_provider(
+    *,
+    session_processor: SessionSpanProcessor | None = None,
+    file_path: Path | None = None,
+    s3_bucket: str | None = None,
+    s3_region: str = "eu-west-2",
+    s3_prefix: str = "traces",
+) -> TracerProvider:
+    """Build a standard TracerProvider for the chat/agent process."""
+    file_path = file_path or _path_from_env()
+    s3_bucket = s3_bucket or os.environ.get("OTEL_EXPORT_S3_BUCKET")
+    s3_region = s3_region if s3_bucket else os.environ.get("OTEL_EXPORT_S3_REGION", s3_region)
+    s3_prefix = os.environ.get("OTEL_EXPORT_S3_PREFIX", s3_prefix)
+
+    provider = TracerProvider()
+    if session_processor:
+        provider.add_span_processor(session_processor)
+    _attach_exporters(
+        provider, file_path=file_path, s3_bucket=s3_bucket,
+        s3_region=s3_region, s3_prefix=s3_prefix,
+    )
+    return provider
+
+
+def create_worker_provider(
+    *,
+    file_path: Path | None = None,
+    s3_bucket: str | None = None,
+    s3_region: str = "eu-west-2",
+    s3_prefix: str = "traces",
+) -> Any:
+    """Build a replay-safe TracerProvider for the Temporal worker process.
+
+    Uses Temporal's create_tracer_provider() which returns a
+    ReplaySafeTracerProvider that suppresses spans during replay.
+    """
+    from temporalio.contrib.opentelemetry import create_tracer_provider
+
+    file_path = file_path or _path_from_env()
+    s3_bucket = s3_bucket or os.environ.get("OTEL_EXPORT_S3_BUCKET")
+    s3_region = s3_region if s3_bucket else os.environ.get("OTEL_EXPORT_S3_REGION", s3_region)
+    s3_prefix = os.environ.get("OTEL_EXPORT_S3_PREFIX", s3_prefix)
+
+    provider = create_tracer_provider()
+    _attach_exporters(
+        provider, file_path=file_path, s3_bucket=s3_bucket,
+        s3_region=s3_region, s3_prefix=s3_prefix,
+    )
+    return provider
+
+
+def _path_from_env() -> Path | None:
+    raw = os.environ.get("OTEL_EXPORT_FILE")
+    return Path(raw) if raw else None
 
 
