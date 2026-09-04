@@ -12,6 +12,9 @@ import httpx
 from strands import Agent, tool
 from strands.models import BedrockModel
 from temporalio.client import Client as TemporalClient
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from src.telemetry import SessionSpanProcessor
 
 from agent import tools as tool_functions
 
@@ -22,6 +25,11 @@ PROMPT_PATH = Path(__file__).with_name("prompts") / "system.txt"
 _TRUTHY = frozenset({"true", "yes", "y", "yeah", "sure", "confirm", "1"})
 
 TraceCallback = Callable[[str, str, Any], Awaitable[None]]
+
+tracer = trace.get_tracer(__name__)
+session_processor = SessionSpanProcessor()
+provider = TracerProvider()
+provider.add_span_processor(session_processor)
 
 
 def build_contextual_prompt(

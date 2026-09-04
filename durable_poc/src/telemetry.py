@@ -1,5 +1,6 @@
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, Span
+from opentelemetry.context import Context
 import boto3
 from botocore.exceptions import ClientError
 from pathlib import Path
@@ -24,6 +25,22 @@ def get_logger() -> logging.Logger:
     return logger
 
 logger = get_logger()
+
+
+class SessionSpanProcessor(SpanProcessor):
+    def __init__(self) -> None:
+        self.session_id = None
+
+    def set_session_id(self, session_id: str) -> None:
+        self.session_id = session_id
+
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        if self.session_id:
+            span.set_attribute("session_id", self.session_id)
+
+    def on_end(self, span: ReadableSpan) -> None:
+        pass
+
 
 class FileSpanExporter(SpanExporter):
     def __init__(self, path: Path):
