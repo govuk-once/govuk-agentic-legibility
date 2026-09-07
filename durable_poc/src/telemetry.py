@@ -156,7 +156,10 @@ def _attach_exporters(
         logger.info(f"Attached FileSpanExporter -> {file_path}")
     if s3_bucket:
         provider.add_span_processor(
-            BatchSpanProcessor(S3SpanExporter(s3_bucket, s3_region, s3_prefix))
+            BatchSpanProcessor(
+                S3SpanExporter(s3_bucket, s3_region, s3_prefix),
+                schedule_delay_millis=30_000,
+            )
         )
         logger.info(f"Attached S3SpanExporter -> s3://{s3_bucket}/{s3_prefix}")
 
