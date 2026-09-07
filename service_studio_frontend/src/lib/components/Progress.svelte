@@ -17,7 +17,10 @@
 			<!-- Dividers separate neighbouring stages without adding another item to the sequence. -->
 			<span class="progress__divider"></span>
 		{/if}
-		<div class="progress__stage">
+		<div class="progress__stage" aria-current={stage.state === 'current' ? 'step' : undefined}>
+			<span class="govuk-visually-hidden">
+				{stage.state === 'complete' ? 'Completed' : stage.state === 'current' ? 'Current step' : 'Upcoming step'}:
+			</span>
 			{#if stage.state === 'complete'}
 				<span class="progress__marker progress__marker--complete">
 					<svg width="14" height="11" viewBox="0 0 14 11" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -46,6 +49,7 @@
 	.progress {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		padding: 25px 40px 0;
 		font-family: 'GDS Transport', arial, sans-serif;
 	}
@@ -100,5 +104,20 @@
 	.progress__label--current {
 		font-weight: 700;
 		color: #0b0c0c;
+	}
+
+	@media (max-width: 640px) {
+		.progress {
+			align-items: flex-start;
+			padding: 20px 15px 0;
+		}
+
+		.progress__stage {
+			padding: 5px 10px;
+		}
+
+		.progress__stage:first-child {
+			padding-left: 0;
+		}
 	}
 </style>

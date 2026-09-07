@@ -7,10 +7,11 @@
 	import SaveBar from '$lib/components/SaveBar.svelte';
 
 	const stages = [
-		{ number: 1, label: 'Load source', state: 'complete' as const },
-		{ number: 2, label: 'Edit and review the journey', state: 'current' as const },
-		{ number: 3, label: 'Policy checks', state: 'upcoming' as const },
-		{ number: 4, label: 'Publish', state: 'upcoming' as const }
+		{ number: 1, label: 'Start', state: 'complete' as const },
+		{ number: 2, label: 'Create', state: 'complete' as const },
+		{ number: 3, label: 'Edit and review', state: 'current' as const },
+		{ number: 4, label: 'Policy check', state: 'upcoming' as const },
+		{ number: 5, label: 'Publish', state: 'upcoming' as const }
 	];
 
 	const steps = [
@@ -73,6 +74,10 @@
 	// Shared selection state keeps the graph and step list highlight aligned without coupling their components.
 	let selectedStepId = $state<string | null>('step-3');
 </script>
+
+<svelte:head>
+	<title>Edit and review the journey | Service Studio</title>
+</svelte:head>
 
 <!-- The service header identifies the prototype separately from the editable journey content. -->
 <ServiceHeader />
