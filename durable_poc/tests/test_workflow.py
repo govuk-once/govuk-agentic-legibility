@@ -186,10 +186,12 @@ async def test_workflow_traces_propagate_across_boundary(
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
 
-    # Also attach our exporter to the global provider so interpreter spans
-    # (which use trace.get_tracer at module level) are captured here too.
+    # Set as global so the interpreter's module-level tracer picks it up.
+    # If test_tracing.py already set one, this is silently ignored — but then
+    # the global provider already has processors, so we also add our exporter there.
+    trace.set_tracer_provider(provider)
     global_provider = trace.get_tracer_provider()
-    if hasattr(global_provider, "add_span_processor"):
+    if global_provider is not provider and hasattr(global_provider, "add_span_processor"):
         global_provider.add_span_processor(SimpleSpanProcessor(exporter))
 
     tracer = provider.get_tracer("test.integration")

@@ -14,6 +14,7 @@ from typing import Any
 
 from opentelemetry import trace
 
+from temporalio.client import Client as TemporalClient
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
@@ -26,6 +27,16 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="GOV.UK Chat Assistant")
 
 agent_instance: Any = None
+_polling_client: TemporalClient | None = None
+
+
+async def _get_polling_client() -> TemporalClient:
+    """Temporal client for background polling — no TracingInterceptor."""
+    global _polling_client
+    if _polling_client is None:
+        temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
+        _polling_client = await TemporalClient.connect(temporal_address)
+    return _polling_client
 
 
 def clean_text_pipes(text: str) -> str:
@@ -368,9 +379,9 @@ async def websocket_endpoint(websocket: WebSocket):
     async def refresh_active_workflows():
         """Issue 3.8: Send list of active workflows to dropdown picker."""
         try:
-            temporal_client = await agent_instance._get_temporal_client()
+            polling_client = await _get_polling_client()
             active_list = await tool_functions.list_active_workflows(
-                temporal_client=temporal_client
+                temporal_client=polling_client
             )
             await websocket.send_json(
                 {"type": "active_workflows", "workflows": active_list}
@@ -394,10 +405,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 continue
 
             try:
-                temporal_client = await agent_instance._get_temporal_client()
+                polling_client = await _get_polling_client()
                 updated_state = await tool_functions.get_workflow_state(
                     workflow_id=active_workflow_id,
-                    temporal_client=temporal_client,
+                    temporal_client=polling_client,
                 )
             except Exception:
                 continue
@@ -422,6 +433,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     "Workflow Execution Completed",
                     {"status": execution_status},
                 )
+                active_workflow_id = None
+                return
 
             if current_len > last_seen_index:
                 for idx in range(last_seen_index, current_len):
@@ -484,9 +497,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 if resume_id:
                     active_workflow_id = resume_id
                     await emit_trace("USER", "Resuming Selected Workflow", resume_id)
-                    temporal_client = await agent_instance._get_temporal_client()
+                    polling_client = await _get_polling_client()
                     session_state = await tool_functions.get_workflow_state(
-                        workflow_id=resume_id, temporal_client=temporal_client
+                        workflow_id=resume_id, temporal_client=polling_client
                     )
                     agent_instance._update_session_state(resume_id, session_state)
                     last_seen_index = 0
@@ -504,7 +517,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "workflow_id": active_workflow_id or "",
                     "user_message_preview": user_msg[:100],
                 },
-            ):
+            ) as turn_span:
                 await emit_trace("USER", "Submitted Natural Language Input", user_msg)
 
                 prev_token = (
@@ -521,6 +534,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if session_state and session_state.get("workflow_id"):
                     active_workflow_id = session_state.get("workflow_id")
+                    turn_span.set_attribute("workflow_id", active_workflow_id)
 
                 new_token = (
                     session_state.get("awaiting", {}).get("token")

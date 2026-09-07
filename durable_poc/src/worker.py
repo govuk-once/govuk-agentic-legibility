@@ -16,12 +16,25 @@ from src.telemetry import create_worker_provider
 logging.basicConfig(level=logging.INFO)
 
 
+class _FilteredTracingInterceptor(TracingInterceptor):
+    """TracingInterceptor that skips span creation for workflow queries."""
+
+    def workflow_interceptor_class(self, input):
+        base_class = super().workflow_interceptor_class(input)
+
+        class _Filtered(base_class):
+            async def handle_query(self, input):
+                return await self.next.handle_query(input)
+
+        return _Filtered
+
+
 async def main() -> None:
     temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 
     provider = create_worker_provider()
     trace.set_tracer_provider(provider)
-    tracing_interceptor = TracingInterceptor()
+    tracing_interceptor = _FilteredTracingInterceptor()
 
     client = await Client.connect(
         temporal_address,
