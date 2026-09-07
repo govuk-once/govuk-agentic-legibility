@@ -171,8 +171,8 @@ def create_agent_provider(
 ) -> TracerProvider:
     """Build a standard TracerProvider for the chat/agent process."""
     file_path = file_path or _path_from_env()
-    s3_bucket = s3_bucket or os.environ.get("OTEL_EXPORT_S3_BUCKET")
-    s3_region = s3_region if s3_bucket else os.environ.get("OTEL_EXPORT_S3_REGION", s3_region)
+    s3_region = os.environ.get("AWS_REGION", s3_region)
+    s3_bucket = _resolve_s3_bucket(s3_bucket, s3_region)
     s3_prefix = os.environ.get("OTEL_EXPORT_S3_PREFIX", s3_prefix)
 
     provider = TracerProvider()
@@ -200,8 +200,8 @@ def create_worker_provider(
     from temporalio.contrib.opentelemetry import create_tracer_provider
 
     file_path = file_path or _path_from_env()
-    s3_bucket = s3_bucket or os.environ.get("OTEL_EXPORT_S3_BUCKET")
-    s3_region = s3_region if s3_bucket else os.environ.get("OTEL_EXPORT_S3_REGION", s3_region)
+    s3_region = os.environ.get("AWS_REGION", s3_region)
+    s3_bucket = _resolve_s3_bucket(s3_bucket, s3_region)
     s3_prefix = os.environ.get("OTEL_EXPORT_S3_PREFIX", s3_prefix)
 
     provider = create_tracer_provider()
@@ -210,6 +210,27 @@ def create_worker_provider(
         s3_region=s3_region, s3_prefix=s3_prefix,
     )
     return provider
+
+
+SSM_PARAM_TRACE_BUCKET = "/durable_poc/temp_trace_bucket"
+
+
+def _bucket_from_ssm(region: str | None = None) -> str | None:
+    """Read the S3 trace bucket name from Parameter Store."""
+    try:
+        ssm = boto3.client("ssm", region_name=region or os.environ.get("AWS_REGION"))
+        resp = ssm.get_parameter(Name=SSM_PARAM_TRACE_BUCKET)
+        value = resp["Parameter"]["Value"]
+        logger.info(f"Resolved trace bucket from SSM {SSM_PARAM_TRACE_BUCKET} -> {value}")
+        return value
+    except Exception as e:
+        logger.warning(f"Could not read SSM parameter {SSM_PARAM_TRACE_BUCKET}: {e}")
+        return None
+
+
+def _resolve_s3_bucket(explicit: str | None, region: str) -> str | None:
+    """Resolve S3 bucket: explicit arg > env var > Parameter Store."""
+    return explicit or os.environ.get("OTEL_EXPORT_S3_BUCKET") or _bucket_from_ssm(region)
 
 
 def _path_from_env() -> Path | None:
