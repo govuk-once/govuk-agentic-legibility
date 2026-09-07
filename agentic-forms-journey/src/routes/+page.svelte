@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { recordTurn, resetRunLog } from "$lib/stores/run-log.svelte";
+  import { recordTurn, resetTrace } from "$lib/stores/trace.svelte";
 
   type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -7,6 +7,9 @@
   // client and are sent to /api/run on each turn.
   let formJson = $state<string | null>(null);
   let formName = $state<string | null>(null);
+  // Fingerprint of the uploaded form, used as the trace's fixed starting
+  // point. Computed once when the file is loaded.
+  let formSha256 = $state<string | null>(null);
   let messages = $state<ChatMessage[]>([]);
   let result = $state<any>(null);
   let input = $state("");
@@ -104,6 +107,14 @@
     }
   }
 
+  // Fingerprints the uploaded form so the trace can point back to a fixed
+  // starting point, the same way a scripted test would point to a fixture.
+  async function sha256Hex(text: string): Promise<string> {
+    const bytes = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
   // Reads an uploaded GOV form JSON file into memory and resets the conversation.
   async function handleFile(event: Event) {
     const target = event.currentTarget as HTMLInputElement;
@@ -120,24 +131,26 @@
 
     formJson = text;
     formName = file.name;
+    formSha256 = await sha256Hex(text);
     messages = [];
     result = null;
     error = null;
-    resetRunLog();
+    resetTrace();
   }
 
   // Clears the loaded form so a different one can be uploaded.
   function resetForm() {
     formJson = null;
     formName = null;
+    formSha256 = null;
     messages = [];
     result = null;
     error = null;
     input = "";
-    resetRunLog();
+    resetTrace();
   }
 
-  // Sends the citizen's message to the agent and appends the reply.
+  // Sends the user's message to the agent and appends the reply.
   async function send() {
     const content = input.trim();
     if (!formJson || !content || loading) return;
@@ -160,21 +173,22 @@
         result = data.result;
         messages = [...messages, { role: "assistant", content: data.result.reply }];
 
-        // Record this turn into the portable run log (viewable at /log).
+        // Record this turn into the common trace (viewable at /log).
         recordTurn({
-          form: data.result.form ?? { id: "unknown", name: formName },
-          conversation: messages,
+          form: {
+            id: data.result.form?.id ?? "unknown",
+            name: data.result.form?.name ?? formName,
+            sha256: formSha256 ?? "",
+          },
+          mapping: data.result.mapping ?? [],
+          branchRules: data.result.branchRules ?? [],
           user: content,
           agentReply: data.result.reply,
           awaitingInput: data.result.awaitingInput ?? false,
-          telemetry: data.result.telemetry ?? {
-            model: "unknown",
-            latencyMs: 0,
-            inputTokens: 0,
-            outputTokens: 0,
-          },
-          flow: data.result.flow ?? [],
-          answeredKeys: Object.keys(data.result.llm?.answers ?? {}),
+          model: data.result.model ?? "unknown",
+          ok: data.result.llmOk ?? true,
+          answers: data.result.llm?.answers ?? {},
+          submitStatus: data.result.llm?.submit?.status ?? "blocked",
         });
       }
     } catch (requestError) {
@@ -269,7 +283,7 @@
      View the breakdown of the journey and the branch conditions below. The information updates as more details are inferred.
     </p>
     <p class="govuk-body-m">
-      <a class="govuk-link" href="/log">View the run log &rarr;</a> &mdash; time, tokens, conversation and agent actions logged for comparison against other methods.
+      <a class="govuk-link" href="/log">View the run log &rarr;</a>, a common trace of this run for comparison against other methods.
     </p>
       <div class="govuk-accordion" id="results-accordion">
         <!-- Mapping -->
@@ -823,7 +837,7 @@
     max-width: 6.5em;
   }
 
-  /* Vertical branch/condition flow — one node per routing rule. */
+  /* Vertical branch/condition flow: one node per routing rule. */
   .branch-flow {
     list-style: none;
     margin: 0;
