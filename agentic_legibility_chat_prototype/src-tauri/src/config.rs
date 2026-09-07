@@ -51,6 +51,8 @@ pub struct AppConfig {
     pub tools_override_dir: Option<String>,
     /// Optional path to override card markdown files at runtime
     pub cards_override_dir: Option<String>,
+    /// Optional path to override trace JSONL files at runtime
+    pub traces_override_dir: Option<String>,
     /// Live resources directory passed to `legibility-chat-mcp` via
     /// `LIVE_RESOURCES_DIR`. When `Some`, the sidecar natively registers the
     /// spec-lookup tools (`list_endpoints`, `get_service`, …); when `None`,
@@ -78,6 +80,7 @@ impl Default for AppConfig {
             states_override_dir: None,
             tools_override_dir: None,
             cards_override_dir: None,
+            traces_override_dir: None,
             live_resources_dir: None,
             cards_enabled: default_cards_enabled(),
         }

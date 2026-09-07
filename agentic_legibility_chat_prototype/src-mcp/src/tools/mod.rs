@@ -16,7 +16,8 @@ pub fn all_tool_defs(ctx: &AppContext) -> Vec<McpToolDef> {
                     "url":     { "type": "string", "description": "Request URL" },
                     "method":  { "type": "string", "description": "HTTP method (default GET)" },
                     "headers": { "type": "string", "description": "JSON object of request headers" },
-                    "body":    { "type": "string", "description": "Request body string" }
+                    "body":    { "type": "string", "description": "Request body string" },
+                    "interaction_id": { "type": "string", "description": "Identifier of the interaction/step this request belongs to, for tracing" }
                 },
                 "required": ["url"]
             }),
@@ -101,7 +102,7 @@ pub async fn call_tool(name: &str, args: Value, ctx: &AppContext) -> ToolCallRes
     }
 
     let text = match name {
-        "fetch" => stubs::fetch(&args),
+        "fetch" => stubs::fetch(ctx, &args).await,
         // report_service_step is intercepted by Tauri; this arm is a fallback only
         "report_service_step" => format!(
             "[report_service_step] service_id={} step={} status={}",

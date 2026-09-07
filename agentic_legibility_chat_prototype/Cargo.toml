@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "src-mcp"]
+members = ["src-tauri", "src-mcp", "src-common", "src-mocks"]
 resolver = "2"
 
 [workspace.dependencies]

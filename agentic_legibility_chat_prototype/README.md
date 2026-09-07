@@ -79,12 +79,12 @@ pnpm install --dir ui
 
 ## Mock server
 
-`mock-server.js` (repo root) is a zero-dependency Node script (`node:http` only, no `npm install` needed) that stands in for the real upstream government APIs referenced by `endpoint:` URLs in a `live_resources_dir/endpoints/*.md` spec directory — so you can exercise the `fetch` tool and full Advice → Plan → Execute flow without live credentials or network access to the real services.
+`src-mocks` (a Rust crate, `legibility-chat-mocks`) stands in for the real upstream government APIs referenced by `endpoint:` URLs in a `live_resources_dir/endpoints/*.md` spec directory — so you can exercise the `fetch` tool and full Advice → Plan → Execute flow without live credentials or network access to the real services. It's also used in-process by the `trace_conversation` integration test (see Validation).
 
 Run it standalone:
 
 ```bash
-node mock-server.js [port]   # default port 8127
+cargo run -p legibility-chat-mocks --bin flex-mock -- [port]   # default port 8127
 ```
 
 Or launch it alongside the app in one step:
@@ -93,16 +93,16 @@ Or launch it alongside the app in one step:
 ./dev-with-mock.sh
 ```
 
-This starts `mock-server.js` in the background, runs `./dev.sh` in the foreground, and stops the mock server when `dev.sh` exits (Ctrl-C, crash, or normal exit). Override the port with `MOCK_PORT=9000 ./dev-with-mock.sh`.
+This builds and starts the mock in the background, runs `./dev.sh` in the foreground, and stops the mock when `dev.sh` exits (Ctrl-C, crash, or normal exit). Override the port with `MOCK_PORT=9000 ./dev-with-mock.sh`.
 
-It covers five path prefixes matching the FLEX API domains used in the bundled specs — `/udp` (One Login User Data Platform), `/dvla` (DVLA driver/vehicle/share-code APIs), `/uns` (Unified Notification Service), `/local-council` (MHCLG local authority lookup), and `/example` (a generic example domain for todos/resources/headers). Each route is a `{ method, path: RegExp, status, handler }` entry in the `ROUTES` array; more specific paths must be listed before overlapping general ones, since the first regex match wins.
+It covers five path prefixes matching the FLEX API domains used in the bundled specs — `/udp` (One Login User Data Platform), `/dvla` (DVLA driver/vehicle/share-code APIs), `/uns` (Unified Notification Service), `/local-council` (MHCLG local authority lookup), and `/example` (a generic example domain for todos/resources/headers), plus the address-lookup routes (`/choose-address-entry-method`, `/find-address-by-postcode`, `/enter-address-manually`, `/confirm-new-address`). Each route is a `Route { method, pattern: Regex, status, handler }` entry in `src-mocks/src/flex.rs`'s route table; more specific paths must be listed before overlapping general ones, since the first regex match wins.
 
 The mock only returns canned data for routes it already knows about — it does **not** read the `live_resources_dir/endpoints/*.md` files at runtime. To keep it in sync with the "expected" service endpoints declared there:
 
 1. For each `.md` file under your `live_resources_dir/endpoints/`, note its frontmatter `method` and `endpoint` (a full URL, e.g. `https://flex.account.gov.uk/dvla/v1/driving-licence`).
-2. In `mock-server.js`, add or update a `ROUTES` entry with the same `method` and a `path` regex matching the URL's path (everything after the host) under the matching prefix section (`/udp`, `/dvla`, `/uns`, `/local-council`, `/example`), with a `handler` returning representative JSON for that response shape.
+2. In `src-mocks/src/flex.rs`, add or update a route entry with the same `method` and a `pattern` regex matching the URL's path (everything after the host) under the matching prefix section (`/udp`, `/dvla`, `/uns`, `/local-council`, `/example`), with a `handler` returning representative JSON for that response shape.
 3. Point the app's `fetch` calls at the mock instead of the real host by changing the affected endpoint spec's `endpoint:` frontmatter from `https://flex.account.gov.uk/...` to `http://localhost:8127/...` (or your chosen `[port]`) in your local `live_resources_dir` copy — `fetch` uses that URL verbatim, there's no built-in host rewriting.
-4. If you remove or rename an endpoint spec, remove or update the corresponding `ROUTES` entry so the mock doesn't drift from what the specs actually describe.
+4. If you remove or rename an endpoint spec, remove or update the corresponding route entry so the mock doesn't drift from what the specs actually describe.
 
 ## Validation
 
@@ -113,6 +113,53 @@ pnpm --dir ui check              # svelte-check + tsc, no separate lint/test scr
 ```
 
 There is no `pnpm lint`, `pnpm test`, or browser test suite configured for `ui/` at present — `check` (type-checking only) is the only frontend validation gate.
+
+### Integration tests
+
+`src-tauri/tests/` has full-stack integration tests that spawn the real `legibility-chat-mcp` sidecar, run the mock FLEX API (`legibility-chat-mocks`) in-process, and drive the actual `send_message`/`submit_ui_input` Tauri commands — **against your real, configured LLM provider**. Only the FLEX REST API is mocked; the LLM calls are genuine, unscripted, and billed to whatever provider is set in `~/.config/legibility-chat/config.json`.
+
+Because of this, each test run:
+
+- **Requires a real provider configured** (`provider.{base_url,api_key,model}` in your config) — a test fails fast with a clear message if none is set.
+- **Costs real API usage** — the LLM is not mocked, so every run makes genuine, billed calls.
+- **Is not fully deterministic** — the LLM's exact tool-call sequence and phrasing can vary between runs. Tests assert on outcomes (which endpoints got hit, that no tool call failed, that certain trace events occurred) rather than an exact scripted transcript.
+- **Needs the sidecar binary built and copied into `src-tauri/binaries/`** first, the same way `dev.sh` does it — either run `./test-integration.sh` (below), or do it manually:
+
+  ```bash
+  TARGET=$(rustc -vV | grep host | cut -d' ' -f2)
+  cargo build -p legibility-chat-mcp
+  cp target/debug/legibility-chat-mcp "src-tauri/binaries/legibility-chat-mcp-${TARGET}"
+  ```
+
+Each test isolates its own `config.json`/`trace.jsonl`/`trace.state.json` in a fresh tempdir (via `XDG_CONFIG_HOME`) — it won't touch your real trace history — but it does read your real `config.json` once up front to capture provider credentials before overriding the location.
+
+Run the primary end-to-end conversation test via the helper script, which also takes care of the sidecar build step:
+
+```bash
+./test-integration.sh
+```
+
+Run an individual test binary directly with `cargo test` (add `-- --nocapture` to see `println!` output, e.g. the ordered list of tool calls):
+
+```bash
+cargo test -p legibility-chat --test trace_conversation -- --nocapture
+cargo test -p legibility-chat --test change_driving_licence_address_postcode -- --nocapture
+cargo test -p legibility-chat --test change_driving_licence_address_manual -- --nocapture
+cargo test -p legibility-chat --test change_driving_licence_address_llm_choice -- --nocapture
+```
+
+What each covers:
+
+| Test | Scenario |
+|---|---|
+| `trace_conversation` | General open-ended conversation starting in the `Advice` state, asserting only that a `user_message` trace event is recorded (loosest test — the LLM's path through Advice/Plan/Execute isn't pinned) |
+| `change_driving_licence_address_postcode` | Drives the `change_driving_licence_address` service starting in `Execute`, steered toward the postcode-lookup path; asserts `get_service` was called and the postcode/confirm endpoints were hit |
+| `change_driving_licence_address_manual` | Same service, steered toward manual address entry instead |
+| `change_driving_licence_address_llm_choice` | Same service, but the prompt offers both postcode and manual-entry facts and lets the real LLM pick a path itself. This one is the most exposed to real-LLM non-determinism — it can fail if the model tries a path, changes its mind, or ends the conversation before confirming |
+
+Each test converts its trace to YAML and writes a copy under `src-tauri/tests/output/*.yaml` (gitignored) for inspection after the run.
+
+Test harness code shared across these files lives in `src-tauri/tests/common/mod.rs` (not a test itself — Cargo treats a `tests/common/` module specially and doesn't compile it as its own binary).
 
 ## Production build
 
@@ -137,8 +184,8 @@ src-mcp/                 legibility-chat-mcp sidecar: fetch/report_service_step/
                           when live_resources_dir is set, spec-lookup + memory tools (context.rs, specs/, tools/spec_tools.rs)
 ui/
   src/lib/                Svelte components (ChatWindow, CardBubble, StateSelector, SetupWizard, PlaygroundPanel, ...)
-mock-server.js            zero-dependency mock of the FLEX API endpoints (see Mock server above)
-dev-with-mock.sh          runs mock-server.js alongside dev.sh
+src-mocks/               legibility-chat-mocks: FLEX API mock (see Mock server above), also used in-process by tests
+dev-with-mock.sh          runs the flex-mock binary alongside dev.sh
 .claude/plans/            design docs for completed and in-flight features
 ```
 

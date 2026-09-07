@@ -1,3 +1,7 @@
+
+use crate::context::AppContext;
+use legibility_chat_common::trace::TraceEvent;
+
 pub fn rand_u32() -> u32 {
     // Simple deterministic stub — not cryptographically random
     std::time::SystemTime::now()
@@ -6,12 +10,24 @@ pub fn rand_u32() -> u32 {
         .unwrap_or(0)
 }
 
-pub fn fetch(args: &serde_json::Value) -> String {
+pub async fn fetch(ctx: &AppContext, args: &serde_json::Value) -> String {
     let url = match args["url"].as_str() {
         Some(u) => u,
         None => return "[fetch error] missing required 'url' argument".to_string(),
     };
     let method = args["method"].as_str().unwrap_or("GET").to_uppercase();
+    let interaction_id = args["interaction_id"].as_str();
+
+    // Add trace logging before request is made
+    if let Ok(body_values) = serde_json::from_str(&args["body"].to_string()) {
+        let mut tracer = ctx.tracer.write().await;
+        tracer.add_event(
+            TraceEvent::ValuesProposed,
+            interaction_id,
+            &url,
+            body_values
+        );
+    }
 
     let mut request = ureq::request(&method, url);
 
@@ -42,6 +58,25 @@ pub fn fetch(args: &serde_json::Value) -> String {
             } else {
                 body
             };
+
+            // If trucated body can be parsed to JSON, values are extracted dynamically into 
+            // HashMap
+            if let Ok(body_values) = serde_json::from_str(&truncated) {
+                // Add trace logging
+                let mut tracer = ctx.tracer.write().await;
+                tracer.add_event(
+                    TraceEvent::ValuesSubmitted,
+                    interaction_id,
+                    &url,
+                    body_values
+                );
+    
+
+            }
+            
+            
+             
+
             format!("HTTP {}\n{}", status, truncated)
         }
         Err(e) => format!("[fetch error] {}", e),

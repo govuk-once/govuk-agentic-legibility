@@ -14,6 +14,8 @@ use tokio::sync::RwLock;
 
 use crate::specs::{spawn_rescan_loop, LoaderHandle, SpecIndex};
 
+use legibility_chat_common::trace::Tracer;
+
 /// How often to rescan `LIVE_RESOURCES_DIR` in the background, matching the
 /// legibility-mcp default (`SCAN_INTERVAL_SECS=30`).
 const DEFAULT_SCAN_INTERVAL: Duration = Duration::from_secs(30);
@@ -26,6 +28,8 @@ pub struct AppContext {
     /// `search_specs` and the memory tools need the raw path (e.g. to shell
     /// out to `rg`, or to read/append `memory.md`).
     pub live_resources_dir: Option<PathBuf>,
+
+    pub tracer: RwLock<Tracer>,
     /// Keeps the background rescan task alive for the process lifetime.
     /// Never read; dropping it would abort the task.
     _rescan_handle: Option<LoaderHandle>,
@@ -40,6 +44,7 @@ impl AppContext {
         let disabled = || Self {
             spec_index: None,
             live_resources_dir: None,
+            tracer: RwLock::new(Tracer::new()),
             _rescan_handle: None,
         };
 
@@ -65,6 +70,7 @@ impl AppContext {
                 Self {
                     spec_index: Some(state),
                     live_resources_dir: Some(dir),
+                    tracer: RwLock::new(Tracer::new()),
                     _rescan_handle: Some(handle),
                 }
             }
@@ -87,6 +93,7 @@ impl AppContext {
         Self {
             spec_index: Some(Arc::new(RwLock::new(index))),
             live_resources_dir: Some(dir),
+            tracer: RwLock::new(Tracer::new()),
             _rescan_handle: None,
         }
     }
@@ -97,6 +104,7 @@ impl AppContext {
         Self {
             spec_index: None,
             live_resources_dir: None,
+            tracer: RwLock::new(Tracer::new()),
             _rescan_handle: None,
         }
     }

@@ -21,7 +21,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use tokio::sync::RwLock;
 use walkdir::WalkDir;
 

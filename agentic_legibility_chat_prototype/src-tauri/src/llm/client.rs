@@ -9,10 +9,10 @@ use super::types::{CompletionOutcome, LLMRequest};
 /// Streaming completion — dispatches to the right provider module based on
 /// the configured `base_url`. The rest of the codebase (notably `commands/chat`)
 /// calls this without needing to know which provider is configured.
-pub async fn stream_completion(
+pub async fn stream_completion<R: tauri::Runtime>(
     config: &ProviderConfig,
     request: &LLMRequest,
-    app: &AppHandle,
+    app: &AppHandle<R>,
 ) -> Result<CompletionOutcome> {
     match Provider::detect(&config.base_url) {
         Provider::OpenAI => super::openai::stream(config, request, app).await,

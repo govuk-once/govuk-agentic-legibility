@@ -13,6 +13,7 @@ ui/.vite/
 # Tauri
 src-tauri/binaries/
 src-tauri/gen/
+src-tauri/tests/output/
 
 # Svelte
 .svelte-kit/
