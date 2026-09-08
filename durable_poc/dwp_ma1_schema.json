@@ -976,14 +976,21 @@
         "branch_worked_in_15th_week": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "is_true", "path": "worked_in_15th_week" }, "next": "upload_smp1_form" }
+            { "when": { "op": "is_true", "path": "worked_in_15th_week" }, "next": "say_smp1_notice" }
           ],
           "default": "branch_self_employed_check"
         },
 
+        "say_smp1_notice": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because you worked as an employee during the 15th week before your due week, statutory rules require proof that your employer cannot pay you Statutory Maternity Pay (SMP).",
+          "next": "upload_smp1_form"
+        },
+
         "upload_smp1_form": {
           "type": "input",
-          "prompt": "Upload a Form SMP1 for each employer you worked for in the 15th week before your due week (JPEG, PNG, or PDF). You must upload this file to complete your application online.",
+          "prompt": "Please upload a SMP1 form for each employer you worked for in the 15th week before your due week (JPEG, PNG, or PDF).",
           "schema": {
             "kind": "file_ref",
             "accept": ["image/jpeg", "image/png", "application/pdf"],
@@ -1048,9 +1055,16 @@
         "branch_self_employed_check": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "contains", "path": "selected_employments", "value": "self_employed" }, "next": "prompt_se_utr" }
+            { "when": { "op": "contains", "path": "selected_employments", "value": "self_employed" }, "next": "say_self_employed_notice" }
           ],
           "default": "branch_unpaid_partner_check"
+        },
+
+        "say_self_employed_notice": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because you selected self-employment, we must verify your Class 2 National Insurance record with HMRC.",
+          "next": "prompt_se_utr"
         },
 
         "prompt_se_utr": {
@@ -1076,9 +1090,16 @@
         "branch_unpaid_partner_check": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "contains", "path": "selected_employments", "value": "unpaid_partner_work" }, "next": "prompt_partner_nino" }
+            { "when": { "op": "contains", "path": "selected_employments", "value": "unpaid_partner_work" }, "next": "say_unpaid_partner_notice" }
           ],
           "default": "end_section3"
+        },
+
+        "say_unpaid_partner_notice": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Because you selected unpaid work for your spouse or civil partner's business, statutory rules require proof of your partner's business and your relationship to evaluate your eligibility for Maternity Allowance.",
+          "next": "prompt_partner_nino"
         },
 
         "prompt_partner_nino": {
@@ -1437,7 +1458,7 @@
 
         "confirm_payment_summary": {
           "type": "input",
-          "prompt": "Please review and confirm your payment preferences and bank details:\n• Reason Stopped Work: {{reason_stopped_work}}\n• Date Stopped Work: {{date_stopped_work}}\n• Flexible MAP: {{is_map_flexible}}\n• Chosen Start Date: {{chosen_ma_start_date}}\n• Payment Frequency: {{payment_frequency}}\n• Account Holder: {{account_holder_name}}\n• Bank Name: {{bank_or_society_name}}\n• Sort Code: {{sort_code}}\n• Account Number: {{account_number}}\n\nAre these details correct?",
+          "prompt": "Please review and confirm your payment preferences and bank details:\n• Chosen Start Date: {{chosen_ma_start_date}}\n• Payment Frequency: {{payment_frequency}}\n• Account Holder: {{account_holder_name}}\n• Bank Name: {{bank_or_society_name}}\n• Sort Code: {{sort_code}}\n• Account Number: {{account_number}}\n\nAre these details correct?",
           "schema": { "kind": "boolean" },
           "assign": "payment_details_confirmed",
           "next": "branch_payment_confirmation"
