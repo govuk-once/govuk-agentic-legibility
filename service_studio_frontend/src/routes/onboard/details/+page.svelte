@@ -24,7 +24,7 @@
 		<a class="govuk-back-link govuk-!-margin-bottom-5" href={resolve('/onboard/method')}>Back</a>
 
 		<h1 class="govuk-heading-xl">
-			<span class="govuk-caption-l govuk-!-margin-bottom-5">Start a new service · step 2 of 2</span>
+			<span class="govuk-caption-l govuk-!-margin-bottom-5">Start a new service, step 2 of 2</span>
 			Tell the assistant about the service
 		</h1>
 		<p class="govuk-body-l govuk-!-margin-bottom-6">

@@ -1,12 +1,30 @@
 import dagre from '@dagrejs/dagre';
 import type { JourneyEdge, JourneyNode } from './types';
 
-// These values must match the rendered node sizes so Dagre reserves enough space and coordinate conversion remains accurate.
-const nodeDimensions = {
-	step: { width: 280, height: 78 },
-	condition: { width: 240, height: 140 },
-	terminal: { width: 112, height: 42 }
+// Width stays fixed per node type so the graph reads as a tidy column, but a step's height is worked out
+// per node from its own title and description (see build-journey-graph.ts), rather than every step
+// sharing one fixed height.
+const nodeWidths = {
+	step: 300,
+	condition: 240,
+	terminal: 112
 } as const;
+
+const conditionAndTerminalHeights = {
+	condition: 140,
+	terminal: 42
+} as const;
+
+/**
+ * Returns the width and height Dagre should reserve for this node, so a step's dynamic height and every
+ * other node's fixed dimensions are looked up the same way.
+ */
+function getNodeDimensions(node: JourneyNode): { width: number; height: number } {
+	if (node.type === 'step') {
+		return { width: nodeWidths.step, height: node.data.height };
+	}
+	return { width: nodeWidths[node.type], height: conditionAndTerminalHeights[node.type] };
+}
 
 /**
  * Positions a graph from top to bottom so branches remain legible without storing layout data in the fixture.
@@ -18,9 +36,8 @@ export function layoutJourneyGraph(nodes: JourneyNode[], edges: JourneyEdge[]): 
 	graph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 60, marginx: 30, marginy: 30 });
 
 	for (const node of nodes) {
-		const dimensions = nodeDimensions[node.type];
 		// Give each node its own dimensions object because Dagre adds calculated values to the object it receives.
-		graph.setNode(node.id, { ...dimensions });
+		graph.setNode(node.id, getNodeDimensions(node));
 	}
 
 	for (const edge of edges) {
@@ -31,7 +48,7 @@ export function layoutJourneyGraph(nodes: JourneyNode[], edges: JourneyEdge[]): 
 	dagre.layout(graph);
 
 	return nodes.map((node) => {
-		const dimensions = nodeDimensions[node.type];
+		const dimensions = getNodeDimensions(node);
 		const position = graph.node(node.id);
 
 		// Convert Dagre centre coordinates to the top left coordinates expected by Svelte Flow.

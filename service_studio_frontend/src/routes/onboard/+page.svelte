@@ -14,19 +14,19 @@
 	const drafts = [
 		{
 			name: 'Renew your driving licence',
-			detail: '6 steps · edited 2 hours ago',
+			detail: '6 steps, edited 2 hours ago',
 			status: 'In policy review',
 			statusColour: 'yellow'
 		},
 		{
 			name: 'Book your theory test',
-			detail: '5 steps · edited yesterday',
+			detail: '5 steps, edited yesterday',
 			status: 'Live',
 			statusColour: 'green'
 		},
 		{
 			name: 'Apply for a provisional licence',
-			detail: '8 steps · edited last week',
+			detail: '8 steps, edited last week',
 			status: 'Draft',
 			statusColour: 'grey'
 		}

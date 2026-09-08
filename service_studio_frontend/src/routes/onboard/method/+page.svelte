@@ -16,7 +16,7 @@
 			<form method="GET" action={resolve('/onboard/details')}>
 				<fieldset class="govuk-fieldset">
 					<legend class="govuk-fieldset__legend">
-						<span class="govuk-caption-l govuk-!-margin-bottom-5">Start a new service · step 1 of 2</span>
+						<span class="govuk-caption-l govuk-!-margin-bottom-5">Start a new service, step 1 of 2</span>
 						<h1 class="govuk-heading-xl govuk-!-margin-bottom-5">How do you want to draft it?</h1>
 					</legend>
 

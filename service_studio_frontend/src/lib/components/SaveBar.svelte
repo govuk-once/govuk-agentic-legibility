@@ -5,7 +5,7 @@
 		<a class="govuk-link" href="#top">Save as draft</a>
 	</div>
 	<!-- Status explains recency and publishing safety before a user continues. -->
-	<p class="save-bar__status">Last saved 2 minutes ago · nothing goes live until policy sign-off</p>
+	<p class="save-bar__status">Last saved 2 minutes ago. Nothing goes live until policy sign-off.</p>
 </footer>
 
 <style>

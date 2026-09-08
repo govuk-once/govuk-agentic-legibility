@@ -5,34 +5,53 @@
 	let { data, selected }: NodeProps<StepNode> = $props();
 </script>
 
-<!-- Appearance states distinguish editing, selection and bypass without changing the step content. -->
+<!-- Selection is what shows a step is being edited, so the only other appearance this needs is bypassed.
+	Height is set per node from its own content, computed alongside the rest of the graph, rather than
+	every step sharing one fixed height regardless of how much text. -->
 <div
 	class:journey-step-node--selected={selected}
-	class:journey-step-node--editing={data.appearance === 'editing'}
 	class:journey-step-node--bypassed={data.appearance === 'bypassed'}
 	class="journey-step-node"
+	style:height="{data.height}px"
 >
 	<!-- Hidden handles provide fixed connection points without changing the approved node design. -->
 	<Handle class="journey-node-handle" type="target" position={Position.Top} />
-	<h3 class="govuk-heading-s govuk-!-margin-bottom-1">
+	<h3 class="govuk-heading-s govuk-!-margin-bottom-1 journey-step-node__title">
 		{#if data.stepNumber}{data.stepNumber}. {/if}{data.title}
 	</h3>
-	<p class="govuk-body-s govuk-!-margin-bottom-0">{data.description}</p>
+	<p class="govuk-body-s govuk-!-margin-bottom-0 journey-step-node__description">{data.description}</p>
 	<Handle class="journey-node-handle" type="source" position={Position.Bottom} />
 </div>
 
 <style>
 	.journey-step-node {
 		box-sizing: border-box;
-		width: 280px;
-		height: 78px;
+		width: 300px;
 		padding: 10px 15px;
 		background-color: #ffffff;
 		border: 2px solid #0b0c0c;
 	}
 
-	.journey-step-node--selected,
-	.journey-step-node--editing {
+	/* A safety net, not the primary sizing mechanism: the computed height above already fits up to this
+		many lines, so this only ever clips content that is longer than that estimate expected. */
+	.journey-step-node__title,
+	.journey-step-node__description {
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+	}
+
+	.journey-step-node__title {
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+	}
+
+	.journey-step-node__description {
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+	}
+
+	.journey-step-node--selected {
 		background-color: #e8f1f8;
 		border: 3px solid #1d70b8;
 	}

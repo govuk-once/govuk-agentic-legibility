@@ -38,8 +38,8 @@
 {#if label}
 	<!-- A custom label is required because the standard edge label cannot receive GOV.UK component classes. -->
 	<EdgeLabel x={labelX} y={labelY} transparent>
-		<!-- Missing appearance data uses the negative treatment so an incomplete outcome is not presented as successful. -->
-		<strong class="govuk-tag govuk-tag--{data?.appearance === 'positive' ? 'green' : 'red'}">
+		<!-- A missing tag colour falls back to grey so a branch label is never left unstyled. -->
+		<strong class="govuk-tag govuk-tag--{data?.tagColour ?? 'grey'}">
 			{label}
 		</strong>
 	</EdgeLabel>

@@ -5,6 +5,8 @@
 	import StepEditorCard from '$lib/components/StepEditorCard.svelte';
 	import JourneyGraph from '$lib/components/JourneyGraph.svelte';
 	import SaveBar from '$lib/components/SaveBar.svelte';
+	import { initialSteps } from '$lib/journey/steps';
+	import type { JourneyStep } from '$lib/journey/types';
 
 	const stages = [
 		{ number: 1, label: 'Start', state: 'complete' as const },
@@ -14,65 +16,68 @@
 		{ number: 5, label: 'Publish', state: 'upcoming' as const }
 	];
 
-	const steps = [
-		{
-			id: 'step-1',
-			number: 1,
-			title: 'Sign in with GOV.UK One Login',
-			description: 'Authentication · pre-filled from source',
-			tagLabel: 'Identity',
-			tagColour: 'blue',
-			editing: false
-		},
-		{
-			id: 'step-2',
-			number: 2,
-			title: 'Confirm your identity',
-			description: 'Checked against your DVLA record',
-			tagLabel: 'Identity',
-			tagColour: 'blue',
-			editing: false
-		},
-		{
-			id: 'step-3',
-			number: 3,
-			title: 'Enter your licence details',
-			description: '8 questions · 4 pre-filled from source',
-			tagLabel: 'Editing',
-			tagColour: 'yellow',
-			editing: true
-		},
-		{
-			id: 'step-4',
-			number: 4,
-			title: 'Upload evidence photo',
-			description: 'File upload · conditional on branch',
-			tagLabel: 'Evidence',
-			tagColour: 'purple',
-			editing: false
-		},
-		{
-			id: 'step-5',
-			number: 5,
-			title: 'Check your answers',
-			description: 'Summary · generated automatically',
-			tagLabel: 'Review',
-			tagColour: 'grey',
-			editing: false
-		},
-		{
-			id: 'step-6',
-			number: 6,
-			title: 'Submit and confirm',
-			description: 'Declaration · sends to case system',
-			tagLabel: 'Submit',
-			tagColour: 'green',
-			editing: false
-		}
-	];
+	// Raw state because every change below replaces the whole array rather than mutating individual
+	// steps in place, matching the pattern already used for the graph's own nodes and edges.
+	let steps = $state.raw<JourneyStep[]>(initialSteps);
+	// Step 1 starts open so the editing pattern is visible without needing a click first.
+	let selectedStepId = $state<string | null>('step-1');
 
-	// Shared selection state keeps the graph and step list highlight aligned without coupling their components.
-	let selectedStepId = $state<string | null>('step-3');
+	// The single place a step number is worked out, from its position in the list, so it can never go out
+	// of step after an add, remove or reorder.
+	let stepsWithNumbers = $derived(steps.map((step, index) => ({ ...step, number: index + 1 })));
+
+	function handleEdit(stepId: string) {
+		selectedStepId = stepId;
+	}
+
+	function handleApplyStep(updatedStep: JourneyStep) {
+		steps = steps.map((step) => (step.id === updatedStep.id ? updatedStep : step));
+	}
+
+	/**
+	 * Removes a step from the journey once its removal has been confirmed by the card itself, and clears
+	 * the open editor if the removed step was the one being edited.
+	 */
+	function handleRemoveStep(stepId: string) {
+		steps = steps.filter((step) => step.id !== stepId);
+		if (selectedStepId === stepId) {
+			selectedStepId = null;
+		}
+	}
+
+	/**
+	 * Adds a new step at the end of the journey with placeholder content and opens it for editing straight
+	 * away, so adding a step immediately exercises the same editing path as any other step.
+	 */
+	function handleAddStep() {
+		const newStep: JourneyStep = {
+			id: crypto.randomUUID(),
+			title: 'New step',
+			description: 'Not yet configured',
+			tagLabel: 'Draft',
+			tagColour: 'grey',
+			answerType: 'question-group',
+			branchesTo: null
+		};
+		steps = [...steps, newStep];
+		selectedStepId = newStep.id;
+	}
+
+	/**
+	 * Swaps a step with its neighbour in the given direction, reordering the shared step list so both the
+	 * list and the graph pick up the new sequence. Does nothing if the step is already at that end.
+	 */
+	function handleMoveStep(stepId: string, direction: 'up' | 'down') {
+		const index = steps.findIndex((step) => step.id === stepId);
+		if (index === -1) return;
+
+		const targetIndex = direction === 'up' ? index - 1 : index + 1;
+		if (targetIndex < 0 || targetIndex >= steps.length) return;
+
+		const reordered = [...steps];
+		[reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+		steps = reordered;
+	}
 </script>
 
 <svelte:head>
@@ -87,12 +92,9 @@
 
 	<!-- Introductory content explains the task before users reach the editing controls. -->
 	<div class="journey-page__heading">
-		<p class="govuk-caption-l">Renew your driving licence. Schema generated from govuk-forms.json</p>
+		<p class="govuk-caption-l">Change driving licence address</p>
 		<h1 class="govuk-heading-xl journey-page__title">Edit and review the journey</h1>
-		<p class="govuk-body">
-			Reorder steps, edit questions and review branching. This is the review stage, what you see
-			here is what goes to policy.
-		</p>
+		<p class="govuk-body">Reorder, edit and review steps, questions and branching.</p>
 	</div>
 
 	<!-- The step list and graph stay together so both views of the same journey can be compared. -->
@@ -100,32 +102,45 @@
 		<section class="journey-page__steps">
 			<div class="journey-page__steps-header">
 				<h2 class="govuk-heading-m journey-page__steps-heading">Steps</h2>
-				<p class="journey-page__steps-hint">{steps.length} steps · drag to reorder</p>
+				<p class="journey-page__steps-hint">{steps.length} steps, use the arrows to reorder</p>
 			</div>
 
-			{#each steps as step (step.id)}
-				<!-- Editing steps show their form in place so the list order and graph relationship remain stable. -->
-				{#if step.editing}
+			{#each stepsWithNumbers as step, index (step.id)}
+				<!-- Whichever step is selected is the one open for editing, so only one card can be open at a time. -->
+				{#if step.id === selectedStepId}
 					<StepEditorCard
+						{step}
 						number={step.number}
-						title={step.title}
-						description={step.description}
-						selected={selectedStepId === step.id}
+						otherSteps={stepsWithNumbers
+							.filter((other) => other.id !== step.id)
+							.map((other) => ({ id: other.id, number: other.number, title: other.title }))}
+						canMoveUp={index > 0}
+						canMoveDown={index < stepsWithNumbers.length - 1}
+						onApply={handleApplyStep}
+						onRemove={handleRemoveStep}
+						onMoveUp={(stepId) => handleMoveStep(stepId, 'up')}
+						onMoveDown={(stepId) => handleMoveStep(stepId, 'down')}
 					/>
 				{:else}
 					<StepCard
+						stepId={step.id}
 						number={step.number}
 						title={step.title}
 						description={step.description}
 						tagLabel={step.tagLabel}
 						tagColour={step.tagColour}
-						selected={selectedStepId === step.id}
+						canMoveUp={index > 0}
+						canMoveDown={index < stepsWithNumbers.length - 1}
+						onEdit={handleEdit}
+						onRemove={handleRemoveStep}
+						onMoveUp={(stepId) => handleMoveStep(stepId, 'up')}
+						onMoveDown={(stepId) => handleMoveStep(stepId, 'down')}
 					/>
 				{/if}
 			{/each}
 
 			<!-- The add control remains after the ordered steps so its insertion point is unambiguous. -->
-			<button class="journey-page__add-step" type="button">
+			<button class="journey-page__add-step" type="button" onclick={handleAddStep}>
 				<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path d="M7 1 V13 M1 7 H13" fill="none" stroke="#1d70b8" stroke-width="2" />
 				</svg>
@@ -133,8 +148,8 @@
 			</button>
 		</section>
 
-		<!-- Graph selection reports a stable step identifier so the matching card can be highlighted. -->
-		<JourneyGraph onStepSelect={(stepId) => (selectedStepId = stepId)} />
+		<!-- Selection is shared both ways so a graph click and an Edit click in the list stay in sync. -->
+		<JourneyGraph {steps} bind:selectedStepId />
 	</div>
 </main>
 

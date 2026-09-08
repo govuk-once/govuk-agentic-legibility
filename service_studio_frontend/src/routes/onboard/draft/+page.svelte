@@ -3,10 +3,10 @@
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 
 	const suggestedApiSteps = [
-		{ step: '1 · Choose entry method', api: 'choose_address_entry_method' },
-		{ step: '2 · Find address by postcode', api: 'find_address_by_postcode' },
-		{ step: '3 · Enter address manually', api: 'enter_address_manually' },
-		{ step: '4 · Confirm your new address', api: 'confirm_new_address' }
+		{ step: '1: Choose entry method', api: 'choose_address_entry_method' },
+		{ step: '2: Find address by postcode', api: 'find_address_by_postcode' },
+		{ step: '3: Enter address manually', api: 'enter_address_manually' },
+		{ step: '4: Confirm your new address', api: 'confirm_new_address' }
 	];
 </script>
 

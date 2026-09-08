@@ -1,23 +1,50 @@
 <script lang="ts">
-	import StepDragHandle from './StepDragHandle.svelte';
+	import StepReorderButtons from './StepReorderButtons.svelte';
 
 	interface Props {
+		stepId: string;
 		number: number;
 		title: string;
 		description: string;
 		tagLabel: string;
 		/* Provides the colour name expected by the GOV.UK tag modifier so the supplied status receives the correct treatment. */
 		tagColour: string;
-		selected?: boolean;
+		canMoveUp: boolean;
+		canMoveDown: boolean;
+		onEdit: (stepId: string) => void;
+		onRemove: (stepId: string) => void;
+		onMoveUp: (stepId: string) => void;
+		onMoveDown: (stepId: string) => void;
 	}
 
-	let { number, title, description, tagLabel, tagColour, selected = false }: Props = $props();
+	let {
+		stepId,
+		number,
+		title,
+		description,
+		tagLabel,
+		tagColour,
+		canMoveUp,
+		canMoveDown,
+		onEdit,
+		onRemove,
+		onMoveUp,
+		onMoveDown
+	}: Props = $props();
+
+	// Confirming locally, rather than removing immediately on the first click, guards against an accidental click on
+	// the remove icon losing a step.
+	let confirmingRemoval = $state(false);
 </script>
 
-<!-- A selected card mirrors graph selection without changing the step editing state. -->
-<div class:step-card--selected={selected} class="step-card">
-	<!-- The handle reserves a consistent drag target for the later ordering interaction. -->
-	<StepDragHandle />
+<div class="step-card" role="group" aria-label="Step {number}: {title}">
+	<StepReorderButtons
+		label="step {number}: {title}"
+		{canMoveUp}
+		{canMoveDown}
+		onMoveUp={() => onMoveUp(stepId)}
+		onMoveDown={() => onMoveDown(stepId)}
+	/>
 	<span class="step-card__number">{number}</span>
 	<div class="step-card__summary">
 		<h3 class="govuk-heading-s govuk-!-margin-bottom-1">{title}</h3>
@@ -25,18 +52,29 @@
 	</div>
 	<!-- Status uses the supplied GOV.UK colour modifier rather than local tag styling. -->
 	<strong class="govuk-tag govuk-tag--{tagColour} step-card__tag">{tagLabel}</strong>
-	<!-- Step actions remain separate from the summary so they keep fixed positions across rows. -->
-	<a class="govuk-link step-card__edit" href="#top">Edit</a>
-	<svg
-		class="step-card__remove"
-		width="14"
-		height="14"
-		viewBox="0 0 14 14"
-		xmlns="http://www.w3.org/2000/svg"
-		aria-hidden="true"
-	>
-		<path d="M2 2 L12 12 M12 2 L2 12" fill="none" stroke="#505a5f" stroke-width="1.6" />
-	</svg>
+
+	{#if confirmingRemoval}
+		<!-- An inline confirmation, rather than a browser dialog, keeps the interaction in the same GOV.UK styled surface. -->
+		<span class="step-card__confirm">
+			Remove this step?
+			<button type="button" class="govuk-link step-card__confirm-remove" onclick={() => onRemove(stepId)}>
+				Remove step
+			</button>
+			<button type="button" class="govuk-link" onclick={() => (confirmingRemoval = false)}>Keep step</button>
+		</span>
+	{:else}
+		<button type="button" class="govuk-link step-card__edit" onclick={() => onEdit(stepId)}>Edit</button>
+		<button
+			type="button"
+			class="step-card__remove"
+			aria-label="Remove step {number}: {title}"
+			onclick={() => (confirmingRemoval = true)}
+		>
+			<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+				<path d="M2 2 L12 12 M12 2 L2 12" fill="none" stroke="#505a5f" stroke-width="1.6" />
+			</svg>
+		</button>
+	{/if}
 </div>
 
 <style>
@@ -48,11 +86,6 @@
 		background-color: #ffffff;
 		border: 1px solid #b1b4b6;
 		font-family: 'GDS Transport', arial, sans-serif;
-	}
-
-	.step-card--selected {
-		background-color: #e8f1f8;
-		border-left: 5px solid #1d70b8;
 	}
 
 	.step-card__number {
@@ -74,13 +107,36 @@
 		flex-shrink: 0;
 	}
 
-	.step-card__edit {
+	.step-card button.govuk-link {
 		flex-shrink: 0;
+		background: none;
+		border: 0;
+		padding: 0;
+		font: inherit;
 		font-size: 1rem;
+		cursor: pointer;
 	}
 
 	.step-card__remove {
 		flex-shrink: 0;
+		display: flex;
+		background: none;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+	}
+
+	.step-card__confirm {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 1rem;
+		color: #0b0c0c;
+	}
+
+	.step-card__confirm-remove {
+		color: #d4351c;
 	}
 
 	@media (max-width: 640px) {
@@ -92,6 +148,10 @@
 
 		.step-card__summary {
 			min-width: 200px;
+		}
+
+		.step-card__confirm {
+			flex-wrap: wrap;
 		}
 	}
 </style>

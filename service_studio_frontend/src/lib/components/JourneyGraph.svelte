@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { SvelteFlowProvider } from '@xyflow/svelte';
 	import JourneyGraphCanvas from './JourneyGraphCanvas.svelte';
+	import type { JourneyStep } from '$lib/journey/types';
 
 	interface Props {
-		onStepSelect: (stepId: string | null) => void;
+		steps: JourneyStep[];
+		selectedStepId?: string | null;
 	}
 
-	let { onStepSelect }: Props = $props();
+	let { steps, selectedStepId = $bindable(null) }: Props = $props();
 </script>
 
 <!-- The provider owns shared viewport state so the header controls and canvas operate on the same graph instance. -->
 <SvelteFlowProvider>
-	<JourneyGraphCanvas {onStepSelect} />
+	<JourneyGraphCanvas {steps} bind:selectedStepId />
 </SvelteFlowProvider>
