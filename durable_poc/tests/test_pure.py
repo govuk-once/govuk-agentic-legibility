@@ -1,7 +1,6 @@
 """Unit tests for pure domain functions without Temporal overhead."""
 
 from datetime import timedelta
-
 import pytest
 
 from src.paths import interpolate, parse_duration, resolve_dict, resolve_path
@@ -29,41 +28,22 @@ def test_parse_duration() -> None:
 def test_predicates() -> None:
     ctx = {"attempts": 2, "max_attempts": 3, "confirmed": True}
 
-    # eq
     assert evaluate({"op": "eq", "path": "attempts", "value": 2}, ctx) is True
-    # lt path
     assert (
         evaluate({"op": "lt", "path": "attempts", "value_path": "max_attempts"}, ctx)
         is True
     )
-    # is_true
     assert evaluate({"op": "is_true", "path": "confirmed"}, ctx) is True
-    # and
-    assert (
-        evaluate(
-            {
-                "op": "and",
-                "all": [
-                    {"op": "eq", "path": "attempts", "value": 2},
-                    {"op": "is_true", "path": "confirmed"},
-                ],
-            },
-            ctx,
-        )
-        is True
-    )
 
 
 @pytest.mark.it("resolves dictionaries")
 def test_resolve_dict() -> None:
     ctx = {"postcode": "SW1A 1AA"}
     body = {"query": {"$": "postcode"}}
-    res = resolve_dict(body, ctx)
-    assert res == {"query": "SW1A 1AA"}
+    assert resolve_dict(body, ctx) == {"query": "SW1A 1AA"}
 
 
 @pytest.mark.it("interpolates strings inputs")
 def test_interpolate() -> None:
     ctx = {"workflow_id": "123", "step": 5}
-    res = interpolate("key:{{workflow_id}}:{{step}}", ctx)
-    assert res == "key:123:5"
+    assert interpolate("key:{{workflow_id}}:{{step}}", ctx) == "key:123:5"

@@ -143,6 +143,7 @@ class WorkflowExecutorConfig(BaseModel):
 
 class SFSMDefinition(BaseModel):
     schema_: str = Field(alias="schema")
+    workflow_id: int | str | None = None
     id: str
     version: str
     entry: str

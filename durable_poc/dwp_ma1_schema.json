@@ -22,8 +22,7 @@
         "section1_data": null,
         "section2_data": null,
         "section3_data": null,
-        "section4_data": null,
-        "acknowledged_evidence_notice": null
+        "section4_data": null
       },
       "states": {
 
@@ -52,7 +51,7 @@
 
         "check_all_eligibility_gates": {
           "type": "input",
-          "prompt": "[Stage 1: Eligibility Check]\nTo receive Maternity Allowance, you must meet ALL of the following criteria:\n• You are NOT receiving Statutory Maternity Pay (SMP) from any employer.\n• You were employed or self-employed for at least 26 weeks in your 66-week Test Period. (Note: Your Test Period is the 66 weeks up to and including the week before your baby is due. The 26 weeks of work do not need to be consecutive, and can be spread across one or multiple jobs).\n• If doing unpaid work for a partner's business, your partner is NOT a salaried director.\n\nDo you meet all these requirements and wish to proceed with your claim?",
+          "prompt": "To receive Maternity Allowance, you must meet ALL of the following criteria:\n\n• You are NOT receiving Statutory Maternity Pay (SMP) from any employer.\n• You were employed or self-employed for at least 26 weeks in your 66-week Test Period.\n(Note: Your Test Period is the 66 weeks up to and including the week before your baby is due. The 26 weeks of work do not need to be consecutive, and can be spread across one or multiple jobs).\n• If doing unpaid work for a partner's business, your partner is NOT a salaried director.\n\nDo you meet all these requirements and wish to proceed with your claim?",
           "schema": { "kind": "boolean" },
           "assign": "meets_eligibility_criteria",
           "next": "branch_all_eligibility_gates"
@@ -75,7 +74,7 @@
 
         "check_all_core_evidence": {
           "type": "input",
-          "prompt": "[Stage 2: Core Evidence Requirements]\nBefore continuing, please confirm you have or can obtain the required evidence to upload during this online application:\n• An official MAT B1 maternity certificate (or doctor/midwife letter confirming due date).\n• An SMP1 form from each employer you worked for during the 15th week before your due week (if applicable).",
+          "prompt": "Before continuing, please confirm you have or can obtain the required evidence to upload during this online application:\n• An official MAT B1 maternity certificate (or doctor/midwife letter confirming due date).\n• An SMP1 form from each employer you worked for during the 15th week before your due week (if applicable).",
           "schema": { "kind": "boolean" },
           "assign": "meets_core_evidence_criteria",
           "next": "branch_all_core_evidence"
@@ -98,7 +97,7 @@
 
         "check_benefits_impact_gate": {
           "type": "input",
-          "prompt": "[Stage 3: Impact on Other Benefits]\nImportant Notice:\nClaiming Maternity Allowance may reduce or affect payments for other benefits you or your partner get (including Universal Credit, Employment and Support Allowance, or Carer's Allowance).\n\nDo you confirm you understand these effects and wish to continue claiming Maternity Allowance?",
+          "prompt": "Important Notice: Claiming Maternity Allowance may reduce or affect payments for other benefits you or your partner get (including Universal Credit, Employment and Support Allowance, or Carer's Allowance).\nDo you confirm you understand these effects and wish to continue claiming Maternity Allowance?",
           "schema": { "kind": "boolean" },
           "assign": "understands_benefits_impact",
           "next": "branch_benefits_impact_gate"
@@ -107,15 +106,29 @@
         "branch_benefits_impact_gate": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "is_true", "path": "understands_benefits_impact" }, "next": "invoke_section1_about_you" }
+            { "when": { "op": "is_true", "path": "understands_benefits_impact" }, "next": "announce_section1" }
           ],
           "default": "say_cancelled"
+        },
+
+        "announce_section1": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "We will now ask questions about you, this will include collecting your National Insurance Number, personal contact details, and residential address.",
+          "next": "invoke_section1_about_you"
         },
 
         "invoke_section1_about_you": {
           "type": "invoke",
           "process": "section1_about_you",
           "assign": "section1_data",
+          "next": "announce_section2"
+        },
+
+        "announce_section2": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "We will now ask you questions about your baby, in particular your expected or actual childbirth date and maternity evidence.",
           "next": "invoke_section2_about_baby"
         },
 
@@ -128,6 +141,13 @@
             { "on": "too_early_to_claim", "next": "end_too_early" },
             { "on": "offramp_paper", "next": "say_offramp_paper_general" }
           ],
+          "next": "announce_section3"
+        },
+
+        "announce_section3": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "We will now ask about all employments you've had during your 66-week Test Period. Note that you must have worked for at least 26 weeks across all your employments combined.",
           "next": "invoke_section3_about_work"
         },
 
@@ -144,7 +164,7 @@
             { "on": "rti_disputed", "next": "say_offramp_paper_rti" },
             { "on": "offramp_paper", "next": "say_offramp_paper_general" }
           ],
-          "next": "invoke_section4_about_payment"
+          "next": "announce_section4"
         },
 
         "say_offramp_paper_rti": {
@@ -161,6 +181,13 @@
           "next": "end_offramp_paper"
         },
 
+        "announce_section4": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Finally, we will ask about your current status, as well as your preferred payment frequency and bank details.",
+          "next": "invoke_section4_about_payment"
+        },
+
         "invoke_section4_about_payment": {
           "type": "invoke",
           "process": "section4_about_payment",
@@ -170,13 +197,20 @@
             "employment_type_15th_week": { "$": "section3_data.employment_type_15th_week" }
           },
           "assign": "section4_data",
+          "next": "summary_section4"
+        },
+
+        "summary_section4": {
+          "type": "output",
+          "channel": "transcript",
+          "message": "Payment preferences have been recorded for Account Holder: {{section4_data.bank_details.account_holder_name}}.",
           "next": "say_submission_complete"
         },
 
         "say_submission_complete": {
           "type": "output",
           "channel": "transcript",
-          "message": "Your Maternity Allowance claim and uploaded evidence have been submitted successfully!",
+          "message": "Your Maternity Allowance application is complete and has been submitted successfully.\nIf your application is successful, you will receive a letter in a few working days at this address: {{section1_data.identity.address.address_line_1}}, {{section1_data.identity.address.postcode}}. Otherwise we may reach out to clarify your details.",
           "next": "end_complete"
         },
 
@@ -242,7 +276,6 @@
             "address": "body.address"
           },
           "catch": [ { "on": "any", "next": "prompt_manual_title" } ],
-          "default": "prompt_manual_title",
           "next": "confirm_fetched_identity"
         },
 
@@ -293,7 +326,7 @@
 
         "prompt_manual_middle_name": {
           "type": "input",
-          "prompt": "Please enter your Middle Name (optional, press Enter to skip):",
+          "prompt": "Please enter your Middle Name:",
           "schema": { "kind": "string" },
           "assign": "middle_name",
           "next": "prompt_manual_surname"
@@ -349,7 +382,7 @@
 
         "prompt_manual_address_line_2": {
           "type": "input",
-          "prompt": "Please enter Address Line 2 (optional, press Enter to skip):",
+          "prompt": "Please enter Address Line 2:",
           "schema": { "kind": "string" },
           "assign": "address_line_2",
           "next": "prompt_manual_town_or_city"
@@ -381,7 +414,7 @@
 
         "confirm_manual_summary": {
           "type": "input",
-          "prompt": "[Section 1] Please confirm your entered details:\n• Title: {{title}}\n• First Name: {{first_name}}\n• Middle Name: {{middle_name}}\n• Surname: {{surname}}\n• Date of Birth: {{dob}}\n• Phone Number: {{phone}}\n• Address Line 1: {{address_line_1}}\n• Address Line 2: {{address_line_2}}\n• Town/City: {{town_or_city}}\n• Postcode: {{postcode}}\n\nAre these details correct?",
+          "prompt": "Please confirm your entered details:\n• Title: {{title}}\n• First Name: {{first_name}}\n• Middle Name: {{middle_name}}\n• Surname: {{surname}}\n• Date of Birth: {{dob}}\n• Phone Number: {{phone}}\n• Address Line 1: {{address_line_1}}\n• Address Line 2: {{address_line_2}}\n• Town/City: {{town_or_city}}\n• Postcode: {{postcode}}\n\nAre these details correct?",
           "schema": { "kind": "boolean" },
           "assign": "manual_summary_confirmed",
           "next": "branch_manual_summary"
@@ -452,7 +485,6 @@
         "actual_birth_date": null,
         "due_date": null,
         "calculated_dates": null,
-        "baby_name": null,
         "born_in_uk": null,
         "birth_evidence_method": null,
         "birth_certificate_system_number": null,
@@ -464,7 +496,7 @@
       "states": {
         "prompt_is_baby_born": {
           "type": "input",
-          "prompt": "--- Section 2: About Your Baby ---\nHas your baby already been born?",
+          "prompt": "Has your baby already been born?",
           "schema": { "kind": "boolean" },
           "assign": "is_baby_born",
           "next": "branch_baby_status"
@@ -677,7 +709,6 @@
             "matb1_upload_status": "body.status"
           },
           "catch": [ { "on": "any", "next": "prompt_matb1_file" } ],
-          "default": "prompt_matb1_file",
           "next": "check_matb1_upload"
         },
 
@@ -700,7 +731,7 @@
         "evaluate_matb1_attempts": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "greater_than_or_equal", "path": "matb1_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+            { "when": { "op": "gte", "path": "matb1_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
           ],
           "default": "prompt_retry_matb1"
         },
@@ -737,7 +768,7 @@
         "branch_birth_evidence_method": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "equals", "path": "birth_evidence_method", "value": "system_number" }, "next": "prompt_uk_birth_system_number" }
+            { "when": { "op": "eq", "path": "birth_evidence_method", "value": "system_number" }, "next": "prompt_uk_birth_system_number" }
           ],
           "default": "upload_birth_certificate"
         },
@@ -756,7 +787,7 @@
 
         "upload_birth_certificate": {
           "type": "input",
-          "prompt": "Upload a scan or photo of your baby's birth certificate (JPEG, PNG, or PDF). You must upload this file to complete your application online.",
+          "prompt": "Upload a scan or photo of your baby's birth certificate (JPEG, PNG, or PDF).",
           "schema": {
             "kind": "file_ref",
             "accept": ["image/jpeg", "image/png", "application/pdf"],
@@ -784,7 +815,6 @@
             "birth_cert_upload_status": "body.status"
           },
           "catch": [ { "on": "any", "next": "increment_birth_cert_attempts" } ],
-          "default": "increment_birth_cert_attempts",
           "next": "check_birth_cert_upload"
         },
 
@@ -807,7 +837,7 @@
         "evaluate_birth_cert_attempts": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "greater_than_or_equal", "path": "birth_cert_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+            { "when": { "op": "gte", "path": "birth_cert_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
           ],
           "default": "prompt_retry_birth_cert"
         },
@@ -833,7 +863,6 @@
             "actual_birth_date": { "$": "actual_birth_date" },
             "due_date": { "$": "due_date" },
             "calculated_dates": { "$": "calculated_dates" },
-            "baby_name": { "$": "baby_name" },
             "born_in_uk": { "$": "born_in_uk" },
             "birth_certificate_system_number": { "$": "birth_certificate_system_number" },
             "matb1_upload_ref": { "$": "upload_res.matb1_upload_ref" },
@@ -844,11 +873,9 @@
     },
 
     "section3_about_work": {
-      "start": "announce_section3",
+      "start": "prompt_test_period_employments",
       "vars": {
         "nino": null,
-        "due_date": null,
-        "calculated_dates": null,
         "selected_employments": [],
         "worked_in_15th_week": null,
         "rti_history": null,
@@ -863,16 +890,9 @@
       },
       "states": {
 
-        "announce_section3": {
-          "type": "output",
-          "channel": "transcript",
-          "message": "--- Section 3: About Employment and Earnings ---",
-          "next": "prompt_test_period_employments"
-        },
-
         "prompt_test_period_employments": {
           "type": "input",
-          "prompt": "Select all types of employment you have had during your 66-week Test Period:\nNote: You must have worked for at least 26 weeks across all your employments combined.",
+          "prompt": "Tell us all types of employment you have had during your 66-week Test Period.",
           "schema": {
             "kind": "select_many",
             "options": [
@@ -926,7 +946,6 @@
             "average_monthly_earnings": "body.average_monthly_earnings"
           },
           "catch": [ { "on": "any", "next": "end_rti_disputed" } ],
-          "default": "end_rti_disputed",
           "next": "confirm_hmrc_rti_details"
         },
 
@@ -992,7 +1011,6 @@
             "smp1_upload_status": "body.status"
           },
           "catch": [ { "on": "any", "next": "increment_smp1_attempts" } ],
-          "default": "increment_smp1_attempts",
           "next": "check_smp1_upload"
         },
 
@@ -1015,7 +1033,7 @@
         "evaluate_smp1_attempts": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "greater_than_or_equal", "path": "smp1_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+            { "when": { "op": "gte", "path": "smp1_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
           ],
           "default": "prompt_retry_smp1"
         },
@@ -1106,7 +1124,7 @@
 
         "upload_marriage_cert": {
           "type": "input",
-          "prompt": "Upload a digital copy of your Marriage or Civil Partnership Certificate (JPEG, PNG, or PDF). You must upload this file to complete your application online.",
+          "prompt": "Please upload a digital copy of your Marriage or Civil Partnership Certificate (JPEG, PNG, or PDF).",
           "schema": {
             "kind": "file_ref",
             "accept": ["image/jpeg", "image/png", "application/pdf"],
@@ -1134,7 +1152,6 @@
             "marriage_cert_upload_status": "body.status"
           },
           "catch": [ { "on": "any", "next": "increment_marriage_cert_attempts" } ],
-          "default": "increment_marriage_cert_attempts",
           "next": "check_marriage_cert_upload"
         },
 
@@ -1157,7 +1174,7 @@
         "evaluate_marriage_cert_attempts": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "greater_than_or_equal", "path": "marriage_cert_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
+            { "when": { "op": "gte", "path": "marriage_cert_upload_attempts", "value": 3 }, "next": "end_offramp_paper" }
           ],
           "default": "prompt_retry_marriage_cert"
         },
@@ -1218,7 +1235,7 @@
 
         "prompt_reason_stopped_work": {
           "type": "input",
-          "prompt": "--- Section 4: Paying You ---\nWhat is your current work status regarding your pregnancy?",
+          "prompt": "What is your current work status regarding your pregnancy?",
           "schema": {
             "kind": "select_one",
             "options": [
@@ -1235,7 +1252,7 @@
         "branch_reason_stopped_work": {
           "type": "choice",
           "rules": [
-            { "when": { "op": "equals", "path": "reason_stopped_work", "value": "not_stopped_working" }, "next": "evaluate_map_flexibility" }
+            { "when": { "op": "eq", "path": "reason_stopped_work", "value": "not_stopped_working" }, "next": "evaluate_map_flexibility" }
           ],
           "default": "prompt_date_stopped_work"
         },
@@ -1256,7 +1273,7 @@
           "type": "choice",
           "rules": [
             { "when": { "op": "is_true", "path": "input.is_baby_born" }, "next": "set_non_flexible_early_birth" },
-            { "when": { "op": "equals", "path": "reason_stopped_work", "value": "pregnancy_sick_leave" }, "next": "check_sickness_in_4wk_window" }
+            { "when": { "op": "eq", "path": "reason_stopped_work", "value": "pregnancy_sick_leave" }, "next": "check_sickness_in_4wk_window" }
           ],
           "default": "set_flexible_map"
         },
@@ -1324,7 +1341,7 @@
 
         "prompt_flexible_start_date": {
           "type": "input",
-          "prompt": "When would you like your Maternity Allowance payments to start (DD/MM/YYYY)? Note: Your payment start date cannot be earlier than 11 weeks before your due week ({{input.calculated_dates.earliest_signing_date}}).",
+          "prompt": "When would you like your Maternity Allowance payments to start (DD/MM/YYYY)?",
           "schema": {
             "kind": "string",
             "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",

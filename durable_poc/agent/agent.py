@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 import logging
 from pathlib import Path
-from typing import Any, Callable, Awaitable
+import re
+from typing import Any, Awaitable, Callable
 
 import httpx
 from strands import Agent, tool
@@ -63,12 +64,7 @@ def build_contextual_prompt(
 
 
 def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
-    """Coerce a tool argument to the type the workflow schema expects.
-
-    LLMs sometimes pass values as the wrong JSON type (e.g. "Yes" instead of
-    true, or "42" instead of 42). This uses the known schema from session state
-    to coerce to the correct Python type before submission to Temporal.
-    """
+    """Coerce a tool argument to the type the workflow schema expects."""
     if isinstance(value, str) and value.strip().lower() in ("true", "false"):
         return value.strip().lower() == "true"
 
@@ -81,7 +77,9 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
     schema = awaiting.get("schema", {})
     kind = schema.get("kind")
 
-    if kind == "boolean" and not isinstance(value, bool):
+    if kind == "boolean":
+        if isinstance(value, bool):
+            return value
         return str(value).strip().lower() in _TRUTHY
 
     if kind == "string":
@@ -92,14 +90,68 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
             val_str = val_str[1:-1]
         return val_str
 
-    if kind in ("object", "file_ref", "select_one"):
-        if isinstance(value, str):
-            if value.startswith("[Uploaded File:"):
-                return {"type": "file_attachment", "raw": value}
+    if kind == "select_one":
+        if isinstance(value, str) and value.strip().startswith("{"):
             try:
                 return json.loads(value)
             except json.JSONDecodeError, TypeError:
                 pass
+
+        raw_options = awaiting.get("options") or schema.get("options") or []
+        if isinstance(raw_options, list):
+            for opt in raw_options:
+                if isinstance(opt, dict):
+                    opt_val = opt.get("value") or opt.get("id")
+                    opt_lbl = opt.get("label") or opt.get("title")
+                    if str(value).strip().lower() in (
+                        str(opt_val).strip().lower(),
+                        str(opt_lbl).strip().lower(),
+                    ):
+                        return opt_val if opt_val is not None else opt
+                elif str(value).strip().lower() == str(opt).strip().lower():
+                    return opt
+
+        return str(value).strip() if value is not None else value
+
+    if kind == "select_many":
+        if isinstance(value, str):
+            value = value.strip()
+            if value.startswith("[") and value.endswith("]"):
+                try:
+                    return json.loads(value)
+                except json.JSONDecodeError, TypeError:
+                    pass
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
+
+    if kind == "file_ref" or (isinstance(value, str) and "bytes" in value):
+        wf_id = session_state.get("workflow_id", "file") if session_state else "file"
+
+        if isinstance(value, str) and value.strip().startswith("{"):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError, TypeError:
+                pass
+
+        if isinstance(value, str) and value.startswith("[Uploaded File:"):
+            ref_match = re.search(r"ref='([^']+)'", value)
+            ct_match = re.search(r"content_type='([^']+)'", value)
+            bytes_match = re.search(r"bytes=(\d+)", value)
+
+            return {
+                "ref": ref_match.group(1) if ref_match else f"upload_{wf_id}.dat",
+                "content_type": ct_match.group(1) if ct_match else "image/jpeg",
+                "bytes": int(bytes_match.group(1)) if bytes_match else 1024,
+            }
+
+        if isinstance(value, dict) and int(value.get("bytes", 0)) > 0:
+            return {
+                "ref": str(value.get("ref") or f"upload_{wf_id}.dat"),
+                "content_type": str(value.get("content_type") or "image/jpeg"),
+                "bytes": int(value.get("bytes", 1024)),
+            }
+
+        return {"error": "INVALID_FILE_UPLOAD"}
 
     return value
 
@@ -247,14 +299,63 @@ class WorkflowAgent:
         owner = self
 
         @tool
-        async def get_workflow_definition(workflow_id: int) -> dict[str, Any]:
-            """Fetch a workflow definition from the server by its numeric ID.
+        async def list_available_workflows() -> list[dict[str, Any]]:
+            """Fetch all registered workflow definitions from the workflow server."""
+            logger.info("Tool list_available_workflows called")
+            await owner._trace("AGENT", "Selected Tool: list_available_workflows")
+            try:
+                http_client = await owner._get_http_client()
+                result = await tool_functions.list_available_workflows(
+                    http_client=http_client,
+                    base_url=owner._workflow_server_url,
+                )
+                return result
+            except Exception as e:
+                logger.exception("Tool list_available_workflows failed")
+                await owner._trace(
+                    "AGENT", "Tool Error: list_available_workflows", str(e)
+                )
+                raise
+
+        @tool
+        async def find_workflow_by_intent(domain_keyword: str) -> dict[str, Any]:
+            """Search registered workflow definitions on the server by domain keyword (e.g. 'address', 'maternity').
 
             Args:
-                workflow_id: The numeric workflow ID.
+                domain_keyword: The keyword describing the service domain.
             """
             logger.info(
-                "Tool get_workflow_definition called: workflow_id=%d", workflow_id
+                "Tool find_workflow_by_intent called: keyword=%s", domain_keyword
+            )
+            await owner._trace(
+                "AGENT",
+                "Selected Tool: find_workflow_by_intent",
+                {"keyword": domain_keyword},
+            )
+            try:
+                http_client = await owner._get_http_client()
+                result = await tool_functions.find_workflow_by_intent(
+                    domain_keyword=domain_keyword,
+                    http_client=http_client,
+                    base_url=owner._workflow_server_url,
+                )
+                return result
+            except Exception as e:
+                logger.exception("Tool find_workflow_by_intent failed")
+                await owner._trace(
+                    "AGENT", "Tool Error: find_workflow_by_intent", str(e)
+                )
+                raise
+
+        @tool
+        async def get_workflow_definition(workflow_id: int | str) -> dict[str, Any]:
+            """Fetch a workflow definition from the server by its numeric ID or string slug identifier.
+
+            Args:
+                workflow_id: The numeric workflow ID or string slug identifier.
+            """
+            logger.info(
+                "Tool get_workflow_definition called: workflow_id=%s", workflow_id
             )
             await owner._trace(
                 "AGENT",
@@ -284,7 +385,7 @@ class WorkflowAgent:
                 )
             except Exception as e:
                 logger.exception(
-                    "Tool get_workflow_definition failed for workflow_id=%d",
+                    "Tool get_workflow_definition failed for workflow_id=%s",
                     workflow_id,
                 )
                 await owner._trace(
@@ -297,13 +398,13 @@ class WorkflowAgent:
             return result
 
         @tool
-        async def start_workflow(workflow_id: int) -> dict[str, Any]:
-            """Fetch a workflow definition by numeric ID and start it on Temporal.
+        async def start_workflow(workflow_id: int | str) -> dict[str, Any]:
+            """Fetch a workflow definition by numeric ID or string slug and start it on Temporal.
 
             Args:
-                workflow_id: The numeric workflow ID from the workflow server.
+                workflow_id: The numeric workflow ID or string slug from the workflow server.
             """
-            logger.info("Tool start_workflow called: workflow_id=%d", workflow_id)
+            logger.info("Tool start_workflow called: workflow_id=%s", workflow_id)
             try:
                 http_client = await owner._get_http_client()
                 temporal_client = await owner._get_temporal_client()
@@ -324,7 +425,7 @@ class WorkflowAgent:
                 )
             except Exception as e:
                 logger.exception(
-                    "Tool start_workflow failed for workflow_id=%d", workflow_id
+                    "Tool start_workflow failed for workflow_id=%s", workflow_id
                 )
                 await owner._trace("ENGINE", "Start Workflow Failed", str(e))
                 raise
@@ -441,6 +542,8 @@ class WorkflowAgent:
             return result
 
         return [
+            list_available_workflows,
+            find_workflow_by_intent,
             get_workflow_definition,
             start_workflow,
             get_workflow_state,

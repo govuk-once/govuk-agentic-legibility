@@ -10,6 +10,7 @@ import pytest
 
 from agent.tools import (
     WorkflowServerError,
+    find_workflow_by_intent,
     get_workflow_definition,
     get_workflow_state,
     list_active_workflows,
@@ -157,6 +158,38 @@ async def test_get_workflow_definition_raises_on_http_error() -> None:
                 http_client=client,
                 base_url="http://localhost:8080",
             )
+
+
+# ---------------------------------------------------------------------------
+# find_workflow_by_intent
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_find_workflow_by_intent_parses_json_list() -> None:
+    """Validates that search endpoint returning a list of dicts parses cleanly."""
+    matches = [
+        {
+            "id": 2,
+            "slug": "dwp.maternity_allowance_ma1_claim",
+            "name": "Maternity Allowance",
+        }
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "api/v1/workflows" in str(request.url)
+        return httpx.Response(200, json=matches)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await find_workflow_by_intent(
+            domain_keyword="maternity",
+            http_client=client,
+            base_url="http://localhost:8080",
+        )
+
+    assert result["id"] == 2
+    assert result["slug"] == "dwp.maternity_allowance_ma1_claim"
 
 
 # ---------------------------------------------------------------------------

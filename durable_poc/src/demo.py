@@ -114,8 +114,16 @@ async def main() -> None:
 
             # If it's a select list, render the options with 1-based indexing
             if kind in ["select_one", "select_many"] and options:
-                v_key = schema.get("value_key") if isinstance(schema, dict) else getattr(schema, "value_key", None)
-                l_key = schema.get("label_key") if isinstance(schema, dict) else getattr(schema, "label_key", None)
+                v_key = (
+                    schema.get("value_key")
+                    if isinstance(schema, dict)
+                    else getattr(schema, "value_key", None)
+                )
+                l_key = (
+                    schema.get("label_key")
+                    if isinstance(schema, dict)
+                    else getattr(schema, "label_key", None)
+                )
                 for idx, opt in enumerate(options, 1):
                     o_lbl = get_opt_label(opt, l_key)
                     print(f"   [{idx}] {o_lbl}")
@@ -150,7 +158,11 @@ async def main() -> None:
                 }
             elif kind == "select_one" and options:
                 raw_str = raw_val.strip()
-                v_key = schema.get("value_key") if isinstance(schema, dict) else getattr(schema, "value_key", None)
+                v_key = (
+                    schema.get("value_key")
+                    if isinstance(schema, dict)
+                    else getattr(schema, "value_key", None)
+                )
 
                 selected_opt = None
 
@@ -179,7 +191,11 @@ async def main() -> None:
                 # Handle comma-separated selections like '1, 2'
                 raw_items = [i.strip() for i in raw_val.strip().split(",") if i.strip()]
                 val = []
-                v_key = schema.get("value_key") if isinstance(schema, dict) else getattr(schema, "value_key", None)
+                v_key = (
+                    schema.get("value_key")
+                    if isinstance(schema, dict)
+                    else getattr(schema, "value_key", None)
+                )
 
                 for raw_str in raw_items:
                     selected_opt = None

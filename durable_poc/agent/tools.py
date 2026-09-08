@@ -73,7 +73,9 @@ async def find_workflow_by_intent(
         wf_id = str(wf.get("id", "")).lower()
         wf_name = str(wf.get("name", "")).lower()
         if keyword in wf_id or keyword in wf_name:
-            logger.info("Matched workflow '%s' for keyword '%s'", wf.get("id"), domain_keyword)
+            logger.info(
+                "Matched workflow '%s' for keyword '%s'", wf.get("id"), domain_keyword
+            )
             return wf
 
     logger.warning("No workflow found matching keyword '%s'", domain_keyword)
