@@ -30,9 +30,9 @@ The core research question: **can an LLM agent faithfully execute a strictly-def
 ┌────────────────────────▼────────────────────────────────────────────────────────┐
 │  agent/agent.py — WorkflowAgent                                                 │
 │    Strands Agent with @tool closures & tool decision event emitter             │
-│    Maintains session_state (HATEOAS continuation)                               │
+│    Maintains session_state (HATEOAS continuation) & _coerce_value logic         │
 └──────────┬─────────────────────────────┬────────────────────────────────────────┘
-            │ httpx                       │ Temporal gRPC
+│ httpx                       │ Temporal gRPC
 ┌──────────▼──────────┐     ┌───────────▼────────────────────────────────────────┐
 │  Workflow Server    │     │  Temporal Server (localhost:7233)                  │
 │  (localhost:8080)   │     │                                                    │
@@ -70,14 +70,14 @@ Each `Process` has a `start` state ID, initial `vars`, and a `states` map. State
 
 | State type | Purpose |
 |---|---|
-| `InputState` | Suspends execution and exposes a schema for human input with optional timeouts and retry routes. |
+| `InputState` | Suspends execution and exposes a schema for human input with optional timeouts, retry routes, and file attachments. |
 | `OutputState` | Emits a transcript entry to audit logs or dispatches external notifications via activities. |
 | `CallState` | Executes HTTP API requests via Temporal activities with capture projections, idempotency headers, and error catches. |
 | `ChoiceState` | Evaluates predicate rules against runtime context to branch execution. |
-| `AssignState` | Mutates variable context (including date math like `now_plus` and integer `add` operations). |
+| `AssignState` | Mutates variable context (including date math like `date_subtract` and integer `add` operations). |
 | `InvokeState` | Pushes a sub-process stack frame onto the workflow call stack, binding inputs and catch routes. |
-| `WaitState` | Durably sleeps for an ISO 8601 duration string (e.g., `PT5M`, `PT14D`). |
-| `EndState` | Pops the stack frame, returning control and outputs to invoker states or finalizing the workflow. |
+| `WaitState` | Durably sleeps for an ISO 8601 duration string (e.g., `PT5M`, `P14D`). |
+| `EndState` | Pops the stack frame, returning control and outputs to invoker states or finalizing the workflow with a status and outcome string. |
 
 ### `src/context.py` — Runtime State
 
@@ -102,7 +102,7 @@ Dataclasses representing the interpreter's mutable runtime context:
 
 Key Temporal primitives used:
 
-* **Update** (`submit_input`): Synchronous input entry point. A `_validate_input` validator checks schema types and regex constraints before state transitions.
+* **Update** (`submit_input`): Synchronous input entry point. A `_validate_input` validator checks schema types, `file_ref` objects, and regex constraints before state transitions.
 * **Query** (`awaiting`, `transcript`, `current_state_info`): Exposes state safely without mutating execution state.
 * **Continue-As-New**: Automatically serializes state and restarts workflow histories when Temporal suggests history truncation.
 
@@ -118,7 +118,7 @@ Utility functions powering context traversal and expression evaluation:
 
 ### `src/predicates.py` — Condition Evaluator
 
-Evaluates branching logic via `evaluate(condition, context)`. Operators include `eq`, `lt`, `lte`, `gt`, `gte`, `is_true`, `is_false`, `not_empty`, `and`, `or`, `not`, `before_now`, and `contains`. All logic uses structural recursion against context dictionaries without string `eval()`. Symmetrically handles boolean string coercion for `is_false`.
+Evaluates branching logic via `evaluate(condition, context)`. Operators include `eq`, `lt`, `lte`, `gt`, `gte`, `is_true`, `is_false`, `not_empty`, `and`, `or`, `not`, `date_before`, `date_diff_greater_than`, and `contains`. All logic uses structural recursion against context dictionaries without string `eval()`. Symmetrically handles boolean string coercion for `is_false`.
 
 ### `src/activities.py` — External Integrations
 
@@ -154,6 +154,7 @@ Pure async functions that bridge between the agent, external API endpoints, and 
 | Function | Purpose | Target |
 |---|---|---|
 | `get_workflow_definition(...)` | Retrieves JSON definition schemas by numeric ID | Workflow Server (HTTP) |
+| `find_workflow_by_intent(...)` | Searches workflow definitions on server by domain keyword | Workflow Server (HTTP) |
 | `start_workflow(...)` | Fetches definition schema and starts a new Temporal execution with randomized UUID suffix | Both |
 | `list_active_workflows(...)` | Queries active running `SFSMInterpreter` executions | Temporal (gRPC) |
 | `get_workflow_state(...)` | Resolves workflow handle, status, `awaiting`, and `transcript` | Temporal (gRPC) |
@@ -166,22 +167,23 @@ Composes the Bedrock LLM model (`anthropic.claude-sonnet-4-6`) with tool executi
 * **Lazy Connection Binding**: Temporal (`_get_temporal_client`) and HTTP (`_get_http_client`) clients connect lazily on first execution.
 * **Trace Callback Propagation (`on_trace`)**: Emits structured trace events (`AGENT`, `SYSTEM`, `ENGINE`) whenever Bedrock selects a tool or executes an API call, streaming trace details directly to the UI sidebar.
 * **Silent NLU Persona (`agent/prompts/system.txt`)**: System instructions strictly direct the LLM to act as a silent intent parsing engine. The agent's task is solely to inspect user natural language, resolve missing or contextually implied values, and trigger tools. It **never** formats conversational filler or prompt text for display.
-* **Strict JSON Type Coercion (`_coerce_value`)**: Normalizes LLM tool call arguments  to conform to schema requirements before submission to Temporal:
+* **Strict JSON Type Coercion (`_coerce_value`)**: Normalizes LLM tool call arguments to conform to schema requirements before submission to Temporal:
   * `kind: "boolean"`: Coerces string variants (`"yes"`, `"true"`, `"1"`) or raw strings into primitive boolean `True`/`False`.
   * `kind: "string"`: Strips escaped string literal quotes and validates regex patterns.
-  * `kind: "select_one"`: When options resolve to full dictionary objects (e.g. UPRN address maps or organ donor choices), coerces string choices into the **entire matching dictionary object**.
-  * `kind: "file_ref"` or `kind: "object"`: Parses incoming file metadata strings into standard dictionary payloads.
+  * `kind: "select_one"`: Resolves either exact option keys or human-readable option labels back to the expected target value string.
+  * `kind: "select_many"`: Parses JSON array strings or comma-separated selections into native Python lists.
+  * `kind: "file_ref"`: Parses `[Uploaded File: ref='...', content_type='...', bytes=...]` string templates or JSON objects into structured dictionaries (`ref`, `content_type`, `bytes`). Rejects plain user text inputs (e.g. `"pic"`) with `{"error": "INVALID_FILE_UPLOAD"}` to trigger a Temporal validation error.
 * **HATEOAS Context Injection (`build_contextual_prompt()`)**: Appends current `session_state` (`workflow_id`, `token`, awaiting prompt, and schema) directly into the user message prompt, eliminating reliance on LLM conversation memory.
 
 ### `chat.py` — WebSockets Web Interface & Event Trace
 
 A standalone FastAPI server driving a split-screen GOV.UK-styled web interface:
 
-* **WebSocket Communication (`/ws`)**: Handles real-time bi-directional transport between the browser client and the backend server(`message`, `options`, `trace`, `timeout`, `completed`, `active_workflows`).
-* **Direct Event Stream Renderer (`stream_background_events`)**: A dedicated background polling loop that queries `get_workflow_state`
+* **WebSocket Communication (`/ws`)**: Handles real-time bi-directional transport between the browser client and the backend server (`message`, `options`, `trace`, `timeout`, `completed`, `active_workflows`).
+* **Direct Event Stream Renderer (`stream_background_events`)**: A dedicated background polling loop that queries `get_workflow_state`:
   * **Transcript Entries**: Streams `OutputState` messages to the main chat column.
   * **Engine Events**: Intercepts `[ENGINE LOG]` transcript entries and routes them directly to the Trace Sidebar.
-  * **Dynamic Option Buttons**: Inspects the schema kind (`boolean`, `enum`, `select_one`) and extracts human-readable option labels, sending an `options` JSON payload to render frontend buttons.
+  * **Dynamic Option Buttons**: Inspects the schema kind (`boolean`, `select_one`, `select_many`) and extracts human-readable option labels, sending an `options` JSON payload to render frontend buttons.
   * **Timeout Display**: Pushes `timeout_seconds` to render a top-level warning badge.
   * **Completion State**: Detects terminal execution states and renders a completion banner.
 * **Resume Workflow Handler (`refresh_active_workflows`)**: Populates an active workflow picker on page load, allowing users to resume executions directly without LLM interaction.
@@ -216,8 +218,8 @@ User Input             FastAPI (chat.py)              WorkflowAgent             
 ```
 
 1. **User Action**: User submits *"I need to change the address on my driving licence"*.
-2. **Intent Parsing**: `chat.py` records a `USER` trace and invokes `WorkflowAgent.respond()`. Bedrock calls `start_workflow(workflow_id=1)`, emitting `AGENT` and `SYSTEM` trace events via `on_trace`.
-3. **Workflow Execution**: Temporal launches `SFSMInterpreter`. It yields to the event loop, enters `driver_details` sub-process frame (`[ENGINE LOG]`), executes `http_call` activity with `DVLA_BASE` routing and idempotency headers (`[ENGINE LOG]`), and halts at `InputState` (`tkn_1`).
+2. **Intent Parsing**: `chat.py` records a `USER` trace and invokes `WorkflowAgent.respond()`. Bedrock calls `find_workflow_by_intent(keyword="address")` and `start_workflow(workflow_id=1)`, emitting `AGENT` and `SYSTEM` trace events via `on_trace`.
+3. **Workflow Execution**: Temporal launches `SFSMInterpreter`. It yields to the event loop, enters sub-process frames (`[ENGINE LOG]`), executes `http_call` activity with `DVLA_BASE` routing and idempotency headers (`[ENGINE LOG]`), and halts at `InputState` (`tkn_1`).
 4. **Direct Stream Rendering**: The background loop in `chat.py` polls `get_workflow_state`, routes `[ENGINE LOG]` entries to the sidebar, and pushes the prompt (*"Would you like to proceed...?"*) and binary options `["Yes", "No"]` to the main chat view.
 5. **Input Submission**: User clicks **Yes**. `_coerce_value` converts `"Yes"` to boolean `True`. `submit_input` sends the update to Temporal, where `_validate_input` validates the token and type synchronously.
 6. **UI State Update**: Execution advances to the next step, streaming updated options, transcript text, and sidebar trace events in real time.
@@ -238,7 +240,7 @@ Inputs are passed via Temporal Updates (`submit_input`) rather than asynchronous
 Every tool execution returns a self-describing state object (`awaiting` token, schema, options, and transcript). The agent does not rely on conversation memory to track workflow progress—the authoritative state is reinjected into the context prompt on every turn.
 
 ### 4. Dynamic Option Generation & Type Coercion
-User options are built dynamically from the active input schema (e.g. `select_one` option tables or boolean flags). `_coerce_value` acts as a defensive buffer between the LLM tool call output and Temporal's strict validation handlers, automatically mapping dictionary objects, string primitives, and booleans.
+User options are built dynamically from the active input schema (e.g. `select_one` option tables or boolean flags). `_coerce_value` acts as a defensive buffer between the LLM tool call output and Temporal's strict validation handlers, automatically mapping dictionary objects, string primitives, file attachment templates, and booleans.
 
 ### 5. Hierarchical Process Frame Stack
 Sub-processes (`driver_details`, `photo_update`, `signature_update`, `select_address`, `organ_donation`, `address_update`, `finalisation`) are managed via an internal `StackFrame` stack within a single Temporal workflow execution. This preserves variable isolation, supports return value mapping, enables continue-as-new serialization, and avoids the operational complexity of child workflow signals.
@@ -252,7 +254,7 @@ Sub-processes (`driver_details`, `photo_update`, `signature_update`, `select_add
 | `test_pure.py` | `paths.py` and `predicates.py` — pure functions | None |
 | `test_workflow.py` | Full interpreter execution against local Temporal dev server | `temporal` CLI binary |
 | `test_agent_tools.py` | Tool functions with `FakeTemporalClient` and `httpx.MockTransport` | None |
-| `test_agent.py` | `WorkflowAgent` composition, session state updates, contextual prompt building | None |
+| `test_agent.py` | `WorkflowAgent` composition, session state updates, contextual prompt building, `_coerce_value` | None |
 | `test_chat.py` | FastAPI WebSocket endpoints, message rendering, option generation | None |
 
 ---
