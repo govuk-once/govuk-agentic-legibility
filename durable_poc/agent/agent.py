@@ -411,11 +411,11 @@ class WorkflowAgent:
                 token: The input token from the awaiting state.
                 value: The structured value to submit.
             """
+            coerced_value = _coerce_value(value, owner._session_state)
             with owner._tracer.start_as_current_span(
                 "tool.submit_input",
-                attributes={"workflow_id": workflow_id, "token": token},
+                attributes={"workflow_id": workflow_id, "token": token, "input_value": coerced_value},
             ):
-                coerced_value = _coerce_value(value, owner._session_state)
                 logger.info(
                     "submit_input called: workflow_id=%r, token=%r, coerced_value=%r",
                     workflow_id,

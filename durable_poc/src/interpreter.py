@@ -238,6 +238,7 @@ class SFSMInterpreter:
                         input_span.set_attribute(
                             "received_value_type", type(self._received_input).__name__
                         )
+                        input_span.set_attribute("received_value", str(self._received_input))
                         workflow.logger.info(
                             f"Input received for '{current_state.assign}': val={self._received_input} (type={type(self._received_input).__name__})"
                         )

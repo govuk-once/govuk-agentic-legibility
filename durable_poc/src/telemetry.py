@@ -3,6 +3,8 @@ from __future__ import annotations
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult, BatchSpanProcessor
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, Span, TracerProvider
 from opentelemetry.context import Context
+from opentelemetry import baggage
+from temporalio.contrib.opentelemetry import create_tracer_provider
 import boto3
 from botocore.exceptions import ClientError
 from pathlib import Path
@@ -12,7 +14,9 @@ import os
 import sys
 import logging
 from typing import Any, Sequence
+import contextvars
 
+session_id_var = contextvars.ContextVar("session_id", default="")
 
 def get_logger() -> logging.Logger:
     logger = logging.getLogger(__name__)
@@ -31,19 +35,24 @@ logger = get_logger()
 
 
 class SessionSpanProcessor(SpanProcessor):
-    def __init__(self) -> None:
-        self.session_id = None
-
-    def set_session_id(self, session_id: str) -> None:
-        self.session_id = session_id
-
     def on_start(self, span: Span, parent_context: Context | None = None) -> None:
-        if self.session_id:
-            span.set_attribute("session_id", self.session_id)
+        session_id = session_id_var.get()
+        if session_id:
+            span.set_attribute("session_id", session_id)
 
     def on_end(self, span: ReadableSpan) -> None:
         pass
 
+
+class BaggageSpanProcessor(SpanProcessor):
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        session_id = baggage.get_baggage("session_id", parent_context)
+        if session_id is not None:
+            span.set_attribute("session_id", str(session_id))
+
+    def on_end(self, span: ReadableSpan) -> None:
+        pass
+    
 
 class FileSpanExporter(SpanExporter):
     def __init__(self, path: Path):
@@ -200,7 +209,6 @@ def create_worker_provider(
     Uses Temporal's create_tracer_provider() which returns a
     ReplaySafeTracerProvider that suppresses spans during replay.
     """
-    from temporalio.contrib.opentelemetry import create_tracer_provider
 
     file_path = file_path or _path_from_env()
     s3_region = os.environ.get("AWS_REGION", s3_region)
@@ -208,10 +216,14 @@ def create_worker_provider(
     s3_prefix = os.environ.get("OTEL_EXPORT_S3_PREFIX", s3_prefix)
 
     provider = create_tracer_provider()
+
+    provider.add_span_processor(BaggageSpanProcessor())
+
     _attach_exporters(
         provider, file_path=file_path, s3_bucket=s3_bucket,
         s3_region=s3_region, s3_prefix=s3_prefix,
     )
+    
     return provider
 
 

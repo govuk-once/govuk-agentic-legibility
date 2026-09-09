@@ -12,7 +12,8 @@ import uvicorn
 from datetime import datetime
 from typing import Any
 
-from opentelemetry import trace
+from opentelemetry import trace, baggage
+from opentelemetry.context import attach, set_value, detach
 
 from temporalio.client import Client as TemporalClient
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -20,7 +21,7 @@ from fastapi.responses import HTMLResponse
 
 from agent import tools as tool_functions
 from agent.agent import WorkflowAgent
-from src.telemetry import SessionSpanProcessor, create_agent_provider
+from src.telemetry import SessionSpanProcessor, create_agent_provider, session_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -356,7 +357,10 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     session_id = str(uuid.uuid4())
-    session_processor.set_session_id(session_id)
+    session_id_var.set(session_id)
+    ctx = baggage.set_baggage("session_id", session_id)
+    token = attach(ctx)
+
     otel_tracer = trace.get_tracer(__name__)
 
     session_state: dict[str, Any] | None = None
@@ -569,6 +573,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info("WebSocket connection closed")
     finally:
+        detach(token)
         poll_task.cancel()
 
 
