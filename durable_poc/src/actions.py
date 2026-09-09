@@ -5,8 +5,10 @@ import re
 from typing import Any
 
 
-def apply_date_subtract(date_val: Any, offset_str: str | None) -> str | None:
-    """Subtracts weeks, days, months, or years from a date string."""
+def apply_date_math(
+    date_val: Any, offset_str: str | None, op_type: str = "subtract"
+) -> str | None:
+    """Adds or subtracts weeks, days, months, or years to/from a date string."""
     if not date_val or not offset_str:
         return None
 
@@ -21,13 +23,14 @@ def apply_date_subtract(date_val: Any, offset_str: str | None) -> str | None:
 
     amount = int(match.group(1))
     unit = match.group(2)
+    mult = 1 if op_type == "add" else -1
 
     if unit == "week":
-        res_dt = dt - timedelta(weeks=amount)
+        res_dt = dt + timedelta(weeks=amount * mult)
     elif unit == "day":
-        res_dt = dt - timedelta(days=amount)
+        res_dt = dt + timedelta(days=amount * mult)
     elif unit == "month":
-        month = dt.month - 1 - amount
+        month = dt.month - 1 + (amount * mult)
         year = dt.year + month // 12
         month = month % 12 + 1
         day = min(
@@ -49,7 +52,7 @@ def apply_date_subtract(date_val: Any, offset_str: str | None) -> str | None:
         )
         res_dt = dt.replace(year=year, month=month, day=day)
     elif unit == "year":
-        res_dt = dt.replace(year=dt.year - amount)
+        res_dt = dt.replace(year=dt.year + (amount * mult))
     else:
         return None
 

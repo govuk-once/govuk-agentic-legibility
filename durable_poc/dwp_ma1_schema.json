@@ -193,6 +193,7 @@
           "process": "section4_about_payment",
           "input": {
             "is_baby_born": { "$": "section2_data.is_baby_born" },
+            "actual_birth_date": { "$": "section2_data.actual_birth_date" },
             "calculated_dates": { "$": "section2_data.calculated_dates" },
             "employment_type_15th_week": { "$": "section3_data.employment_type_15th_week" }
           },
@@ -203,7 +204,7 @@
         "summary_section4": {
           "type": "output",
           "channel": "transcript",
-          "message": "Payment preferences have been recorded for Account Holder: {{section4_data.bank_details.account_holder_name}}.",
+          "message": "Payment preferences recorded for {{section4_data.bank_details.account_holder_name}}. Your 39-week Maternity Allowance Period runs from {{section4_data.chosen_ma_start_date}} to {{section4_data.map_end_date}}.",
           "next": "say_submission_complete"
         },
 
@@ -637,6 +638,7 @@
           "process": "calculate_deadlines",
           "input": {
             "due_date": { "$": "due_date" },
+            "actual_birth_date": null,
             "is_baby_born": false
           },
           "assign": "calculated_dates",
@@ -1245,6 +1247,7 @@
         "is_pregnancy_sickness_in_4wk_window": null,
         "is_map_flexible": null,
         "chosen_ma_start_date": null,
+        "map_end_date": null,
         "payment_frequency": null,
         "account_holder_name": null,
         "bank_or_society_name": null,
@@ -1319,7 +1322,7 @@
           "type": "assign",
           "set": { 
             "is_map_flexible": false,
-            "chosen_ma_start_date": "Automatic (Day after birth)"
+            "chosen_ma_start_date": { "$": "input.actual_birth_date" }
           },
           "next": "display_non_flexible_early_birth_window"
         },
@@ -1342,15 +1345,15 @@
         "display_non_flexible_early_birth_window": {
           "type": "output",
           "channel": "transcript",
-          "message": "Because your baby was born early, your Maternity Allowance Period (MAP) starts automatically on the day after the birth.",
-          "next": "prompt_payment_frequency"
+          "message": "Because your baby has already been born, statutory rules require your Maternity Allowance Period (MAP) to start automatically on your baby's birth date ({{chosen_ma_start_date}}).",
+          "next": "calculate_map_end_date"
         },
 
         "display_non_flexible_sickness_window": {
           "type": "output",
           "channel": "transcript",
-          "message": "Because you are off sick due to pregnancy within 4 weeks of your due week, your Maternity Allowance Period (MAP) starts automatically on the day after your sickness began ({{date_stopped_work}}).",
-          "next": "prompt_payment_frequency"
+          "message": "Because you are off sick due to pregnancy within 4 weeks of your due week, your Maternity Allowance Period (MAP) starts automatically on your sickness absence date ({{chosen_ma_start_date}}).",
+          "next": "calculate_map_end_date"
         },
 
         "display_flexible_payment_window": {
@@ -1384,7 +1387,7 @@
               "next": "say_start_date_too_early"
             }
           ],
-          "default": "prompt_payment_frequency"
+          "default": "calculate_map_end_date"
         },
 
         "say_start_date_too_early": {
@@ -1392,6 +1395,18 @@
           "channel": "transcript",
           "message": "Invalid Start Date: You cannot choose a Maternity Allowance start date earlier than 11 weeks before your due week ({{input.calculated_dates.earliest_signing_date}}). Please enter a valid start date.",
           "next": "prompt_flexible_start_date"
+        },
+
+        "calculate_map_end_date": {
+          "type": "assign",
+          "set": {
+            "map_end_date": {
+              "op": "date_add",
+              "path": "chosen_ma_start_date",
+              "value": "39 weeks"
+            }
+          },
+          "next": "prompt_payment_frequency"
         },
 
         "prompt_payment_frequency": {
@@ -1458,7 +1473,7 @@
 
         "confirm_payment_summary": {
           "type": "input",
-          "prompt": "Please review and confirm your payment preferences and bank details:\n• Chosen Start Date: {{chosen_ma_start_date}}\n• Payment Frequency: {{payment_frequency}}\n• Account Holder: {{account_holder_name}}\n• Bank Name: {{bank_or_society_name}}\n• Sort Code: {{sort_code}}\n• Account Number: {{account_number}}\n\nAre these details correct?",
+          "prompt": "Please review and confirm your payment preferences and bank details:\n• Chosen Start Date: {{chosen_ma_start_date}}\n• MAP Payment End Date (39 weeks): {{map_end_date}}\n• Payment Frequency: {{payment_frequency}}\n• Account Holder: {{account_holder_name}}\n• Bank Name: {{bank_or_society_name}}\n• Sort Code: {{sort_code}}\n• Account Number: {{account_number}}\n\nAre these details correct?",
           "schema": { "kind": "boolean" },
           "assign": "payment_details_confirmed",
           "next": "branch_payment_confirmation"
@@ -1480,6 +1495,7 @@
             "date_stopped_work": { "$": "date_stopped_work" },
             "is_map_flexible": { "$": "is_map_flexible" },
             "chosen_ma_start_date": { "$": "chosen_ma_start_date" },
+            "map_end_date": { "$": "map_end_date" },
             "payment_frequency": { "$": "payment_frequency" },
             "bank_details": {
               "account_holder_name": { "$": "account_holder_name" },
@@ -1501,7 +1517,7 @@
         "matb1_issue_date": null,
         "test_period_start": null,
         "is_too_early": null,
-        "is_claim_backdated_over_3_months": null
+        "is_claim_backdated_over_3_months": false
       },
       "states": {
         "compute_dates": {
@@ -1522,7 +1538,22 @@
               "op": "date_before",
               "path": "__now__",
               "value_path": "earliest_signing_date"
-            },
+            }
+          },
+          "next": "branch_check_backdating"
+        },
+
+        "branch_check_backdating": {
+          "type": "choice",
+          "rules": [
+            { "when": { "op": "is_true", "path": "input.is_baby_born" }, "next": "evaluate_backdating" }
+          ],
+          "default": "end_dates_computed"
+        },
+
+        "evaluate_backdating": {
+          "type": "assign",
+          "set": {
             "is_claim_backdated_over_3_months": {
               "op": "date_diff_greater_than",
               "path": "input.actual_birth_date",

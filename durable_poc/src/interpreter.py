@@ -13,7 +13,7 @@ with workflow.unsafe.imports_passed_through():
     import pydantic
 
     import src.activities as activities
-    from src.actions import apply_date_subtract
+    from src.actions import apply_date_math
     from src.context import (
         AwaitingInput,
         InputSubmission,
@@ -452,10 +452,13 @@ class SFSMInterpreter:
                                     dt = workflow.now() + parse_duration(dur_str)
                                     set_path(frame.vars, k, dt.isoformat())
 
-                        elif op == "date_subtract":
+                        elif op in ["date_subtract", "date_add"]:
                             base_date = resolve_path(context, v.get("path", ""))
                             offset_str = v.get("value")
-                            res_date = apply_date_subtract(base_date, offset_str)
+                            op_type = "add" if op == "date_add" else "subtract"
+                            res_date = apply_date_math(
+                                base_date, offset_str, op_type=op_type
+                            )
                             set_path(frame.vars, k, res_date)
 
                         elif op in [
