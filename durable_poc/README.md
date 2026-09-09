@@ -30,6 +30,7 @@ durable_poc/
 │   └── prompts/
 │       └── system.txt   # Silent NLU system prompt with execution constraints
 ├── src/
+│   ├── actions.py       # Date arithmetic math helpers
 │   ├── model.py         # Pydantic models enforcing the JSON definition schema
 │   ├── paths.py         # Dot-path resolution, string interpolation & ISO durations
 │   ├── predicates.py    # Pure, deterministic condition evaluator
@@ -45,7 +46,8 @@ durable_poc/
 │   ├── test_chat.py         # FastAPI WebSocket interface & trace tests
 │   ├── test_pure.py         # Unit tests for paths and predicates
 │   └── test_workflow.py     # Integration tests using local Temporal dev server
-└── dvla_coa_adv_schema.json # DVLA Change of Address FSM Definition
+├── dvla_coa_adv_schema.json # DVLA Change of Address FSM Definition
+└── dwp_ma1_schema.json      # DWP Maternity Allowance (MA1) FSM Definition
 ```
 
 ## Prerequisites
