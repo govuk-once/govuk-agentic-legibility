@@ -175,10 +175,20 @@ async def test_find_workflow_by_intent_parses_json_list() -> None:
             "name": "Maternity Allowance",
         }
     ]
+    single_definition = {
+        "id": 2,
+        "version": "0.1.0",
+        "entry": "main",
+        "processes": {},
+    }
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert "api/v1/workflows" in str(request.url)
-        return httpx.Response(200, json=matches)
+        url_str = str(request.url)
+        if url_str.endswith("/api/v1/workflows/2"):
+            return httpx.Response(200, json=single_definition)
+        if "api/v1/workflows" in url_str:
+            return httpx.Response(200, json=matches)
+        return httpx.Response(404)
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
@@ -189,7 +199,27 @@ async def test_find_workflow_by_intent_parses_json_list() -> None:
         )
 
     assert result["id"] == 2
-    assert result["slug"] == "dwp.maternity_allowance_ma1_claim"
+
+
+@pytest.mark.asyncio
+async def test_find_workflow_by_intent_parses_string_list() -> None:
+    """Validates that search endpoint returning a list of string IDs parses cleanly."""
+    slugs = ["dwp.maternity_allowance_ma1_claim"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "api/v1/workflows/dwp.maternity_allowance_ma1_claim" in str(request.url):
+            return httpx.Response(200, json={"id": "dwp.maternity_allowance_ma1_claim"})
+        return httpx.Response(200, json=slugs)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await find_workflow_by_intent(
+            domain_keyword="maternity",
+            http_client=client,
+            base_url="http://localhost:8080",
+        )
+
+    assert result["id"] == "dwp.maternity_allowance_ma1_claim"
 
 
 # ---------------------------------------------------------------------------

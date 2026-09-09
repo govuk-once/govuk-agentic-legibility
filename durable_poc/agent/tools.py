@@ -58,31 +58,37 @@ async def list_available_workflows(
 
 
 async def find_workflow_by_intent(
-    *,
     domain_keyword: str,
     http_client: httpx.AsyncClient,
     base_url: str,
 ) -> dict[str, Any]:
-    """Find a workflow definition matching a specific user domain or keyword (e.g. 'maternity', 'address')."""
+    """Search available workflow definitions for one matching the keyword."""
     workflows = await list_available_workflows(
         http_client=http_client, base_url=base_url
     )
-    keyword = domain_keyword.lower().strip()
+
+    keyword = domain_keyword.strip().lower()
 
     for wf in workflows:
-        wf_id = str(wf.get("id", "")).lower()
-        wf_name = str(wf.get("name", "")).lower()
-        if keyword in wf_id or keyword in wf_name:
-            logger.info(
-                "Matched workflow '%s' for keyword '%s'", wf.get("id"), domain_keyword
-            )
-            return wf
+        if isinstance(wf, str):
+            if keyword in wf.lower():
+                return await get_workflow_definition(
+                    workflow_id=wf, http_client=http_client, base_url=base_url
+                )
+            continue
 
-    logger.warning("No workflow found matching keyword '%s'", domain_keyword)
-    return {
-        "error": f"No registered workflow found matching keyword '{domain_keyword}'",
-        "available_workflows": [w.get("id") for w in workflows],
-    }
+        if isinstance(wf, dict):
+            wf_id = str(wf.get("id", "")).lower()
+            wf_slug = str(wf.get("slug", "")).lower()
+            wf_name = str(wf.get("name", "")).lower()
+
+            if keyword in wf_id or keyword in wf_slug or keyword in wf_name:
+                target_id = wf.get("id") or wf.get("slug") or wf_id
+                return await get_workflow_definition(
+                    workflow_id=target_id, http_client=http_client, base_url=base_url
+                )
+
+    raise ValueError(f"No workflow found matching keyword: {domain_keyword!r}")
 
 
 async def get_workflow_definition(
@@ -92,8 +98,12 @@ async def get_workflow_definition(
     base_url: str,
 ) -> dict[str, Any]:
     """Fetch a workflow definition from the workflow server by numeric ID or string slug."""
-    # If a string identifier is supplied, resolve via lookup
-    if isinstance(workflow_id, str) and not workflow_id.isdigit():
+    if (
+        isinstance(workflow_id, str)
+        and not workflow_id.isdigit()
+        and "." not in workflow_id
+        and "-" not in workflow_id
+    ):
         found = await find_workflow_by_intent(
             domain_keyword=workflow_id, http_client=http_client, base_url=base_url
         )
@@ -108,6 +118,7 @@ async def get_workflow_definition(
     except httpx.RequestError as e:
         logger.error("HTTP request failed for workflow %s: %s", workflow_id, e)
         raise WorkflowServerError(f"Failed to connect to workflow server: {e}") from e
+
     if response.status_code >= 400:
         logger.error(
             "Workflow server returned %d for workflow %s: %s",
@@ -118,7 +129,13 @@ async def get_workflow_definition(
         raise WorkflowServerError(
             f"Workflow server returned {response.status_code} for workflow {workflow_id}"
         )
+
     definition = response.json()
+    if isinstance(definition, list):
+        raise WorkflowServerError(
+            f"Expected dictionary definition for workflow {workflow_id}, received list."
+        )
+
     logger.info(
         "Fetched workflow definition: id=%s version=%s",
         definition.get("id", "?"),

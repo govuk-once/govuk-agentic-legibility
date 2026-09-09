@@ -917,7 +917,7 @@
         "say_offramp_paper_foreign_work": {
           "type": "output",
           "channel": "transcript",
-          "message": "Because you worked outside the UK during your Test Period, you cannot complete your claim online. Please complete your claim using the paper MA1 form and post it along with your overseas work proof to: Mail Handling Site A, Wolverhampton, WV98 2FR.",
+          "message": "Because you worked outside the UK during your Test Period, you cannot complete your claim online.",
           "next": "end_offramp_paper"
         },
 
