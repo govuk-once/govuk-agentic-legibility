@@ -19,29 +19,58 @@
 	// Raw state because every change below replaces the whole array rather than mutating individual
 	// steps in place, matching the pattern already used for the graph's own nodes and edges.
 	let steps = $state.raw<JourneyStep[]>(initialSteps);
-	// Step 1 starts open so the editing pattern is visible without needing a click first.
+	// Highlighting only, shared both ways with the graph. Step 1 starts highlighted so the pattern is
+	// visible without needing a click first, but nothing opens for editing until Edit is clicked.
 	let selectedStepId = $state<string | null>('step-1');
+	// Which step, if any, is open for editing. Kept separate from selectedStepId so selecting a step,
+	// whether from the list or the graph, only ever highlights it rather than forcing its editor open.
+	let editingStepId = $state<string | null>(null);
 
 	// The single place a step number is worked out, from its position in the list, so it can never go out
 	// of step after an add, remove or reorder.
 	let stepsWithNumbers = $derived(steps.map((step, index) => ({ ...step, number: index + 1 })));
 
-	function handleEdit(stepId: string) {
+	// Closes whichever editor is open as soon as a different step becomes highlighted, covering every way
+	// selectedStepId can change, a list click, a graph click, or clicking Edit elsewhere, in one place
+	// rather than repeating the check in each handler. This never fires for the step actually being
+	// edited, because handleEdit and handleAddStep always set both ids together.
+	$effect(() => {
+		if (editingStepId && editingStepId !== selectedStepId) {
+			editingStepId = null;
+		}
+	});
+
+	function handleSelect(stepId: string) {
 		selectedStepId = stepId;
+	}
+
+	function handleEdit(stepId: string) {
+		editingStepId = stepId;
+		selectedStepId = stepId;
+	}
+
+	function handleCancelEdit(stepId: string) {
+		if (editingStepId === stepId) {
+			editingStepId = null;
+		}
 	}
 
 	function handleApplyStep(updatedStep: JourneyStep) {
 		steps = steps.map((step) => (step.id === updatedStep.id ? updatedStep : step));
+		editingStepId = null;
 	}
 
 	/**
 	 * Removes a step from the journey once its removal has been confirmed by the card itself, and clears
-	 * the open editor if the removed step was the one being edited.
+	 * the highlighted and open editor state if the removed step was either of those.
 	 */
 	function handleRemoveStep(stepId: string) {
 		steps = steps.filter((step) => step.id !== stepId);
 		if (selectedStepId === stepId) {
 			selectedStepId = null;
+		}
+		if (editingStepId === stepId) {
+			editingStepId = null;
 		}
 	}
 
@@ -60,6 +89,7 @@
 			branchesTo: null
 		};
 		steps = [...steps, newStep];
+		editingStepId = newStep.id;
 		selectedStepId = newStep.id;
 	}
 
@@ -106,8 +136,8 @@
 			</div>
 
 			{#each stepsWithNumbers as step, index (step.id)}
-				<!-- Whichever step is selected is the one open for editing, so only one card can be open at a time. -->
-				{#if step.id === selectedStepId}
+				<!-- Editing is its own state, separate from highlighting, so only an explicit Edit click opens a step. -->
+				{#if step.id === editingStepId}
 					<StepEditorCard
 						{step}
 						number={step.number}
@@ -117,6 +147,7 @@
 						canMoveUp={index > 0}
 						canMoveDown={index < stepsWithNumbers.length - 1}
 						onApply={handleApplyStep}
+						onCancel={handleCancelEdit}
 						onRemove={handleRemoveStep}
 						onMoveUp={(stepId) => handleMoveStep(stepId, 'up')}
 						onMoveDown={(stepId) => handleMoveStep(stepId, 'down')}
@@ -129,8 +160,10 @@
 						description={step.description}
 						tagLabel={step.tagLabel}
 						tagColour={step.tagColour}
+						selected={step.id === selectedStepId}
 						canMoveUp={index > 0}
 						canMoveDown={index < stepsWithNumbers.length - 1}
+						onSelect={handleSelect}
 						onEdit={handleEdit}
 						onRemove={handleRemoveStep}
 						onMoveUp={(stepId) => handleMoveStep(stepId, 'up')}

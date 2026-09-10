@@ -34,9 +34,12 @@
 		branch: BranchEdge
 	};
 	const { fitView } = useSvelteFlow<JourneyNode, JourneyEdge>();
-	// Generous padding, and a maxZoom below the interactive maxZoom on SvelteFlow itself below, keeps
-	// every fit-to-view action starting from a comfortably zoomed out view rather than filling the canvas.
-	const fitViewOptions = { padding: 0.3, maxZoom: 0.9 };
+	// A maxZoom below the interactive maxZoom on SvelteFlow itself below keeps every fit-to-view action
+	// starting from a comfortably zoomed out view rather than filling the canvas. Padding is kept modest
+	// because the graph column shares its width with the step list, so generous padding on top of that
+	// already narrow width forces a much smaller fit scale than the canvas height needs, leaving a large
+	// empty gap above and below the graph.
+	const fitViewOptions = { padding: 0.15, maxZoom: 0.9 };
 
 	// A plain constant, rather than reading the showBranching state below, is what the very first graph
 	// build uses: at that point in component initialisation nothing could yet have changed showBranching
@@ -66,6 +69,8 @@
 	// component had a chance to apply it.
 	let nodes = $state.raw<JourneyNode[]>(initialGraph.nodes);
 	let edges = $state.raw<JourneyEdge[]>(initialGraph.edges);
+	// Guards the one off initial fit below so it only ever runs once, not on every later rebuild.
+	let hasFittedInitialView = false;
 
 	// Rebuilds automatically whenever the step list's order or content changes, so edits made in the panel
 	// always reach the graph without needing an explicit refresh action. The branching toggle and current
@@ -76,7 +81,24 @@
 		const graph = buildGraph(untrack(() => showBranching), untrack(() => selectedStepId));
 		nodes = graph.nodes;
 		edges = graph.edges;
+
+		if (!hasFittedInitialView) {
+			hasFittedInitialView = true;
+			fitInitialView();
+		}
 	});
+
+	/**
+	 * Fits the viewport once the browser has actually finished laying out the canvas at its CSS height.
+	 * The declarative fitView prop on SvelteFlow fits too early, against whatever size its container
+	 * happens to already have at that instant, which is not reliably the same as its final styled size,
+	 * so this waits for Svelte's own DOM update and then a paint before measuring.
+	 */
+	async function fitInitialView() {
+		await tick();
+		await new Promise(requestAnimationFrame);
+		await fitView({ ...fitViewOptions, duration: 0 });
+	}
 
 	/**
 	 * Keeps the graph's selected node matching selectedStepId, including when it changes from outside the
@@ -84,12 +106,14 @@
 	 * not fight with handleSelectionChange writing the same value back after a click inside the graph.
 	 */
 	$effect(() => {
-		const matchesSelection = (node: JourneyNode) =>
-			Boolean(node.selected) === (node.type === 'step' && node.data.stepId === selectedStepId);
+		// The value each node's selected flag should hold, kept separate from the check below, because
+		// reusing a match check as the assigned value was the bug here: it answers "is this node already
+		// correct", not "what should this node's selected flag be", and those are different questions.
+		const shouldBeSelected = (node: JourneyNode) => node.type === 'step' && node.data.stepId === selectedStepId;
 
-		if (nodes.every(matchesSelection)) return;
+		if (nodes.every((node) => Boolean(node.selected) === shouldBeSelected(node))) return;
 
-		nodes = nodes.map((node) => ({ ...node, selected: matchesSelection(node) }));
+		nodes = nodes.map((node) => ({ ...node, selected: shouldBeSelected(node) }));
 	});
 
 	/**
@@ -110,10 +134,11 @@
 	 * Reports the selected journey step so the matching editor card can be highlighted.
 	 */
 	const handleSelectionChange: OnSelectionChange<JourneyNode, JourneyEdge> = ({ nodes: selectedNodes }) => {
-		// Use the first selection because the page can highlight only one editor card at a time.
-		const selectedNode = selectedNodes.at(0);
-		const stepId = selectedNode?.type === 'step' ? selectedNode.data.stepId : undefined;
-		selectedStepId = stepId ?? null;
+		// Looks for the first step node specifically, rather than just the first selected node overall,
+		// because the page can highlight only one editor card at a time and a condition or terminal node
+		// has no matching row to highlight.
+		const selectedStep = selectedNodes.find((node) => node.type === 'step');
+		selectedStepId = selectedStep?.data.stepId ?? null;
 	};
 </script>
 
@@ -163,8 +188,6 @@
 			bind:edges
 			{nodeTypes}
 			{edgeTypes}
-			fitView
-			{fitViewOptions}
 			minZoom={0.25}
 			maxZoom={1.5}
 			nodesConnectable={false}
@@ -207,8 +230,10 @@
 		gap: 10px;
 	}
 
+	/* Fit to view centres the graph vertically within this height, so a much taller canvas than the graph
+		actually needs leaves a large empty gap above the first node before anything is visible. */
 	.journey-graph__canvas {
-		height: 1100px;
+		height: 750px;
 		background-color: #ffffff;
 	}
 
@@ -252,7 +277,7 @@
 		}
 
 		.journey-graph__canvas {
-			height: 680px;
+			height: 550px;
 		}
 	}
 </style>

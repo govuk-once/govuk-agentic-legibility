@@ -15,13 +15,24 @@
 		canMoveUp: boolean;
 		canMoveDown: boolean;
 		onApply: (updatedStep: JourneyStep) => void;
+		onCancel: (stepId: string) => void;
 		onRemove: (stepId: string) => void;
 		onMoveUp: (stepId: string) => void;
 		onMoveDown: (stepId: string) => void;
 	}
 
-	let { step, number, otherSteps, canMoveUp, canMoveDown, onApply, onRemove, onMoveUp, onMoveDown }: Props =
-		$props();
+	let {
+		step,
+		number,
+		otherSteps,
+		canMoveUp,
+		canMoveDown,
+		onApply,
+		onCancel,
+		onRemove,
+		onMoveUp,
+		onMoveDown
+	}: Props = $props();
 
 	// The component identifier keeps label targets unique when more than one step is open for editing.
 	const componentId = $props.id();
@@ -54,7 +65,9 @@
 	});
 
 	/**
-	 * Builds the updated step from the current draft values and commits it to the shared step list.
+	 * Builds the updated step from the current draft values, commits it to the shared step list, and
+	 * closes the editor. Closing is left to the parent, via onApply, since selection and editing state
+	 * both live there.
 	 */
 	function applyChanges() {
 		onApply({
@@ -63,14 +76,6 @@
 			answerType: draftAnswerType,
 			branchesTo: draftBranchesTo === '' ? null : draftBranchesTo
 		});
-	}
-
-	/**
-	 * Discards unsaved typing without closing the editor, since unsaved typing and which step is open are
-	 * different concerns.
-	 */
-	function cancelChanges() {
-		resetDraftFromStep();
 	}
 </script>
 
@@ -147,7 +152,7 @@
 				<button class="govuk-button step-editor__apply" type="button" onclick={applyChanges}>
 					Apply changes
 				</button>
-				<button type="button" class="govuk-link" onclick={cancelChanges}>Cancel</button>
+				<button type="button" class="govuk-link" onclick={() => onCancel(step.id)}>Cancel</button>
 				<button type="button" class="govuk-link step-editor__remove" onclick={() => (confirmingRemoval = true)}>
 					Remove step
 				</button>

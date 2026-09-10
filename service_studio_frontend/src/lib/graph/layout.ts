@@ -1,29 +1,23 @@
 import dagre from '@dagrejs/dagre';
 import type { JourneyEdge, JourneyNode } from './types';
 
-// Width stays fixed per node type so the graph reads as a tidy column, but a step's height is worked out
-// per node from its own title and description (see build-journey-graph.ts), rather than every step
-// sharing one fixed height.
-const nodeWidths = {
-	step: 300,
-	condition: 240,
-	terminal: 112
-} as const;
-
-const conditionAndTerminalHeights = {
-	condition: 140,
-	terminal: 42
+// Condition and terminal nodes keep fixed dimensions, but a step's width and height are worked out per
+// node from its own title and description (see build-journey-graph.ts), rather than every step sharing
+// one fixed size that wastes space for short content and clips long content.
+const conditionAndTerminalDimensions = {
+	condition: { width: 240, height: 140 },
+	terminal: { width: 112, height: 42 }
 } as const;
 
 /**
- * Returns the width and height Dagre should reserve for this node, so a step's dynamic height and every
- * other node's fixed dimensions are looked up the same way.
+ * Returns the width and height Dagre should reserve for this node, so a step's dynamic dimensions and
+ * every other node's fixed dimensions are looked up the same way.
  */
 function getNodeDimensions(node: JourneyNode): { width: number; height: number } {
 	if (node.type === 'step') {
-		return { width: nodeWidths.step, height: node.data.height };
+		return { width: node.data.width, height: node.data.height };
 	}
-	return { width: nodeWidths[node.type], height: conditionAndTerminalHeights[node.type] };
+	return conditionAndTerminalDimensions[node.type];
 }
 
 /**
@@ -36,8 +30,10 @@ export function layoutJourneyGraph(nodes: JourneyNode[], edges: JourneyEdge[]): 
 	graph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 60, marginx: 30, marginy: 30 });
 
 	for (const node of nodes) {
-		// Give each node its own dimensions object because Dagre adds calculated values to the object it receives.
-		graph.setNode(node.id, getNodeDimensions(node));
+		// Spread into a fresh object for every node, including nodes of the same type that would
+		// otherwise share the one constant object, because Dagre adds calculated values directly onto
+		// the object it is given and two nodes sharing that object end up with the same computed position.
+		graph.setNode(node.id, { ...getNodeDimensions(node) });
 	}
 
 	for (const edge of edges) {

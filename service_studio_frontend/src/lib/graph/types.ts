@@ -9,8 +9,10 @@ export type StepNodeData = {
 	// Bypassed marks a synthetic branch outcome that has no step of its own. Selection alone is what shows
 	// a step is being edited, so there is no separate editing appearance to track here.
 	appearance?: 'bypassed';
-	// Computed from the title and description so each node's box fits its own content, rather than every
-	// node sharing one fixed height that wastes space for short content and clips long content.
+	// Computed from the title, and the title and description together, so each node's box fits its own
+	// content, rather than every node sharing one fixed width and height that wastes space for short
+	// content and clips long content.
+	width: number;
 	height: number;
 };
 

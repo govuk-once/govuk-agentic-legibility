@@ -9,8 +9,10 @@
 		tagLabel: string;
 		/* Provides the colour name expected by the GOV.UK tag modifier so the supplied status receives the correct treatment. */
 		tagColour: string;
+		selected: boolean;
 		canMoveUp: boolean;
 		canMoveDown: boolean;
+		onSelect: (stepId: string) => void;
 		onEdit: (stepId: string) => void;
 		onRemove: (stepId: string) => void;
 		onMoveUp: (stepId: string) => void;
@@ -24,8 +26,10 @@
 		description,
 		tagLabel,
 		tagColour,
+		selected,
 		canMoveUp,
 		canMoveDown,
+		onSelect,
 		onEdit,
 		onRemove,
 		onMoveUp,
@@ -37,7 +41,7 @@
 	let confirmingRemoval = $state(false);
 </script>
 
-<div class="step-card" role="group" aria-label="Step {number}: {title}">
+<div class:step-card--selected={selected} class="step-card" role="group" aria-label="Step {number}: {title}">
 	<StepReorderButtons
 		label="step {number}: {title}"
 		{canMoveUp}
@@ -45,11 +49,19 @@
 		onMoveUp={() => onMoveUp(stepId)}
 		onMoveDown={() => onMoveDown(stepId)}
 	/>
-	<span class="step-card__number">{number}</span>
-	<div class="step-card__summary">
-		<h3 class="govuk-heading-s govuk-!-margin-bottom-1">{title}</h3>
-		<p class="govuk-body govuk-!-margin-bottom-0">{description}</p>
-	</div>
+	<!-- A separate control from Edit: clicking here only highlights the step, both in this list and on the graph, it never opens the editor. -->
+	<button
+		type="button"
+		class="step-card__select"
+		aria-label="Select step {number}: {title}"
+		onclick={() => onSelect(stepId)}
+	>
+		<span class="step-card__number">{number}</span>
+		<div class="step-card__summary">
+			<h3 class="govuk-heading-s govuk-!-margin-bottom-1">{title}</h3>
+			<p class="govuk-body govuk-!-margin-bottom-0">{description}</p>
+		</div>
+	</button>
 	<!-- Status uses the supplied GOV.UK colour modifier rather than local tag styling. -->
 	<strong class="govuk-tag govuk-tag--{tagColour} step-card__tag">{tagLabel}</strong>
 
@@ -86,6 +98,25 @@
 		background-color: #ffffff;
 		border: 1px solid #b1b4b6;
 		font-family: 'GDS Transport', arial, sans-serif;
+	}
+
+	.step-card--selected {
+		background-color: #e8f1f8;
+		border-left: 5px solid #1d70b8;
+	}
+
+	.step-card__select {
+		display: flex;
+		align-items: center;
+		flex-grow: 1;
+		gap: 15px;
+		min-width: 0;
+		background: none;
+		border: 0;
+		padding: 0;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	.step-card__number {

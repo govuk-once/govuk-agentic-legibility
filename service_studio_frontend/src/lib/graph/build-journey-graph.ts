@@ -6,10 +6,11 @@ import type { BranchDecoration, JourneyEdge, JourneyGraphElements, JourneyNode, 
 const initialPosition = { x: 0, y: 0 };
 const markerEnd = { type: MarkerType.ArrowClosed, color: '#505a5f' };
 
-// These must match the step node's CSS: STEP_NODE_WIDTH and the horizontal padding match .journey-step-node
-// in StepNode.svelte, and the line heights match the govuk-heading-s and govuk-body-s type sizes used
+// These must match the step node's CSS: the horizontal padding matches .journey-step-node in
+// StepNode.svelte, and the line heights match the govuk-heading-s and govuk-body-s type sizes used
 // there. Kept together so a future change to one is a reminder to update the other.
-const STEP_NODE_WIDTH = 300;
+const STEP_NODE_MIN_WIDTH = 260;
+const STEP_NODE_MAX_WIDTH = 420;
 const STEP_NODE_HORIZONTAL_PADDING = 30;
 const STEP_NODE_VERTICAL_PADDING = 20;
 const STEP_NODE_TITLE_LINE_HEIGHT = 25;
@@ -54,11 +55,22 @@ function estimateWrappedLineCount(text: string, availableWidth: number, averageC
 }
 
 /**
- * Works out how tall a step's box needs to be for its own title and description, instead of every step
- * node using one fixed height regardless of text length.
+ * Works out how wide a step's box needs to be to fit its own title on one line, instead of every step
+ * node sharing one fixed width regardless of how short or long its title is. Clamped between a minimum,
+ * so short titles do not produce an unreadably narrow box, and a maximum, beyond which the title wraps
+ * and the line clamp on the rendered node takes over instead of the box growing indefinitely.
  */
-function estimateStepNodeHeight(title: string, description: string): number {
-	const innerWidth = STEP_NODE_WIDTH - STEP_NODE_HORIZONTAL_PADDING;
+function estimateStepNodeWidth(title: string): number {
+	const naturalWidth = title.length * TITLE_AVERAGE_CHARACTER_WIDTH + STEP_NODE_HORIZONTAL_PADDING;
+	return Math.min(STEP_NODE_MAX_WIDTH, Math.max(STEP_NODE_MIN_WIDTH, naturalWidth));
+}
+
+/**
+ * Works out how tall a step's box needs to be for its own title and description at the given width,
+ * instead of every step node using one fixed height regardless of text length.
+ */
+function estimateStepNodeHeight(title: string, description: string, width: number): number {
+	const innerWidth = width - STEP_NODE_HORIZONTAL_PADDING;
 	const titleLines = estimateWrappedLineCount(title, innerWidth, TITLE_AVERAGE_CHARACTER_WIDTH);
 	const descriptionLines = estimateWrappedLineCount(description, innerWidth, DESCRIPTION_AVERAGE_CHARACTER_WIDTH);
 	const contentHeight =
@@ -74,6 +86,7 @@ function estimateStepNodeHeight(title: string, description: string): number {
 function buildStepNodes(steps: JourneyStep[]): StepNode[] {
 	return steps.map((step, index) => {
 		const titleWithNumber = `${index + 1}. ${step.title}`;
+		const width = estimateStepNodeWidth(titleWithNumber);
 		return {
 			id: step.id,
 			type: 'step',
@@ -83,7 +96,8 @@ function buildStepNodes(steps: JourneyStep[]): StepNode[] {
 				stepNumber: index + 1,
 				title: step.title,
 				description: step.description,
-				height: estimateStepNodeHeight(titleWithNumber, step.description)
+				width,
+				height: estimateStepNodeHeight(titleWithNumber, step.description, width)
 			},
 			ariaLabel: `Step ${index + 1}, ${step.title}`
 		};

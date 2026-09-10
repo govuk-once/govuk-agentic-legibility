@@ -6,12 +6,13 @@
 </script>
 
 <!-- Selection is what shows a step is being edited, so the only other appearance this needs is bypassed.
-	Height is set per node from its own content, computed alongside the rest of the graph, rather than
-	every step sharing one fixed height regardless of how much text. -->
+	Width and height are set per node from its own content, computed alongside the rest of the graph,
+	rather than every step sharing one fixed size regardless of how much text it has. -->
 <div
 	class:journey-step-node--selected={selected}
 	class:journey-step-node--bypassed={data.appearance === 'bypassed'}
 	class="journey-step-node"
+	style:width="{data.width}px"
 	style:height="{data.height}px"
 >
 	<!-- Hidden handles provide fixed connection points without changing the approved node design. -->
@@ -26,7 +27,6 @@
 <style>
 	.journey-step-node {
 		box-sizing: border-box;
-		width: 300px;
 		padding: 10px 15px;
 		background-color: #ffffff;
 		border: 2px solid #0b0c0c;
