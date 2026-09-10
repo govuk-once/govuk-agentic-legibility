@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addressChangeBranchDecoration, initialSteps } from '$lib/journey/steps';
+import { initialSteps } from '$lib/journey/steps';
 import type { JourneyStep } from '$lib/journey/types';
+import { addressChangeBranchDecoration } from './branch-decoration';
 import { createJourneyGraph } from './build-journey-graph';
 import { layoutJourneyGraph } from './layout';
 
@@ -17,11 +18,10 @@ describe('journey graph builder', () => {
 	it('uses labelled edges for the two branch outcomes', () => {
 		const graph = createJourneyGraph(initialSteps, true, addressChangeBranchDecoration);
 		const branchLabels = graph.edges.flatMap((edge) => (edge.label ? [edge.label] : []));
-		const branchEdges = graph.edges.filter((edge) => edge.type === 'branch');
+		const branchEdges = graph.edges.filter((edge) => edge.kind === 'branch');
 
 		expect(branchLabels).toEqual(['Postcode', 'Manual']);
-		expect(branchEdges.map((edge) => edge.data)).toEqual([{ tagColour: 'grey' }, { tagColour: 'grey' }]);
-		expect(branchEdges.every((edge) => edge.markerEnd && typeof edge.markerEnd !== 'string')).toBe(true);
+		expect(branchEdges.map((edge) => edge.tagColour)).toEqual(['grey', 'grey']);
 		expect(graph.nodes.some((node) => node.type === 'condition')).toBe(true);
 	});
 
@@ -39,7 +39,7 @@ describe('journey graph builder', () => {
 		const graph = createJourneyGraph(reordered, true, addressChangeBranchDecoration);
 
 		const anchorCondition = graph.edges.find((edge) => edge.id === 'anchor-condition');
-		const branchEdges = graph.edges.filter((edge) => edge.type === 'branch');
+		const branchEdges = graph.edges.filter((edge) => edge.kind === 'branch');
 
 		expect(anchorCondition?.source).toBe(reordered[0].id);
 		expect(branchEdges.map((edge) => edge.target)).toEqual([reordered[1].id, reordered[2].id]);
@@ -71,12 +71,14 @@ describe('journey graph layout', () => {
 	it('positions the start before the end without changing the connections', () => {
 		const graph = createJourneyGraph(initialSteps, true, addressChangeBranchDecoration);
 		const edgeCountBeforeLayout = graph.edges.length;
-		const nodes = layoutJourneyGraph(graph.nodes, graph.edges);
+		const { nodes, width, height } = layoutJourneyGraph(graph.nodes, graph.edges);
 		const start = nodes.find((node) => node.id === 'start');
 		const end = nodes.find((node) => node.id === 'end');
 
 		expect(start?.position.y).toBeLessThan(end?.position.y ?? 0);
 		expect(nodes.every((node) => Number.isFinite(node.position.x))).toBe(true);
+		expect(width).toBeGreaterThan(0);
+		expect(height).toBeGreaterThan(0);
 		expect(graph.edges).toHaveLength(edgeCountBeforeLayout);
 	});
 });

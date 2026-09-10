@@ -1,10 +1,9 @@
-import { MarkerType } from '@xyflow/svelte';
 import type { JourneyStep } from '$lib/journey/types';
 import type { BranchDecoration, JourneyEdge, JourneyGraphElements, JourneyNode, StepNode } from './types';
 
-// Svelte Flow requires every node to have a position before Dagre replaces these placeholders with calculated coordinates.
+// A placeholder coordinate every node is created with, replaced by the real top left position once
+// layoutJourneyGraph runs. Kept as a shared constant so the builder never has to invent a value.
 const initialPosition = { x: 0, y: 0 };
-const markerEnd = { type: MarkerType.ArrowClosed, color: '#505a5f' };
 
 // These must match the step node's CSS: the horizontal padding matches .journey-step-node in
 // StepNode.svelte, and the line heights match the govuk-heading-s and govuk-body-s type sizes used
@@ -105,7 +104,8 @@ function buildStepNodes(steps: JourneyStep[]): StepNode[] {
 }
 
 /**
- * Creates a consistent read only connection so selection and deletion safeguards are applied in one place. A tag colour selects the custom GOV.UK tag label when the connection is a branch outcome.
+ * Creates one connection between two nodes. A tag colour marks the connection as a branch outcome, which
+ * is what selects the labelled GOV.UK tag drawn on it, so ordinary sequence steps pass no tag colour.
  */
 function createEdge(id: string, source: string, target: string, label?: string, tagColour?: string): JourneyEdge {
 	return {
@@ -113,11 +113,8 @@ function createEdge(id: string, source: string, target: string, label?: string, 
 		source,
 		target,
 		label,
-		type: tagColour ? 'branch' : 'smoothstep',
-		data: tagColour ? { tagColour } : undefined,
-		markerEnd,
-		selectable: false,
-		deletable: false
+		kind: tagColour ? 'branch' : 'sequence',
+		...(tagColour ? { tagColour } : {})
 	};
 }
 

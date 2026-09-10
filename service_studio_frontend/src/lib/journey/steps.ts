@@ -1,4 +1,3 @@
-import type { BranchDecoration } from '$lib/graph/types';
 import type { JourneyStep } from './types';
 
 // The starting steps for the address change example journey. This stands in for the real schema, which
@@ -41,15 +40,3 @@ export const initialSteps: JourneyStep[] = [
 		branchesTo: null
 	}
 ];
-
-// Describes the one branch point in this example journey: after the first step, the user's choice of
-// entry method sends them down whichever two steps currently sit second and third, and both paths rejoin
-// at whichever step follows those.
-export const addressChangeBranchDecoration: BranchDecoration = {
-	afterIndex: 0,
-	question: 'Postcode or manual entry?',
-	branchLabels: [
-		{ label: 'Postcode', tagColour: 'grey' },
-		{ label: 'Manual', tagColour: 'grey' }
-	]
-};

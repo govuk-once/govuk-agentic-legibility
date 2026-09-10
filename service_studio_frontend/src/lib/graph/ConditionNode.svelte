@@ -1,14 +1,10 @@
 <script lang="ts">
-	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import type { ConditionNode } from '$lib/graph/types';
+	import type { ConditionNodeData } from './types';
 
-	let { data, selected }: NodeProps<ConditionNode> = $props();
+	let { data }: { data: ConditionNodeData } = $props();
 </script>
 
-<!-- Selection changes only the emphasis around the condition so the diamond meaning remains intact. -->
-<div class:journey-condition-node--selected={selected} class="journey-condition-node">
-	<!-- Hidden handles keep incoming and outgoing connections aligned with the points of the diamond. -->
-	<Handle class="journey-node-handle" type="target" position={Position.Top} />
+<div class="journey-condition-node">
 	<!-- SVG preserves the diamond border at every graph zoom level without rotating the question text. -->
 	<svg
 		class="journey-condition-node__shape"
@@ -23,7 +19,6 @@
 	<p class="journey-condition-node__question govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">
 		{data.question}
 	</p>
-	<Handle class="journey-node-handle" type="source" position={Position.Bottom} />
 </div>
 
 <style>
@@ -35,11 +30,8 @@
 		position: relative;
 		width: 240px;
 		height: 140px;
+		font-family: 'GDS Transport', arial, sans-serif;
 		color: #0b0c0c;
-	}
-
-	.journey-condition-node--selected {
-		filter: drop-shadow(0 0 0 #1d70b8) drop-shadow(0 0 3px #1d70b8);
 	}
 
 	.journey-condition-node__shape {
@@ -51,12 +43,5 @@
 		position: relative;
 		width: 150px;
 		text-align: center;
-	}
-
-	:global(.journey-node-handle) {
-		width: 1px;
-		height: 1px;
-		opacity: 0;
-		pointer-events: none;
 	}
 </style>

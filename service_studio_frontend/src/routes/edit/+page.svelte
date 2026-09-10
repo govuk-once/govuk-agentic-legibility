@@ -3,7 +3,7 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import StepCard from '$lib/components/StepCard.svelte';
 	import StepEditorCard from '$lib/components/StepEditorCard.svelte';
-	import JourneyGraph from '$lib/components/JourneyGraph.svelte';
+	import JourneyGraph from '$lib/graph/JourneyGraph.svelte';
 	import SaveBar from '$lib/components/SaveBar.svelte';
 	import { initialSteps } from '$lib/journey/steps';
 	import type { JourneyStep } from '$lib/journey/types';
