@@ -1,4 +1,5 @@
 <script lang="ts">
+	import RemoveStepConfirm from './RemoveStepConfirm.svelte';
 	import StepReorderButtons from './StepReorderButtons.svelte';
 	import type { AnswerType, JourneyStep } from '$lib/journey/types';
 
@@ -139,14 +140,7 @@
 		</div>
 
 		{#if confirmingRemoval}
-			<!-- An inline confirmation, rather than a browser dialog, keeps the interaction in the same GOV.UK styled surface. -->
-			<p class="step-editor__confirm">
-				Remove this step?
-				<button type="button" class="govuk-link step-editor__confirm-remove" onclick={() => onRemove(step.id)}>
-					Remove step
-				</button>
-				<button type="button" class="govuk-link" onclick={() => (confirmingRemoval = false)}>Keep step</button>
-			</p>
+			<RemoveStepConfirm onRemove={() => onRemove(step.id)} onCancel={() => (confirmingRemoval = false)} />
 		{:else}
 			<div class="step-editor__actions">
 				<button class="govuk-button step-editor__apply" type="button" onclick={applyChanges}>
@@ -233,25 +227,14 @@
 		cursor: pointer;
 	}
 
-	.step-editor__remove,
-	.step-editor__confirm-remove {
+	.step-editor__remove {
 		color: #d4351c;
-	}
-
-	.step-editor__confirm {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		margin: 0;
-		font-size: 1rem;
-		color: #0b0c0c;
 	}
 
 	@media (max-width: 640px) {
 		.step-editor__header,
 		.step-editor__select-row,
-		.step-editor__actions,
-		.step-editor__confirm {
+		.step-editor__actions {
 			align-items: flex-start;
 			flex-wrap: wrap;
 		}

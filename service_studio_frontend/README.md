@@ -26,15 +26,16 @@ Open the local address shown in the terminal.
 
 `/edit` contains the current visual journey graph editor.
 
-`/onboard` is a blank route reserved for the onboarding journey.
+`/onboard` contains the onboarding journey.
 
 ### Onboard
-This route will focus on the development of the onboarding rpocess of services. Currently, this includes how to generate canonical schemas using an LLM to automate the process. This is deliberately staged as a separarte route so the UX of this process can be developed independent of the graph editor features.
+This route focuses on the development of the onboarding process for services. Currently, this includes how to generate canonical schemas using an LLM to automate the process. This is deliberately staged as a separate route so the UX of this process can be developed independent of the graph editor features.
 
-Onboarding allows you to enter a title, description, supporting promtp request and any supporting documents for the LLM to generate the schema. This can then be downloaded at the end. For user testing purposes the aim is to try explore what features are required to get consistent schema generations. Once this is determined this process will be joined more seamlessly with the graph editor and negate the need to download a schema.
+Onboarding allows you to enter a title, description, supporting prompt request and any supporting documents for the LLM to generate the schema. This can then be downloaded at the end. For user testing purposes the aim is to explore what features are required to get consistent schema generations. Once this is determined, this process will be joined more seamlessly with the graph editor and negate the need to download a schema.
 
 ### Graph Editor
-This is currently in development. Right now it shows a simple static journey to test out the node designs and draggable features. Next Steps:
-* Add edit features
-* Enable changes to update both the graph and left hand text-based panel
-* Loading of schemas to test features and graph vsiualisations
+Steps can be added, edited, reordered and removed, and the journey graph updates from the same step list. Branching is currently a placeholder based on where steps sit in the list, rather than the real canonical schema. Next steps:
+
+* Load real schemas to test the graph against real data
+* Replace the placeholder branching with a schema driven version
+* Join this up with the onboarding route once its UX is settled

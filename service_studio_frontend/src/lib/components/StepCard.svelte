@@ -1,4 +1,5 @@
 <script lang="ts">
+	import RemoveStepConfirm from './RemoveStepConfirm.svelte';
 	import StepReorderButtons from './StepReorderButtons.svelte';
 
 	interface Props {
@@ -49,31 +50,28 @@
 		onMoveUp={() => onMoveUp(stepId)}
 		onMoveDown={() => onMoveDown(stepId)}
 	/>
-	<!-- A separate control from Edit: clicking here only highlights the step, both in this list and on the graph, it never opens the editor. -->
-	<button
-		type="button"
-		class="step-card__select"
-		aria-label="Select step {number}: {title}"
-		onclick={() => onSelect(stepId)}
-	>
-		<span class="step-card__number">{number}</span>
+	<!-- A plain container, not a button, so the title stays a real heading rather than being nested inside
+		interactive content, which HTML does not allow. The invisible button layered over it is the actual
+		click target, sized to match by the absolute positioning below. A separate control from Edit:
+		activating this only highlights the step, both in this list and on the graph, it never opens the editor. -->
+	<div class="step-card__select">
+		<span class="step-card__number" aria-hidden="true">{number}</span>
 		<div class="step-card__summary">
 			<h3 class="govuk-heading-s govuk-!-margin-bottom-1">{title}</h3>
 			<p class="govuk-body govuk-!-margin-bottom-0">{description}</p>
 		</div>
-	</button>
+		<button
+			type="button"
+			class="step-card__select-target"
+			aria-label="Select step {number}: {title}"
+			onclick={() => onSelect(stepId)}
+		></button>
+	</div>
 	<!-- Status uses the supplied GOV.UK colour modifier rather than local tag styling. -->
 	<strong class="govuk-tag govuk-tag--{tagColour} step-card__tag">{tagLabel}</strong>
 
 	{#if confirmingRemoval}
-		<!-- An inline confirmation, rather than a browser dialog, keeps the interaction in the same GOV.UK styled surface. -->
-		<span class="step-card__confirm">
-			Remove this step?
-			<button type="button" class="govuk-link step-card__confirm-remove" onclick={() => onRemove(stepId)}>
-				Remove step
-			</button>
-			<button type="button" class="govuk-link" onclick={() => (confirmingRemoval = false)}>Keep step</button>
-		</span>
+		<RemoveStepConfirm onRemove={() => onRemove(stepId)} onCancel={() => (confirmingRemoval = false)} />
 	{:else}
 		<button type="button" class="govuk-link step-card__edit" onclick={() => onEdit(stepId)}>Edit</button>
 		<button
@@ -106,16 +104,21 @@
 	}
 
 	.step-card__select {
+		position: relative;
 		display: flex;
 		align-items: center;
 		flex-grow: 1;
 		gap: 15px;
 		min-width: 0;
+	}
+
+	.step-card__select-target {
+		position: absolute;
+		inset: 0;
 		background: none;
 		border: 0;
 		padding: 0;
-		font: inherit;
-		text-align: left;
+		margin: 0;
 		cursor: pointer;
 	}
 
@@ -157,19 +160,6 @@
 		cursor: pointer;
 	}
 
-	.step-card__confirm {
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		font-size: 1rem;
-		color: #0b0c0c;
-	}
-
-	.step-card__confirm-remove {
-		color: #d4351c;
-	}
-
 	@media (max-width: 640px) {
 		.step-card {
 			align-items: flex-start;
@@ -179,10 +169,6 @@
 
 		.step-card__summary {
 			min-width: 200px;
-		}
-
-		.step-card__confirm {
-			flex-wrap: wrap;
 		}
 	}
 </style>
