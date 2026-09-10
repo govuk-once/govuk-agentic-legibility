@@ -218,3 +218,41 @@ Follow the prompts in this terminal to step through the state machine.
 * **`output`**: Emits internal transcript messages or fires external notification activities.
 * **`wait`**: Durably sleeps the workflow for an ISO 8601 duration string (e.g., `PT5M`).
 * **`end`**: Terminates the current process frame with a status, outcome, and return payload.
+
+## Targeted Maternity Allowance evaluation smoke run
+
+The checkpoint runner exercises one real workflow interaction with the real
+`WorkflowAgent` without replaying every earlier Maternity Allowance step. It
+starts a fresh Temporal workflow from the scenario's interpreter checkpoint,
+seeds the agent with the fixture's preceding user-visible conversation, sends
+the final user message, reports the next workflow state, and terminates the
+workflow. It does not score or persist model output yet.
+
+Start Temporal and the worker as normal, then from `durable_poc/` run:
+
+```bash
+gds-cli aws <profile> -- \
+  uv run python -m evaluation.checkpoint_runner \
+  ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
+```
+
+Repeat the same scenario with bounded concurrency using:
+
+```bash
+gds-cli aws <profile> -- \
+  uv run python -m evaluation.checkpoint_runner \
+  ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml \
+  --repeat 10 \
+  --concurrency 5
+```
+
+For the first scenario the runner loads `dwp_ma1_schema.json` locally, so it
+does not need the workflow-definition server or domain stubs. Those services
+will still be needed by checkpoint scenarios whose continuation performs calls
+to them.
+
+The checkpoint is currently an `InterpreterState` initialisation point rather
+than a captured Temporal event-history snapshot. This keeps the scenario
+independent of deployment topology and is intended as the simplest first step;
+a later runner can restore captured executor/agent checkpoints without changing
+the scenario's semantic target.
