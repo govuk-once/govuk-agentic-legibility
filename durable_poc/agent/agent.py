@@ -237,6 +237,7 @@ class WorkflowAgent:
             attributes={
                 "prompt_length": len(prompt),
                 "has_workflow_state": bool(context),
+                "temporalWorkflowID": context.get("workflow_id", "") if context else ""
             },
         ):
             try:
@@ -268,7 +269,7 @@ class WorkflowAgent:
             """
             with owner._tracer.start_as_current_span(
                 "tool.get_workflow_definition",
-                attributes={"workflow_id": workflow_id},
+                attributes={"temporalWorkflowID": workflow_id},
             ):
                 logger.info(
                     "Tool get_workflow_definition called: workflow_id=%d", workflow_id
@@ -322,7 +323,7 @@ class WorkflowAgent:
             """
             with owner._tracer.start_as_current_span(
                 "tool.start_workflow",
-                attributes={"workflow_id": workflow_id},
+                attributes={"temporalWorkflowID": workflow_id},
             ):
                 logger.info("Tool start_workflow called: workflow_id=%d", workflow_id)
                 try:
@@ -364,7 +365,7 @@ class WorkflowAgent:
             """
             with owner._tracer.start_as_current_span(
                 "tool.get_workflow_state",
-                attributes={"workflow_id": workflow_id},
+                attributes={"temporalWorkflowID": workflow_id},
             ):
                 logger.info("Tool get_workflow_state called: workflow_id=%s", workflow_id)
                 await owner._trace(
@@ -414,7 +415,7 @@ class WorkflowAgent:
             coerced_value = _coerce_value(value, owner._session_state)
             with owner._tracer.start_as_current_span(
                 "tool.submit_input",
-                attributes={"workflow_id": workflow_id, "token": token, "input_value": coerced_value},
+                attributes={"temporalWorkflowID": workflow_id, "token": token, "input_value": coerced_value},
             ):
                 logger.info(
                     "submit_input called: workflow_id=%r, token=%r, coerced_value=%r",

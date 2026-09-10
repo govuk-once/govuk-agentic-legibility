@@ -147,6 +147,7 @@ class SFSMInterpreter:
                 with _tracer.start_as_current_span(
                     "interpreter.InputState",
                     attributes={
+                        "temporalWorkflowID": workflow.info().workflow_id,
                         "state_id": frame.state_id,
                         "process_id": frame.process_id,
                         "step": self.state.step_counter,
@@ -249,6 +250,7 @@ class SFSMInterpreter:
                 with _tracer.start_as_current_span(
                     "interpreter.OutputState",
                     attributes={
+                        "temporalWorkflowID": workflow.info().workflow_id,
                         "state_id": frame.state_id,
                         "process_id": frame.process_id,
                         "step": self.state.step_counter,
@@ -320,6 +322,7 @@ class SFSMInterpreter:
                 with _tracer.start_as_current_span(
                     "interpreter.CallState",
                     attributes={
+                        "temporalWorkflowID": workflow.info().workflow_id,
                         "state_id": frame.state_id,
                         "process_id": frame.process_id,
                         "step": self.state.step_counter,

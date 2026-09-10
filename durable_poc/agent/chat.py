@@ -518,7 +518,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "user_turn",
                 attributes={
                     "session_id": session_id,
-                    "workflow_id": active_workflow_id or "",
+                    "temporalWorkflowID": active_workflow_id or "",
                     "user_message_preview": user_msg[:100],
                 },
             ) as turn_span:
