@@ -5,6 +5,7 @@ from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, Span, TracerPro
 from opentelemetry.context import Context
 from opentelemetry import baggage
 from temporalio.contrib.opentelemetry import create_tracer_provider
+from temporalio import workflow, activity
 import boto3
 from botocore.exceptions import ClientError
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Any, Sequence
 import contextvars
 
 session_id_var = contextvars.ContextVar("session_id", default="")
+workflow_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("workflow_id", default=None)
 
 def get_logger() -> logging.Logger:
     logger = logging.getLogger(__name__)
@@ -39,6 +41,9 @@ class SessionSpanProcessor(SpanProcessor):
         session_id = session_id_var.get()
         if session_id:
             span.set_attribute("session_id", session_id)
+        workflow_id = workflow_id_var.get()
+        if workflow_id:
+            span.set_attribute("temporalWorkflowID", workflow_id)
 
     def on_end(self, span: ReadableSpan) -> None:
         pass
@@ -49,6 +54,26 @@ class BaggageSpanProcessor(SpanProcessor):
         session_id = baggage.get_baggage("session_id", parent_context)
         if session_id is not None:
             span.set_attribute("session_id", str(session_id))
+
+    def on_end(self, span: ReadableSpan) -> None:
+        pass
+
+
+class TemporalContextSpanProcessor(SpanProcessor):
+    """Extracts workflow_id from Temporal's native context and applies it to all spans."""
+    
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        try:
+            if workflow.in_workflow():
+                wf_id = workflow.info().workflow_id
+                if wf_id is not None:
+                    span.set_attribute("temporalWorkflowID", wf_id)
+            elif activity.in_activity():
+                act_id = activity.info().workflow_id
+                if act_id is not None:
+                    span.set_attribute("temporalWorkflowID", act_id)
+        except Exception:
+            pass
 
     def on_end(self, span: ReadableSpan) -> None:
         pass

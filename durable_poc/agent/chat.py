@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from opentelemetry import trace, baggage
-from opentelemetry.context import attach, set_value, detach
+from opentelemetry.context import attach, detach
 
 from temporalio.client import Client as TemporalClient
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse
 
 from agent import tools as tool_functions
 from agent.agent import WorkflowAgent
-from src.telemetry import SessionSpanProcessor, create_agent_provider, session_id_var
+from src.telemetry import SessionSpanProcessor, create_agent_provider, session_id_var, workflow_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -500,6 +500,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 resume_id = payload.get("workflow_id")
                 if resume_id:
                     active_workflow_id = resume_id
+                    workflow_id_var.set(resume_id)
                     await emit_trace("USER", "Resuming Selected Workflow", resume_id)
                     polling_client = await _get_polling_client()
                     session_state = await tool_functions.get_workflow_state(
@@ -514,6 +515,9 @@ async def websocket_endpoint(websocket: WebSocket):
             if not user_msg:
                 continue
 
+            if active_workflow_id:
+                workflow_id_var.set(active_workflow_id)
+            
             with otel_tracer.start_as_current_span(
                 "user_turn",
                 attributes={
@@ -521,7 +525,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "temporalWorkflowID": active_workflow_id or "",
                     "user_message_preview": user_msg[:100],
                 },
-            ) as turn_span:
+            ):
                 await emit_trace("USER", "Submitted Natural Language Input", user_msg)
 
                 prev_token = (
@@ -538,7 +542,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if session_state and session_state.get("workflow_id"):
                     active_workflow_id = session_state.get("workflow_id")
-                    turn_span.set_attribute("workflow_id", active_workflow_id)
+                    workflow_id_var.set(active_workflow_id)
 
                 new_token = (
                     session_state.get("awaiting", {}).get("token")

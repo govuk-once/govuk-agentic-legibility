@@ -14,7 +14,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from agent.agent import WorkflowAgent
 from src.activities import CallParams, http_call
-from src.telemetry import SessionSpanProcessor
+from src.telemetry import SessionSpanProcessor, session_id_var
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ async def test_tool_get_workflow_state_creates_span(otel_provider) -> None:
     spans = _spans_by_name(otel_provider)
     assert "tool.get_workflow_state" in spans
     span = spans["tool.get_workflow_state"]
-    assert span.attributes["workflow_id"] == "wf-1"
+    assert span.attributes["temporalWorkflowID"] == "wf-1"
 
 
 @pytest.mark.asyncio
@@ -155,7 +155,7 @@ async def test_tool_submit_input_creates_span(otel_provider) -> None:
     spans = _spans_by_name(otel_provider)
     assert "tool.submit_input" in spans
     span = spans["tool.submit_input"]
-    assert span.attributes["workflow_id"] == "wf-1"
+    assert span.attributes["temporalWorkflowID"] == "wf-1"
     assert span.attributes["token"] == "tkn_1"
 
 
@@ -181,7 +181,7 @@ async def test_tool_start_workflow_creates_span(otel_provider) -> None:
     spans = _spans_by_name(otel_provider)
     assert "tool.start_workflow" in spans
     span = spans["tool.start_workflow"]
-    assert span.attributes["workflow_id"] == 1
+    assert span.attributes["temporalWorkflowID"] == 1
 
 
 @pytest.mark.asyncio
@@ -236,7 +236,7 @@ def test_session_processor_stamps_session_id(otel_provider) -> None:
     processor = SessionSpanProcessor()
     _provider.add_span_processor(processor)
 
-    processor.set_session_id("sess-abc-123")
+    token = session_id_var.set("sess-abc-123")
     tracer = trace.get_tracer("test")
 
     with tracer.start_as_current_span("test_span"):
@@ -246,7 +246,7 @@ def test_session_processor_stamps_session_id(otel_provider) -> None:
     assert "test_span" in spans
     assert spans["test_span"].attributes["session_id"] == "sess-abc-123"
 
-    processor.set_session_id(None)
+    session_id_var.reset(token)
 
 
 # ---------------------------------------------------------------------------
