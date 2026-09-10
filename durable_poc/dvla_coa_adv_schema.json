@@ -2,7 +2,7 @@
   "workflow_id": 1,
   "schema": "sfsm/0.2",
   "id": "dvla.change_of_address",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "entry": "main",
 
   "executor": {
@@ -509,8 +509,14 @@
       "states": {
         "choose_entry_method": {
           "type": "input",
-          "prompt": "How would you like to enter your new address?\n1 - Search by Postcode\n2 - Enter Address Manually",
-          "schema": { "kind": "string" },
+          "prompt": "How would you like to enter your new address?",
+          "schema": {
+            "kind": "select_one",
+            "options": [
+              { "value": "1", "label": "Search by Postcode" },
+              { "value": "2", "label": "Enter Address Manually" }
+            ]
+          },
           "assign": "entry_method",
           "next": "branch_method"
         },

@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 SERVICE_ENV_MAP = {
     "dvla": "DVLA_BASE",
     "postoffice": "POSTOFFICE_BASE",
+    "hmrc": "HMRC_BASE",
+    "dwp": "DWP_BASE",
 }
 
 

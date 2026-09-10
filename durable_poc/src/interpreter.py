@@ -1,15 +1,27 @@
 """The durable workflow executor loop."""
 
-import re
-from datetime import timedelta
-from typing import Any
 import asyncio
+from datetime import timedelta
+import re
+from typing import Any
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
-# Inform temporal to allow imports that might otherwise be deemed unsafe
+# Inform Temporal to allow imports that might otherwise be deemed unsafe in the sandbox
 with workflow.unsafe.imports_passed_through():
+    import pydantic
+
+    import src.activities as activities
+    from src.actions import apply_date_math
+    from src.context import (
+        AwaitingInput,
+        InputSubmission,
+        InterpreterState,
+        StackFrame,
+        TranscriptEntry,
+    )
+    from src.errors import DefinitionError, InputValidationError
     from src.model import (
         AssignState,
         CallState,
@@ -21,13 +33,6 @@ with workflow.unsafe.imports_passed_through():
         SFSMDefinition,
         WaitState,
     )
-    from src.context import (
-        AwaitingInput,
-        InputSubmission,
-        InterpreterState,
-        StackFrame,
-        TranscriptEntry,
-    )
     from src.paths import (
         interpolate,
         parse_duration,
@@ -36,9 +41,6 @@ with workflow.unsafe.imports_passed_through():
         set_path,
     )
     from src.predicates import evaluate
-    import pydantic
-    import src.activities as activities
-    from src.errors import DefinitionError, InputValidationError
 
 
 @workflow.defn
@@ -100,6 +102,7 @@ class SFSMInterpreter:
         steps_this_run = 0
 
         while self.state.frames:
+            # Yield control back to Temporal event loop to prevent event starvation
             await asyncio.sleep(0)
 
             if (
@@ -130,7 +133,7 @@ class SFSMInterpreter:
                 f"[Step {self.state.step_counter}] [{frame.process_id}:{frame.state_id}] ({type(current_state).__name__})"
             )
 
-            # Prepare context for this step
+            # Prepare deterministic context for this step (MUST use workflow.now())
             context = {
                 "input": frame.vars.get("input", {}),
                 "env": self.state.env,
@@ -140,12 +143,23 @@ class SFSMInterpreter:
             }
             context.update(frame.vars)
 
+            # --- INPUT STATE ---
             if isinstance(current_state, InputState):
                 token = f"tkn_{self.state.step_counter}"
 
+                options_from = getattr(current_state.schema_, "options_from", None)
+                static_options = getattr(current_state.schema_, "options", None)
+
                 options = None
-                if current_state.schema_.options_from:
-                    options = resolve_path(context, current_state.schema_.options_from)
+                if options_from:
+                    options = resolve_path(context, options_from)
+                elif static_options:
+                    options = [
+                        opt.model_dump(by_alias=True, exclude_none=True)
+                        if hasattr(opt, "model_dump")
+                        else opt
+                        for opt in static_options
+                    ]
 
                 timeout_duration: timedelta | None = None
                 if current_state.timeout and "after" in current_state.timeout:
@@ -159,12 +173,16 @@ class SFSMInterpreter:
 
                 prompt_text = interpolate(current_state.prompt, context)
 
+                schema_dict = current_state.schema_.model_dump(
+                    by_alias=True, exclude_none=True
+                )
+                if options is not None:
+                    schema_dict["options"] = options
+
                 self._awaiting_input = AwaitingInput(
                     token=token,
                     prompt=prompt_text,
-                    schema=current_state.schema_.model_dump(
-                        by_alias=True, exclude_none=True
-                    ),
+                    schema=schema_dict,
                     options=options,
                     timeout_seconds=timeout_duration.total_seconds()
                     if timeout_duration
@@ -210,12 +228,74 @@ class SFSMInterpreter:
                         f"Timeout triggered without 'next' route in state '{frame.state_id}'"
                     )
                 else:
+                    val = self._received_input
+
+                    schema_kind = getattr(current_state.schema_, "kind", None)
+                    if schema_kind in ["select_one", "select_many"]:
+                        opts = options or static_options or []
+                        val_key = getattr(current_state.schema_, "value_key", None)
+
+                        if schema_kind == "select_one" and isinstance(val, int):
+                            idx = val - 1
+                            if 0 <= idx < len(opts):
+                                opt_item = opts[idx]
+                                if val_key in [
+                                    "uprn",
+                                    "single_line",
+                                    "address_line_1",
+                                ] and isinstance(opt_item, dict):
+                                    val = opt_item
+                                elif isinstance(opt_item, dict):
+                                    val = opt_item.get(
+                                        val_key or "value",
+                                        opt_item.get(
+                                            "uprn", opt_item.get("id", opt_item)
+                                        ),
+                                    )
+                                else:
+                                    val = getattr(opt_item, "value", opt_item)
+
+                        elif schema_kind == "select_many" and isinstance(val, list):
+                            resolved_list = []
+                            for item in val:
+                                if isinstance(item, int):
+                                    idx = item - 1
+                                    if 0 <= idx < len(opts):
+                                        opt_item = opts[idx]
+                                        if isinstance(opt_item, dict):
+                                            resolved_list.append(
+                                                opt_item.get(
+                                                    val_key or "value",
+                                                    opt_item.get("id", opt_item),
+                                                )
+                                            )
+                                        else:
+                                            resolved_list.append(
+                                                getattr(opt_item, "value", opt_item)
+                                            )
+                                else:
+                                    resolved_list.append(item)
+                            val = resolved_list
+
+                    normalise_rule = getattr(current_state.schema_, "normalise", None)
+                    if isinstance(val, str) and normalise_rule:
+                        if normalise_rule == "upper_trim":
+                            val = val.strip().upper()
+                        elif normalise_rule == "trim":
+                            val = val.strip()
+                        elif normalise_rule == "lower_trim":
+                            val = val.strip().lower()
+
+                    if isinstance(val, str) and val.strip() == "":
+                        val = getattr(current_state.schema_, "default", None)
+
                     workflow.logger.info(
-                        f"Input received for '{current_state.assign}': val={self._received_input} (type={type(self._received_input).__name__})"
+                        f"Input received for '{current_state.assign}': val={val} (type={type(val).__name__})"
                     )
-                    set_path(frame.vars, current_state.assign, self._received_input)
+                    set_path(frame.vars, current_state.assign, val)
                     frame.state_id = current_state.next
 
+            # --- OUTPUT STATE ---
             elif isinstance(current_state, OutputState):
                 if (
                     current_state.channel == "transcript"
@@ -259,6 +339,7 @@ class SFSMInterpreter:
 
                 frame.state_id = current_state.next
 
+            # --- CALL STATE ---
             elif isinstance(current_state, CallState):
                 body = resolve_dict(current_state.body or {}, context)
                 headers = current_state.headers or {}
@@ -276,7 +357,7 @@ class SFSMInterpreter:
                     url=url,
                     headers=headers,
                     body=body,
-                    capture=current_state.capture,
+                    capture=current_state.capture or {},
                     service=service_name,
                     idempotency_key=idempotency_key,
                 )
@@ -327,6 +408,7 @@ class SFSMInterpreter:
                     if not handled:
                         raise e
 
+            # --- CHOICE STATE ---
             elif isinstance(current_state, ChoiceState):
                 matched = False
                 for idx, rule in enumerate(current_state.rules):
@@ -347,10 +429,12 @@ class SFSMInterpreter:
                     )
                     frame.state_id = current_state.default
 
+            # --- ASSIGN STATE ---
             elif isinstance(current_state, AssignState):
                 for k, v in current_state.set.items():
                     if isinstance(v, dict) and "op" in v:
-                        if v["op"] == "add":
+                        op = v["op"]
+                        if op == "add":
                             val1 = resolve_path(context, v.get("path", ""))
                             val2 = (
                                 resolve_path(context, v.get("value_path", ""))
@@ -359,18 +443,42 @@ class SFSMInterpreter:
                             )
                             if val1 is not None and val2 is not None:
                                 set_path(frame.vars, k, val1 + val2)
-                        elif v["op"] == "now_plus":
+
+                        elif op == "now_plus":
                             dur_path = v.get("value_path")
                             if dur_path:
                                 dur_str = resolve_path(context, dur_path)
                                 if dur_str:
                                     dt = workflow.now() + parse_duration(dur_str)
                                     set_path(frame.vars, k, dt.isoformat())
+
+                        elif op in ["date_subtract", "date_add"]:
+                            base_date = resolve_path(context, v.get("path", ""))
+                            offset_str = v.get("value")
+                            op_type = "add" if op == "date_add" else "subtract"
+                            res_date = apply_date_math(
+                                base_date, offset_str, op_type=op_type
+                            )
+                            set_path(frame.vars, k, res_date)
+
+                        elif op in [
+                            "date_before",
+                            "before_now",
+                            "is_true",
+                            "is_false",
+                            "eq",
+                            "lt",
+                            "gt",
+                        ]:
+                            res_bool = evaluate(v, context)
+                            set_path(frame.vars, k, res_bool)
+
                     else:
                         set_path(frame.vars, k, resolve_dict(v, context))
                     workflow.logger.info(f"Assigned '{k}' = {frame.vars.get(k)}")
                 frame.state_id = current_state.next
 
+            # --- INVOKE STATE ---
             elif isinstance(current_state, InvokeState):
                 target_proc = self.definition.processes.get(current_state.process)
                 if not target_proc:
@@ -378,7 +486,6 @@ class SFSMInterpreter:
                         f"Process '{current_state.process}' invoked by state '{frame.state_id}' not found"
                     )
 
-                # Advance parent state so returning won't trigger re-invocation loop
                 frame.state_id = current_state.next
 
                 new_frame = StackFrame(
@@ -408,6 +515,7 @@ class SFSMInterpreter:
 
                 self.state.frames.append(new_frame)
 
+            # --- WAIT STATE ---
             elif isinstance(current_state, WaitState):
                 dur_val = resolve_dict(current_state.duration, context)
                 workflow.logger.info(f"💤 Sleeping for {dur_val}")
@@ -419,25 +527,23 @@ class SFSMInterpreter:
                     )
                 frame.state_id = current_state.next
 
+            # --- END STATE ---
             elif isinstance(current_state, EndState):
                 workflow.logger.info(
                     f"🏁 Reached EndState '{frame.state_id}' in process '{frame.process_id}' "
                     f"(status={current_state.status}, outcome={current_state.outcome}) | Final vars: {frame.vars}"
                 )
 
-                # evaluate return values while child frame vars are active in context
                 ret_val = None
                 if current_state.return_ is not None:
                     ret_val = resolve_dict(current_state.return_, context)
 
-                # pop child frame after evaluation
                 popped_frame = self.state.frames.pop()
                 if self.state.frames:
                     parent_frame = self.state.frames[-1]
                     invoker = popped_frame.invoker_state
 
                     if isinstance(invoker, InvokeState):
-                        # Safely map return values back into the parent frame context
                         if invoker.assign and ret_val is not None:
                             set_path(parent_frame.vars, invoker.assign, ret_val)
                             workflow.logger.info(
@@ -482,7 +588,11 @@ class SFSMInterpreter:
             )
 
         schema = self._awaiting_input.schema
-        kind = schema.get("kind")
+        kind = (
+            schema.get("kind")
+            if isinstance(schema, dict)
+            else getattr(schema, "kind", None)
+        )
         val = msg.value
 
         if kind == "boolean" and not isinstance(val, bool):
@@ -497,6 +607,68 @@ class SFSMInterpreter:
             if not re.match(str(schema["pattern"]), str(val)):
                 raise InputValidationError(
                     schema.get("invalid_message", "Invalid format")
+                )
+
+        if kind in ["select_one", "select_many"]:
+            options = (
+                (
+                    schema.get("options")
+                    if isinstance(schema, dict)
+                    else getattr(schema, "options", None)
+                )
+                or self._awaiting_input.options
+                or []
+            )
+
+            # Explicit integer index check
+            if kind == "select_one" and isinstance(val, int):
+                idx = val - 1
+                if 0 <= idx < len(options):
+                    return
+
+            v_key = (
+                schema.get("value_key", "value")
+                if isinstance(schema, dict)
+                else getattr(schema, "value_key", "value")
+            )
+            valid_values = []
+            for opt in options:
+                if isinstance(opt, dict):
+                    valid_values.append(
+                        opt.get(v_key, opt.get("uprn", opt.get("id", opt.get("value"))))
+                    )
+                else:
+                    valid_values.append(getattr(opt, "value", opt))
+
+            if kind == "select_one":
+                if val not in valid_values and val not in options:
+                    raise InputValidationError(
+                        f"Invalid selection: '{val}'. Please select a valid option."
+                    )
+
+            if kind == "select_many":
+                if not isinstance(val, list):
+                    raise InputValidationError(
+                        "Expected list of values for select_many"
+                    )
+                for item in val:
+                    if isinstance(item, int):
+                        idx = item - 1
+                        if 0 <= idx < len(options):
+                            continue
+                    if item not in valid_values and item not in options:
+                        raise InputValidationError(
+                            f"Invalid item '{item}' in selection list"
+                        )
+
+        if kind == "file_ref":
+            if not isinstance(val, dict) or "error" in val:
+                raise InputValidationError(
+                    "Invalid file upload. Please use the upload button."
+                )
+            if not val.get("ref") or int(val.get("bytes", 0)) <= 0:
+                raise InputValidationError(
+                    "File payload missing valid reference or size."
                 )
 
     @workflow.query
