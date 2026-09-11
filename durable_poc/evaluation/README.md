@@ -236,7 +236,8 @@ gds-cli aws <profile> -- \
   ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
 ```
 
-A deeper checkpoint can supply values established earlier in the journey:
+A deeper scenario can reference a captured executor checkpoint containing the
+real state established earlier in the journey:
 
 ```bash
 gds-cli aws <profile> -- \
@@ -248,12 +249,24 @@ Repeat any scenario with bounded concurrency using `--repeat` and `--concurrency
 
 The runner loads `dwp_ma1_schema.json` locally, so a targeted scenario does not
 need the workflow-definition server or domain stubs unless execution after the
-tested interaction reaches an external call. Deeper checkpoints can provide
-`vars` and `input` values that would already have been established earlier in
-the real journey.
+tested interaction reaches an external call. Early scenarios can still construct
+a minimal inline checkpoint from the workflow definition. Deeper scenarios should
+reference a captured executor checkpoint instead.
 
-The checkpoint is currently an `InterpreterState` initialisation point rather
-than a captured Temporal event-history snapshot. This keeps the scenario
-independent of deployment topology and is intended as the simplest first step;
-a later runner can restore captured executor/agent checkpoints without changing
-the scenario's semantic target.
+Pause a synthetic browser journey at the target input and capture its real
+`InterpreterState` with:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
+  <workflow-id> \
+  --scenario ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml \
+  --output evaluation/checkpoints/ma-date-stopped-work.json
+```
+
+This saves the full semantic SFSM stack, variables, transcript and step counter
+without exporting Temporal event history. A scenario can reference the captured
+file by checkpoint ID; the runner reconstructs a fresh `InterpreterState` from
+that snapshot for every repetition. Parent/child invocation links are rehydrated
+from `dwp_ma1_schema.json`, and the suspended input state is recreated with a new
+Temporal token. Use synthetic journeys only, because interpreter state may contain
+personal data entered earlier in the journey.

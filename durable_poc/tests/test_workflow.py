@@ -276,3 +276,99 @@ async def test_workflow_traces_propagate_across_boundary(
     assert seen_states["ask_subscribe"].attributes["schema_kind"] == "boolean"
 
     provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evaluation_checkpoint_captures_full_subprocess_stack() -> None:
+    """Evaluation checkpoint exposes parent/child frames and invocation inputs."""
+    definition = {
+        "schema": "sfsm/0.2",
+        "id": "test.checkpoint",
+        "version": "1.0",
+        "entry": "main",
+        "executor": {},
+        "processes": {
+            "main": {
+                "start": "invoke_child",
+                "vars": {"outer_value": "kept", "child_result": None},
+                "states": {
+                    "invoke_child": {
+                        "type": "invoke",
+                        "process": "child",
+                        "input": {"from_parent": {"$": "outer_value"}},
+                        "assign": "child_result",
+                        "next": "after_child",
+                    },
+                    "after_child": {
+                        "type": "end",
+                        "status": "success",
+                    },
+                },
+            },
+            "child": {
+                "start": "ask_child",
+                "vars": {"answer": None},
+                "states": {
+                    "ask_child": {
+                        "type": "input",
+                        "prompt": "Child question?",
+                        "schema": {"kind": "string"},
+                        "assign": "answer",
+                        "next": "end_child",
+                    },
+                    "end_child": {
+                        "type": "end",
+                        "status": "success",
+                        "return": {"answer": {"$": "answer"}},
+                    },
+                },
+            },
+        },
+    }
+
+    async with await WorkflowEnvironment.start_local(
+        dev_server_existing_path=TEMPORAL_PATH,
+    ) as env:
+        async with Worker(
+            env.client,
+            task_queue="test-checkpoint-q",
+            workflows=[SFSMInterpreter],
+            activities=[mock_http_call, mock_notify],
+        ):
+            handle = await env.client.start_workflow(
+                SFSMInterpreter.run,
+                definition,
+                id="test-evaluation-checkpoint",
+                task_queue="test-checkpoint-q",
+            )
+            await env.sleep(0.1)
+
+            checkpoint = await handle.query("evaluation_checkpoint")
+
+            assert checkpoint["schema_version"] == "sfsm-interpreter-checkpoint/0.1"
+            assert checkpoint["current_state"] == {
+                "process_id": "child",
+                "state_id": "ask_child",
+                "state_type": "InputState",
+                "step": 2,
+            }
+            assert checkpoint["awaiting"]["state_id"] == "ask_child"
+
+            state = checkpoint["interpreter_state"]
+            assert state["step_counter"] == 2
+            assert len(state["frames"]) == 2
+            assert state["frames"][0] == {
+                "process_id": "main",
+                "state_id": "after_child",
+                "vars": {"outer_value": "kept", "child_result": None},
+                "invoker_state_id": None,
+            }
+            assert state["frames"][1] == {
+                "process_id": "child",
+                "state_id": "ask_child",
+                "vars": {
+                    "answer": None,
+                    "input": {"from_parent": "kept"},
+                },
+                "invoker_state_id": "invoke_child",
+            }

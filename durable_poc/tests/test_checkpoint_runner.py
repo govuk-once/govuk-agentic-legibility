@@ -4,8 +4,9 @@ from pathlib import Path
 
 from evaluation.checkpoint_runner import (
     agent_input,
-    build_checkpoint_state,
+    build_captured_checkpoint_state,
     load_document,
+    resolve_checkpoint_state,
 )
 
 DURABLE_ROOT = Path(__file__).resolve().parents[1]
@@ -14,27 +15,51 @@ SCENARIO_DIR = (
     REPO_ROOT / "agents" / "evaluation" / "scenarios" / "maternity-allowance"
 )
 FIXTURE_DIR = REPO_ROOT / "agents" / "src" / "evaluation" / "fixtures"
+CHECKPOINT_DIR = DURABLE_ROOT / "evaluation" / "checkpoints"
 DEFINITION = DURABLE_ROOT / "dwp_ma1_schema.json"
 
 
-def test_date_stopped_work_checkpoint_contains_required_prior_state() -> None:
+def test_date_stopped_work_uses_captured_real_interpreter_state() -> None:
+    scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
+    definition = load_document(DEFINITION)
+    checkpoint = scenario["input"]["checkpoint"]
+
+    state = build_captured_checkpoint_state(definition, checkpoint, CHECKPOINT_DIR)
+
+    assert len(state.frames) == 2
+    assert state.frames[0].process_id == "main"
+    assert state.frames[0].state_id == "summary_section4"
+    assert state.frames[1].process_id == "section4_about_payment"
+    assert state.frames[1].state_id == "prompt_date_stopped_work"
+    assert state.frames[1].invoker_state == "invoke_section4_about_payment"
+    assert state.frames[1].vars["reason_stopped_work"] == "pregnancy_sick_leave"
+    assert state.frames[1].vars["input"]["is_baby_born"] is False
+    assert state.frames[0].vars["section2_data"]["due_date"] == "01/11/2026"
+    assert state.frames[0].vars["section3_data"]["worked_in_15th_week"] is True
+
+    # The captured workflow is suspended inside InputState at step 53. A fresh
+    # workflow starts immediately before re-executing that state, so it resumes
+    # from 52 and recreates tkn_53 itself.
+    assert state.step_counter == 52
+    assert len(state.transcript) == 18
+
+
+def test_captured_checkpoint_is_selected_when_scenario_declares_id() -> None:
     scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
     definition = load_document(DEFINITION)
 
-    state = build_checkpoint_state(definition, scenario["input"]["checkpoint"])
-    frame = state.frames[0]
-
-    assert frame.process_id == "section4_about_payment"
-    assert frame.state_id == "prompt_date_stopped_work"
-    assert frame.vars["reason_stopped_work"] == "pregnancy_sick_leave"
-    assert frame.vars["input"]["is_baby_born"] is False
-    assert (
-        frame.vars["input"]["calculated_dates"]["smp_qualifying_week"]
-        == "27/08/2026"
+    state = resolve_checkpoint_state(
+        definition,
+        scenario["input"]["checkpoint"],
+        CHECKPOINT_DIR,
     )
 
+    assert len(state.frames) == 2
+    assert state.frames[-1].state_id == "prompt_date_stopped_work"
 
-def test_date_stopped_work_fixture_uses_full_history_and_natural_language_turn() -> None:
+
+def test_date_stopped_work_fixture_uses_full_history_and_natural_language_turn(
+) -> None:
     fixture = load_document(
         FIXTURE_DIR / "ma_date_stopped_work_natural_language.json"
     )
@@ -53,3 +78,27 @@ def test_date_stopped_work_fixture_uses_full_history_and_natural_language_turn()
     assert "No, I'm still pregnant." in history_text
     assert "I'm off work with a pregnancy-related illness." in history_text
     assert prompt not in history_text
+
+
+def test_interpreter_rehydrates_captured_invoker_state() -> None:
+    from src.interpreter import SFSMInterpreter
+    from src.model import InvokeState, SFSMDefinition
+
+    scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
+    definition_dict = load_document(DEFINITION)
+    state = build_captured_checkpoint_state(
+        definition_dict,
+        scenario["input"]["checkpoint"],
+        CHECKPOINT_DIR,
+    )
+
+    interpreter = SFSMInterpreter()
+    interpreter.definition = SFSMDefinition.model_validate(definition_dict)
+    interpreter.state = state
+    interpreter._rehydrate_initial_state_invokers()
+
+    invoker = interpreter.state.frames[1].invoker_state
+    assert isinstance(invoker, InvokeState)
+    assert invoker.process == "section4_about_payment"
+    assert invoker.assign == "section4_data"
+    assert invoker.next == "summary_section4"

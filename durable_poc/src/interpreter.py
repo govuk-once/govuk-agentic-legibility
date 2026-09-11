@@ -1,6 +1,7 @@
 """The durable workflow executor loop."""
 
 import asyncio
+from copy import deepcopy
 from datetime import timedelta
 import re
 from typing import Any
@@ -72,6 +73,7 @@ class SFSMInterpreter:
 
         if initial_state:
             self.state = initial_state
+            self._rehydrate_initial_state_invokers()
             workflow.logger.info(
                 f"Resuming workflow from initial_state context with frames: {self.state.frames}"
             )
@@ -742,6 +744,44 @@ class SFSMInterpreter:
                     "File payload missing valid reference or size."
                 )
 
+
+    def _rehydrate_initial_state_invokers(self) -> None:
+        """Replace serialised invoker state IDs with real InvokeState objects."""
+        if self.definition is None:
+            raise DefinitionError("Cannot rehydrate initial state without a definition")
+
+        for index, frame in enumerate(self.state.frames):
+            if frame.invoker_state is None or isinstance(
+                frame.invoker_state, InvokeState
+            ):
+                continue
+            if not isinstance(frame.invoker_state, str) or index == 0:
+                raise DefinitionError(
+                    "Invalid invoker reference for frame "
+                    f"{frame.process_id}.{frame.state_id}"
+                )
+
+            parent = self.state.frames[index - 1]
+            parent_process = self.definition.processes.get(parent.process_id)
+            if parent_process is None:
+                raise DefinitionError(
+                    f"Parent process '{parent.process_id}' not found while "
+                    "restoring checkpoint"
+                )
+
+            invoker = parent_process.states.get(frame.invoker_state)
+            if not isinstance(invoker, InvokeState):
+                raise DefinitionError(
+                    f"Checkpoint invoker '{frame.invoker_state}' in process "
+                    f"'{parent.process_id}' is not an InvokeState"
+                )
+            if invoker.process != frame.process_id:
+                raise DefinitionError(
+                    f"Checkpoint invoker '{frame.invoker_state}' targets "
+                    f"'{invoker.process}', not '{frame.process_id}'"
+                )
+            frame.invoker_state = invoker
+
     @workflow.query
     def awaiting(self) -> AwaitingInput | None:
         return self._awaiting_input
@@ -765,3 +805,70 @@ class SFSMInterpreter:
             "state_type": type(state).__name__ if state else None,
             "step": self.state.step_counter,
         }
+
+    @workflow.query
+    def evaluation_checkpoint(self) -> dict[str, Any]:
+        """Return a semantic snapshot of the current interpreter state for evals.
+
+        This deliberately captures SFSM state rather than Temporal event history.
+        ``invoker_state`` is represented by its state ID so a future loader can
+        rehydrate it from the workflow definition instead of serialising the
+        Pydantic state object itself.
+        """
+        frames: list[dict[str, Any]] = []
+        for index, frame in enumerate(self.state.frames):
+            frames.append(
+                {
+                    "process_id": frame.process_id,
+                    "state_id": frame.state_id,
+                    "vars": deepcopy(frame.vars),
+                    "invoker_state_id": self._invoker_state_id(index),
+                }
+            )
+
+        awaiting = None
+        if self._awaiting_input is not None:
+            awaiting = {
+                "token": self._awaiting_input.token,
+                "prompt": self._awaiting_input.prompt,
+                "schema": deepcopy(self._awaiting_input.schema),
+                "options": deepcopy(self._awaiting_input.options),
+                "timeout_seconds": self._awaiting_input.timeout_seconds,
+                "state_id": self._awaiting_input.state_id,
+                "state_type": self._awaiting_input.state_type,
+            }
+
+        return {
+            "schema_version": "sfsm-interpreter-checkpoint/0.1",
+            "current_state": self.current_state_info(),
+            "awaiting": awaiting,
+            "interpreter_state": {
+                "frames": frames,
+                "transcript": [
+                    {
+                        "step": entry.step,
+                        "timestamp": entry.timestamp,
+                        "message": entry.message,
+                    }
+                    for entry in self.state.transcript
+                ],
+                "step_counter": self.state.step_counter,
+                "env": deepcopy(self.state.env),
+            },
+        }
+
+    def _invoker_state_id(self, frame_index: int) -> str | None:
+        """Resolve a child frame's invoker to its state ID in the parent process."""
+        frame = self.state.frames[frame_index]
+        if frame.invoker_state is None or frame_index == 0 or self.definition is None:
+            return None
+
+        parent = self.state.frames[frame_index - 1]
+        parent_process = self.definition.processes.get(parent.process_id)
+        if parent_process is None:
+            return None
+
+        for state_id, candidate in parent_process.states.items():
+            if candidate is frame.invoker_state or candidate == frame.invoker_state:
+                return state_id
+        return None
