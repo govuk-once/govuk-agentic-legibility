@@ -225,12 +225,20 @@ The checkpoint runner exercises one real workflow interaction with the real
 `WorkflowAgent` without replaying every earlier Maternity Allowance step. It
 starts a fresh Temporal workflow from the scenario's interpreter checkpoint,
 seeds the agent with the fixture's preceding user-visible conversation, sends
-the final user message, reports the next workflow state, and terminates the
-workflow. Semantic scoring is not wired into the runner yet; when OTEL file export is
-enabled, the resulting executor span can now be converted to the shared common-trace
-format.
+the final user message, waits for the executor's OTEL `InputState` span, converts
+that span to the shared common-trace format, and evaluates the trace against the
+scenario's `expected.submissions`.
 
-Start Temporal and the worker as normal, then from `durable_poc/` run:
+Start Temporal and the worker with OTEL file export enabled, for example from
+`durable_poc/`:
+
+```bash
+mkdir -p .traces
+OTEL_EXPORT_FILE="$PWD/.traces/durable-otel.jsonl" \
+  uv run python -m src.worker
+```
+
+Then run the scenario from another terminal:
 
 ```bash
 gds-cli aws <profile> -- \
@@ -286,5 +294,26 @@ PYTHONPATH=. uv run python -m evaluation.otel_common_trace \
 The converter uses the executor's finished `interpreter.InputState` span as the
 authoritative record of the accepted value. It emits `interaction_available` and,
 when the input outcome is `received`, `values_submitted`. It filters by workflow ID
-and by the target process/state declared in the scenario. The generated common trace
-is ready for the shared evaluator once `expected.submissions` scoring is added there.
+and by the target process/state declared in the scenario. `checkpoint_runner.py`
+now performs this conversion automatically and passes the resulting common trace to
+the shared evaluator.
+
+Each invocation writes per-run artifacts under `.traces/evaluation-runs/` and a
+batch record under `.traces/evaluation-batches/<batch-id>/`:
+
+```text
+.traces/evaluation-runs/<scenario-id>/<workflow-id>/
+├── common.yaml
+└── evaluation.json
+
+.traces/evaluation-batches/<batch-id>/
+├── batch.json
+├── results.jsonl
+└── summary.json
+```
+
+`results.jsonl` contains one record per repetition, including scenario ID, model ID,
+workflow ID, outcome (`pass`, `fail` or `error`), evaluator issues, duration and
+artifact paths. This is the main machine-readable output for later quantitative
+analysis. Use `--otel-trace` if the worker writes to a path other than
+`.traces/durable-otel.jsonl`.

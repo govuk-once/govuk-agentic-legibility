@@ -176,6 +176,60 @@ def manual_trace() -> dict[str, Any]:
     }
 
 
+def submission_scenario() -> dict[str, Any]:
+    """Return a minimal scenario that checks an executor-accepted value."""
+    return {
+        "schema_version": "0.1",
+        "id": "ma-baby-not-born",
+        "journey_id": "dwp.maternity_allowance_ma1_claim",
+        "input": {
+            "conversation_fixture": {
+                "id": "ma-baby-not-born",
+                "version": "1",
+            }
+        },
+        "expected": {
+            "submissions": {
+                "prompt_is_baby_born": {
+                    "values": {"is_baby_born": False},
+                }
+            }
+        },
+    }
+
+
+def submission_trace(value: bool = False) -> dict[str, Any]:
+    """Return a minimal common trace containing one accepted submission."""
+    return {
+        "schema_version": "0.1",
+        "source_trace": "durable-otel.jsonl",
+        "run": {
+            "id": "eval-ma-baby-not-born-12345678",
+            "journey_id": "dwp.maternity_allowance_ma1_claim",
+            "implementation": "durable_poc",
+            "status": "in_progress",
+        },
+        "initial_context": {
+            "conversation_fixture": {
+                "id": "ma-baby-not-born",
+                "version": "1",
+                "sha256": "abc",
+            }
+        },
+        "events": [
+            {
+                "type": "interaction_available",
+                "interaction_id": "prompt_is_baby_born",
+            },
+            {
+                "type": "values_submitted",
+                "interaction_id": "prompt_is_baby_born",
+                "values": {"is_baby_born": value},
+            },
+        ],
+    }
+
+
 def _proposal(trace: dict[str, Any], interaction_id: str) -> dict[str, Any]:
     return next(
         event
@@ -197,6 +251,43 @@ def test_matching_trace_passes() -> None:
 
     assert result.passed
     assert result.issues == ()
+
+
+def test_matching_expected_submission_passes() -> None:
+    """Accepted executor values can be scored directly from common trace."""
+    result = evaluate_common_trace(submission_scenario(), submission_trace())
+
+    assert result.passed
+    assert result.issues == ()
+
+
+def test_mismatched_expected_submission_fails() -> None:
+    """A different executor-accepted value is a behavioural failure."""
+    result = evaluate_common_trace(submission_scenario(), submission_trace(True))
+
+    assert not result.passed
+    assert len(result.issues) == 1
+    assert result.issues[0].path == (
+        "expected.submissions.prompt_is_baby_born.values"
+    )
+    assert "expected" in result.issues[0].message
+    assert "observed" in result.issues[0].message
+
+
+def test_missing_expected_submission_fails() -> None:
+    """Each declared submission must appear exactly once."""
+    trace = submission_trace()
+    trace["events"] = [
+        event for event in trace["events"] if event.get("type") != "values_submitted"
+    ]
+
+    result = evaluate_common_trace(submission_scenario(), trace)
+
+    assert not result.passed
+    assert result.issues[0].path == "expected.submissions.prompt_is_baby_born"
+    assert result.issues[0].message == (
+        "expected one values_submitted event, observed 0"
+    )
 
 
 def test_equivalent_address_line_representations_pass() -> None:

@@ -8,7 +8,7 @@ The aim is to test a narrow question repeatedly and reproducibly:
 
 The evaluation should exercise the real agent and the real executor, while avoiding the cost and noise of replaying every earlier step in a long service journey for every test case.
 
-## Planned architecture
+## Architecture
 
 ```mermaid
 flowchart TD
@@ -53,8 +53,8 @@ flowchart TD
 
     V --> OT
     OT --> CT
-    CT -. "planned" .-> E
-    E -. "planned" .-> P
+    CT --> E
+    E --> P
 ```
 
 There are two kinds of state in a targeted evaluation:
@@ -192,7 +192,7 @@ input:
 
 The ID resolves to `durable_poc/evaluation/checkpoints/<id>.json`. The process/state remain in the scenario as the semantic target and are validated against the captured file before a run starts. `checkpoint.id` is required: the runner does not construct a partial interpreter state from the workflow definition.
 
-At present, `expected.submissions` is recorded but **not yet scored** by the checkpoint runner.
+`expected.submissions` is evaluated against `values_submitted` events in the common trace. The executor-side `InputState` span is the authoritative source for the accepted value.
 
 ## Conversation fixtures
 
@@ -242,10 +242,16 @@ send the final user message
 agent calls the normal workflow tools
         |
         v
-print the next executor state
+wait for the matching executor OTEL span
         |
         v
-terminate the test workflow
+convert to common trace
+        |
+        v
+compare `values_submitted` with `expected.submissions`
+        |
+        v
+write evaluation artifacts and terminate the test workflow
 ```
 
 Each repetition uses a new Temporal workflow ID and a new agent instance. This makes repeated runs independent of one another.
@@ -276,14 +282,18 @@ gds-cli aws <profile> -- \
   --concurrency 5
 ```
 
-The runner currently prints execution progress only. Reaching the expected next state can be a useful smoke-test signal, but it is **not the eventual evaluation result**: downstream deterministic routing should not be used as a proxy for the model's submitted value once tracing is available.
+The next executor state is still printed as a useful smoke-test signal, but it is **not the evaluation result**. The result comes from comparing the accepted value in the common trace with `expected.submissions`.
 
-## Trace conversion and planned scoring
+The runner writes one `evaluation.json` per workflow and an invocation-level
+`results.jsonl` plus `summary.json`, so repeated runs can be analysed later without
+parsing terminal output.
 
-The durable runner now emits executor-side OTEL spans when tracing is configured, and
+## Trace conversion and scoring
+
+The durable runner emits executor-side OTEL spans when tracing is configured, and
 `otel_common_trace.py` converts the target `interpreter.InputState` span into the
-implementation-independent common trace vocabulary. Deterministic scoring of
-`expected.submissions` is still to be connected.
+implementation-independent common trace vocabulary. The shared scenario evaluator
+then scores `expected.submissions` against the resulting `values_submitted` event.
 
 The pipeline is:
 
@@ -323,13 +333,13 @@ PYTHONPATH=. uv run python -m evaluation.otel_common_trace \
 
 The converter filters by both Temporal workflow ID and the scenario's target process/state, so spans from other concurrent evaluation runs or the next journey interaction are not included. Targeted workflows are marked `in_progress` in the common trace because the runner deliberately terminates them after the interaction under test rather than completing the full claim.
 
-The evaluator can next compare `expected.submissions` in the scenario with the value actually accepted by the executor. The trace, rather than the runner's knowledge of the graph, determines the semantic result. This keeps evaluation separate from execution and avoids building a second bespoke scoring path for targeted tests.
+The shared evaluator compares `expected.submissions` in the scenario with the value actually accepted by the executor. The trace, rather than the runner's knowledge of the graph, determines the semantic result. This keeps evaluation separate from execution and avoids building a second bespoke scoring path for targeted tests.
 
 ## Repeated runs
 
 Repeated runs are important because LLM behaviour is stochastic. `--repeat` should therefore create independent executions of the same scenario rather than continuing or branching one existing workflow.
 
-The planned aggregate result can eventually report information such as:
+Each runner invocation writes a `summary.json` reporting information such as:
 
 ```text
 scenario: ma-baby-not-born
@@ -339,7 +349,7 @@ failed: 2
 execution_errors: 0
 ```
 
-The raw/common traces should remain available for investigating individual failures.
+Each workflow keeps its generated `common.yaml` and `evaluation.json`; the batch `results.jsonl` is intended for quantitative analysis across repeated runs. The shared OTEL JSONL remains the implementation-level source trace.
 
 ## Deployment independence
 

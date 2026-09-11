@@ -167,8 +167,14 @@ expected:
     branch: "manual_entry"
 ```
 
-It does not evaluate assistance or the terminal result. Similarly, a scenario can
-check only the final status, or provide both status and result when both matter.
+It does not evaluate assistance, submitted values or the terminal result. Similarly,
+a scenario can check only the final status, only executor-accepted submissions, or
+provide several expectation dimensions together.
+
+`expected.submissions` maps semantic interaction IDs to the structured values that
+the executor should have accepted. Each declared interaction must have exactly one
+matching `values_submitted` event, compared exactly unless an equivalence rule is
+configured. Other submission events are not implicitly forbidden.
 
 `expected.assistance` is different: when that section is present it is exhaustive.
 Any proposal or answer that is not declared there is unexpected output. An empty
@@ -234,6 +240,7 @@ The evaluator can check:
 
 - journey and conversation-fixture identity;
 - expected assistance at each semantic service interaction;
+- executor-accepted values declared under `expected.submissions`;
 - unexpected assistance when `expected.assistance` is present;
 - the semantic branch taken through the current change-address journey;
 - terminal journey status and `journey_finished.result`, when specified;
@@ -241,8 +248,9 @@ The evaluator can check:
   representation;
 - `assistance_failed` events when assistance is being evaluated.
 
-`propose_values` in a scenario maps to `values_proposed` in the common trace. The
-scenario and trace vocabularies do not otherwise need to be identical.
+`propose_values` in a scenario maps to `values_proposed` in the common trace.
+`expected.submissions` maps to `values_submitted`. The scenario and trace vocabularies
+do not otherwise need to be identical.
 
 Branch evaluation is currently scoped to the prototype
 `change-driving-licence-address` journey. It derives the branch from the
