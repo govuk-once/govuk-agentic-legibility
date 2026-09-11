@@ -218,3 +218,102 @@ Follow the prompts in this terminal to step through the state machine.
 * **`output`**: Emits internal transcript messages or fires external notification activities.
 * **`wait`**: Durably sleeps the workflow for an ISO 8601 duration string (e.g., `PT5M`).
 * **`end`**: Terminates the current process frame with a status, outcome, and return payload.
+
+## Targeted Maternity Allowance evaluation smoke run
+
+The checkpoint runner exercises one real workflow interaction with the real
+`WorkflowAgent` without replaying every earlier Maternity Allowance step. It
+starts a fresh Temporal workflow from the scenario's interpreter checkpoint,
+seeds the agent with the fixture's preceding user-visible conversation, sends
+the final user message, waits for the executor's OTEL `InputState` span, converts
+that span to the shared common-trace format, and evaluates the trace against the
+scenario's `expected.submissions`.
+
+Start Temporal and the worker with OTEL file export enabled, for example from
+`durable_poc/`:
+
+```bash
+mkdir -p .traces
+OTEL_EXPORT_FILE="$PWD/.traces/durable-otel.jsonl" \
+  uv run python -m src.worker
+```
+
+Then run the scenario from another terminal:
+
+```bash
+gds-cli aws <profile> -- \
+  uv run python -m evaluation.checkpoint_runner \
+  ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
+```
+
+Each scenario references a captured executor checkpoint containing the real
+state established earlier in a deliberately synthetic journey:
+
+```bash
+gds-cli aws <profile> -- \
+  uv run python -m evaluation.checkpoint_runner \
+  ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml
+```
+
+Repeat any scenario with bounded concurrency using `--repeat` and `--concurrency`.
+
+The runner loads `dwp_ma1_schema.json` locally, so a targeted scenario does not
+need the workflow-definition server or domain stubs unless execution after the
+tested interaction reaches an external call. Every targeted scenario must reference
+a captured executor checkpoint; the runner never synthesizes a partial
+`InterpreterState` from the workflow definition.
+
+Pause a synthetic browser journey at the target input and capture its real
+`InterpreterState` with:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
+  <workflow-id> \
+  --scenario ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml \
+  --output evaluation/checkpoints/ma-date-stopped-work.json
+```
+
+This saves the full semantic SFSM stack, variables, transcript and step counter
+without exporting Temporal event history. A scenario can reference the captured
+file by checkpoint ID; the runner reconstructs a fresh `InterpreterState` from
+that snapshot for every repetition. Parent/child invocation links are rehydrated
+from `dwp_ma1_schema.json`, and the suspended input state is recreated with a new
+Temporal token. Use synthetic journeys only, because interpreter state may contain
+personal data entered earlier in the journey.
+
+Convert a targeted run from Joe's OTEL JSONL into the common semantic trace with:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.otel_common_trace \
+  .traces/durable-otel.jsonl \
+  ../agents/durable_poc/evaluation/scenarios/maternity-allowance/baby-not-born.yaml \
+  --workflow-id eval-ma-baby-not-born-a6f89cb5 \
+  --output .traces/eval-ma-baby-not-born-a6f89cb5.common.yaml
+```
+
+The converter uses the executor's finished `interpreter.InputState` span as the
+authoritative record of the accepted value. It emits `interaction_available` and,
+when the input outcome is `received`, `values_submitted`. It filters by workflow ID
+and by the target process/state declared in the scenario. `checkpoint_runner.py`
+now performs this conversion automatically and passes the resulting common trace to
+the shared evaluator.
+
+Each invocation writes per-run artifacts under `.traces/evaluation-runs/` and a
+batch record under `.traces/evaluation-batches/<batch-id>/`:
+
+```text
+.traces/evaluation-runs/<scenario-id>/<workflow-id>/
+├── common.yaml
+└── evaluation.json
+
+.traces/evaluation-batches/<batch-id>/
+├── batch.json
+├── results.jsonl
+└── summary.json
+```
+
+`results.jsonl` contains one record per repetition, including scenario ID, model ID,
+workflow ID, outcome (`pass`, `fail` or `error`), evaluator issues, duration and
+artifact paths. This is the main machine-readable output for later quantitative
+analysis. Use `--otel-trace` if the worker writes to a path other than
+`.traces/durable-otel.jsonl`.

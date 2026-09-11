@@ -135,6 +135,9 @@ def evaluate_common_trace(
         _evaluate_assistance(expected, trace, equivalence_rules, issues)
         _evaluate_failures(trace, issues)
 
+    if "submissions" in expected:
+        _evaluate_submissions(expected, trace, equivalence_rules, issues)
+
     if "journey" in expected:
         _evaluate_journey(
             expected,
@@ -296,6 +299,73 @@ def _evaluate_assistance(
                 EvaluationIssue(
                     "expected.assistance",
                     f"unexpected answer_presented event{suffix}",
+                )
+            )
+
+
+def _evaluate_submissions(
+    expected: ReadOnlyJsonObject,
+    trace: ReadOnlyJsonObject,
+    equivalence_rules: Sequence[EquivalenceRule],
+    issues: list[EvaluationIssue],
+) -> None:
+    """Compare expected accepted values with ``values_submitted`` events."""
+    expected_submissions = _required_mapping(
+        expected,
+        "submissions",
+        "scenario.expected",
+    )
+    events = _events(trace)
+    submissions: dict[str, list[ReadOnlyJsonObject]] = defaultdict(list)
+
+    for event in events:
+        if event.get("type") != "values_submitted":
+            continue
+        interaction_id = event.get("interaction_id")
+        if not isinstance(interaction_id, str):
+            raise EvaluationInputError(
+                "common trace values_submitted event requires interaction_id"
+            )
+        values = event.get("values")
+        if not isinstance(values, Mapping):
+            raise EvaluationInputError(
+                "common trace values_submitted event requires values object"
+            )
+        submissions[interaction_id].append(values)
+
+    for interaction_id, raw_expectation in expected_submissions.items():
+        if not isinstance(interaction_id, str):
+            raise EvaluationInputError(
+                "scenario.expected.submissions keys must be interaction IDs"
+            )
+        if not isinstance(raw_expectation, Mapping):
+            raise EvaluationInputError(
+                f"scenario.expected.submissions.{interaction_id} must be an object"
+            )
+
+        path = f"expected.submissions.{interaction_id}"
+        expected_values = _required_mapping(raw_expectation, "values", path)
+        actual = submissions.get(interaction_id, [])
+        if len(actual) != 1:
+            issues.append(
+                EvaluationIssue(
+                    path,
+                    f"expected one values_submitted event, observed {len(actual)}",
+                )
+            )
+            continue
+
+        values_path = f"{path}.values"
+        if not _equivalent(
+            expected_values,
+            actual[0],
+            values_path,
+            equivalence_rules,
+        ):
+            issues.append(
+                EvaluationIssue(
+                    values_path,
+                    f"expected {_json(expected_values)}, observed {_json(actual[0])}",
                 )
             )
 

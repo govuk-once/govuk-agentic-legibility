@@ -1,0 +1,141 @@
+{
+  "id": "ma-date-stopped-work-natural-language",
+  "version": "1",
+  "title": "Maternity Allowance - natural-language stopped-work date",
+  "description": "A reconstructed full user-visible Maternity Allowance conversation, based on the workflow definition and deterministic stub responses, ending with a natural-language pregnancy-related sickness absence date.",
+  "journey_id": "dwp.maternity_allowance_ma1_claim",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I want to apply for Maternity Allowance."
+    },
+    {
+      "role": "assistant",
+      "content": "Would you like to apply for Maternity Allowance?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "To receive Maternity Allowance, you must meet ALL of the following criteria:\n\n• You are NOT receiving Statutory Maternity Pay (SMP) from any employer.\n• You were employed or self-employed for at least 26 weeks in your 66-week Test Period.\n(Note: Your Test Period is the 66 weeks up to and including the week before your baby is due. The 26 weeks of work do not need to be consecutive, and can be spread across one or multiple jobs).\n• If doing unpaid work for a partner's business, your partner is NOT a salaried director.\n\nDo you meet all these requirements and wish to proceed with your claim?"
+    },
+    {
+      "role": "user",
+      "content": "Yes"
+    },
+    {
+      "role": "assistant",
+      "content": "Before continuing, please confirm you have or can obtain the required evidence to upload during this online application:\n• An official MAT B1 maternity certificate (or doctor/midwife letter confirming due date).\n• An SMP1 form from each employer you worked for during the 15th week before your due week (if applicable)."
+    },
+    {
+      "role": "user",
+      "content": "Yes, I have the evidence I need."
+    },
+    {
+      "role": "assistant",
+      "content": "Important Notice: Claiming Maternity Allowance may reduce or affect payments for other benefits you or your partner get (including Universal Credit, Employment and Support Allowance, or Carer's Allowance).\nDo you confirm you understand these effects and wish to continue claiming Maternity Allowance?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I understand and want to continue."
+    },
+    {
+      "role": "assistant",
+      "content": "We will now ask questions about you, this will include collecting your National Insurance Number, personal contact details, and residential address."
+    },
+    {
+      "role": "assistant",
+      "content": "Please enter your National Insurance Number to verify your identity:"
+    },
+    {
+      "role": "user",
+      "content": "AB123456C"
+    },
+    {
+      "role": "assistant",
+      "content": "We found the following identity records with DWP:\n• Title: Mrs\n• First Name: Jane\n• Middle Name: Mary\n• Surname: Smith\n• Date of Birth: 1992-06-15\n• Phone Number: 07700900123\n• Address Line 1: 42 High Street\n• Address Line 2: Flat 3B\n• Town or City: Manchester\n• Postcode: M1 4BT\n\nAre these details correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "We will now ask you questions about your baby, in particular your expected or actual childbirth date and maternity evidence."
+    },
+    {
+      "role": "assistant",
+      "content": "Has your baby already been born?"
+    },
+    {
+      "role": "user",
+      "content": "No, I'm still pregnant."
+    },
+    {
+      "role": "assistant",
+      "content": "Enter your expected childbirth date from your MAT B1 maternity certificate (DD/MM/YYYY):"
+    },
+    {
+      "role": "user",
+      "content": "10 December 2026."
+    },
+    {
+      "role": "assistant",
+      "content": "Upload a photo or scan of your MAT B1 maternity certificate (JPEG, PNG, or PDF)."
+    },
+    {
+      "role": "user",
+      "content": "Uploaded: matb1.pdf"
+    },
+    {
+      "role": "assistant",
+      "content": "We will now ask about all employments you've had during your 66-week Test Period. Note that you must have worked for at least 26 weeks across all your employments combined."
+    },
+    {
+      "role": "assistant",
+      "content": "Tell us all types of employment you have had during your 66-week Test Period."
+    },
+    {
+      "role": "user",
+      "content": "I was employed, including agency work."
+    },
+    {
+      "role": "assistant",
+      "content": "We retrieved your employment records from HMRC for National Insurance number AB123456C:\n\n• Employers Found: ['Acme Retail Ltd', 'Global Logistics Corp']\n• Average Monthly Earnings: £803.83\n• Average Weekly Earnings (Top 13 Weeks): £185.5\n\nAre these details correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Were you working in any of these employments during the 15th week before your due week (the week starting 27/08/2026)?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Finally, we will ask about your current status, as well as your preferred payment frequency and bank details."
+    },
+    {
+      "role": "assistant",
+      "content": "What is your current work status regarding your pregnancy?"
+    },
+    {
+      "role": "user",
+      "content": "I'm off work with a pregnancy-related illness."
+    },
+    {
+      "role": "assistant",
+      "content": "On what date did you stop working or begin your absence/leave (DD/MM/YYYY)?"
+    },
+    {
+      "role": "user",
+      "content": "3 September 2026."
+    }
+  ]
+}

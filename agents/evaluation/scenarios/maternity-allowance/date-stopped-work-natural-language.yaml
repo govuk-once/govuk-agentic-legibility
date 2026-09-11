@@ -1,0 +1,19 @@
+schema_version: "0.1"
+
+id: "ma-date-stopped-work-natural-language"
+journey_id: "dwp.maternity_allowance_ma1_claim"
+
+input:
+  conversation_fixture:
+    id: "ma-date-stopped-work-natural-language"
+    version: "1"
+  checkpoint:
+    id: "ma-date-stopped-work"
+    process_id: "section4_about_payment"
+    state_id: "prompt_date_stopped_work"
+
+expected:
+  submissions:
+    prompt_date_stopped_work:
+      values:
+        date_stopped_work: "03/09/2026"
