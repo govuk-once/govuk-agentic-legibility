@@ -7,21 +7,37 @@ import json
 import logging
 import os
 import re
+import uuid
+import uvicorn
 from datetime import datetime
 from typing import Any
 
-import uvicorn
+from opentelemetry import trace, baggage
+from opentelemetry.context import attach, detach
+
+from temporalio.client import Client as TemporalClient
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from agent import tools as tool_functions
 from agent.agent import WorkflowAgent
+from src.telemetry import SessionSpanProcessor, create_agent_provider, session_id_var, workflow_id_var
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GOV.UK Chat Assistant")
 
-agent_instance: WorkflowAgent | None = None
+agent_instance: Any = None
+_polling_client: TemporalClient | None = None
+
+
+async def _get_polling_client() -> TemporalClient:
+    """Temporal client for background polling — no TracingInterceptor."""
+    global _polling_client
+    if _polling_client is None:
+        temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
+        _polling_client = await TemporalClient.connect(temporal_address)
+    return _polling_client
 
 
 def clean_text_pipes(text: str) -> str:
@@ -414,6 +430,13 @@ async def get_index() -> HTMLResponse:
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
 
+    session_id = str(uuid.uuid4())
+    session_id_var.set(session_id)
+    ctx = baggage.set_baggage("session_id", session_id)
+    token = attach(ctx)
+
+    otel_tracer = trace.get_tracer(__name__)
+
     session_state: dict[str, Any] | None = None
     active_workflow_id: str | None = None
     last_seen_index = 0
@@ -439,9 +462,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         if not agent_instance:
             return
         try:
-            temporal_client = await agent_instance._get_temporal_client()
+            polling_client = await _get_polling_client()
             active_list = await tool_functions.list_active_workflows(
-                temporal_client=temporal_client
+                temporal_client=polling_client
             )
             await websocket.send_json(
                 {"type": "active_workflows", "workflows": active_list}
@@ -458,7 +481,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         while True:
             try:
                 await asyncio.sleep(0.5)
-
                 if session_state and session_state.get("workflow_id"):
                     new_wf_id = session_state.get("workflow_id")
                     if new_wf_id != active_workflow_id:
@@ -470,10 +492,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     continue
 
                 try:
-                    temporal_client = await agent_instance._get_temporal_client()
+                    polling_client = await _get_polling_client()
                     updated_state = await tool_functions.get_workflow_state(
                         workflow_id=active_workflow_id,
-                        temporal_client=temporal_client,
+                        temporal_client=polling_client,
                     )
                 except Exception:
                     continue
@@ -498,6 +520,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         "Workflow Execution Completed",
                         {"status": execution_status},
                     )
+                    active_workflow_id = None
+                    return
 
                 if current_len > last_seen_index:
                     for idx in range(last_seen_index, current_len):
@@ -580,10 +604,11 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 resume_id = payload.get("workflow_id")
                 if resume_id and agent_instance:
                     active_workflow_id = resume_id
+                    workflow_id_var.set(resume_id)
                     await emit_trace("USER", "Resuming Selected Workflow", resume_id)
-                    temporal_client = await agent_instance._get_temporal_client()
+                    polling_client = await _get_polling_client()
                     session_state = await tool_functions.get_workflow_state(
-                        workflow_id=resume_id, temporal_client=temporal_client
+                        workflow_id=resume_id, temporal_client=polling_client
                     )
                     agent_instance._update_session_state(resume_id, session_state)
                     last_seen_index = 0
@@ -594,48 +619,60 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             if not user_msg or not agent_instance:
                 continue
 
-            await emit_trace("USER", "Submitted Natural Language Input", user_msg)
-
-            prev_token = (
-                session_state.get("awaiting", {}).get("token")
-                if session_state and session_state.get("awaiting")
-                else None
-            )
-
-            await emit_trace("AGENT", "Invoking Bedrock LLM with user context...")
-            agent_response = await agent_instance.respond(
-                user_msg, context=session_state, on_trace=emit_trace
-            )
-            session_state = getattr(agent_instance, "session_state", session_state)
-
-            if session_state and session_state.get("workflow_id"):
-                active_workflow_id = session_state.get("workflow_id")
-
-            new_token = (
-                session_state.get("awaiting", {}).get("token")
-                if session_state and session_state.get("awaiting")
-                else None
-            )
-
-            if (
-                prev_token
-                and new_token
-                and prev_token == new_token
-                and agent_response
-                and agent_response.strip()
+            if active_workflow_id:
+                workflow_id_var.set(active_workflow_id)
+            
+            with otel_tracer.start_as_current_span(
+                "user_turn",
+                attributes={
+                    "session_id": session_id,
+                    "temporalWorkflowID": active_workflow_id or "",
+                    "user_message_preview": user_msg[:100],
+                },
             ):
-                clean_warning = clean_text_pipes(agent_response)
-                if clean_warning:
-                    await websocket.send_json(
-                        {
-                            "type": "message",
-                            "role": "assistant",
-                            "text": clean_warning,
-                        }
-                    )
-                    await emit_trace(
-                        "AGENT", "Agent emitted validation warning text", clean_warning
-                    )
+                await emit_trace("USER", "Submitted Natural Language Input", user_msg)
+
+                prev_token = (
+                    session_state.get("awaiting", {}).get("token")
+                    if session_state and session_state.get("awaiting")
+                    else None
+                )
+
+                await emit_trace("AGENT", "Invoking Bedrock LLM with user context...")
+                agent_response = await agent_instance.respond(
+                    user_msg, context=session_state, on_trace=emit_trace
+                )
+                session_state = getattr(agent_instance, "session_state", session_state)
+
+                if session_state and session_state.get("workflow_id"):
+                    active_workflow_id = session_state.get("workflow_id")
+                    workflow_id_var.set(active_workflow_id)
+
+                new_token = (
+                    session_state.get("awaiting", {}).get("token")
+                    if session_state and session_state.get("awaiting")
+                    else None
+                )
+
+                if (
+                    prev_token
+                    and new_token
+                    and prev_token == new_token
+                    and agent_response
+                    and agent_response.strip()
+                ):
+                    clean_warning = clean_text_pipes(agent_response)
+                    if clean_warning:
+                        await websocket.send_json(
+                            {
+                                "type": "message",
+                                "role": "assistant",
+                                "text": clean_warning,
+                            }
+                        )
+                        await emit_trace(
+                            "AGENT", "Agent emitted validation warning text", clean_warning
+                        )
 
             opts_payload = get_options_from_state(session_state)
             await websocket.send_json(
@@ -650,7 +687,11 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         logger.info("WebSocket connection closed")
     finally:
+        detach(token)
         poll_task.cancel()
+
+
+session_processor = SessionSpanProcessor()
 
 
 def main() -> None:
@@ -661,6 +702,9 @@ def main() -> None:
     )
 
     global agent_instance
+
+    provider = create_agent_provider(session_processor=session_processor)
+    trace.set_tracer_provider(provider)
 
     workflow_server_url = os.environ.get("WORKFLOW_SERVER_URL", "http://localhost:8080")
     model_id = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6")

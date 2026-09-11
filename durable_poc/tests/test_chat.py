@@ -87,8 +87,12 @@ async def test_websocket_connection_and_trace_stream() -> None:
     mock_agent = MagicMock()
     mock_agent._get_temporal_client = AsyncMock()
 
+    mock_polling_client = AsyncMock()
+
+    # Patch agent_instance, polling client, and list_active_workflows to prevent gRPC hangs
     with (
         patch("agent.chat.agent_instance", mock_agent),
+        patch("agent.chat._get_polling_client", AsyncMock(return_value=mock_polling_client)),
         patch("agent.tools.list_active_workflows", AsyncMock(return_value=[])),
     ):
         client = TestClient(app)

@@ -135,9 +135,21 @@ Out-of-sandbox Temporal activities:
 * `ValidationError`: Non-retryable API constraint or service configuration violations.
 * `InputValidationError`: Synchronous validation error raised in update handlers.
 
+### `src/telemetry.py` — OpenTelemetry Tracing Infrastructure
+
+Provides span exporters, span processors, and provider factory functions for distributed tracing across both the chat/agent and Temporal worker processes. See the [Distributed Tracing](#distributed-tracing) section below for the full design.
+
+* **`SessionSpanProcessor`**: A `SpanProcessor` that stamps a `session_id` attribute on every span. The session ID is set per WebSocket connection and allows grouping all traces from a single user session.
+* **`FileSpanExporter`**: Appends spans as JSONL to a local file. Used for local development and debugging.
+* **`S3SpanExporter`**: Batches spans in memory and flushes to S3 as JSONL objects. Keys use Hive-style partitioning (`{prefix}/year={y}/month={m}/day={d}/hour={h}/trace-{timestamp}.jsonl`) for direct compatibility with Athena, Glue crawlers, and Spark.
+* **`create_agent_provider()`**: Builds a standard `TracerProvider` for the chat/agent process, with optional `SessionSpanProcessor` and exporter attachment.
+* **`create_worker_provider()`**: Builds a `ReplaySafeTracerProvider` (via Temporal's `create_tracer_provider()`) for the worker process. This wrapper suppresses span creation during Temporal's deterministic workflow replay, preventing duplicate spans.
+
+The S3 bucket name is resolved in order: explicit argument, `OTEL_EXPORT_S3_BUCKET` environment variable, or the AWS Systems Manager Parameter Store parameter `/durable_poc/temp_trace_bucket`. If none resolves, S3 export is silently disabled.
+
 ### `src/worker.py` — Worker Bootstrap
 
-Entry point: `python -m src.worker`. Connects to Temporal at `localhost:7233`, registers `SFSMInterpreter` alongside `http_call` and `notify` activities, and polls the `sfsm-queue` task queue.
+Entry point: `python -m src.worker`. Connects to Temporal at `localhost:7233`, registers `SFSMInterpreter` alongside `http_call` and `notify` activities, and polls the `sfsm-queue` task queue. Initialises a `ReplaySafeTracerProvider` and attaches a `_FilteredTracingInterceptor` to both the Temporal client and the worker (see [Distributed Tracing](#distributed-tracing)).
 
 ### `src/demo.py` — Terminal CLI (Legacy)
 
@@ -247,15 +259,124 @@ Sub-processes (`driver_details`, `photo_update`, `signature_update`, `select_add
 
 ---
 
+## Distributed Tracing
+
+### Overview
+
+The application uses [OpenTelemetry](https://opentelemetry.io/) (OTEL) to produce distributed traces that link a user's WebSocket message through the agent, across the Temporal gRPC boundary, and into the workflow interpreter and its activities. Traces are exported to S3 as Hive-partitioned JSONL for analysis via Athena or similar tools.
+
+There are two independent tracing systems in the application. The **UI sidebar trace** (`on_trace` callbacks → WebSocket → browser) is a real-time display for the end user and is unrelated to OTEL. The **OTEL traces** described here are for backend observability and audit.
+
+### Trace Boundaries
+
+A workflow execution can last weeks. A single OTEL trace spanning that duration would be impractical to query or display. Instead:
+
+| Concept | OTEL role | Lifetime |
+|---|---|---|
+| **User turn** | One trace (root span: `user_turn`) | Seconds to minutes — one WebSocket message through to response |
+| **WebSocket session** | Attribute (`session_id`) on every span | Minutes to hours — one browser connection |
+| **Workflow execution** | Attribute (`workflow_id`) on every span | Minutes to weeks — one Temporal workflow run |
+
+Traces are short and queryable. Sessions and workflow IDs are attributes for cross-turn correlation ("show all turns for workflow X" or "all turns in session Y").
+
+### How OTEL Integrates with Temporal
+
+Temporal's Python SDK provides `TracingInterceptor` (`temporalio.contrib.opentelemetry`), which plugs into both `Client.connect(interceptors=[...])` and `Worker(interceptors=[...])`. It works at two levels:
+
+* **Client side** (chat/agent process): When the agent's tool closures call `start_workflow`, `execute_update`, or `query`, the interceptor injects the current OTEL trace context into Temporal's gRPC headers as W3C `traceparent` metadata.
+* **Worker side** (worker process): When the worker picks up a workflow task or activity, the interceptor extracts the propagated trace context from those headers and creates child spans. This means a span started in the agent process (e.g. `tool.submit_input`) becomes the parent of spans in the worker process (e.g. `HandleUpdate:submit_input`, `interpreter.InputState`).
+
+This propagation happens automatically — no manual context passing is required. The two processes can run on different machines and the traces still link together via shared `trace_id`.
+
+### Provider Setup Per Process
+
+Each OS process owns its own `TracerProvider`:
+
+* **Chat/agent process** (`chat.py:main()`): Creates a standard `TracerProvider` via `create_agent_provider()`. Attaches a `SessionSpanProcessor` (stamps `session_id` on all spans) and exporter(s). Sets it as the global provider. The `WorkflowAgent`'s Temporal client uses `TracingInterceptor` to propagate context on tool calls.
+* **Worker process** (`worker.py:main()`): Creates a `ReplaySafeTracerProvider` via `create_worker_provider()`. This wraps a standard provider with Temporal's replay-safety logic: when the worker replays workflow history (which re-executes interpreter code deterministically), the provider suppresses span creation to prevent duplicate spans. The worker uses a `_FilteredTracingInterceptor` that extends `TracingInterceptor` to skip span creation for query handling — queries are high-frequency polling operations that would otherwise dominate the trace output.
+
+### Span Instrumentation
+
+**Chat/agent process:**
+
+| Span name | Created in | Attributes |
+|---|---|---|
+| `user_turn` | `chat.py` WebSocket handler | `session_id`, `workflow_id`, `user_message_preview` |
+| `agent.respond` | `agent.py` | `prompt_length`, `has_workflow_state` |
+| `tool.start_workflow` | `agent.py` tool closure | `workflow_id` |
+| `tool.submit_input` | `agent.py` tool closure | `workflow_id`, `token` |
+| `tool.get_workflow_state` | `agent.py` tool closure | `workflow_id` |
+| `tool.list_active_workflows` | `agent.py` tool closure | — |
+| `tool.get_workflow_definition` | `agent.py` tool closure | `workflow_id` |
+| `StartWorkflow:*`, `StartWorkflowUpdate:*` | Auto — `TracingInterceptor` | Temporal metadata |
+
+**Worker process:**
+
+| Span name | Created in | Attributes |
+|---|---|---|
+| `interpreter.InputState` | `interpreter.py` | `state_id`, `process_id`, `step`, `prompt`, `schema_kind`, `token`, `outcome`, `prompt_resolved`, `timeout_seconds`, `options_count` |
+| `interpreter.CallState` | `interpreter.py` | `state_id`, `process_id`, `step`, `service`, `http.method`, `http.url`, `assign_target`, `outcome`, `captured_keys`, `error_message` |
+| `interpreter.OutputState` | `interpreter.py` | `state_id`, `process_id`, `step`, `channel`, `message`, `notification_template`, `notification_outcome` |
+| `RunActivity:http_call` | Auto — `TracingInterceptor` | `workflow_id`, `service`, `http.method`, `http.url`, `http.status_code`, `idempotency_key` |
+| `RunWorkflow:*`, `HandleUpdate:*`, `ValidateUpdate:*` | Auto — `TracingInterceptor` | Temporal metadata |
+
+Only `InputState`, `OutputState`, and `CallState` have manual spans — the remaining state types (`ChoiceState`, `AssignState`, `InvokeState`, `WaitState`, `EndState`) are cheap internal bookkeeping and are not instrumented.
+
+### Polling Isolation
+
+The background polling loop in `chat.py` (`stream_background_events`) queries Temporal every 500ms for transcript and awaiting-input state. To prevent this from generating hundreds of trace spans per minute, the polling loop uses a separate Temporal client (`_get_polling_client()`) that has no `TracingInterceptor`. Only the agent's tool closures — which execute during user turns — use the traced client. On the worker side, the `_FilteredTracingInterceptor` suppresses `HandleQuery` spans for the same reason.
+
+### Trace Tree for a Single Turn
+
+```
+user_turn (chat.py)
+│   session_id, workflow_id, user_message_preview
+│
+├── agent.respond (agent.py)
+│   │
+│   └── tool.submit_input (agent.py)
+│       │
+│       └── StartWorkflowUpdate:submit_input (TracingInterceptor, client side)
+│           │
+│           └── HandleUpdate:submit_input (TracingInterceptor, worker side)
+│               │
+│               ├── interpreter.InputState (interpreter.py)
+│               │
+│               ├── interpreter.CallState (interpreter.py)
+│               │   │
+│               │   └── RunActivity:http_call (TracingInterceptor, worker side)
+│               │
+│               └── interpreter.OutputState (interpreter.py)
+```
+
+### S3 Export Pipeline
+
+Spans flow through the OTEL pipeline as follows:
+
+1. Application code creates spans via `tracer.start_as_current_span()` or the `TracingInterceptor` creates them automatically.
+2. The `SessionSpanProcessor` (chat process only) stamps `session_id` on each span as it starts.
+3. Completed spans are queued in a `BatchSpanProcessor`, which flushes to the `S3SpanExporter` every 30 seconds (or on process shutdown).
+4. The `S3SpanExporter` serializes each span as a JSON object (trace ID, span ID, name, timestamps, attributes, status) and accumulates them in memory.
+5. On flush, the exporter writes the batch as a single JSONL object to S3 with a Hive-partitioned key:
+
+```
+{prefix}/year={y}/month={m}/day={d}/hour={h}/trace-{timestamp}.jsonl
+```
+
+The S3 bucket name is resolved from AWS Systems Manager Parameter Store (`/durable_poc/temp_trace_bucket`), with `OTEL_EXPORT_S3_BUCKET` as an environment variable override. The `FileSpanExporter` remains available for local development via `OTEL_EXPORT_FILE`.
+
+---
+
 ## Test Architecture
 
 | Test file | Scope | Dependencies |
 |---|---|---|
 | `test_pure.py` | `paths.py` and `predicates.py` — pure functions | None |
-| `test_workflow.py` | Full interpreter execution against local Temporal dev server | `temporal` CLI binary |
+| `test_workflow.py` | Full interpreter execution and OTEL trace propagation against local Temporal dev server | `temporal` CLI binary |
 | `test_agent_tools.py` | Tool functions with `FakeTemporalClient` and `httpx.MockTransport` | None |
 | `test_agent.py` | `WorkflowAgent` composition, session state updates, contextual prompt building, `_coerce_value` | None |
 | `test_chat.py` | FastAPI WebSocket endpoints, message rendering, option generation | None |
+| `test_tracing.py` | OTEL span creation, parent-child relationships, session stamping, activity enrichment | None |
 
 ---
 

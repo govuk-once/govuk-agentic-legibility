@@ -41,6 +41,9 @@ with workflow.unsafe.imports_passed_through():
         set_path,
     )
     from src.predicates import evaluate
+    from opentelemetry import trace as otel_trace
+
+_tracer = otel_trace.get_tracer(__name__)
 
 
 @workflow.defn
@@ -145,90 +148,116 @@ class SFSMInterpreter:
 
             # --- INPUT STATE ---
             if isinstance(current_state, InputState):
-                token = f"tkn_{self.state.step_counter}"
+                with _tracer.start_as_current_span(
+                    "interpreter.InputState",
+                    attributes={
+                        "temporalWorkflowID": workflow.info().workflow_id,
+                        "state_id": frame.state_id,
+                        "process_id": frame.process_id,
+                        "step": self.state.step_counter,
+                        "prompt": current_state.prompt,
+                        "schema_kind": current_state.schema_.kind,
+                        "assign_target": current_state.assign,
+                        "has_timeout": bool(current_state.timeout),
+                        "has_options_from": bool(current_state.schema_.options_from),
+                        "next_state": current_state.next,
+                    },
+                ) as input_span:
+                    token = f"tkn_{self.state.step_counter}"
+                    input_span.set_attribute("token", token)
 
-                options_from = getattr(current_state.schema_, "options_from", None)
-                static_options = getattr(current_state.schema_, "options", None)
+                    options_from = getattr(current_state.schema_, "options_from", None)
+                    static_options = getattr(current_state.schema_, "options", None)
 
-                options = None
-                if options_from:
-                    options = resolve_path(context, options_from)
-                elif static_options:
-                    options = [
-                        opt.model_dump(by_alias=True, exclude_none=True)
-                        if hasattr(opt, "model_dump")
-                        else opt
-                        for opt in static_options
-                    ]
+                    options = None
+                    timeout_duration: timedelta | None = None
+                    prompt_text = ""
+                    if options_from:
+                        options = resolve_path(context, options_from)
+                    elif static_options:
+                        options = [
+                            opt.model_dump(by_alias=True, exclude_none=True)
+                            if hasattr(opt, "model_dump")
+                            else opt
+                            for opt in static_options
+                        ]
 
-                timeout_duration: timedelta | None = None
-                if current_state.timeout and "after" in current_state.timeout:
-                    timeout_val = resolve_dict(current_state.timeout["after"], context)
-                    if isinstance(timeout_val, str):
-                        timeout_duration = parse_duration(timeout_val)
+                        
+                    if current_state.timeout and "after" in current_state.timeout:
+                        timeout_val = resolve_dict(current_state.timeout["after"], context)
+                        if isinstance(timeout_val, str):
+                            timeout_duration = parse_duration(timeout_val)
+                            input_span.set_attribute("timeout_seconds", timeout_duration.total_seconds())
+                        else:
+                            raise DefinitionError(
+                                "Timeout 'after' must resolve to a valid duration string"
+                            )
+
+                    prompt_text = interpolate(current_state.prompt, context)
+                    input_span.set_attribute("prompt_resolved", prompt_text)
+
+                    schema_dict = current_state.schema_.model_dump(
+                        by_alias=True, exclude_none=True
+                    )
+                    if options is not None:
+                        schema_dict["options"] = options
+
+                    self._awaiting_input = AwaitingInput(
+                        token=token,
+                        prompt=prompt_text,
+                        schema=schema_dict,
+                        options=options,
+                        timeout_seconds=timeout_duration.total_seconds()
+                        if timeout_duration
+                        else None,
+                        state_id=frame.state_id,
+                        state_type="InputState",
+                    )
+                    self._received_input = None
+                    self._timeout_triggered = False
+                    self._input_ready_event.clear()
+
+                    workflow.logger.info(
+                        f"Awaiting input token='{token}' prompt='{current_state.prompt}'"
+                    )
+
+                    if timeout_duration:
+                        workflow.logger.info(f"⏱ Timeout set for {timeout_duration}")
+                        try:
+                            await workflow.wait_condition(
+                                lambda: self._input_ready_event.is_set(),
+                                timeout=timeout_duration,
+                            )
+                        except asyncio.TimeoutError:
+                            self._timeout_triggered = True
+                            workflow.logger.warn(
+                                f"⚠️ Input timed out at state '{frame.state_id}'"
+                            )
                     else:
-                        raise DefinitionError(
-                            "Timeout 'after' must resolve to a valid duration string"
-                        )
-
-                prompt_text = interpolate(current_state.prompt, context)
-
-                schema_dict = current_state.schema_.model_dump(
-                    by_alias=True, exclude_none=True
-                )
-                if options is not None:
-                    schema_dict["options"] = options
-
-                self._awaiting_input = AwaitingInput(
-                    token=token,
-                    prompt=prompt_text,
-                    schema=schema_dict,
-                    options=options,
-                    timeout_seconds=timeout_duration.total_seconds()
-                    if timeout_duration
-                    else None,
-                    state_id=frame.state_id,
-                    state_type="InputState",
-                )
-                self._received_input = None
-                self._timeout_triggered = False
-                self._input_ready_event.clear()
-
-                workflow.logger.info(
-                    f"Awaiting input token='{token}' prompt='{current_state.prompt}'"
-                )
-
-                if timeout_duration:
-                    workflow.logger.info(f"⏱ Timeout set for {timeout_duration}")
-                    try:
                         await workflow.wait_condition(
-                            lambda: self._input_ready_event.is_set(),
-                            timeout=timeout_duration,
+                            lambda: self._input_ready_event.is_set()
                         )
-                    except asyncio.TimeoutError:
-                        self._timeout_triggered = True
-                        workflow.logger.warn(
-                            f"⚠️ Input timed out at state '{frame.state_id}'"
-                        )
-                else:
-                    await workflow.wait_condition(
-                        lambda: self._input_ready_event.is_set()
-                    )
 
-                self._awaiting_input = None
+                    self._awaiting_input = None
 
-                if self._timeout_triggered:
-                    if current_state.timeout and "next" in current_state.timeout:
-                        workflow.logger.info(
-                            f"➡️ Timeout transition to '{current_state.timeout['next']}'"
+                    if self._timeout_triggered:
+                        input_span.set_attribute("outcome", "timeout")
+                        if current_state.timeout and "next" in current_state.timeout:
+                            workflow.logger.info(
+                                f"➡️ Timeout transition to '{current_state.timeout['next']}'"
+                            )
+                            frame.state_id = current_state.timeout["next"]
+                            continue
+                        raise DefinitionError(
+                            f"Timeout triggered without 'next' route in state '{frame.state_id}'"
                         )
-                        frame.state_id = current_state.timeout["next"]
-                        continue
-                    raise DefinitionError(
-                        f"Timeout triggered without 'next' route in state '{frame.state_id}'"
-                    )
-                else:
-                    val = self._received_input
+                    else:
+                        input_span.set_attribute("outcome", "received")
+                        input_span.set_attribute(
+                            "received_value_type", type(self._received_input).__name__
+                        )
+                        input_span.set_attribute("received_value", str(self._received_input))
+                        val = self._received_input
 
                     schema_kind = getattr(current_state.schema_, "kind", None)
                     if schema_kind in ["select_one", "select_many"]:
@@ -290,54 +319,72 @@ class SFSMInterpreter:
                         val = getattr(current_state.schema_, "default", None)
 
                     workflow.logger.info(
-                        f"Input received for '{current_state.assign}': val={val} (type={type(val).__name__})"
-                    )
+                            f"Input received for '{current_state.assign}': val={val} (type={type(val).__name__})"
+                        )
                     set_path(frame.vars, current_state.assign, val)
                     frame.state_id = current_state.next
 
             # --- OUTPUT STATE ---
             elif isinstance(current_state, OutputState):
-                if (
-                    current_state.channel == "transcript"
-                    or current_state.also_transcript
-                ):
-                    msg = current_state.also_transcript or current_state.message or ""
-                    msg = interpolate(msg, context)
-                    workflow.logger.info(f"Transcript output: '{msg}'")
-                    self.state.transcript.append(
-                        TranscriptEntry(
-                            step=self.state.step_counter,
-                            timestamp=workflow.now().isoformat(),
-                            message=msg,
+                with _tracer.start_as_current_span(
+                    "interpreter.OutputState",
+                    attributes={
+                        "temporalWorkflowID": workflow.info().workflow_id,
+                        "state_id": frame.state_id,
+                        "process_id": frame.process_id,
+                        "step": self.state.step_counter,
+                        "channel": current_state.channel,
+                        "has_template": bool(current_state.template),
+                        "has_notification": current_state.channel != "transcript",
+                        "on_error": current_state.on_error,
+                        "next_state": current_state.next,
+                    },
+                ) as output_span:
+                    if (
+                        current_state.channel == "transcript"
+                        or current_state.also_transcript
+                    ):
+                        msg = current_state.also_transcript or current_state.message or ""
+                        msg = interpolate(msg, context)
+                        output_span.set_attribute("message", msg[:500])
+                        workflow.logger.info(f"Transcript output: '{msg}'")
+                        self.state.transcript.append(
+                            TranscriptEntry(
+                                step=self.state.step_counter,
+                                timestamp=workflow.now().isoformat(),
+                                message=msg,
+                            )
                         )
-                    )
-                    if len(self.state.transcript) > max_transcript_length:
-                        self.state.transcript = self.state.transcript[
-                            -max_transcript_length:
-                        ]
+                        if len(self.state.transcript) > max_transcript_length:
+                            self.state.transcript = self.state.transcript[
+                                -max_transcript_length:
+                            ]
 
-                if current_state.channel != "transcript":
-                    notify_params = activities.NotifyParams(
-                        channel=current_state.channel,
-                        template=current_state.template or "",
-                        params=resolve_dict(current_state.params or {}, context),
-                    )
-                    workflow.logger.info(
-                        f"Sending notification via '{current_state.channel}'"
-                    )
-                    try:
-                        await workflow.execute_activity(
-                            activities.notify,
-                            notify_params,
-                            start_to_close_timeout=timedelta(seconds=30),
-                            retry_policy=RetryPolicy(maximum_attempts=5),
+                    if current_state.channel != "transcript":
+                        notify_params = activities.NotifyParams(
+                            channel=current_state.channel,
+                            template=current_state.template or "",
+                            params=resolve_dict(current_state.params or {}, context),
                         )
-                    except Exception as e:
-                        workflow.logger.error(f"Notification activity failed: {e}")
-                        if current_state.on_error != "continue":
-                            raise e
+                        output_span.set_attribute("notification_template", current_state.template or "")
+                        workflow.logger.info(
+                            f"Sending notification via '{current_state.channel}'"
+                        )
+                        try:
+                            await workflow.execute_activity(
+                                activities.notify,
+                                notify_params,
+                                start_to_close_timeout=timedelta(seconds=30),
+                                retry_policy=RetryPolicy(maximum_attempts=5),
+                            )
+                            output_span.set_attribute("notification_outcome", "success")
+                        except Exception as e:
+                            output_span.set_attribute("notification_outcome", "failed")
+                            workflow.logger.error(f"Notification activity failed: {e}")
+                            if current_state.on_error != "continue":
+                                raise e
 
-                frame.state_id = current_state.next
+                    frame.state_id = current_state.next
 
             # --- CALL STATE ---
             elif isinstance(current_state, CallState):
@@ -352,61 +399,85 @@ class SFSMInterpreter:
                         current_state.idempotency_key, context
                     )
 
-                call_params = activities.CallParams(
-                    method=current_state.method,
-                    url=url,
-                    headers=headers,
-                    body=body,
-                    capture=current_state.capture or {},
-                    service=service_name,
-                    idempotency_key=idempotency_key,
-                )
-
-                workflow.logger.info(
-                    f"🌐 HTTP {current_state.method} -> {service_name}:{url}"
-                )
-
-                self.state.transcript.append(
-                    TranscriptEntry(
-                        step=self.state.step_counter,
-                        timestamp=workflow.now().isoformat(),
-                        message=f"[ENGINE LOG] 🌐 Dispatched HTTP {current_state.method} request to service '{service_name}' ({url})",
+                with _tracer.start_as_current_span(
+                    "interpreter.CallState",
+                    attributes={
+                        "temporalWorkflowID": workflow.info().workflow_id,
+                        "state_id": frame.state_id,
+                        "process_id": frame.process_id,
+                        "step": self.state.step_counter,
+                        "service": service_name,
+                        "http.method": current_state.method,
+                        "http.url": url,
+                        "has_idempotency_key": bool(idempotency_key),
+                        "assign_target": current_state.assign,
+                        "capture_keys": ", ".join(current_state.capture.keys()),
+                        "has_catch": bool(current_state.catch),
+                        "next_state": current_state.next,
+                    },
+                ) as call_span:
+                    call_params = activities.CallParams(
+                        method=current_state.method,
+                        url=url,
+                        headers=headers,
+                        body=body,
+                        capture=current_state.capture or {},
+                        service=service_name,
+                        idempotency_key=idempotency_key,
                     )
-                )
 
-                retry_pol = RetryPolicy(
-                    maximum_attempts=3,
-                    non_retryable_error_types=["ValidationError"],
-                )
-
-                try:
-                    result = await workflow.execute_activity(
-                        activities.http_call,
-                        call_params,
-                        start_to_close_timeout=timedelta(seconds=30),
-                        retry_policy=retry_pol,
+                    workflow.logger.info(
+                        f"🌐 HTTP {current_state.method} -> {service_name}:{url}"
                     )
-                    set_path(frame.vars, current_state.assign, result)
 
                     self.state.transcript.append(
                         TranscriptEntry(
                             step=self.state.step_counter,
                             timestamp=workflow.now().isoformat(),
-                            message=f"[ENGINE LOG] ✅ HTTP Call completed. Projected output assigned to '{current_state.assign}'",
+                            message=f"[ENGINE LOG] 🌐 Dispatched HTTP {current_state.method} request to service '{service_name}' ({url})",
                         )
                     )
-                    frame.state_id = current_state.next
-                except Exception as e:
-                    workflow.logger.error(f"CallState activity error: {e}")
-                    handled = False
-                    if current_state.catch:
-                        for c in current_state.catch:
-                            if c["on"] == "any":
-                                frame.state_id = c["next"]
-                                handled = True
-                                break
-                    if not handled:
-                        raise e
+
+                    retry_pol = RetryPolicy(
+                        maximum_attempts=3,
+                        non_retryable_error_types=["ValidationError"],
+                    )
+
+                    try:
+                        result = await workflow.execute_activity(
+                            activities.http_call,
+                            call_params,
+                            start_to_close_timeout=timedelta(seconds=30),
+                            retry_policy=retry_pol,
+                        )
+                        call_span.set_attribute("outcome", "success")
+                        call_span.set_attribute(
+                            "captured_keys", ", ".join(result.keys()) if isinstance(result, dict) else ""
+                        )
+                        set_path(frame.vars, current_state.assign, result)
+
+                        self.state.transcript.append(
+                            TranscriptEntry(
+                                step=self.state.step_counter,
+                                timestamp=workflow.now().isoformat(),
+                                message=f"[ENGINE LOG] ✅ HTTP Call completed. Projected output assigned to '{current_state.assign}'",
+                            )
+                        )
+                        frame.state_id = current_state.next
+                    except Exception as e:
+                        call_span.set_attribute("outcome", "error")
+                        call_span.set_attribute("error_message", str(e)[:200])
+                        workflow.logger.error(f"CallState activity error: {e}")
+                        handled = False
+                        if current_state.catch:
+                            for c in current_state.catch:
+                                if c["on"] == "any":
+                                    call_span.set_attribute("error_handled_by", c["next"])
+                                    frame.state_id = c["next"]
+                                    handled = True
+                                    break
+                        if not handled:
+                            raise e
 
             # --- CHOICE STATE ---
             elif isinstance(current_state, ChoiceState):

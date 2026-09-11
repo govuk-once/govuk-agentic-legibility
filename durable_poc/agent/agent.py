@@ -13,6 +13,8 @@ import httpx
 from strands import Agent, tool
 from strands.models import BedrockModel
 from temporalio.client import Client as TemporalClient
+from temporalio.contrib.opentelemetry import TracingInterceptor
+from opentelemetry import trace
 
 from agent import tools as tool_functions
 
@@ -187,6 +189,7 @@ class WorkflowAgent:
         self._http_client: httpx.AsyncClient | None = None
         self._agent_lock = asyncio.Lock()
         self._active_trace_callback: TraceCallback | None = None
+        self._tracer = trace.get_tracer(__name__)
 
         if PROMPT_PATH.exists():
             self._system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
@@ -218,7 +221,10 @@ class WorkflowAgent:
     async def _get_temporal_client(self) -> TemporalClient:
         if self._temporal_client is None:
             logger.info("Connecting to Temporal at %s", self._temporal_address)
-            self._temporal_client = await TemporalClient.connect(self._temporal_address)
+            self._temporal_client = await TemporalClient.connect(
+                self._temporal_address,
+                interceptors=[TracingInterceptor()],
+            )
             logger.info("Connected to Temporal")
         return self._temporal_client
 
@@ -278,14 +284,22 @@ class WorkflowAgent:
             len(prompt),
             bool(context),
         )
-        try:
-            async with self._agent_lock:
-                result = await self._agent.invoke_async(prompt)
-            response = str(result)
-            logger.info("Agent responded with length=%d", len(response))
-            return response
-        finally:
-            self._active_trace_callback = None
+        with self._tracer.start_as_current_span(
+            "agent.respond",
+            attributes={
+                "prompt_length": len(prompt),
+                "has_workflow_state": bool(context),
+                "temporalWorkflowID": context.get("workflow_id", "") if context else ""
+            },
+        ):
+            try:
+                async with self._agent_lock:
+                    result = await self._agent.invoke_async(prompt)
+                response = str(result)
+                logger.info("Agent responded with length=%d", len(response))
+                return response
+            finally:
+                self._active_trace_callback = None
 
     def _update_session_state(self, workflow_id: str, state: dict[str, Any]) -> None:
         self._session_state = {
@@ -354,48 +368,52 @@ class WorkflowAgent:
             Args:
                 workflow_id: The numeric workflow ID or string slug identifier.
             """
-            logger.info(
-                "Tool get_workflow_definition called: workflow_id=%s", workflow_id
-            )
-            await owner._trace(
-                "AGENT",
-                "Selected Tool: get_workflow_definition",
-                {"workflow_id": workflow_id},
-            )
-            try:
-                http_client = await owner._get_http_client()
-                await owner._trace(
-                    "SYSTEM",
-                    "Fetching Workflow Definition from Server",
-                    f"GET {owner._workflow_server_url}/api/v1/workflows/{workflow_id}",
-                )
-                result = await tool_functions.get_workflow_definition(
-                    workflow_id=workflow_id,
-                    http_client=http_client,
-                    base_url=owner._workflow_server_url,
+            with owner._tracer.start_as_current_span(
+                "tool.get_workflow_definition",
+                attributes={"temporalWorkflowID": workflow_id},
+            ):
+                logger.info(
+                    "Tool get_workflow_definition called: workflow_id=%d", workflow_id
                 )
                 await owner._trace(
-                    "SYSTEM",
-                    "Fetched Workflow Definition",
-                    {
-                        "id": result.get("id"),
-                        "version": result.get("version"),
-                        "entry": result.get("entry"),
-                    },
+                    "AGENT",
+                    "Selected Tool: get_workflow_definition",
+                    {"workflow_id": workflow_id},
                 )
-            except Exception as e:
-                logger.exception(
-                    "Tool get_workflow_definition failed for workflow_id=%s",
-                    workflow_id,
+                try:
+                    http_client = await owner._get_http_client()
+                    await owner._trace(
+                        "SYSTEM",
+                        "Fetching Workflow Definition from Server",
+                        f"GET {owner._workflow_server_url}/api/v1/workflows/{workflow_id}",
+                    )
+                    result = await tool_functions.get_workflow_definition(
+                        workflow_id=workflow_id,
+                        http_client=http_client,
+                        base_url=owner._workflow_server_url,
+                    )
+                    await owner._trace(
+                        "SYSTEM",
+                        "Fetched Workflow Definition",
+                        {
+                            "id": result.get("id"),
+                            "version": result.get("version"),
+                            "entry": result.get("entry"),
+                        },
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "Tool get_workflow_definition failed for workflow_id=%d",
+                        workflow_id,
+                    )
+                    await owner._trace(
+                        "AGENT", "Tool Error: get_workflow_definition", str(e)
+                    )
+                    raise
+                logger.info(
+                    "Tool get_workflow_definition succeeded: id=%s", result.get("id", "?")
                 )
-                await owner._trace(
-                    "AGENT", "Tool Error: get_workflow_definition", str(e)
-                )
-                raise
-            logger.info(
-                "Tool get_workflow_definition succeeded: id=%s", result.get("id", "?")
-            )
-            return result
+                return result
 
         @tool
         async def start_workflow(workflow_id: int | str) -> dict[str, Any]:
@@ -404,36 +422,40 @@ class WorkflowAgent:
             Args:
                 workflow_id: The numeric workflow ID or string slug from the workflow server.
             """
-            logger.info("Tool start_workflow called: workflow_id=%s", workflow_id)
-            try:
-                http_client = await owner._get_http_client()
-                temporal_client = await owner._get_temporal_client()
-                temporal_workflow_id = await tool_functions.start_workflow(
-                    workflow_id=workflow_id,
-                    http_client=http_client,
-                    base_url=owner._workflow_server_url,
-                    temporal_client=temporal_client,
-                    task_queue=owner._task_queue,
+            with owner._tracer.start_as_current_span(
+                "tool.start_workflow",
+                attributes={"temporalWorkflowID": workflow_id},
+            ):
+                logger.info("Tool start_workflow called: workflow_id=%d", workflow_id)
+                try:
+                    http_client = await owner._get_http_client()
+                    temporal_client = await owner._get_temporal_client()
+                    temporal_workflow_id = await tool_functions.start_workflow(
+                        workflow_id=workflow_id,
+                        http_client=http_client,
+                        base_url=owner._workflow_server_url,
+                        temporal_client=temporal_client,
+                        task_queue=owner._task_queue,
+                    )
+                    await owner._trace(
+                        "ENGINE",
+                        "Started Temporal Execution",
+                        {"workflow_id": temporal_workflow_id},
+                    )
+                    state = await tool_functions.get_workflow_state(
+                        workflow_id=temporal_workflow_id, temporal_client=temporal_client
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "Tool start_workflow failed for workflow_id=%d", workflow_id
+                    )
+                    await owner._trace("ENGINE", "Start Workflow Failed", str(e))
+                    raise
+                owner._update_session_state(temporal_workflow_id, state)
+                logger.info(
+                    "Tool start_workflow succeeded: temporal_id=%s", temporal_workflow_id
                 )
-                await owner._trace(
-                    "ENGINE",
-                    "Started Temporal Execution",
-                    {"workflow_id": temporal_workflow_id},
-                )
-                state = await tool_functions.get_workflow_state(
-                    workflow_id=temporal_workflow_id, temporal_client=temporal_client
-                )
-            except Exception as e:
-                logger.exception(
-                    "Tool start_workflow failed for workflow_id=%s", workflow_id
-                )
-                await owner._trace("ENGINE", "Start Workflow Failed", str(e))
-                raise
-            owner._update_session_state(temporal_workflow_id, state)
-            logger.info(
-                "Tool start_workflow succeeded: temporal_id=%s", temporal_workflow_id
-            )
-            return {"workflow_id": temporal_workflow_id, **state}
+                return {"workflow_id": temporal_workflow_id, **state}
 
         @tool
         async def get_workflow_state(workflow_id: str) -> dict[str, Any]:
@@ -442,39 +464,43 @@ class WorkflowAgent:
             Args:
                 workflow_id: The Temporal workflow ID.
             """
-            logger.info("Tool get_workflow_state called: workflow_id=%s", workflow_id)
-            await owner._trace(
-                "AGENT",
-                "Selected Tool: get_workflow_state",
-                {"workflow_id": workflow_id},
-            )
-            try:
-                temporal_client = await owner._get_temporal_client()
-                state = await tool_functions.get_workflow_state(
-                    workflow_id=workflow_id,
-                    temporal_client=temporal_client,
+            with owner._tracer.start_as_current_span(
+                "tool.get_workflow_state",
+                attributes={"temporalWorkflowID": workflow_id},
+            ):
+                logger.info("Tool get_workflow_state called: workflow_id=%s", workflow_id)
+                await owner._trace(
+                    "AGENT",
+                    "Selected Tool: get_workflow_state",
+                    {"workflow_id": workflow_id},
                 )
-            except Exception as e:
-                logger.exception(
-                    "Tool get_workflow_state failed for workflow_id=%s", workflow_id
+                try:
+                    temporal_client = await owner._get_temporal_client()
+                    state = await tool_functions.get_workflow_state(
+                        workflow_id=workflow_id,
+                        temporal_client=temporal_client,
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "Tool get_workflow_state failed for workflow_id=%s", workflow_id
+                    )
+                    await owner._trace("ENGINE", "Get Workflow State Failed", str(e))
+                    raise
+                owner._update_session_state(workflow_id, state)
+
+                if not state.get("awaiting"):
+                    return {
+                        "workflow_id": workflow_id,
+                        "status": state.get("status", "RUNNING"),
+                        "awaiting": None,
+                        "message": "The workflow is processing background tasks or completed. Do not re-query.",
+                        "transcript": state.get("transcript", []),
+                    }
+
+                logger.info(
+                    "Tool get_workflow_state succeeded: workflow_id=%s", workflow_id
                 )
-                await owner._trace("ENGINE", "Get Workflow State Failed", str(e))
-                raise
-            owner._update_session_state(workflow_id, state)
-
-            if not state.get("awaiting"):
-                return {
-                    "workflow_id": workflow_id,
-                    "status": state.get("status", "RUNNING"),
-                    "awaiting": None,
-                    "message": "The workflow is processing background tasks or completed. Do not re-query.",
-                    "transcript": state.get("transcript", []),
-                }
-
-            logger.info(
-                "Tool get_workflow_state succeeded: workflow_id=%s", workflow_id
-            )
-            return state
+                return state
 
         @tool
         async def submit_input(
@@ -488,58 +514,63 @@ class WorkflowAgent:
                 value: The structured value to submit.
             """
             coerced_value = _coerce_value(value, owner._session_state)
-            logger.info(
-                "submit_input called: workflow_id=%r, token=%r, coerced_value=%r",
-                workflow_id,
-                token,
-                coerced_value,
-            )
-            await owner._trace(
-                "AGENT",
-                "Selected Tool: submit_input",
-                {
-                    "workflow_id": workflow_id,
-                    "token": token,
-                    "raw_value": value,
-                    "coerced_value": coerced_value,
-                },
-            )
-            try:
-                temporal_client = await owner._get_temporal_client()
-                state = await tool_functions.submit_input(
-                    workflow_id=workflow_id,
-                    token=token,
-                    value=coerced_value,
-                    temporal_client=temporal_client,
+            with owner._tracer.start_as_current_span(
+                "tool.submit_input",
+                attributes={"temporalWorkflowID": workflow_id, "token": token, "input_value": coerced_value},
+            ):
+                logger.info(
+                    "submit_input called: workflow_id=%r, token=%r, coerced_value=%r",
+                    workflow_id,
+                    token,
+                    coerced_value,
                 )
                 await owner._trace(
-                    "ENGINE", "Temporal Update Accepted", {"token": token}
+                    "AGENT",
+                    "Selected Tool: submit_input",
+                    {
+                        "workflow_id": workflow_id,
+                        "token": token,
+                        "raw_value": value,
+                        "coerced_value": coerced_value,
+                    },
                 )
-                owner._update_session_state(workflow_id, state)
-                return state
-            except Exception as e:
-                logger.exception("submit_input failed")
-                await owner._trace("ENGINE", "Temporal Update Rejected", str(e))
-                raise
+                try:
+                    temporal_client = await owner._get_temporal_client()
+                    state = await tool_functions.submit_input(
+                        workflow_id=workflow_id,
+                        token=token,
+                        value=coerced_value,
+                        temporal_client=temporal_client,
+                    )
+                    await owner._trace(
+                        "ENGINE", "Temporal Update Accepted", {"token": token}
+                    )
+                    owner._update_session_state(workflow_id, state)
+                    return state
+                except Exception as e:
+                    logger.exception("submit_input failed")
+                    await owner._trace("ENGINE", "Temporal Update Rejected", str(e))
+                    raise
 
         @tool
         async def list_active_workflows() -> list[dict[str, str]]:
             """List running workflows that the user may want to resume."""
-            logger.info("Tool list_active_workflows called")
-            await owner._trace("AGENT", "Selected Tool: list_active_workflows")
-            try:
-                temporal_client = await owner._get_temporal_client()
-                result = await tool_functions.list_active_workflows(
-                    temporal_client=temporal_client,
+            with owner._tracer.start_as_current_span("tool.list_active_workflows"):
+                logger.info("Tool list_active_workflows called")
+                await owner._trace("AGENT", "Selected Tool: list_active_workflows")
+                try:
+                    temporal_client = await owner._get_temporal_client()
+                    result = await tool_functions.list_active_workflows(
+                        temporal_client=temporal_client,
+                    )
+                except Exception as e:
+                    logger.exception("Tool list_active_workflows failed")
+                    await owner._trace("ENGINE", "List Active Workflows Failed", str(e))
+                    raise
+                logger.info(
+                    "Tool list_active_workflows returned %d workflow(s)", len(result)
                 )
-            except Exception as e:
-                logger.exception("Tool list_active_workflows failed")
-                await owner._trace("ENGINE", "List Active Workflows Failed", str(e))
-                raise
-            logger.info(
-                "Tool list_active_workflows returned %d workflow(s)", len(result)
-            )
-            return result
+                return result
 
         return [
             list_available_workflows,
