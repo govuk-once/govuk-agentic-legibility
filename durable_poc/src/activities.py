@@ -24,6 +24,8 @@ def _workflow_id_from_activity() -> str | None:
 SERVICE_ENV_MAP = {
     "dvla": "DVLA_BASE",
     "postoffice": "POSTOFFICE_BASE",
+    "hmrc": "HMRC_BASE",
+    "dwp": "DWP_BASE",
 }
 
 

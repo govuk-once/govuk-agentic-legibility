@@ -12,11 +12,11 @@ The agent layer uses AWS Bedrock (Claude) and the Strands framework purely as a 
 * **Strict Determinism**: All predicates and path resolutions are evaluated using structural recursion without string `eval()`, `exec()`, or unsafe expression engines, ensuring deterministic replay inside the Temporal sandbox.
 * **Dual-Path Web Architecture**: Decouples LLM processing from UI display. The LLM handles intent parsing and tool invocation, while a background WebSockets stream renders transcript entries (`OutputState`) and interactive prompts (`InputState`) straight from Temporal.
 * **Real-Time Event Trace Sidebar**: Split-screen execution sidebar displaying granular, real-time trace badges across four distinct event channels: `USER`, `AGENT` (tool selection), `ENGINE` (FSM transitions and HTTP dispatches), and `SYSTEM` (schema option renders).
-* **Synchronous Input Validation**: Human inputs are submitted via Temporal Updates (not Signals), allowing the workflow to synchronously validate payloads against schema kinds or regex patterns and reject stale or duplicate tokens immediately.
+* **Synchronous Input Validation**: Human inputs are submitted via Temporal Updates (not Signals), allowing the workflow to synchronously validate payloads against schema kinds, regex patterns, or `file_ref` metadata and reject stale or duplicate tokens immediately.
 * **Configurable Service Routing & Idempotency**: Environment-driven activity routing table (`SERVICE_ENV_MAP`) that validates target endpoints and automatically forwards interpolated `Idempotency-Key` headers to external APIs.
 * **Sub-process Stack Frames**: Sub-processes execute as stack frames (`StackFrame`) within a single Temporal workflow context (rather than Child Workflows), supporting return mappings while keeping state serializable for Continue-As-New.
 * **Activity Boundaries**: HTTP payloads are projected inside activities. Large response bodies never cross the workflow boundary, preventing history bloat.
-* **UI Enhancements**: Dynamic button generation for selection schemas, timeout warning badge displays, terminal completion cards, and an active workflow resume dropdown picker.
+* **UI Enhancements**: Dynamic button generation for selection schemas, file upload attachment bridge, timeout warning badge displays, terminal completion cards, and an active workflow resume dropdown picker.
 
 ## Project Structure
 
@@ -24,12 +24,13 @@ The agent layer uses AWS Bedrock (Claude) and the Strands framework purely as a 
 durable_poc/
 ├── agent/
 │   ├── __init__.py
-│   ├── agent.py         # Strands agent composition & tool trace callbacks
+│   ├── agent.py         # Strands agent composition, value coercion & trace callbacks
 │   ├── chat.py          # FastAPI Web Server, WebSockets UI & Split-Screen Trace
 │   ├── tools.py         # Tool functions bridging agent to Temporal & Server
 │   └── prompts/
 │       └── system.txt   # Silent NLU system prompt with execution constraints
 ├── src/
+│   ├── actions.py       # Date arithmetic math helpers
 │   ├── model.py         # Pydantic models enforcing the JSON definition schema
 │   ├── paths.py         # Dot-path resolution, string interpolation & ISO durations
 │   ├── predicates.py    # Pure, deterministic condition evaluator
@@ -45,7 +46,8 @@ durable_poc/
 │   ├── test_chat.py         # FastAPI WebSocket interface & trace tests
 │   ├── test_pure.py         # Unit tests for paths and predicates
 │   └── test_workflow.py     # Integration tests using local Temporal dev server
-└── dvla_coa_adv_schema.json # DVLA Change of Address FSM Definition
+├── dvla_coa_adv_schema.json # DVLA Change of Address FSM Definition
+└── dwp_ma1_schema.json      # DWP Maternity Allowance (MA1) FSM Definition
 ```
 
 ## Prerequisites
@@ -65,7 +67,7 @@ Run the tests:
 just test-poc
 ```
 
-The test suite validates pure Python logic (path resolution, predicates), Temporal workflow loops (using a local dev server), agent tool functions, and the FastAPI WebSocket interface.
+The test suite validates pure Python logic (path resolution, predicates), Temporal workflow loops (using a local dev server), agent tool functions, coercion logic, and the FastAPI WebSocket interface.
 
 ---
 
@@ -204,16 +206,15 @@ PYTHONPATH=. uv run python -m src.demo
 ```
 
 Follow the prompts in this terminal to step through the state machine.
-
 ---
 
 ## State Types Reference
 
-* **`input`**: Suspends the workflow and exposes an awaited schema. Resumes when a matching payload is submitted via Update. Supports timeouts.
-* **`choice`**: Evaluates a list of rules (using operators like `eq`, `lt`, `is_true`, `not_empty`) and branches execution.
-* **`assign`**: Mutates the current stack frame's variable context (including `now_plus` and integer `add`).
+* **`input`**: Suspends the workflow and exposes an awaited schema. Resumes when a matching payload is submitted via Update. Supports timeouts and retry counts.
+* **`choice`**: Evaluates a list of rules (using operators like `eq`, `lt`, `is_true`, `not_empty`, `contains`) and branches execution.
+* **`assign`**: Mutates the current stack frame's variable context (including date math like `date_subtract` and arithmetic `add`).
 * **`call`**: Dispatches `http_call` activity with service validation, capture projections, error catches, and idempotency headers.
 * **`invoke`**: Pushes a sub-process stack frame onto the workflow call stack, binding inputs and catch routes.
 * **`output`**: Emits internal transcript messages or fires external notification activities.
 * **`wait`**: Durably sleeps the workflow for an ISO 8601 duration string (e.g., `PT5M`).
-* **`end`**: Terminates the current process frame with a status and return payload.
+* **`end`**: Terminates the current process frame with a status, outcome, and return payload.

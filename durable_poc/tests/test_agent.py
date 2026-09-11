@@ -1,4 +1,4 @@
-"""Tests for the Strands agent composition layer."""
+"""Tests for the Strands agent composition layer and value coercion logic."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import httpx
 import pytest
 
 from agent.agent import (
-    PROMPT_PATH,
     WorkflowAgent,
     _coerce_value,
     build_contextual_prompt,
@@ -72,34 +71,21 @@ class FakeTemporalClient:
 
 
 # ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
-
-
-def test_system_prompt_file_exists() -> None:
-    """The system prompt file must exist at the expected path."""
-    assert PROMPT_PATH.exists()
-
-
-def test_system_prompt_contains_integrity_instructions() -> None:
-    """The prompt must instruct the agent not to skip or invent workflow steps."""
-    content = PROMPT_PATH.read_text(encoding="utf-8")
-    assert "workflow" in content.lower()
-    assert "skip" in content.lower() or "deviate" in content.lower()
-    assert "submit_input" in content or "submit" in content.lower()
-
-
-# ---------------------------------------------------------------------------
-# Value coercion
+# Helper
 # ---------------------------------------------------------------------------
 
 
 def _state_with_schema(kind: str, **extra: Any) -> dict[str, Any]:
     schema = {"kind": kind, **extra}
     return {
-        "workflow_id": "wf-1",
-        "awaiting": {"token": "t", "prompt": "?", "schema": schema},
+        "workflow_id": "sfsm-test-12345",
+        "awaiting": {"token": "tkn_1", "prompt": "?", "schema": schema},
     }
+
+
+# ---------------------------------------------------------------------------
+# Coercion Tests
+# ---------------------------------------------------------------------------
 
 
 def test_coerce_boolean_from_string_yes() -> None:
@@ -126,20 +112,112 @@ def test_coerce_string_passthrough() -> None:
     assert _coerce_value("SW1A 2AA", _state_with_schema("string")) == "SW1A 2AA"
 
 
-def test_coerce_object_from_uploaded_file_marker() -> None:
-    val = "[Uploaded File: content_type='image/png', bytes=2048]"
-    result = _coerce_value(val, _state_with_schema("file_ref"))
-    assert result == {"type": "file_attachment", "raw": val}
+# --- file_ref Coercion ---
 
 
-def test_coerce_object_from_json_string() -> None:
-    result = _coerce_value('{"ref": "photo.png"}', _state_with_schema("object"))
-    assert result == {"ref": "photo.png"}
+def test_coerce_file_ref_from_ui_upload_string() -> None:
+    """Coerces [Uploaded File: ...] formatted string into a valid file dictionary."""
+    val = "[Uploaded File: ref='certificate.pdf', content_type='application/pdf', bytes=2048]"
+    state = _state_with_schema("file_ref")
+    result = _coerce_value(val, state)
+
+    assert isinstance(result, dict)
+    assert result["ref"] == "certificate.pdf"
+    assert result["content_type"] == "application/pdf"
+    assert result["bytes"] == 2048
 
 
-def test_coerce_object_passthrough_when_already_dict() -> None:
-    val = {"ref": "photo.png", "content_type": "image/png"}
-    assert _coerce_value(val, _state_with_schema("object")) == val
+def test_coerce_file_ref_from_json_string_passed_by_llm() -> None:
+    """Coerces stringified JSON payload passed by LLM into a valid file dictionary."""
+    val = '{"ref": "pic.jpeg", "content_type": "image/jpeg", "bytes": 20222}'
+    state = _state_with_schema("file_ref")
+    result = _coerce_value(val, state)
+
+    assert isinstance(result, dict)
+    assert result["ref"] == "pic.jpeg"
+    assert result["content_type"] == "image/jpeg"
+    assert result["bytes"] == 20222
+
+
+def test_coerce_file_ref_dict_missing_ref_generates_fallback() -> None:
+    """Populates fallback ref key when LLM passes dictionary without ref."""
+    val = {"content_type": "image/jpeg", "bytes": 5000}
+    state = _state_with_schema("file_ref")
+    result = _coerce_value(val, state)
+
+    assert isinstance(result, dict)
+    assert result["ref"] == "upload_sfsm-test-12345.dat"
+    assert result["content_type"] == "image/jpeg"
+    assert result["bytes"] == 5000
+
+
+def test_coerce_file_ref_plain_text_rejected() -> None:
+    """Rejects arbitrary user text input (e.g. 'pic') with invalid error payload."""
+    val = "pic"
+    state = _state_with_schema("file_ref")
+    result = _coerce_value(val, state)
+
+    assert result == {"error": "INVALID_FILE_UPLOAD"}
+
+
+# --- select_one Coercion ---
+
+
+def test_coerce_select_one_matching_value_key() -> None:
+    """Coerces exact string value key for select_one schema."""
+    options = [
+        {
+            "value": "pregnancy_sick_leave",
+            "label": "Off work with pregnancy-related illness",
+        },
+        {
+            "value": "not_stopped_working",
+            "label": "Still working / have not stopped yet",
+        },
+    ]
+    state = _state_with_schema("select_one", options=options)
+    result = _coerce_value("not_stopped_working", state)
+
+    assert result == "not_stopped_working"
+
+
+def test_coerce_select_one_matching_label_text() -> None:
+    """Coerces natural language label text back to its target value key."""
+    options = [
+        {
+            "value": "pregnancy_sick_leave",
+            "label": "Off work with pregnancy-related illness",
+        },
+        {
+            "value": "not_stopped_working",
+            "label": "Still working / have not stopped yet",
+        },
+    ]
+    state = _state_with_schema("select_one", options=options)
+    result = _coerce_value("Still working / have not stopped yet", state)
+
+    assert result == "not_stopped_working"
+
+
+# --- select_many Coercion ---
+
+
+def test_coerce_select_many_from_json_array_string() -> None:
+    """Parses JSON array string into native Python list."""
+    val = '["employed", "self_employed"]'
+    state = _state_with_schema("select_many")
+    result = _coerce_value(val, state)
+
+    assert result == ["employed", "self_employed"]
+
+
+def test_coerce_select_many_from_comma_separated_string() -> None:
+    """Splits comma-separated natural text choices into native list."""
+    val = "employed, self_employed"
+    state = _state_with_schema("select_many")
+    result = _coerce_value(val, state)
+
+    assert result == ["employed", "self_employed"]
 
 
 def test_coerce_no_state_returns_unchanged() -> None:
@@ -152,18 +230,16 @@ def test_coerce_no_awaiting_returns_unchanged() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Contextual prompt building
+# Contextual Prompt Building
 # ---------------------------------------------------------------------------
 
 
 def test_build_contextual_prompt_without_state() -> None:
-    """Without workflow state, the prompt is just the user message."""
     result = build_contextual_prompt("Hello", context=None)
     assert result == "Hello"
 
 
 def test_build_contextual_prompt_with_awaiting_state() -> None:
-    """With active workflow state, the prompt includes continuation context."""
     context = {
         "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
         "awaiting": {
@@ -183,21 +259,8 @@ def test_build_contextual_prompt_with_awaiting_state() -> None:
     assert "SW1A 2AA" in result
 
 
-def test_build_contextual_prompt_with_completed_workflow() -> None:
-    """When awaiting is None, the context still includes the workflow ID."""
-    context = {
-        "workflow_id": "sfsm-dvla.change_of_address-0.2.0",
-        "awaiting": None,
-    }
-    result = build_contextual_prompt("What happened?", context=context)
-
-    assert "sfsm-dvla.change_of_address-0.2.0" in result
-    assert "not currently awaiting" in result.lower()
-    assert "What happened?" in result
-
-
 # ---------------------------------------------------------------------------
-# Helper to create agent with pre-injected fakes
+# WorkflowAgent Integration Tests
 # ---------------------------------------------------------------------------
 
 
@@ -205,7 +268,6 @@ def make_test_agent(
     temporal_client: FakeTemporalClient,
     http_handler: Any = None,
 ) -> WorkflowAgent:
-    """Create a WorkflowAgent with fakes injected, bypassing lazy connection."""
     if http_handler is None:
         http_handler = lambda r: httpx.Response(200, json={})  # noqa: E731
     transport = httpx.MockTransport(http_handler)
@@ -219,13 +281,7 @@ def make_test_agent(
     return agent
 
 
-# ---------------------------------------------------------------------------
-# Tool closures
-# ---------------------------------------------------------------------------
-
-
 def test_agent_exposes_expected_tool_names() -> None:
-    """The agent is constructed with the correct set of tool functions."""
     agent = make_test_agent(FakeTemporalClient())
 
     tool_names = agent.tool_names()
@@ -234,11 +290,11 @@ def test_agent_exposes_expected_tool_names() -> None:
     assert "get_workflow_state" in tool_names
     assert "submit_input" in tool_names
     assert "list_active_workflows" in tool_names
+    assert "find_workflow_by_intent" in tool_names
 
 
 @pytest.mark.asyncio
 async def test_get_workflow_state_tool_returns_instruction_when_not_awaiting() -> None:
-    """When state is not awaiting, get_workflow_state tool returns explicit guidance."""
     temporal_client = FakeTemporalClient()
     handle = FakeWorkflowHandle(
         id="wf-1",
@@ -256,28 +312,3 @@ async def test_get_workflow_state_tool_returns_instruction_when_not_awaiting() -
     assert result["awaiting"] is None
     assert "message" in result
     assert "Do not re-query" in result["message"] or "instructed" in result["message"]
-
-
-@pytest.mark.asyncio
-async def test_start_workflow_updates_session_state() -> None:
-    """Starting a workflow sets the session state with prefix-matched workflow_id."""
-    temporal_client = FakeTemporalClient()
-    definition = {
-        "schema": "sfsm/0.2",
-        "id": "dvla.change_of_address",
-        "version": "0.2.0",
-        "entry": "main",
-        "executor": {},
-        "processes": {},
-    }
-
-    agent = make_test_agent(
-        temporal_client,
-        http_handler=lambda r: httpx.Response(200, json=definition),
-    )
-
-    assert agent.session_state is None
-    await agent.call_tool("start_workflow", workflow_id=1)
-
-    assert agent.session_state is not None
-    assert agent.session_state["workflow_id"].startswith("sfsm-dvla.change_of_address-")

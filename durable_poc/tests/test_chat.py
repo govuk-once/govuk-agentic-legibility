@@ -22,23 +22,10 @@ def test_clean_text_pipes_removes_standalone_pipes() -> None:
 
 
 def test_get_options_from_state_boolean() -> None:
-    """Boolean schema kind generates Yes/No options."""
+    """Boolean schema kind generates Yes/No options with kind indicator."""
     state = {"awaiting": {"schema": {"kind": "boolean"}}}
-    assert get_options_from_state(state) == ["Yes", "No"]
-
-
-def test_get_options_from_state_enum() -> None:
-    """Enum schema kind uses labels map or raw values."""
-    state = {
-        "awaiting": {
-            "schema": {
-                "kind": "enum",
-                "values": ["OPT_A", "OPT_B"],
-                "labels": {"OPT_A": "Option A"},
-            }
-        }
-    }
-    assert get_options_from_state(state) == ["Option A", "OPT_B"]
+    result = get_options_from_state(state)
+    assert result == {"kind": "boolean", "options": ["Yes", "No"]}
 
 
 def test_get_options_from_state_select_one_dict() -> None:
@@ -52,7 +39,31 @@ def test_get_options_from_state_select_one_dict() -> None:
             "schema": {"kind": "select_one", "label_key": "single_line"},
         }
     }
-    assert get_options_from_state(state) == ["10 Downing Street", "11 Downing Street"]
+    result = get_options_from_state(state)
+    assert result == {
+        "kind": "select_one",
+        "options": ["10 Downing Street", "11 Downing Street"],
+    }
+
+
+def test_get_options_from_state_select_many_dict() -> None:
+    """Select_many schema kind returns options list and specifies kind='select_many'."""
+    state = {
+        "awaiting": {
+            "schema": {
+                "kind": "select_many",
+                "options": [
+                    {"value": "employed", "label": "Employed (including agency work)"},
+                    {"value": "self_employed", "label": "Self-employed"},
+                ],
+            }
+        }
+    }
+    result = get_options_from_state(state)
+    assert result == {
+        "kind": "select_many",
+        "options": ["Employed (including agency work)", "Self-employed"],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +95,6 @@ async def test_websocket_connection_and_trace_stream() -> None:
         patch("agent.chat._get_polling_client", AsyncMock(return_value=mock_polling_client)),
         patch("agent.tools.list_active_workflows", AsyncMock(return_value=[])),
     ):
-        # TestClient inside synchronous wrapper
         client = TestClient(app)
         with client.websocket_connect("/ws") as websocket:
             data = websocket.receive_json()

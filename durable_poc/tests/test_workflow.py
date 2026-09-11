@@ -82,6 +82,7 @@ async def test_workflow_execution_completes(
 
             awaiting = await handle.query("awaiting")
             assert awaiting is not None
+            print(awaiting)
             assert awaiting["prompt"] == "What is your name?"
 
             await handle.execute_update(
