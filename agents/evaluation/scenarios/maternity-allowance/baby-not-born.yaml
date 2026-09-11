@@ -8,6 +8,7 @@ input:
     id: "ma-baby-not-born"
     version: "1"
   checkpoint:
+    id: "baby-not-born"
     process_id: "section2_about_baby"
     state_id: "prompt_is_baby_born"
 

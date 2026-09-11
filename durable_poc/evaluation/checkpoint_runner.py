@@ -42,27 +42,6 @@ def load_fixture(fixture_id: str, version: str, directory: Path) -> dict[str, An
 
 
 def build_checkpoint_state(
-    definition: dict[str, Any], checkpoint: dict[str, Any]
-) -> InterpreterState:
-    process_id = checkpoint["process_id"]
-    state_id = checkpoint["state_id"]
-    process = definition["processes"][process_id]
-    state = process["states"][state_id]
-    if state.get("type") != "input":
-        raise ValueError(f"Checkpoint {process_id}.{state_id} is not an input state")
-
-    variables = deepcopy(process.get("vars", {}))
-    variables.update(deepcopy(checkpoint.get("vars", {})))
-    if "input" in checkpoint:
-        variables["input"] = deepcopy(checkpoint["input"])
-
-    return InterpreterState(
-        frames=[StackFrame(process_id=process_id, state_id=state_id, vars=variables)],
-        step_counter=checkpoint.get("step_counter", 0),
-    )
-
-
-def build_captured_checkpoint_state(
     definition: dict[str, Any],
     checkpoint: dict[str, Any],
     checkpoint_dir: Path,
@@ -70,7 +49,7 @@ def build_captured_checkpoint_state(
     """Rehydrate a captured semantic InterpreterState for a fresh workflow run."""
     checkpoint_id = checkpoint.get("id")
     if not isinstance(checkpoint_id, str) or not checkpoint_id:
-        raise ValueError("Captured checkpoint requires a non-empty checkpoint.id")
+        raise ValueError("Checkpoint requires a non-empty checkpoint.id")
 
     document = load_document(checkpoint_dir / f"{checkpoint_id}.json")
     if document.get("schema_version") != "sfsm-interpreter-checkpoint/0.1":
@@ -164,18 +143,6 @@ def build_captured_checkpoint_state(
         env=deepcopy(env),
     )
 
-
-def resolve_checkpoint_state(
-    definition: dict[str, Any],
-    checkpoint: dict[str, Any],
-    checkpoint_dir: Path,
-) -> InterpreterState:
-    """Build either a captured checkpoint or the legacy inline checkpoint state."""
-    if "id" in checkpoint:
-        return build_captured_checkpoint_state(definition, checkpoint, checkpoint_dir)
-    return build_checkpoint_state(definition, checkpoint)
-
-
 def agent_input(
     fixture: dict[str, Any], current_prompt: str
 ) -> tuple[list[dict[str, Any]], str]:
@@ -237,7 +204,7 @@ async def run_once(
                 SFSMInterpreter.run,
                 args=[
                     definition,
-                    resolve_checkpoint_state(definition, checkpoint, checkpoint_dir),
+                    build_checkpoint_state(definition, checkpoint, checkpoint_dir),
                 ],
                 id=workflow_id,
                 task_queue=task_queue,

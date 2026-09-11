@@ -236,8 +236,8 @@ gds-cli aws <profile> -- \
   ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
 ```
 
-A deeper scenario can reference a captured executor checkpoint containing the
-real state established earlier in the journey:
+Each scenario references a captured executor checkpoint containing the real
+state established earlier in a deliberately synthetic journey:
 
 ```bash
 gds-cli aws <profile> -- \
@@ -249,9 +249,9 @@ Repeat any scenario with bounded concurrency using `--repeat` and `--concurrency
 
 The runner loads `dwp_ma1_schema.json` locally, so a targeted scenario does not
 need the workflow-definition server or domain stubs unless execution after the
-tested interaction reaches an external call. Early scenarios can still construct
-a minimal inline checkpoint from the workflow definition. Deeper scenarios should
-reference a captured executor checkpoint instead.
+tested interaction reaches an external call. Every targeted scenario must reference
+a captured executor checkpoint; the runner never synthesizes a partial
+`InterpreterState` from the workflow definition.
 
 Pause a synthetic browser journey at the target input and capture its real
 `InterpreterState` with:
