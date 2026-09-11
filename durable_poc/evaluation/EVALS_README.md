@@ -94,7 +94,22 @@ For these evaluations, that is usually the wrong level of abstraction. We are te
 
 The preferred checkpoint is therefore a **semantic executor checkpoint**: a serialisable `InterpreterState` containing enough SFSM state to legitimately resume execution from the target interaction.
 
-For early states this can be constructed from the workflow definition. For deeper states we expect to capture the real interpreter state from a successful interactive journey and reuse it across many test cases.
+For early states this can be constructed from the workflow definition. Deeper checkpoints can also supply the process variables and invocation inputs that would already exist at that point. For example:
+
+```yaml
+checkpoint:
+  process_id: "section4_about_payment"
+  state_id: "prompt_date_stopped_work"
+  vars:
+    reason_stopped_work: "pregnancy_sick_leave"
+  input:
+    is_baby_born: false
+    calculated_dates:
+      smp_qualifying_week: "27/08/2026"
+      earliest_signing_date: "03/09/2026"
+```
+
+The checkpoint only needs to contain state that is meaningful for execution from the target interaction onwards. As scenarios move deeper into journeys, we expect to add a helper that captures this semantic `InterpreterState` from a successful interactive run rather than maintaining it manually.
 
 Conceptually:
 
@@ -163,7 +178,9 @@ This keeps two things true at once:
 - the model gets realistic conversational context;
 - the current service contract still comes from the actual running journey definition.
 
-A future checkpoint-capture tool may create conversation prefixes from real browser journeys rather than maintaining them manually.
+For early scenarios, conversation prefixes may be reconstructed from the journey definition and deterministic stub responses. This is useful for realistic context, but it is not the same as recovering a user's exact previous utterances from Temporal. Temporal workflow start input contains the workflow definition; the agent's user-visible conversation is separate state.
+
+A future checkpoint-capture tool should capture both the semantic executor state and the user-visible conversation prefix from a real browser journey so that deeper cases do not need to maintain either by hand.
 
 ## Current runner
 
@@ -205,6 +222,14 @@ For example, from `durable_poc/`:
 gds-cli aws <profile> -- \
   uv run python -m evaluation.checkpoint_runner \
   ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
+```
+
+A deeper checkpoint works in the same way:
+
+```bash
+gds-cli aws <profile> -- \
+  uv run python -m evaluation.checkpoint_runner \
+  ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml
 ```
 
 Run the same case repeatedly with bounded concurrency:
@@ -299,17 +324,18 @@ Configuration such as Temporal addresses, task queues, model IDs and service end
 
 ## Current status
 
-The first Maternity Allowance scenario proves the basic targeted-run approach:
+The first two Maternity Allowance scenarios prove the basic targeted-run approach:
 
 - a fresh workflow can start at `section2_about_baby / prompt_is_baby_born`;
-- the agent can be seeded with preceding conversation history;
+- a deeper run can start at `section4_about_payment / prompt_date_stopped_work` with the required process variables and invocation inputs;
+- the agent can be seeded with a realistic preceding conversation history;
 - the final fixture turn can be sent through the real `WorkflowAgent`;
 - repeated runs can be launched independently and concurrently.
 
 Still to add:
 
-- capture/reuse of richer `InterpreterState` checkpoints for later journey states;
-- convenient capture of realistic conversation prefixes from interactive runs;
+- automatic capture/reuse of semantic `InterpreterState` checkpoints from interactive runs;
+- convenient capture of real user-visible conversation prefixes from interactive runs;
 - OTEL-to-common-trace conversion for durable runs;
 - deterministic scoring of `expected.submissions`;
 - aggregate reporting across repeated runs.

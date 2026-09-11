@@ -3,7 +3,7 @@
 These scenarios define implementation-independent inputs and expected behaviour
 for comparing different ways of consuming the same service journey.
 
-Version `0.1` uses conversation-history fixtures only.
+Version `0.1` uses conversation-history fixtures as the shared input. Targeted durable-prototype scenarios may additionally declare an executor checkpoint so the same conversation can be evaluated at a specific service interaction without replaying all earlier steps.
 
 ## How evaluation fits together
 
@@ -87,6 +87,43 @@ currently resolves to:
 
 The filename is therefore only a repository convention; fixture resolution
 should use the ID and version.
+
+
+## Targeted durable-prototype checkpoints
+
+Maternity Allowance scenarios used by `durable_poc/evaluation/checkpoint_runner.py` can identify the semantic executor state at which the final fixture turn should be tested:
+
+```yaml
+input:
+  conversation_fixture:
+    id: "ma-date-stopped-work-natural-language"
+    version: "1"
+  checkpoint:
+    process_id: "section4_about_payment"
+    state_id: "prompt_date_stopped_work"
+    vars:
+      reason_stopped_work: "pregnancy_sick_leave"
+    input:
+      is_baby_born: false
+```
+
+`vars` and `input` are optional. Use them when the target state depends on values established earlier in the journey. The checkpoint should contain only the semantic state needed to execute legitimately from that interaction onwards; it should not contain Temporal event-history mechanics.
+
+The conversation fixture remains the source of conversational context. Its final user message is the turn under test; earlier messages are seeded into the agent as history.
+
+## Expected submissions
+
+Targeted durable scenarios can describe the value that should be accepted for the current executor interaction:
+
+```yaml
+expected:
+  submissions:
+    prompt_date_stopped_work:
+      values:
+        date_stopped_work: "03/09/2026"
+```
+
+This expectation is currently recorded for the forthcoming durable OTEL/common-trace integration; the checkpoint runner does not yet score it directly.
 
 ## Expected assistance
 
