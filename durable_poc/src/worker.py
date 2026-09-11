@@ -2,25 +2,52 @@
 
 import asyncio
 import logging
+import os
 
+from opentelemetry import trace
 from temporalio.client import Client
 from temporalio.worker import Worker
+from temporalio.contrib.opentelemetry import TracingInterceptor
 
 from src.activities import http_call, notify
 from src.interpreter import SFSMInterpreter
+from src.telemetry import create_worker_provider
 
 logging.basicConfig(level=logging.INFO)
 
 
+class _FilteredTracingInterceptor(TracingInterceptor):
+    """TracingInterceptor that skips span creation for workflow queries."""
+
+    def workflow_interceptor_class(self, input):
+        base_class = super().workflow_interceptor_class(input)
+
+        class _Filtered(base_class):
+            async def handle_query(self, input):
+                return await self.next.handle_query(input)
+
+        return _Filtered
+
+
 async def main() -> None:
-    client = await Client.connect("localhost:7233")
+    temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
+
+    provider = create_worker_provider()
+    trace.set_tracer_provider(provider)
+    tracing_interceptor = _FilteredTracingInterceptor()
+
+    client = await Client.connect(
+        temporal_address,
+        interceptors=[tracing_interceptor],
+    )
     worker = Worker(
         client,
         task_queue="sfsm-queue",
         workflows=[SFSMInterpreter],
         activities=[http_call, notify],
+        interceptors=[tracing_interceptor],
     )
-    logging.info("Starting worker...")
+    logging.info("Starting worker on %s...", temporal_address)
     await worker.run()
 
 

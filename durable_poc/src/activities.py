@@ -7,10 +7,18 @@ import os
 
 import httpx
 from temporalio import activity
+from opentelemetry import trace
 
 from src.errors import RetryableHttpError, ValidationError
 
 logger = logging.getLogger(__name__)
+
+
+def _workflow_id_from_activity() -> str | None:
+    """Return the workflow ID if running inside a Temporal activity, else None."""
+    if not activity.in_activity():
+        return None
+    return activity.info().workflow_id
 
 # Config-driven service routing table (Maps workflow definition 'service' keys to ENV variables)
 SERVICE_ENV_MAP = {
@@ -35,6 +43,16 @@ class CallParams:
 @activity.defn
 async def http_call(params: CallParams) -> dict[str, Any]:
     """Execute an HTTP call with idempotency headers and projected captures."""
+    span = trace.get_current_span()
+    wf_id = _workflow_id_from_activity()
+    if wf_id:
+        span.set_attribute("workflow_id", wf_id)
+    span.set_attribute("service", params.service)
+    span.set_attribute("http.method", params.method)
+    span.set_attribute("http.url", params.url)
+    if params.idempotency_key:
+        span.set_attribute("idempotency_key", params.idempotency_key)
+
     if params.service in SERVICE_ENV_MAP:
         env_var = SERVICE_ENV_MAP[params.service]
         base_url = os.environ.get(env_var, "http://localhost:8000")
@@ -67,6 +85,8 @@ async def http_call(params: CallParams) -> dict[str, Any]:
             )
         except httpx.RequestError as e:
             raise RetryableHttpError(f"HTTP request failed: {e}") from e
+
+    span.set_attribute("http.status_code", response.status_code)
 
     if response.status_code >= 500 or response.status_code == 429:
         raise RetryableHttpError(f"HTTP {response.status_code}")
@@ -129,6 +149,12 @@ class NotifyParams:
 @activity.defn
 async def notify(params: NotifyParams) -> None:
     """Mock notification activity."""
+    span = trace.get_current_span()
+    wf_id = _workflow_id_from_activity()
+    if wf_id:
+        span.set_attribute("workflow_id", wf_id)
+    span.set_attribute("channel", params.channel)
+    span.set_attribute("template", params.template)
     logger.info(
         f"Notifying via {params.channel} using {params.template}: {params.params}"
     )
