@@ -1,13 +1,21 @@
 import * as cdk from 'aws-cdk-lib';
 import { Tags } from 'aws-cdk-lib';
 import { TokenSecretsStack } from '../lib/secrets-stack';
+import { SharedVpcStack } from '../lib/shared-vpc-stack';
 
 const app = new cdk.App();
 
 new TokenSecretsStack(app, 'TokenSecretsStack', {
-  env: { 
-    account: process.env.CDK_DEFAULT_ACCOUNT, 
-    region: process.env.CDK_DEFAULT_REGION || 'eu-west-2' 
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION || 'eu-west-2'
+  },
+});
+
+new SharedVpcStack(app, 'SharedVpcStack', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION || 'eu-west-2'
   },
 });
 
