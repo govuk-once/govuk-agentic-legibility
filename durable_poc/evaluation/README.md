@@ -226,7 +226,9 @@ The checkpoint runner exercises one real workflow interaction with the real
 starts a fresh Temporal workflow from the scenario's interpreter checkpoint,
 seeds the agent with the fixture's preceding user-visible conversation, sends
 the final user message, reports the next workflow state, and terminates the
-workflow. It does not score or persist model output yet.
+workflow. Semantic scoring is not wired into the runner yet; when OTEL file export is
+enabled, the resulting executor span can now be converted to the shared common-trace
+format.
 
 Start Temporal and the worker as normal, then from `durable_poc/` run:
 
@@ -270,3 +272,19 @@ that snapshot for every repetition. Parent/child invocation links are rehydrated
 from `dwp_ma1_schema.json`, and the suspended input state is recreated with a new
 Temporal token. Use synthetic journeys only, because interpreter state may contain
 personal data entered earlier in the journey.
+
+Convert a targeted run from Joe's OTEL JSONL into the common semantic trace with:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.otel_common_trace \
+  .traces/durable-otel.jsonl \
+  ../agents/durable_poc/evaluation/scenarios/maternity-allowance/baby-not-born.yaml \
+  --workflow-id eval-ma-baby-not-born-a6f89cb5 \
+  --output .traces/eval-ma-baby-not-born-a6f89cb5.common.yaml
+```
+
+The converter uses the executor's finished `interpreter.InputState` span as the
+authoritative record of the accepted value. It emits `interaction_available` and,
+when the input outcome is `received`, `values_submitted`. It filters by workflow ID
+and by the target process/state declared in the scenario. The generated common trace
+is ready for the shared evaluator once `expected.submissions` scoring is added there.

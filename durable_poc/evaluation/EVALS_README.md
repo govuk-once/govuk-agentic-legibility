@@ -51,8 +51,8 @@ flowchart TD
     M --> T
     T --> V
 
-    V -. "planned" .-> OT
-    OT -. "planned" .-> CT
+    V --> OT
+    OT --> CT
     CT -. "planned" .-> E
     E -. "planned" .-> P
 ```
@@ -94,7 +94,7 @@ For these evaluations, that is usually the wrong level of abstraction. We are te
 
 The preferred checkpoint is therefore a **semantic executor checkpoint**: a serialisable `InterpreterState` containing enough SFSM state to legitimately resume execution from the target interaction.
 
-For early states this can be constructed from the workflow definition. Deeper states are more difficult to reconstruct faithfully: a real `InterpreterState` can contain parent and child stack frames, invocation inputs, accumulated process variables, transcript entries, environment values and the real step counter.
+A real `InterpreterState` can contain parent and child stack frames, invocation inputs, accumulated process variables, transcript entries, environment values and the real step counter. Rather than reconstructing a partial approximation, every targeted scenario now uses a checkpoint captured from a real synthetic journey.
 
 The interpreter therefore exposes an evaluation-only `evaluation_checkpoint` query. `capture_checkpoint.py` can use that query to save the semantic executor state from a real synthetic browser journey while it is paused at an input interaction. The targeted runner can then start each repetition from that captured semantic state.
 
@@ -224,7 +224,7 @@ The executor checkpoint can be captured from a real synthetic browser journey an
 load scenario and fixture
         |
         v
-load captured InterpreterState (or build simple inline state)
+load captured InterpreterState
         |
         v
 start a fresh Temporal workflow
@@ -278,11 +278,14 @@ gds-cli aws <profile> -- \
 
 The runner currently prints execution progress only. Reaching the expected next state can be a useful smoke-test signal, but it is **not the eventual evaluation result**: downstream deterministic routing should not be used as a proxy for the model's submitted value once tracing is available.
 
-## Planned tracing and evaluation
+## Trace conversion and planned scoring
 
-The next stage is to connect this runner to the existing common-trace evaluation framework.
+The durable runner now emits executor-side OTEL spans when tracing is configured, and
+`otel_common_trace.py` converts the target `interpreter.InputState` span into the
+implementation-independent common trace vocabulary. Deterministic scoring of
+`expected.submissions` is still to be connected.
 
-The intended pipeline is:
+The pipeline is:
 
 ```text
 scenario
@@ -293,7 +296,7 @@ scenario
   -> pass/fail
 ```
 
-The common trace should discard implementation mechanics and retain only evaluation-relevant semantic events. For this class of scenario the important events are expected to be approximately:
+The common trace discards implementation mechanics and retains only evaluation-relevant semantic events. For this class of scenario the converter emits:
 
 ```yaml
 events:
@@ -306,9 +309,21 @@ events:
       is_baby_born: false
 ```
 
-The evaluator can then compare `expected.submissions` in the scenario with the value actually accepted by the executor.
+The `interpreter.InputState` span is authoritative for `values_submitted`: it records the value actually accepted at the executor boundary, rather than merely the value an agent attempted to send. `received_value_type` is used to recover the typed value from OTEL's string attribute representation.
 
-The trace, rather than the runner's knowledge of the graph, should determine the semantic result. This keeps evaluation separate from execution and avoids building a second bespoke scoring path for targeted tests.
+For a local trace file, convert one workflow with:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.otel_common_trace \
+  .traces/durable-otel.jsonl \
+  ../agents/durable_poc/evaluation/scenarios/maternity-allowance/baby-not-born.yaml \
+  --workflow-id eval-ma-baby-not-born-a6f89cb5 \
+  --output .traces/eval-ma-baby-not-born-a6f89cb5.common.yaml
+```
+
+The converter filters by both Temporal workflow ID and the scenario's target process/state, so spans from other concurrent evaluation runs or the next journey interaction are not included. Targeted workflows are marked `in_progress` in the common trace because the runner deliberately terminates them after the interaction under test rather than completing the full claim.
+
+The evaluator can next compare `expected.submissions` in the scenario with the value actually accepted by the executor. The trace, rather than the runner's knowledge of the graph, determines the semantic result. This keeps evaluation separate from execution and avoids building a second bespoke scoring path for targeted tests.
 
 ## Repeated runs
 
@@ -364,11 +379,11 @@ The first two Maternity Allowance scenarios prove the basic targeted-run approac
 - a deeper run can start at `section4_about_payment / prompt_date_stopped_work` from a captured real executor checkpoint containing both parent and child stack frames;
 - the agent can be seeded with a realistic preceding conversation history;
 - the final fixture turn can be sent through the real `WorkflowAgent`;
-- repeated runs can be launched independently and concurrently.
+- repeated runs can be launched independently and concurrently;
+- the executor's `interpreter.InputState` OTEL span can be converted into common `interaction_available` and `values_submitted` events.
 
 Still to add:
 
 - convenient capture of real user-visible conversation prefixes from interactive runs;
-- OTEL-to-common-trace conversion for durable runs;
 - deterministic scoring of `expected.submissions`;
 - aggregate reporting across repeated runs.
