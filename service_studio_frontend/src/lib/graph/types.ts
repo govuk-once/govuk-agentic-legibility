@@ -1,17 +1,20 @@
 // These types describe data shared by the graph builder, layout and components so each part uses the same graph structure.
 
+import type { ServiceStepKind } from '$lib/schema';
+
 // A plain top left coordinate in canvas pixels, assigned by the layout and read straight into each node's
 // CSS position. Kept as its own type so the builder can hand out a placeholder before layout runs.
 export type GraphPoint = { x: number; y: number };
 
 export type StepNodeData = {
 	title: string;
-	description: string;
 	stepId?: string;
 	stepNumber?: number;
-	// Computed from the title, and the title and description together, so each node's box fits its own
-	// content, rather than every node sharing one fixed width and height that wastes space for short
-	// content and clips long content.
+	// How the step is delivered, from the canonical schema, so the list and the node can show a matching
+	// tag without either one reaching back into the service definition.
+	kind: ServiceStepKind;
+	// Computed from the title, so each node's box fits its own title rather than every node sharing one
+	// fixed width and height that wastes space for a short title and clips a long one.
 	width: number;
 	height: number;
 };
@@ -70,24 +73,4 @@ export type JourneyEdge = {
 export type JourneyGraphElements = {
 	nodes: JourneyNode[];
 	edges: JourneyEdge[];
-};
-
-// The label and tag colour shown on one branch outcome. The step each one leads to is not named here, it
-// is worked out from position, see BranchDecoration below.
-export type BranchLabel = {
-	label: string;
-	tagColour: string;
-};
-
-// Describes the one branch point a demo journey can show, entirely by position: the step at afterIndex is
-// the one users make the choice at, the two steps immediately after it are the two possible outcomes, and
-// the step after those is where they rejoin. Resolving this by position, rather than by fixed step ids,
-// is what makes reordering steps also reorder the graph, since whichever steps currently occupy those
-// positions play the anchor and outcome roles. This is a deliberate interim simplification standing in
-// for a real branching implementation, kept as explicit configuration rather than baked into the graph builder so
-// different example journeys can each describe their own branch point without editing that code.
-export type BranchDecoration = {
-	afterIndex: number;
-	question: string;
-	branchLabels: [BranchLabel, BranchLabel];
 };

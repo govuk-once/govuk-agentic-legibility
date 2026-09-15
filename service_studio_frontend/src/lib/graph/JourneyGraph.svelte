@@ -2,33 +2,31 @@
 	import ConditionNode from './ConditionNode.svelte';
 	import StepNode from './StepNode.svelte';
 	import TerminalNode from './TerminalNode.svelte';
-	import { createJourneyGraph } from './build-journey-graph';
+	import { serviceToGraph } from './service-to-graph';
 	import { layoutJourneyGraph, nodeSize } from './layout';
-	import { addressChangeBranchDecoration } from './branch-decoration';
 	import type { JourneyEdge, JourneyNode } from './types';
-	import type { JourneyStep } from '$lib/journey/types';
+	import type { Service } from '$lib/schema';
 
 	interface Props {
-		steps: JourneyStep[];
+		service: Service;
 		selectedStepId?: string | null;
 	}
 
-	let { steps, selectedStepId = $bindable(null) }: Props = $props();
+	let { service, selectedStepId = $bindable(null) }: Props = $props();
 
-	// The one interactive control that changes the graph structure. It starts on so the branch is visible
-	// without a click first.
-	let showBranching = $state(true);
-
-	// The graph is derived straight from its inputs in one chain, so there is no sync effect keeping a
-	// separate copy of nodes and edges in step with the source. layoutJourneyGraph is pure, so re-running
-	// it here on every steps or toggle change is safe.
-	const built = $derived(createJourneyGraph(steps, showBranching, addressChangeBranchDecoration));
+	// The graph is derived straight from the service in one chain, so there is no sync effect keeping a
+	// separate copy of nodes and edges in step with it. serviceToGraph and layoutJourneyGraph are both
+	// pure, so re-running them here on every change to the service is safe.
+	const built = $derived(serviceToGraph(service));
 	const laid = $derived(layoutJourneyGraph(built.nodes, built.edges));
 	const nodes = $derived(laid.nodes);
 	const edges = $derived(built.edges);
 	const contentWidth = $derived(laid.width);
 	const contentHeight = $derived(laid.height);
 	const nodeById = $derived(new Map(nodes.map((node) => [node.id, node])));
+	// Identifies the current set of nodes, so a fit is triggered when nodes are added, removed or a
+	// different service is loaded, but not when a step's own text or size changes.
+	const nodeSetKey = $derived(nodes.map((node) => node.id).join('|'));
 
 	// The branch tag labels, positioned from the current node coordinates rather than stored, so they
 	// follow the diamond and its outcome steps whenever the layout changes.
@@ -45,9 +43,11 @@
 					id: edge.id,
 					label: edge.label,
 					tagColour: edge.tagColour ?? 'grey',
-					// Bias the label toward the diamond, the conventional spot for a decision outcome label.
+					// Sit the label on the horizontal run of the edge, midway between the diamond and the
+					// target. Each branch's horizontal run is at a different x, so the labels stay apart, and
+					// the vertical midpoint keeps them clear of both the diamond and the step box below.
 					x: (from.x + to.x) / 2,
-					y: from.y + (to.y - from.y) * 0.4
+					y: (from.y + to.y) / 2
 				}
 			];
 		})
@@ -59,9 +59,8 @@
 	let panY = $state(0);
 	let zoom = $state(1);
 	let isPanning = $state(false);
-	let canvasWidth = $state(0);
-	let canvasHeight = $state(0);
-	let canvasEl: HTMLDivElement | undefined;
+	// State so the fit effect re-runs once the canvas element is in the DOM.
+	let canvasEl = $state<HTMLDivElement | undefined>(undefined);
 
 	// The interactive zoom range is wider than the fit range: fitting deliberately stops at 0.9 so the
 	// graph opens comfortably zoomed out in its narrow column, while a user can still zoom in to 1.5.
@@ -74,16 +73,21 @@
 	// where the drag began rather than accumulating rounding errors frame by frame.
 	let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
 
-	// Runs once, the first time the canvas and the graph both have a measured size, to fit the graph into
-	// view on load. Latched by a plain variable so it never fires again on a later rebuild, and it reads
-	// no pan or zoom state so applyFit writing those cannot re-trigger it.
-	let hasFitted = false;
+	// Fits the graph into view once the canvas is in the DOM and the graph has a size, and again whenever
+	// the set of nodes changes, so switching to a much larger or smaller service reframes it. It does not
+	// fire on pan or zoom, or on an edit that leaves the node set the same, because it keys on
+	// nodeSetKey, and applyFit writes only pan and zoom, which it does not read. The fit is run in a
+	// later macrotask so the canvas is laid out at its CSS size first, and the key is latched only once
+	// a fit actually lands, so a fit that measured too early is retried on the next change.
+	let lastFitNodeSetKey = '';
 	$effect(() => {
-		if (hasFitted) return;
-		if (canvasWidth && canvasHeight && contentWidth && contentHeight) {
-			hasFitted = true;
-			applyFit();
-		}
+		if (!canvasEl || !contentWidth || !contentHeight || nodeSetKey === lastFitNodeSetKey) return;
+		const key = nodeSetKey;
+		setTimeout(() => {
+			if (nodeSetKey === key && applyFit()) {
+				lastFitNodeSetKey = key;
+			}
+		}, 0);
 	});
 
 	/**
@@ -121,30 +125,33 @@
 	}
 
 	/**
-	 * Scales and centres the graph so the whole thing fits inside the canvas with a small margin. Works
-	 * out the new zoom from the fit scale alone, never from the current zoom, so repeated calls are stable.
+	 * Scales and centres the graph so the whole thing fits inside the canvas with a small margin. The
+	 * canvas size is measured live from the element rather than read from a binding, so a fit still works
+	 * when a resize has not yet propagated to reactive state. The new zoom is worked out from the fit
+	 * scale alone, never from the current zoom, so repeated calls are stable.
 	 */
-	function applyFit() {
-		if (!canvasWidth || !canvasHeight || !contentWidth || !contentHeight) return;
+	function applyFit(): boolean {
+		if (!canvasEl || !contentWidth || !contentHeight) return false;
 
-		const usableWidth = Math.max(1, canvasWidth - FIT_PADDING * 2);
-		const usableHeight = Math.max(1, canvasHeight - FIT_PADDING * 2);
+		const { width, height } = canvasEl.getBoundingClientRect();
+		if (!width || !height) return false;
+
+		const usableWidth = Math.max(1, width - FIT_PADDING * 2);
+		const usableHeight = Math.max(1, height - FIT_PADDING * 2);
 		const scale = Math.min(usableWidth / contentWidth, usableHeight / contentHeight, FIT_MAX_ZOOM);
 
 		zoom = Math.max(MIN_ZOOM, scale);
-		panX = (canvasWidth - contentWidth * zoom) / 2;
-		panY = (canvasHeight - contentHeight * zoom) / 2;
+		panX = (width - contentWidth * zoom) / 2;
+		panY = (height - contentHeight * zoom) / 2;
+		return true;
 	}
 
 	/**
 	 * Wires pointer panning and wheel zooming onto the canvas element. Used as an attachment rather than
 	 * markup event handlers so the wheel listener can be registered non-passive, which is what lets it
-	 * call preventDefault to stop the page scrolling during a zoom, and so the element reference the fit
-	 * and zoom maths need is captured without a separate binding.
+	 * call preventDefault to stop the page scrolling during a zoom.
 	 */
 	function panZoom(node: HTMLDivElement) {
-		canvasEl = node;
-
 		// Start a pan, unless the pointer went down on a node, in which case the event is left alone so the
 		// node's own click still selects it.
 		const onPointerDown = (event: PointerEvent) => {
@@ -181,7 +188,7 @@
 			if (event.deltaMode === 1) {
 				delta *= 16;
 			} else if (event.deltaMode === 2) {
-				delta *= canvasHeight;
+				delta *= node.clientHeight;
 			}
 
 			const factor = Math.exp(-delta * 0.0015);
@@ -218,21 +225,8 @@
 	<header class="journey-graph__header">
 		<h2 id="journey-graph-heading" class="govuk-heading-m govuk-!-margin-bottom-0">Journey graph</h2>
 
-		<!-- Controls sit outside the viewport so moving the graph cannot move the actions themselves. -->
+		<!-- The control sits outside the viewport so moving the graph cannot move the action itself. -->
 		<div class="journey-graph__controls">
-			<div class="govuk-checkboxes govuk-checkboxes--small">
-				<div class="govuk-checkboxes__item">
-					<input
-						class="govuk-checkboxes__input"
-						id="show-branching"
-						type="checkbox"
-						bind:checked={showBranching}
-						onchange={applyFit}
-					/>
-					<label class="govuk-label govuk-checkboxes__label" for="show-branching">Show branching</label>
-				</div>
-			</div>
-
 			<button
 				class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
 				type="button"
@@ -248,8 +242,7 @@
 	<div
 		class="journey-graph__canvas"
 		class:journey-graph__canvas--panning={isPanning}
-		bind:clientWidth={canvasWidth}
-		bind:clientHeight={canvasHeight}
+		bind:this={canvasEl}
 		{@attach panZoom}
 	>
 		<div

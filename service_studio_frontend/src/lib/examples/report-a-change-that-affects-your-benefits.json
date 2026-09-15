@@ -1,0 +1,146 @@
+{
+  "id": "c3d4e5f6-0000-4a10-8b20-000000000000",
+  "version": 1,
+  "state": "draft",
+  "name": "Report a change that affects your benefits",
+  "owner": "dwp",
+  "contact": "contact@dwp.gov.uk",
+  "description": "Claimant reports a change of circumstances. Recent changes can be reported by phone; older changes need a written explanation and evidence shown in person.",
+  "descriptionPublic": "Tell DWP straight away if something changes that could affect your benefits, such as moving home, a change in income, or someone moving in or out.",
+  "startStepId": "c3d4e5f6-0002-4a10-8b20-000000000002",
+  "steps": [
+    {
+      "id": "c3d4e5f6-0002-4a10-8b20-000000000002",
+      "type": { "kind": "info", "body": "" },
+      "name": "When did the change happen?",
+      "description": "The number of days since the change decides whether it can be reported by phone or needs a written report.",
+      "performer": "citizen",
+      "fields": [
+        {
+          "id": "f-days",
+          "name": "days_since_change",
+          "label": "How many days ago did the change happen?",
+          "element": "number",
+          "hint": "Enter a whole number of days.",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "c3d4e5f6-0003-4a10-8b20-000000000003",
+          "label": "Under 30 days",
+          "condition": {
+            "all": [{ "field": "days_since_change", "operator": "lessThan", "value": 30 }]
+          }
+        },
+        {
+          "targetStepId": "c3d4e5f6-0004-4a10-8b20-000000000004",
+          "label": "Over 30 days"
+        }
+      ]
+    },
+    {
+      "id": "c3d4e5f6-0003-4a10-8b20-000000000003",
+      "type": {
+        "kind": "phone",
+        "number": "0800 169 0310",
+        "textphone": "0800 169 0314",
+        "callCharges": "Free from personal mobiles and landlines.",
+        "openingTimes": {
+          "periods": [
+            {
+              "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+              "opens": "08:00",
+              "closes": "18:00"
+            }
+          ],
+          "notes": "Closed on bank holidays."
+        }
+      },
+      "name": "Call the helpline to report the change",
+      "description": "Recent changes are taken over the phone.",
+      "performer": "DWP",
+      "fields": [
+        {
+          "id": "f-ni",
+          "name": "national_insurance_number",
+          "label": "National Insurance number",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [{ "targetStepId": "c3d4e5f6-0006-4a10-8b20-000000000006" }]
+    },
+    {
+      "id": "c3d4e5f6-0004-4a10-8b20-000000000004",
+      "type": {
+        "kind": "letter",
+        "address": {
+          "line1": "Freepost DWP Change of Circumstances",
+          "town": "Wolverhampton",
+          "postcode": "WV98 2GL"
+        }
+      },
+      "name": "Write to report the change",
+      "description": "A late change needs a written explanation of what changed and when.",
+      "performer": "citizen",
+      "fields": [
+        {
+          "id": "f-explanation",
+          "name": "change_explanation",
+          "label": "What changed, and the date it changed",
+          "element": "textarea",
+          "required": true
+        }
+      ],
+      "transitions": [{ "targetStepId": "c3d4e5f6-0005-4a10-8b20-000000000005" }]
+    },
+    {
+      "id": "c3d4e5f6-0005-4a10-8b20-000000000005",
+      "type": {
+        "kind": "person",
+        "location": {
+          "line1": "Your nearest Jobcentre Plus office",
+          "town": "Not a fixed location",
+          "postcode": "ZZ99 9ZZ"
+        },
+        "appointmentRequired": true,
+        "openingTimes": {
+          "periods": [
+            {
+              "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+              "opens": "09:00",
+              "closes": "17:00"
+            }
+          ]
+        }
+      },
+      "name": "Take your evidence to the jobcentre",
+      "description": "A late change is confirmed in person with original documents.",
+      "performer": "DWP",
+      "fields": [
+        {
+          "id": "f-evidence",
+          "name": "evidence_document",
+          "label": "Evidence of the change",
+          "element": "text",
+          "hint": "Bring the original document, for example a tenancy agreement or a payslip.",
+          "required": true
+        }
+      ],
+      "transitions": [{ "targetStepId": "c3d4e5f6-0006-4a10-8b20-000000000006" }]
+    },
+    {
+      "id": "c3d4e5f6-0006-4a10-8b20-000000000006",
+      "type": {
+        "kind": "info",
+        "body": "We will review the change and write to you if your payments change. Keep reporting any further changes as they happen."
+      },
+      "name": "What happens next",
+      "description": "Closes the journey.",
+      "performer": "DWP",
+      "fields": [],
+      "transitions": []
+    }
+  ]
+}

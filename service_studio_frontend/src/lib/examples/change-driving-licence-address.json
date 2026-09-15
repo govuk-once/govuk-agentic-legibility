@@ -1,0 +1,118 @@
+{
+  "id": "0f8f9a2e-1c4b-4f2a-9c7d-1b6e5a0d3f11",
+  "version": 1,
+  "state": "draft",
+  "name": "Change the address on your driving licence",
+  "owner": "dvla",
+  "contact": "customerservices@dvla.gov.uk",
+  "description": "Citizen updates the address held on their driving licence record.",
+  "descriptionPublic": "Tell DVLA when you move home so your driving licence shows your current address.",
+  "startStepId": "1a2b3c4d-0002-4a1a-8a1a-000000000002",
+  "steps": [
+    {
+      "id": "1a2b3c4d-0002-4a1a-8a1a-000000000002",
+      "type": { "kind": "info", "body": "Choose how you want to give us your new address." },
+      "name": "Choose how to enter your address",
+      "description": "Fork between postcode lookup and manual entry.",
+      "fields": [
+        {
+          "id": "f-entry",
+          "name": "address_entry_method",
+          "label": "How do you want to enter your address?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            { "value": "postcode", "label": "Search by postcode" },
+            { "value": "manual", "label": "Enter it manually" }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "1a2b3c4d-0003-4a1a-8a1a-000000000003",
+          "label": "Postcode",
+          "condition": {
+            "all": [{ "field": "address_entry_method", "operator": "equals", "value": "postcode" }]
+          }
+        },
+        { "targetStepId": "1a2b3c4d-0004-4a1a-8a1a-000000000004", "label": "Manual" }
+      ]
+    },
+    {
+      "id": "1a2b3c4d-0003-4a1a-8a1a-000000000003",
+      "type": {
+        "kind": "endpoint",
+        "method": "GET",
+        "url": "https://api.os.uk/search/places/v1/postcode",
+        "parameters": [
+          { "name": "postcode", "in": "query", "type": "string", "source": "postcode", "required": true }
+        ],
+        "headers": [],
+        "responses": [
+          {
+            "status": 200,
+            "description": "Addresses for the postcode",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": [{ "path": "results", "type": "array" }]
+          }
+        ]
+      },
+      "name": "Find your address by postcode",
+      "description": "Postcode lookup returns candidate addresses to choose from.",
+      "fields": [
+        { "id": "f-postcode", "name": "postcode", "label": "Postcode", "element": "text", "required": true }
+      ],
+      "transitions": [{ "targetStepId": "1a2b3c4d-0005-4a1a-8a1a-000000000005" }]
+    },
+    {
+      "id": "1a2b3c4d-0004-4a1a-8a1a-000000000004",
+      "type": { "kind": "info", "body": "Enter your full new address." },
+      "name": "Enter your address manually",
+      "description": "Free-text address capture.",
+      "fields": [
+        { "id": "f-l1", "name": "address.line1", "label": "Address line 1", "element": "text", "required": true },
+        { "id": "f-l2", "name": "address.line2", "label": "Address line 2", "element": "text", "required": false },
+        { "id": "f-town", "name": "address.town", "label": "Town or city", "element": "text", "required": true },
+        { "id": "f-pc", "name": "address.postcode", "label": "Postcode", "element": "text", "required": true }
+      ],
+      "transitions": [{ "targetStepId": "1a2b3c4d-0005-4a1a-8a1a-000000000005" }]
+    },
+    {
+      "id": "1a2b3c4d-0005-4a1a-8a1a-000000000005",
+      "type": {
+        "kind": "endpoint",
+        "method": "POST",
+        "url": "https://api.dvla.gov.uk/driver/address",
+        "parameters": [],
+        "headers": [{ "name": "Authorization", "required": true }],
+        "request": {
+          "format": "json",
+          "contentType": "application/json",
+          "properties": [{ "path": "address", "type": "object", "source": "address", "required": true }]
+        },
+        "responses": [
+          {
+            "status": 200,
+            "description": "Address updated",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": [{ "path": "licenceId", "type": "string" }]
+          }
+        ]
+      },
+      "name": "Confirm your new address",
+      "description": "Submit the change to the driver record.",
+      "fields": [
+        {
+          "id": "f-confirm",
+          "name": "change_confirmed",
+          "label": "These details are correct",
+          "element": "checkbox",
+          "required": true
+        }
+      ],
+      "transitions": []
+    }
+  ]
+}
