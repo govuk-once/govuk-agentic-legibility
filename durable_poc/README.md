@@ -75,16 +75,25 @@ The test suite validates pure Python logic (path resolution, predicates), Tempor
 
 The project includes a conversational AI agent that guides users through workflows using natural language. The agent uses Claude via AWS Bedrock and maintains workflow state using the HATEOAS pattern — each tool response is self-describing, carrying the continuation token and next expected input.
 
-### Prerequisites
+## Prerequisites
 
 1. **Python 3.14+** and **uv** installed
-2. **Temporal CLI** installed (`brew install temporal`)
-3. **AWS credentials** with `bedrock:InvokeModel` permission for Claude Sonnet in your target region
-4. **Workflow server** running (serves workflow definitions)
+2. **Temporal CLI** installed
+
+```bash
+brew install temporal
+```
+
+3. **AWS credentials** withbedrock:InvokeModel` permission for Claude Sonnet in your target region
+4. **Workflow Server** & **Backend Stub Server** available, either:
+   - Running locally
+   - Deployed to AWS and accessible via its load balancer URL
 
 ### Required Credentials
 
 The agent calls Claude via Amazon Bedrock. You need valid AWS credentials configured via any standard method (environment variables, `~/.aws/credentials`, SSO, etc.). Verify with:
+
+Verify your credentials are working:
 
 ```bash
 aws sts get-caller-identity
@@ -97,29 +106,43 @@ export BEDROCK_MODEL_ID="anthropic.claude-sonnet-4-6"
 export AWS_REGION="eu-west-2"
 ```
 
+### Local Ports Reference
+
+When running locally, the following default ports are used:
+
+- Temporal Server: `7233`
+- Temporal UI: `8233`
+- Stub Server: `8000`
+- Workflow Server: `8080`
+- Agent Chat UI: `7860`
+
 ### Running the Demo
 
-You need four terminal windows, all running from the repository root.
+The demo requires multiple terminal sessions running simultaneously.
 
 #### Terminal 1: Temporal Server
+
+Start the Temporal development server:
 
 ```bash
 temporal server start-dev
 ```
 
-Runs on `localhost:7233`. The Temporal UI is available at `http://localhost:8233`.
+The Temporal server will run on:
 
-#### Terminal 2: Workflow Definition Server
-
-The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`.  The workflow server code is [here](https://github.com/govuk-once/spike-legibility-workflow-server). Clone it and follow the instructions to run it.
-
-Verify it is responding:
-
-```bash
-curl http://localhost:8080/api/v1/workflows
+```text
+localhost:7233
 ```
 
-#### Terminal 3: Temporal Worker
+The Temporal UI will be available at:
+
+```text
+http://localhost:8233
+```
+
+---
+
+### Terminal 2: Temporal Worker
 
 Starts the Python worker that executes the FSM interpreter and activities:
 
@@ -128,18 +151,105 @@ cd durable_poc
 PYTHONPATH=. uv run python -m src.worker
 ```
 
-The worker connects to Temporal on `localhost:7233` and listens on the `sfsm-queue` task queue.
+The worker connects to Temporal at:
 
-#### Terminal 4: Web Agent Chat UI
+```text
+localhost:7233
+```
 
-Launch the WebSockets server and chat interface:
+and listens on the:
+
+```text
+sfsm-queue
+```
+
+task queue.
+
+### Terminal 3: Backend Stub Server
+
+The worker executes HTTP activities that call backend services. Therefore, the service endpoint environment variables must be available in the same terminal session where the Temporal worker is running.
+
+The stub server is currently deployed to AWS ECS under the `govuk-once-ailegibility-development` account.
+
+Configure the service endpoints:
+
+```bash
+export DVLA_BASE='http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com'
+export POSTOFFICE_BASE='http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com'
+export HMRC_BASE='http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com'
+export DWP_BASE='http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com'
+```
+
+Alternatively, the stub server can be run locally.
+
+Repository:
+
+```text
+https://github.com/govuk-once/stub-domain-legibility
+```
+
+Follow the repository instructions to start the server locally.
+
+Default local URL:
+
+```text
+http://localhost:8000
+```
+
+### Terminal 4: Workflow Definition Server
+
+The chat application retrieves workflow definitions from the Workflow Server.
+
+The Workflow Server is currently deployed to AWS ECS under the `govuk-once-ailegibility-development` account.
+
+Before starting the chat UI, configure the Workflow Server endpoint:
+
+```bash
+export WORKFLOW_SERVER_URL='http://Workfl-Workf-CwPhUxgpA91a-749675269.eu-west-2.elb.amazonaws.com'
+```
+
+Alternatively, the Workflow Server can be run locally.
+
+Repository:
+
+```text
+https://github.com/govuk-once/spike-legibility-workflow-server
+```
+
+Follow the repository instructions to start the server locally.
+
+Default local URL:
+
+```text
+http://localhost:8080
+```
+
+Workflow definitions are served via:
+
+```text
+GET /api/v1/workflows/{id}
+```
+
+Verify that the server is responding using an endpoint known to exist in your deployment, for example:
+
+```bash
+curl http://localhost:8080/health
+```
+
+### Terminal 5: Agent Chat UI
+
+Start the WebSocket server and chat interface:
 
 ```bash
 cd durable_poc
 PYTHONPATH=. uv run python -m agent.chat
 ```
 
-Open `http://localhost:7860` in your browser.
+Open the chat interface in your browser:
+
+```text
+http://localhost:7860
+```
 
 ---
 
@@ -147,7 +257,9 @@ Open `http://localhost:7860` in your browser.
 
 Type a natural language message in the chat box to start a workflow:
 
-> *"I need to change the address on my driving licence."*
+Example:
+
+> I need to change the address on my driving licence.
 
 The agent will:
 1. Fetch the appropriate workflow definition from the server
@@ -164,47 +276,38 @@ The agent will query Temporal for running workflows and pick up where you left o
 ## Configuration Reference
 
 | Environment Variable | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server gRPC address |
 | `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server URL |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | AWS Bedrock Claude model identifier |
-| `AWS_REGION` | `eu-west-2` | AWS region for Bedrock |
-| `DVLA_BASE` | `http://localhost:8000` | Target base URL for DVLA service activity calls |
-| `POSTOFFICE_BASE` | `http://localhost:8000` | Target base URL for Post Office activity calls |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Claude model identifier in Bedrock |
+| `AWS_REGION` | `eu-west-2` | AWS region used for Bedrock |
+| `DVLA_BASE` | `http://localhost:8000` | DVLA service base URL |
+| `POSTOFFICE_BASE` | `http://localhost:8000` | Post Office service base URL |
+| `HMRC_BASE` | `http://localhost:8000` | HMRC service base URL |
+| `DWP_BASE` | `http://localhost:8000` | DWP service base URL |
 
 ---
 
-## Running the Terminal CLI Demo (Legacy)
+# Running the Terminal CLI Demo (Legacy)
 
-The project also includes an interactive terminal demo (`demo.py`) that executes workflows without an AI agent. This requires the same Temporal server and worker, plus a stub backend server.
+The project also includes a terminal-based demo (`demo.py`) that executes workflows without using the chat interface.
 
-#### Terminal 1: Temporal Server
+This requires the following services to be running:
 
-```bash
-temporal server start-dev
-```
+- Temporal Server
+- Temporal Worker
+- Stub Server
+- Workflow Server
 
-#### Terminal 2: Backend Stub Server
-
-```bash
-python stub_server.py
-```
-*(Runs on `http://localhost:8000`)*
-
-#### Terminal 3: Temporal Worker
-
-```bash
-cd durable_poc
-PYTHONPATH=. uv run python -m src.worker
-```
-
-#### Terminal 4: The Interactive CLI
+### Terminal 5: Interactive CLI
 
 ```bash
 cd durable_poc
 PYTHONPATH=. uv run python -m src.demo
 ```
 
+You can then interact with workflows directly through the terminal instead of the web-based chat interface.
+`
 Follow the prompts in this terminal to step through the state machine.
 ---
 
