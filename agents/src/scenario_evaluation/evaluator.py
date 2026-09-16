@@ -8,8 +8,10 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml  # type: ignore[import-untyped]
 
@@ -125,7 +127,12 @@ def evaluate_common_trace(
 
     scenario_id = _required_string(scenario, "id", "scenario")
     journey_id = _required_string(scenario, "journey_id", "scenario")
-    expected = _required_mapping(scenario, "expected", "scenario")
+    raw_expected = _required_mapping(scenario, "expected", "scenario")
+    expected = _resolve_dynamic_expectations(
+        raw_expected,
+        trace,
+        path="scenario.expected",
+    )
     equivalence_rules = _equivalence_rules(scenario)
 
     issues: list[EvaluationIssue] = []
@@ -152,6 +159,95 @@ def evaluate_common_trace(
         passed=not issues,
         issues=tuple(issues),
     )
+
+
+def _resolve_dynamic_expectations(
+    value: object,
+    trace: ReadOnlyJsonObject,
+    *,
+    path: str,
+) -> Any:
+    """Resolve dynamic expectation expressions against immutable trace metadata."""
+    if isinstance(value, Mapping):
+        if "$relative_date" in value:
+            if set(value) != {"$relative_date"}:
+                raise EvaluationInputError(
+                    f"{path} dynamic $relative_date expression cannot have sibling keys"
+                )
+            return _resolve_relative_date(value["$relative_date"], trace, path=path)
+        return {
+            key: _resolve_dynamic_expectations(
+                item,
+                trace,
+                path=f"{path}.{key}",
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [
+            _resolve_dynamic_expectations(
+                item,
+                trace,
+                path=f"{path}[{index}]",
+            )
+            for index, item in enumerate(value)
+        ]
+    return value
+
+
+def _resolve_relative_date(
+    raw_expression: object,
+    trace: ReadOnlyJsonObject,
+    *,
+    path: str,
+) -> str:
+    if not isinstance(raw_expression, Mapping):
+        raise EvaluationInputError(f"{path}.$relative_date must be an object")
+
+    allowed_keys = {"days", "format", "timezone"}
+    unknown_keys = set(raw_expression) - allowed_keys
+    if unknown_keys:
+        raise EvaluationInputError(
+            f"{path}.$relative_date has unsupported keys {sorted(unknown_keys)!r}"
+        )
+
+    days = raw_expression.get("days", 0)
+    if isinstance(days, bool) or not isinstance(days, int):
+        raise EvaluationInputError(f"{path}.$relative_date.days must be an integer")
+
+    date_format = raw_expression.get("format")
+    if not isinstance(date_format, str) or not date_format:
+        raise EvaluationInputError(
+            f"{path}.$relative_date.format must be a non-empty string"
+        )
+
+    timezone_name = raw_expression.get("timezone")
+    if not isinstance(timezone_name, str) or not timezone_name:
+        raise EvaluationInputError(
+            f"{path}.$relative_date.timezone must be a non-empty string"
+        )
+    try:
+        timezone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError as error:
+        raise EvaluationInputError(
+            f"{path}.$relative_date.timezone is unknown: {timezone_name!r}"
+        ) from error
+
+    run = _required_mapping(trace, "run", "common trace")
+    started_at = _required_string(run, "started_at", "common trace.run")
+    try:
+        reference_time = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise EvaluationInputError(
+            f"common trace.run.started_at must be an ISO-8601 timestamp, got {started_at!r}"
+        ) from error
+    if reference_time.tzinfo is None:
+        raise EvaluationInputError(
+            "common trace.run.started_at must include a timezone offset"
+        )
+
+    local_date = reference_time.astimezone(timezone) + timedelta(days=days)
+    return local_date.strftime(date_format)
 
 
 def _evaluate_identity(
