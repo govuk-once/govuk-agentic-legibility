@@ -1,9 +1,10 @@
 """The durable workflow executor loop."""
 
 import asyncio
+from copy import deepcopy
 from datetime import timedelta
 import re
-from typing import Any
+from typing import Any, NoReturn
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -72,6 +73,7 @@ class SFSMInterpreter:
 
         if initial_state:
             self.state = initial_state
+            self._rehydrate_initial_state_invokers()
             workflow.logger.info(
                 f"Resuming workflow from initial_state context with frames: {self.state.frames}"
             )
@@ -645,17 +647,60 @@ class SFSMInterpreter:
         self._received_input = msg.value
         self._input_ready_event.set()
 
+    def _raise_input_validation_error(
+        self, msg: InputSubmission, *, code: str, message: str
+    ) -> NoReturn:
+        """Record an existing input-validation failure, then raise it unchanged."""
+        awaiting = self._awaiting_input
+        frame = self.state.frames[-1] if self.state.frames else None
+
+        process_id = frame.process_id if frame else None
+        state_id = awaiting.state_id if awaiting else (frame.state_id if frame else None)
+        schema = awaiting.schema if awaiting else {}
+        schema_kind = schema.get("kind") if isinstance(schema, dict) else None
+
+        assign_target = None
+        if frame is not None and self.definition is not None:
+            process = self.definition.processes.get(frame.process_id)
+            current_state = process.states.get(frame.state_id) if process else None
+            if isinstance(current_state, InputState):
+                assign_target = current_state.assign
+
+        attributes = {
+            "temporalWorkflowID": workflow.info().workflow_id,
+            "process_id": process_id,
+            "state_id": state_id,
+            "schema_kind": schema_kind,
+            "assign_target": assign_target,
+            "token": msg.token,
+            "expected_token": awaiting.token if awaiting else None,
+            "rejection_code": code,
+            "rejection_message": message,
+            "rejected_value_type": type(msg.value).__name__,
+            "rejected_value": str(msg.value),
+        }
+        with _tracer.start_as_current_span(
+            "interpreter.input_validation.rejected",
+            attributes={key: value for key, value in attributes.items() if value is not None},
+        ):
+            pass
+
+        workflow.logger.warn(
+            f"❌ Rejected update ({code}): token={msg.token} value={msg.value!r}: {message}"
+        )
+        raise InputValidationError(message)
+
     @submit_input.validator
     def _validate_input(self, msg: InputSubmission) -> None:
         if not self._awaiting_input:
-            workflow.logger.warn("❌ Rejected update: Workflow is not awaiting input")
-            raise InputValidationError("Not awaiting input")
-        if msg.token != self._awaiting_input.token:
-            workflow.logger.warn(
-                f"❌ Rejected update: Token mismatch ({msg.token} != {self._awaiting_input.token})"
+            self._raise_input_validation_error(
+                msg, code="not_awaiting_input", message="Not awaiting input"
             )
-            raise InputValidationError(
-                f"Token mismatch. Expected {self._awaiting_input.token}"
+        if msg.token != self._awaiting_input.token:
+            self._raise_input_validation_error(
+                msg,
+                code="token_mismatch",
+                message=f"Token mismatch. Expected {self._awaiting_input.token}",
             )
 
         schema = self._awaiting_input.schema
@@ -667,17 +712,23 @@ class SFSMInterpreter:
         val = msg.value
 
         if kind == "boolean" and not isinstance(val, bool):
-            raise InputValidationError(
-                f"Expected boolean, received {type(val).__name__}"
+            self._raise_input_validation_error(
+                msg,
+                code="expected_boolean",
+                message=f"Expected boolean, received {type(val).__name__}",
             )
         if kind == "string" and not isinstance(val, str):
-            raise InputValidationError(
-                f"Expected string, received {type(val).__name__}"
+            self._raise_input_validation_error(
+                msg,
+                code="expected_string",
+                message=f"Expected string, received {type(val).__name__}",
             )
         if kind == "string" and "pattern" in schema:
             if not re.match(str(schema["pattern"]), str(val)):
-                raise InputValidationError(
-                    schema.get("invalid_message", "Invalid format")
+                self._raise_input_validation_error(
+                    msg,
+                    code="invalid_format",
+                    message=schema.get("invalid_message", "Invalid format"),
                 )
 
         if kind in ["select_one", "select_many"]:
@@ -713,14 +764,18 @@ class SFSMInterpreter:
 
             if kind == "select_one":
                 if val not in valid_values and val not in options:
-                    raise InputValidationError(
-                        f"Invalid selection: '{val}'. Please select a valid option."
+                    self._raise_input_validation_error(
+                        msg,
+                        code="invalid_selection",
+                        message=f"Invalid selection: '{val}'. Please select a valid option.",
                     )
 
             if kind == "select_many":
                 if not isinstance(val, list):
-                    raise InputValidationError(
-                        "Expected list of values for select_many"
+                    self._raise_input_validation_error(
+                        msg,
+                        code="expected_list",
+                        message="Expected list of values for select_many",
                     )
                 for item in val:
                     if isinstance(item, int):
@@ -728,19 +783,63 @@ class SFSMInterpreter:
                         if 0 <= idx < len(options):
                             continue
                     if item not in valid_values and item not in options:
-                        raise InputValidationError(
-                            f"Invalid item '{item}' in selection list"
+                        self._raise_input_validation_error(
+                            msg,
+                            code="invalid_selection_item",
+                            message=f"Invalid item '{item}' in selection list",
                         )
 
         if kind == "file_ref":
             if not isinstance(val, dict) or "error" in val:
-                raise InputValidationError(
-                    "Invalid file upload. Please use the upload button."
+                self._raise_input_validation_error(
+                    msg,
+                    code="invalid_file_upload",
+                    message="Invalid file upload. Please use the upload button.",
                 )
             if not val.get("ref") or int(val.get("bytes", 0)) <= 0:
-                raise InputValidationError(
-                    "File payload missing valid reference or size."
+                self._raise_input_validation_error(
+                    msg,
+                    code="invalid_file_payload",
+                    message="File payload missing valid reference or size.",
                 )
+
+
+    def _rehydrate_initial_state_invokers(self) -> None:
+        """Replace serialised invoker state IDs with real InvokeState objects."""
+        if self.definition is None:
+            raise DefinitionError("Cannot rehydrate initial state without a definition")
+
+        for index, frame in enumerate(self.state.frames):
+            if frame.invoker_state is None or isinstance(
+                frame.invoker_state, InvokeState
+            ):
+                continue
+            if not isinstance(frame.invoker_state, str) or index == 0:
+                raise DefinitionError(
+                    "Invalid invoker reference for frame "
+                    f"{frame.process_id}.{frame.state_id}"
+                )
+
+            parent = self.state.frames[index - 1]
+            parent_process = self.definition.processes.get(parent.process_id)
+            if parent_process is None:
+                raise DefinitionError(
+                    f"Parent process '{parent.process_id}' not found while "
+                    "restoring checkpoint"
+                )
+
+            invoker = parent_process.states.get(frame.invoker_state)
+            if not isinstance(invoker, InvokeState):
+                raise DefinitionError(
+                    f"Checkpoint invoker '{frame.invoker_state}' in process "
+                    f"'{parent.process_id}' is not an InvokeState"
+                )
+            if invoker.process != frame.process_id:
+                raise DefinitionError(
+                    f"Checkpoint invoker '{frame.invoker_state}' targets "
+                    f"'{invoker.process}', not '{frame.process_id}'"
+                )
+            frame.invoker_state = invoker
 
     @workflow.query
     def awaiting(self) -> AwaitingInput | None:
@@ -765,3 +864,70 @@ class SFSMInterpreter:
             "state_type": type(state).__name__ if state else None,
             "step": self.state.step_counter,
         }
+
+    @workflow.query
+    def evaluation_checkpoint(self) -> dict[str, Any]:
+        """Return a semantic snapshot of the current interpreter state for evals.
+
+        This deliberately captures SFSM state rather than Temporal event history.
+        ``invoker_state`` is represented by its state ID so a future loader can
+        rehydrate it from the workflow definition instead of serialising the
+        Pydantic state object itself.
+        """
+        frames: list[dict[str, Any]] = []
+        for index, frame in enumerate(self.state.frames):
+            frames.append(
+                {
+                    "process_id": frame.process_id,
+                    "state_id": frame.state_id,
+                    "vars": deepcopy(frame.vars),
+                    "invoker_state_id": self._invoker_state_id(index),
+                }
+            )
+
+        awaiting = None
+        if self._awaiting_input is not None:
+            awaiting = {
+                "token": self._awaiting_input.token,
+                "prompt": self._awaiting_input.prompt,
+                "schema": deepcopy(self._awaiting_input.schema),
+                "options": deepcopy(self._awaiting_input.options),
+                "timeout_seconds": self._awaiting_input.timeout_seconds,
+                "state_id": self._awaiting_input.state_id,
+                "state_type": self._awaiting_input.state_type,
+            }
+
+        return {
+            "schema_version": "sfsm-interpreter-checkpoint/0.1",
+            "current_state": self.current_state_info(),
+            "awaiting": awaiting,
+            "interpreter_state": {
+                "frames": frames,
+                "transcript": [
+                    {
+                        "step": entry.step,
+                        "timestamp": entry.timestamp,
+                        "message": entry.message,
+                    }
+                    for entry in self.state.transcript
+                ],
+                "step_counter": self.state.step_counter,
+                "env": deepcopy(self.state.env),
+            },
+        }
+
+    def _invoker_state_id(self, frame_index: int) -> str | None:
+        """Resolve a child frame's invoker to its state ID in the parent process."""
+        frame = self.state.frames[frame_index]
+        if frame.invoker_state is None or frame_index == 0 or self.definition is None:
+            return None
+
+        parent = self.state.frames[frame_index - 1]
+        parent_process = self.definition.processes.get(parent.process_id)
+        if parent_process is None:
+            return None
+
+        for state_id, candidate in parent_process.states.items():
+            if candidate is frame.invoker_state or candidate == frame.invoker_state:
+                return state_id
+        return None

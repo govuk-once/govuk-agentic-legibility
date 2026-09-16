@@ -1,0 +1,8 @@
+schema_version: '0.1'
+id: ma-work-status-fixed-term-contract-ended
+journey_id: dwp.maternity_allowance_ma1_claim
+expected:
+  submissions:
+    prompt_reason_stopped_work:
+      values:
+        reason_stopped_work: resigned_or_redundant

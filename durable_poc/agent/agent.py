@@ -171,6 +171,8 @@ class WorkflowAgent:
         region_name: AWS region for the Bedrock model.
         temporal_address: Temporal server address (connected lazily).
         task_queue: Temporal task queue for workflow executions.
+        conversation_history: Optional Strands-format conversation history used to
+            initialise the agent before its first invocation.
     """
 
     def __init__(
@@ -181,6 +183,7 @@ class WorkflowAgent:
         region_name: str,
         temporal_address: str = "localhost:7233",
         task_queue: str = "sfsm-queue",
+        conversation_history: list[dict[str, Any]] | None = None,
     ) -> None:
         self._workflow_server_url = workflow_server_url
         self._temporal_address = temporal_address
@@ -210,6 +213,7 @@ class WorkflowAgent:
             system_prompt=self._system_prompt,
             tools=self._tools,
             callback_handler=None,
+            messages=conversation_history or [],
         )
 
     async def close(self) -> None:

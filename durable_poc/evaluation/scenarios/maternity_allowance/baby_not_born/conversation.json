@@ -1,0 +1,73 @@
+{
+  "id": "ma-baby-not-born",
+  "version": "1",
+  "title": "Maternity Allowance - baby not yet born",
+  "description": "A claimant reaches the baby-details section and says that their baby has not yet been born.",
+  "journey_id": "dwp.maternity_allowance_ma1_claim",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I want to apply for Maternity Allowance."
+    },
+    {
+      "role": "assistant",
+      "content": "Would you like to apply for Maternity Allowance?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "To receive Maternity Allowance, you must meet ALL of the following criteria:\n\n• You are NOT receiving Statutory Maternity Pay (SMP) from any employer.\n• You were employed or self-employed for at least 26 weeks in your 66-week Test Period.\n• If doing unpaid work for a partner's business, your partner is NOT a salaried director.\n\nDo you meet all these requirements and wish to proceed with your claim?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I meet those requirements."
+    },
+    {
+      "role": "assistant",
+      "content": "Before continuing, please confirm you have or can obtain the required evidence to upload during this online application: a MAT B1 maternity certificate and, if applicable, an SMP1 form."
+    },
+    {
+      "role": "user",
+      "content": "Yes, I have the evidence I need."
+    },
+    {
+      "role": "assistant",
+      "content": "Claiming Maternity Allowance may reduce or affect payments for other benefits you or your partner get. Do you confirm you understand these effects and wish to continue claiming Maternity Allowance?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I understand and want to continue."
+    },
+    {
+      "role": "assistant",
+      "content": "We will now ask questions about you, including your National Insurance Number, personal contact details and residential address. Please enter your National Insurance Number to verify your identity."
+    },
+    {
+      "role": "user",
+      "content": "AB123456C"
+    },
+    {
+      "role": "assistant",
+      "content": "We found identity records for Jane Mary Smith at 42 High Street, Flat 3B, Manchester, M1 4BT. Are these details correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "We will now ask you questions about your baby, in particular your expected or actual childbirth date and maternity evidence."
+    },
+    {
+      "role": "assistant",
+      "content": "Has your baby already been born?"
+    },
+    {
+      "role": "user",
+      "content": "No, I'm still pregnant."
+    }
+  ]
+}

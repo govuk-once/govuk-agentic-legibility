@@ -3,7 +3,7 @@
 These scenarios define implementation-independent inputs and expected behaviour
 for comparing different ways of consuming the same service journey.
 
-Version `0.1` uses conversation-history fixtures only.
+Version `0.1` uses conversation-history fixtures as the shared input. Implementation-specific scenarios that require private runtime state live with the implementation rather than in this directory; the durable SFSM cases are under `durable_poc/evaluation/scenarios/`.
 
 ## How evaluation fits together
 
@@ -87,6 +87,22 @@ currently resolves to:
 
 The filename is therefore only a repository convention; fixture resolution
 should use the ID and version.
+
+
+
+## Expected submissions
+
+Scenarios can describe values that should be accepted by a service interaction:
+
+```yaml
+expected:
+  submissions:
+    prompt_date_stopped_work:
+      values:
+        date_stopped_work: "03/09/2026"
+```
+
+The shared evaluator compares this expectation with the corresponding `values_submitted` event in the common trace.
 
 ## Expected assistance
 
