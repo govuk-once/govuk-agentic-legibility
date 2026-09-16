@@ -4,7 +4,7 @@ import asyncio
 from copy import deepcopy
 from datetime import timedelta
 import re
-from typing import Any
+from typing import Any, NoReturn
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -647,17 +647,60 @@ class SFSMInterpreter:
         self._received_input = msg.value
         self._input_ready_event.set()
 
+    def _raise_input_validation_error(
+        self, msg: InputSubmission, *, code: str, message: str
+    ) -> NoReturn:
+        """Record an existing input-validation failure, then raise it unchanged."""
+        awaiting = self._awaiting_input
+        frame = self.state.frames[-1] if self.state.frames else None
+
+        process_id = frame.process_id if frame else None
+        state_id = awaiting.state_id if awaiting else (frame.state_id if frame else None)
+        schema = awaiting.schema if awaiting else {}
+        schema_kind = schema.get("kind") if isinstance(schema, dict) else None
+
+        assign_target = None
+        if frame is not None and self.definition is not None:
+            process = self.definition.processes.get(frame.process_id)
+            current_state = process.states.get(frame.state_id) if process else None
+            if isinstance(current_state, InputState):
+                assign_target = current_state.assign
+
+        attributes = {
+            "temporalWorkflowID": workflow.info().workflow_id,
+            "process_id": process_id,
+            "state_id": state_id,
+            "schema_kind": schema_kind,
+            "assign_target": assign_target,
+            "token": msg.token,
+            "expected_token": awaiting.token if awaiting else None,
+            "rejection_code": code,
+            "rejection_message": message,
+            "rejected_value_type": type(msg.value).__name__,
+            "rejected_value": str(msg.value),
+        }
+        with _tracer.start_as_current_span(
+            "interpreter.input_validation.rejected",
+            attributes={key: value for key, value in attributes.items() if value is not None},
+        ):
+            pass
+
+        workflow.logger.warn(
+            f"❌ Rejected update ({code}): token={msg.token} value={msg.value!r}: {message}"
+        )
+        raise InputValidationError(message)
+
     @submit_input.validator
     def _validate_input(self, msg: InputSubmission) -> None:
         if not self._awaiting_input:
-            workflow.logger.warn("❌ Rejected update: Workflow is not awaiting input")
-            raise InputValidationError("Not awaiting input")
-        if msg.token != self._awaiting_input.token:
-            workflow.logger.warn(
-                f"❌ Rejected update: Token mismatch ({msg.token} != {self._awaiting_input.token})"
+            self._raise_input_validation_error(
+                msg, code="not_awaiting_input", message="Not awaiting input"
             )
-            raise InputValidationError(
-                f"Token mismatch. Expected {self._awaiting_input.token}"
+        if msg.token != self._awaiting_input.token:
+            self._raise_input_validation_error(
+                msg,
+                code="token_mismatch",
+                message=f"Token mismatch. Expected {self._awaiting_input.token}",
             )
 
         schema = self._awaiting_input.schema
@@ -669,17 +712,23 @@ class SFSMInterpreter:
         val = msg.value
 
         if kind == "boolean" and not isinstance(val, bool):
-            raise InputValidationError(
-                f"Expected boolean, received {type(val).__name__}"
+            self._raise_input_validation_error(
+                msg,
+                code="expected_boolean",
+                message=f"Expected boolean, received {type(val).__name__}",
             )
         if kind == "string" and not isinstance(val, str):
-            raise InputValidationError(
-                f"Expected string, received {type(val).__name__}"
+            self._raise_input_validation_error(
+                msg,
+                code="expected_string",
+                message=f"Expected string, received {type(val).__name__}",
             )
         if kind == "string" and "pattern" in schema:
             if not re.match(str(schema["pattern"]), str(val)):
-                raise InputValidationError(
-                    schema.get("invalid_message", "Invalid format")
+                self._raise_input_validation_error(
+                    msg,
+                    code="invalid_format",
+                    message=schema.get("invalid_message", "Invalid format"),
                 )
 
         if kind in ["select_one", "select_many"]:
@@ -715,14 +764,18 @@ class SFSMInterpreter:
 
             if kind == "select_one":
                 if val not in valid_values and val not in options:
-                    raise InputValidationError(
-                        f"Invalid selection: '{val}'. Please select a valid option."
+                    self._raise_input_validation_error(
+                        msg,
+                        code="invalid_selection",
+                        message=f"Invalid selection: '{val}'. Please select a valid option.",
                     )
 
             if kind == "select_many":
                 if not isinstance(val, list):
-                    raise InputValidationError(
-                        "Expected list of values for select_many"
+                    self._raise_input_validation_error(
+                        msg,
+                        code="expected_list",
+                        message="Expected list of values for select_many",
                     )
                 for item in val:
                     if isinstance(item, int):
@@ -730,18 +783,24 @@ class SFSMInterpreter:
                         if 0 <= idx < len(options):
                             continue
                     if item not in valid_values and item not in options:
-                        raise InputValidationError(
-                            f"Invalid item '{item}' in selection list"
+                        self._raise_input_validation_error(
+                            msg,
+                            code="invalid_selection_item",
+                            message=f"Invalid item '{item}' in selection list",
                         )
 
         if kind == "file_ref":
             if not isinstance(val, dict) or "error" in val:
-                raise InputValidationError(
-                    "Invalid file upload. Please use the upload button."
+                self._raise_input_validation_error(
+                    msg,
+                    code="invalid_file_upload",
+                    message="Invalid file upload. Please use the upload button.",
                 )
             if not val.get("ref") or int(val.get("bytes", 0)) <= 0:
-                raise InputValidationError(
-                    "File payload missing valid reference or size."
+                self._raise_input_validation_error(
+                    msg,
+                    code="invalid_file_payload",
+                    message="File payload missing valid reference or size.",
                 )
 
 

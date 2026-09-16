@@ -228,6 +228,14 @@ async def test_workflow_traces_propagate_across_boundary(
                 await env.sleep(0.1)
 
                 awaiting = await handle.query("awaiting")
+                with pytest.raises(WorkflowUpdateFailedError):
+                    await handle.execute_update(
+                        "submit_input",
+                        InputSubmission(
+                            token=awaiting["token"], value="InvalidString"
+                        ),
+                    )
+
                 await handle.execute_update(
                     "submit_input",
                     InputSubmission(token=awaiting["token"], value=True),
@@ -274,6 +282,18 @@ async def test_workflow_traces_propagate_across_boundary(
     assert seen_states["ask_name"].attributes["prompt"] == "What is your name?"
 
     assert seen_states["ask_subscribe"].attributes["schema_kind"] == "boolean"
+
+    rejected_spans = [
+        span for span in finished if span.name == "interpreter.input_validation.rejected"
+    ]
+    assert rejected_spans
+    rejected = rejected_spans[-1]
+    assert rejected.attributes["state_id"] == "ask_subscribe"
+    assert rejected.attributes["process_id"] == "main"
+    assert rejected.attributes["assign_target"] == "subscribe"
+    assert rejected.attributes["rejection_code"] == "expected_boolean"
+    assert rejected.attributes["rejected_value_type"] == "str"
+    assert rejected.attributes["rejected_value"] == "InvalidString"
 
     provider.shutdown()
 
