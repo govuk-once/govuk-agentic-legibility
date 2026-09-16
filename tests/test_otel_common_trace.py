@@ -28,31 +28,21 @@ def write_inputs(
     *,
     process_id: str = "section2_about_baby",
     state_id: str = "prompt_is_baby_born",
-) -> tuple[Path, Path, Path]:
+) -> tuple[Path, Path]:
     scenario_path = tmp_path / "scenario.yaml"
     scenario_path.write_text(
         yaml.safe_dump(
             {
                 "schema_version": "0.1",
-                "id": "ma-test",
+                "id": "ma-fixture",
                 "journey_id": "dwp.maternity_allowance_ma1_claim",
-                "input": {
-                    "conversation_fixture": {"id": "ma-fixture", "version": "1"},
-                    "checkpoint": {
-                        "id": "captured-checkpoint",
-                        "process_id": process_id,
-                        "state_id": state_id,
-                    },
-                },
             },
             sort_keys=False,
         ),
         encoding="utf-8",
     )
 
-    fixture_dir = tmp_path / "fixtures"
-    fixture_dir.mkdir()
-    fixture_path = fixture_dir / "ma_fixture.json"
+    fixture_path = tmp_path / "conversation.json"
     fixture_path.write_text(
         json.dumps(
             {
@@ -64,7 +54,19 @@ def write_inputs(
         ),
         encoding="utf-8",
     )
-    return scenario_path, fixture_dir, fixture_path
+    (tmp_path / "checkpoint.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "sfsm-interpreter-checkpoint/0.1",
+                "current_state": {
+                    "process_id": process_id,
+                    "state_id": state_id,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return scenario_path, fixture_path
 
 
 def input_span(
@@ -131,7 +133,7 @@ def rejection_span(
     }
 
 def test_baby_not_born_span_becomes_common_semantic_events(tmp_path: Path) -> None:
-    scenario_path, fixture_dir, fixture_path = write_inputs(tmp_path)
+    scenario_path, fixture_path = write_inputs(tmp_path)
     trace_path = tmp_path / "durable-otel.jsonl"
     workflow_id = "eval-ma-baby-not-born-a6f89cb5"
     write_jsonl(
@@ -154,7 +156,6 @@ def test_baby_not_born_span_becomes_common_semantic_events(tmp_path: Path) -> No
         trace_path=trace_path,
         scenario_path=scenario_path,
         workflow_id=workflow_id,
-        fixture_dir=fixture_dir,
     )
 
     assert result == {
@@ -188,7 +189,7 @@ def test_baby_not_born_span_becomes_common_semantic_events(tmp_path: Path) -> No
 
 
 def test_converter_preserves_natural_language_date_as_string(tmp_path: Path) -> None:
-    scenario_path, fixture_dir, _ = write_inputs(
+    scenario_path, _ = write_inputs(
         tmp_path,
         process_id="section4_about_payment",
         state_id="prompt_date_stopped_work",
@@ -213,7 +214,6 @@ def test_converter_preserves_natural_language_date_as_string(tmp_path: Path) -> 
         trace_path=trace_path,
         scenario_path=scenario_path,
         workflow_id=workflow_id,
-        fixture_dir=fixture_dir,
     )
 
     assert result["events"][1] == {
@@ -225,7 +225,7 @@ def test_converter_preserves_natural_language_date_as_string(tmp_path: Path) -> 
 
 
 def test_converter_records_rejected_attempt_before_accepted_value(tmp_path: Path) -> None:
-    scenario_path, fixture_dir, _ = write_inputs(
+    scenario_path, _ = write_inputs(
         tmp_path,
         process_id="section4_about_payment",
         state_id="prompt_payment_frequency",
@@ -254,7 +254,6 @@ def test_converter_records_rejected_attempt_before_accepted_value(tmp_path: Path
         trace_path=trace_path,
         scenario_path=scenario_path,
         workflow_id=workflow_id,
-        fixture_dir=fixture_dir,
     )
 
     assert result["events"] == [
@@ -278,7 +277,7 @@ def test_converter_records_rejected_attempt_before_accepted_value(tmp_path: Path
 
 
 def test_converter_can_return_rejection_without_accepted_input(tmp_path: Path) -> None:
-    scenario_path, fixture_dir, _ = write_inputs(
+    scenario_path, _ = write_inputs(
         tmp_path,
         process_id="section4_about_payment",
         state_id="prompt_payment_frequency",
@@ -291,7 +290,6 @@ def test_converter_can_return_rejection_without_accepted_input(tmp_path: Path) -
         trace_path=trace_path,
         scenario_path=scenario_path,
         workflow_id=workflow_id,
-        fixture_dir=fixture_dir,
     )
 
     assert result["events"][1] == {
@@ -304,7 +302,7 @@ def test_converter_can_return_rejection_without_accepted_input(tmp_path: Path) -
 
 
 def test_converter_requires_target_input_span(tmp_path: Path) -> None:
-    scenario_path, fixture_dir, _ = write_inputs(tmp_path)
+    scenario_path, _ = write_inputs(tmp_path)
     trace_path = tmp_path / "durable-otel.jsonl"
     write_jsonl(trace_path, [input_span(workflow_id="different-workflow")])
 
@@ -316,7 +314,6 @@ def test_converter_requires_target_input_span(tmp_path: Path) -> None:
             trace_path=trace_path,
             scenario_path=scenario_path,
             workflow_id="eval-ma-baby-not-born-missing",
-            fixture_dir=fixture_dir,
         )
 
 

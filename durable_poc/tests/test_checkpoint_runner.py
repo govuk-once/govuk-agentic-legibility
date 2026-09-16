@@ -2,30 +2,39 @@
 
 from pathlib import Path
 
-import pytest
-
-from evaluation.checkpoint_runner import (
-    agent_input,
-    build_checkpoint_state,
-    load_document,
-)
+from evaluation.checkpoint_runner import agent_input, build_checkpoint_state
+from evaluation.scenario_case import load_document, load_scenario_case
 
 DURABLE_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = DURABLE_ROOT.parent
-SCENARIO_DIR = (
-    REPO_ROOT / "agents" / "evaluation" / "scenarios" / "maternity-allowance"
-)
-FIXTURE_DIR = REPO_ROOT / "agents" / "src" / "evaluation" / "fixtures"
-CHECKPOINT_DIR = DURABLE_ROOT / "evaluation" / "checkpoints"
+SCENARIO_DIR = DURABLE_ROOT / "evaluation" / "scenarios" / "maternity_allowance"
 DEFINITION = DURABLE_ROOT / "dwp_ma1_schema.json"
 
 
-def test_date_stopped_work_uses_captured_real_interpreter_state() -> None:
-    scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
-    definition = load_document(DEFINITION)
-    checkpoint = scenario["input"]["checkpoint"]
+def test_compact_case_reference_resolves_colocated_inputs() -> None:
+    scenario_case = load_scenario_case(
+        Path("maternity_allowance/work_status_fixed_term_contract_ended")
+    )
 
-    state = build_checkpoint_state(definition, checkpoint, CHECKPOINT_DIR)
+    assert scenario_case.scenario_path == (
+        SCENARIO_DIR / "work_status_fixed_term_contract_ended" / "scenario.yaml"
+    ).resolve()
+    assert scenario_case.conversation_path.name == "conversation.json"
+    assert scenario_case.checkpoint_path.name == "checkpoint.json"
+    assert scenario_case.scenario["id"] == "ma-work-status-fixed-term-contract-ended"
+    assert "input" not in scenario_case.scenario
+    assert scenario_case.target == (
+        "section4_about_payment",
+        "prompt_reason_stopped_work",
+    )
+
+
+def test_date_stopped_work_uses_captured_real_interpreter_state() -> None:
+    scenario_case = load_scenario_case(
+        Path("maternity_allowance/date_stopped_work_natural_language")
+    )
+    definition = load_document(DEFINITION)
+
+    state = build_checkpoint_state(definition, scenario_case.checkpoint)
 
     assert len(state.frames) == 2
     assert state.frames[0].process_id == "main"
@@ -46,14 +55,10 @@ def test_date_stopped_work_uses_captured_real_interpreter_state() -> None:
 
 
 def test_baby_not_born_uses_captured_real_interpreter_state() -> None:
-    scenario = load_document(SCENARIO_DIR / "baby-not-born.yaml")
+    scenario_case = load_scenario_case(Path("maternity_allowance/baby_not_born"))
     definition = load_document(DEFINITION)
 
-    state = build_checkpoint_state(
-        definition,
-        scenario["input"]["checkpoint"],
-        CHECKPOINT_DIR,
-    )
+    state = build_checkpoint_state(definition, scenario_case.checkpoint)
 
     assert len(state.frames) == 2
     assert state.frames[0].process_id == "main"
@@ -66,31 +71,16 @@ def test_baby_not_born_uses_captured_real_interpreter_state() -> None:
     assert state.step_counter == 17
 
 
-def test_checkpoint_id_is_required() -> None:
-    definition = load_document(DEFINITION)
-
-    with pytest.raises(ValueError, match="checkpoint.id"):
-        build_checkpoint_state(
-            definition,
-            {
-                "process_id": "section2_about_baby",
-                "state_id": "prompt_is_baby_born",
-            },
-            CHECKPOINT_DIR,
-        )
-
-
-def test_date_stopped_work_fixture_uses_full_history_and_natural_language_turn(
-) -> None:
-    fixture = load_document(
-        FIXTURE_DIR / "ma_date_stopped_work_natural_language.json"
+def test_date_stopped_work_fixture_uses_full_history_and_natural_language_turn() -> None:
+    scenario_case = load_scenario_case(
+        Path("maternity_allowance/date_stopped_work_natural_language")
     )
     definition = load_document(DEFINITION)
     prompt = definition["processes"]["section4_about_payment"]["states"][
         "prompt_date_stopped_work"
     ]["prompt"]
 
-    history, current_user_message = agent_input(fixture, prompt)
+    history, current_user_message = agent_input(scenario_case.conversation, prompt)
 
     assert current_user_message == "3 September 2026."
     history_text = "\n".join(
@@ -106,13 +96,11 @@ def test_interpreter_rehydrates_captured_invoker_state() -> None:
     from src.interpreter import SFSMInterpreter
     from src.model import InvokeState, SFSMDefinition
 
-    scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
-    definition_dict = load_document(DEFINITION)
-    state = build_checkpoint_state(
-        definition_dict,
-        scenario["input"]["checkpoint"],
-        CHECKPOINT_DIR,
+    scenario_case = load_scenario_case(
+        Path("maternity_allowance/date_stopped_work_natural_language")
     )
+    definition_dict = load_document(DEFINITION)
+    state = build_checkpoint_state(definition_dict, scenario_case.checkpoint)
 
     interpreter = SFSMInterpreter()
     interpreter.definition = SFSMDefinition.model_validate(definition_dict)

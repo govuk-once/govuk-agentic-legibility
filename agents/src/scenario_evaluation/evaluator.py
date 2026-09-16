@@ -170,7 +170,13 @@ def _evaluate_identity(
             )
         )
 
-    scenario_input = _required_mapping(scenario, "input", "scenario")
+    scenario_input = scenario.get("input")
+    if scenario_input is None:
+        # Durable implementation-specific scenarios may use a colocated
+        # conversation.json convention instead of repeating that identity in YAML.
+        return
+    if not isinstance(scenario_input, Mapping):
+        raise EvaluationInputError("scenario.input must be an object")
     expected_fixture = _required_mapping(
         scenario_input,
         "conversation_fixture",

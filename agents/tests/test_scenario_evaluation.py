@@ -261,6 +261,17 @@ def test_matching_expected_submission_passes() -> None:
     assert result.issues == ()
 
 
+def test_fixture_identity_is_optional_for_convention_based_scenarios() -> None:
+    """Implementation-specific scenarios may omit duplicated fixture metadata."""
+    scenario = submission_scenario()
+    scenario.pop("input")
+
+    result = evaluate_common_trace(scenario, submission_trace())
+
+    assert result.passed
+    assert result.issues == ()
+
+
 def test_mismatched_expected_submission_fails() -> None:
     """A different executor-accepted value is a behavioural failure."""
     result = evaluate_common_trace(submission_scenario(), submission_trace(True))
