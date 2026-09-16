@@ -1,16 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
-
-	let selectedFileName = $state('');
-
-	/**
-	 * Shows the chosen document name so the visually hidden native input still gives clear confirmation.
-	 */
-	function handleFileSelection(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		selectedFileName = input.files?.[0]?.name ?? '';
-	}
 </script>
 
 <svelte:head>
@@ -31,8 +21,9 @@
 			It will use this, plus what is already on GOV.UK, to draft the journey and graph.
 		</p>
 
-		<!-- The GET form provides a working design journey without sending information to an external service. -->
-		<form method="GET" action={resolve('/onboard/draft')}>
+		<!-- Posts straight to /onboard/draft's own form action, which calls Claude Sonnet 5 on Amazon
+			Bedrock and renders the result there, a plain full page POST needs no client side script. -->
+		<form method="POST" action={resolve('/onboard/draft')}>
 			<div class="govuk-form-group">
 				<label class="govuk-label govuk-label--s" for="service-name">What is the service called?</label>
 				<input
@@ -77,8 +68,8 @@
 
 			<div class="govuk-form-group">
 				<label class="govuk-label govuk-label--s" for="service-document">Add a document (optional)</label>
-				<!-- The native input covers the drop area so click, keyboard and file drop behaviour remain available. -->
-				<div class="document-upload">
+				<!-- Not wired into generation yet, disabled so it does not suggest it does something it does not. -->
+				<div class="document-upload document-upload--disabled">
 					<input
 						class="document-upload__input"
 						id="service-document"
@@ -86,17 +77,14 @@
 						type="file"
 						accept=".doc,.docx,.pdf,.txt"
 						aria-describedby="service-document-hint"
-						onchange={handleFileSelection}
+						disabled
 					/>
 					<span id="service-document-hint" class="document-upload__prompt govuk-body govuk-!-margin-bottom-0">
 						<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 							<path d="M12 16 V4 M7 9 L12 4 L17 9 M5 15 V20 H19 V15" fill="none" stroke="currentColor" stroke-width="2" />
 						</svg>
 						<span class="document-upload__status">
-							<span>Drop a policy paper, specification or form here, or choose a file.</span>
-							{#if selectedFileName}
-								<strong>Selected file: {selectedFileName}</strong>
-							{/if}
+							<span>Not available yet. The draft is generated from the description and links above.</span>
 						</span>
 					</span>
 				</div>
@@ -136,6 +124,14 @@
 		outline-offset: 0;
 	}
 
+	.document-upload--disabled {
+		border-color: #b1b4b6;
+	}
+
+	.document-upload--disabled .document-upload__prompt {
+		color: #b1b4b6;
+	}
+
 	.document-upload__input {
 		position: absolute;
 		inset: 0;
@@ -144,6 +140,10 @@
 		height: 100%;
 		opacity: 0;
 		cursor: pointer;
+	}
+
+	.document-upload__input:disabled {
+		cursor: not-allowed;
 	}
 
 	.document-upload__prompt {
