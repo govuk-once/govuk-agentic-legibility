@@ -3,8 +3,7 @@ import { Tags } from 'aws-cdk-lib';
 
 import { TokenSecretsStack } from '../lib/secrets-stack';
 import { SharedVpcStack } from '../lib/shared-vpc-stack';
-import { TemporalDatabaseStack } from '../lib/temporal-database-stack';
-import { TemporalServerStack } from '../lib/temporal-server-stack';
+import { DurablePocStack } from "../lib/durable-poc-stack";
 
 const app = new cdk.App();
 
@@ -21,24 +20,15 @@ const sharedVpc = new SharedVpcStack(app, 'SharedVpcStack', {
   env,
 });
 
-const database = new TemporalDatabaseStack(
+new DurablePocStack(
   app,
-  'TemporalDatabaseStack',
+  "DurablePocStack",
   {
     env,
     vpc: sharedVpc.vpc,
-  },
-);
-
-new TemporalServerStack(
-  app,
-  'TemporalServerStack',
-  {
-    env,
-    vpc: sharedVpc.vpc,
-    database: database.database,
-    databaseSecret: database.databaseSecret,
-  },
+    repoUrl:
+      "https://github.com/govuk-once/govuk-agentic-legibility",
+  }
 );
 
 Tags.of(app).add('Environment', 'development');
