@@ -1,10 +1,9 @@
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { AnthropicError } from '@anthropic-ai/sdk';
 import type Anthropic from '@anthropic-ai/sdk';
 import { bedrockClient, BEDROCK_MODEL_ID } from './client';
 import { ONBOARD_SYSTEM_PROMPT } from './system-prompt';
 import { fetchLinkText } from './fetch-link';
-import { serviceSchema, parseService } from '$lib/schema';
+import { parseService } from '$lib/schema';
 import type { ServiceValidation } from '$lib/schema';
 
 const MAX_TOKENS = 32000;
@@ -15,9 +14,16 @@ export type GenerateServiceResult = ServiceValidation & { warnings: string[] };
 /**
  * Turns a service brief or jounrey description into a canonical Service definition by calling Claude Sonnet 5 on
  * Amazon Bedrock. Every link is fetched here before the request, since Bedrock has no server
- * hosted web fetch tool for Claude models. The response is constrained server side to the
- * Service JSON schema, then re-validated in full against parseService, since that constraint
- * cannot express the schema's cross referential checks.. One corrective turn is attempted if validation still fails.
+ * hosted web fetch tool for Claude models. Claude Sonnet 5 on Bedrock does not support
+ * output_config, on either the bedrock-runtime or bedrock-mantle endpoint, so the shape comes
+ * from the system prompt's own description of the format alone, then the response is validated
+ * in full against parseService. One corrective turn is attempted if validation fails, whether
+ * that is a shape problem or, the case this retry was originally written for, a cross
+ * referential one such as a transition pointing at an id nothing defined.
+ *
+ *
+ * Note: this method should be updated to use AWS AGEnt core and the tool calls and structured output options available via that method
+ * This will provide better methods that the current proof of concept methods below which are work arounds for not using Agent Core
  */
 export async function generateService({
 	name,
@@ -42,23 +48,20 @@ export async function generateService({
 		...linkSections
 	].join('\n\n');
 
-	const outputConfig = { format: zodOutputFormat(serviceSchema) };
 	const messages: Anthropic.MessageParam[] = [{ role: 'user', content: briefText }];
 
 	try {
-		const first = await requestService(messages, outputConfig);
+		const first = await requestService(messages);
 		if (first.result.ok) return { ...first.result, warnings };
 
-		// One corrective turn. tell Claude exactly what failed validation and ask it to try again.
-		// A failure here is about referential integrity, not shape, since output_config.format
-		// already constrains the shape server side.
+		// One corrective turn: tell Claude exactly what failed validation and ask it to try again.
 		messages.push({ role: 'assistant', content: first.content });
 		messages.push({
 			role: 'user',
 			content: `That did not match the required format. Problems: ${summariseIssues(first.result)} Reply again with corrected JSON only.`
 		});
 
-		const second = await requestService(messages, outputConfig);
+		const second = await requestService(messages);
 		return { ...second.result, warnings };
 	} catch (error) {
 		// The Bedrock call itself is an external system boundary: a bad or expired bearer token,
@@ -70,15 +73,13 @@ export async function generateService({
 }
 
 async function requestService(
-	messages: Anthropic.MessageParam[],
-	outputConfig: { format: ReturnType<typeof zodOutputFormat> }
+	messages: Anthropic.MessageParam[]
 ): Promise<{ result: ServiceValidation; content: Anthropic.ContentBlock[] }> {
 	const message = await bedrockClient.messages
 		.stream({
 			model: BEDROCK_MODEL_ID,
 			max_tokens: MAX_TOKENS,
 			system: ONBOARD_SYSTEM_PROMPT,
-			output_config: outputConfig,
 			messages
 		})
 		.finalMessage();

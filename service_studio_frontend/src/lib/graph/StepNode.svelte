@@ -27,7 +27,7 @@
 	onclick={onselect}
 >
 	<h3 class="govuk-heading-s govuk-!-margin-bottom-0 journey-step-node__title">
-		{#if data.stepNumber}{data.stepNumber}. {/if}{data.title}
+		{#if data.stepNumber}{data.stepNumber} &middot; {/if}{data.title}
 	</h3>
 </button>
 
@@ -40,7 +40,7 @@
 		margin: 0;
 		padding: 10px 15px;
 		background-color: #ffffff;
-		border: 2px solid #0b0c0c;
+		border: 1px solid #b1b4b6;
 		font-family: 'GDS Transport', arial, sans-serif;
 		text-align: left;
 		cursor: pointer;
@@ -57,8 +57,7 @@
 	}
 
 	.journey-step-node--selected {
-		background-color: #e8f1f8;
-		border: 3px solid #1d70b8;
+		border: 2px solid #1d70b8;
 	}
 
 	.journey-step-node:focus-visible {

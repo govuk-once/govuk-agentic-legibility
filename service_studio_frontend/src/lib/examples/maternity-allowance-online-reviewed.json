@@ -60,7 +60,7 @@
         ]
       },
       "name": "What is your postcode?",
-      "description": "Checks the postcode against the private beta area. The URL, method and status codes here are illustrative: the real check, and the actual list of eligible postcode areas, are not published in the source material, so this call cannot be stated with confidence yet.",
+      "description": "Checks the postcode against the areas covered by the private beta. The endpoint address and response codes are placeholders until the real postcode eligibility service is confirmed.",
       "fields": [
         {
           "id": "pc-1",

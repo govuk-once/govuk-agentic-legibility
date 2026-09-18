@@ -7,11 +7,19 @@
 		state: StageState;
 	}
 
-	let { stages }: { stages: Stage[] } = $props();
+	interface Props {
+		stages: Stage[];
+		// Set on the graph editor, whose own design embeds this sequence inside the shared banner row
+		// rather than giving it a second full-width row of its own, so it needs to fit a 60px banner
+		// rather than sit as a standalone section.
+		compact?: boolean;
+	}
+
+	let { stages, compact = false }: Props = $props();
 </script>
 
 <!-- The progress navigation communicates completed, current and upcoming prototype stages in one sequence. -->
-<nav class="progress" aria-label="Prototype stages">
+<nav class="progress" class:progress--compact={compact} aria-label="Prototype stages">
 	{#each stages as stage, index (stage.number)}
 		{#if index > 0}
 			<!-- Dividers separate neighbouring stages without adding another item to the sequence. -->
@@ -54,11 +62,20 @@
 		font-family: 'GDS Transport', arial, sans-serif;
 	}
 
+	.progress--compact {
+		padding: 0;
+		flex-wrap: nowrap;
+	}
+
 	.progress__stage {
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		padding-inline: 20px;
+	}
+
+	.progress--compact .progress__stage {
+		padding-inline: 15px;
 	}
 
 	.progress__stage:first-child {
@@ -69,6 +86,10 @@
 		width: 1px;
 		height: 28px;
 		background-color: #b1b4b6;
+	}
+
+	.progress--compact .progress__divider {
+		height: 22px;
 	}
 
 	.progress__marker {
@@ -82,6 +103,11 @@
 		font-size: 1rem;
 		font-weight: 700;
 		color: #505a5f;
+	}
+
+	.progress--compact .progress__marker {
+		width: 24px;
+		height: 24px;
 	}
 
 	.progress__marker--complete {
@@ -99,6 +125,10 @@
 		font-size: 1rem;
 		line-height: 1.25;
 		color: #505a5f;
+	}
+
+	.progress--compact .progress__label {
+		white-space: nowrap;
 	}
 
 	.progress__label--current {

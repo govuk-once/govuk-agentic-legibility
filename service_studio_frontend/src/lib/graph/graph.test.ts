@@ -48,7 +48,7 @@ describe('serviceToGraph', () => {
 		expect(graph.nodes.filter((node) => node.type === 'step')).toHaveLength(3);
 		expect(graph.nodes.filter((node) => node.type === 'terminal')).toHaveLength(2);
 		expect(graph.nodes.some((node) => node.id === 'start')).toBe(true);
-		expect(graph.nodes.some((node) => node.id === 'end')).toBe(true);
+		expect(graph.nodes.some((node) => node.type === 'terminal' && node.data.appearance === 'end')).toBe(true);
 		expect(graph.edges).toHaveLength(4);
 	});
 
@@ -69,65 +69,27 @@ describe('serviceToGraph', () => {
 			])
 		);
 
+		// The gateway is a plain shape: a route's label and condition live on the step's own transition
+		// data, edited in the step editor, not drawn on the graph, so the graph only needs to place the
+		// right number of branch edges at the right targets.
 		const gateway = graph.nodes.find((node) => node.type === 'condition');
 		expect(gateway).toBeDefined();
 		expect(graph.edges.some((edge) => edge.source === 'a' && edge.target === gateway?.id)).toBe(true);
 
 		const branchEdges = graph.edges.filter((edge) => edge.kind === 'branch');
 		expect(branchEdges).toHaveLength(3);
-
-		const toB = branchEdges.find((edge) => edge.target === 'b');
-		expect(toB?.label).toBe('Yes');
-		expect(toB?.tagColour).toBe('grey');
-
-		const toC = branchEdges.find((edge) => edge.target === 'c');
-		expect(toC?.label).toBe('x = y');
-
-		const toD = branchEdges.find((edge) => edge.target === 'd');
-		expect(toD?.label).toBeUndefined();
-		expect(toD?.tagColour).toBeUndefined();
+		expect(branchEdges.map((edge) => edge.target).sort()).toEqual(['b', 'c', 'd']);
+		expect(branchEdges.every((edge) => edge.source === gateway?.id)).toBe(true);
 	});
 
-	it('labels the gateway with the best question wording it can find on the step', () => {
-		const twoTransitions = [{ targetStepId: 'x' }, { targetStepId: 'y' }];
-		const targets = [step({ id: 'x' }), step({ id: 'y' })];
-
-		const namedQuestion = serviceToGraph(
-			makeService([step({ id: 'a', name: 'Has your baby been born?', transitions: twoTransitions }), ...targets])
-		);
-		const fieldQuestion = serviceToGraph(
-			makeService([
-				step({
-					id: 'a',
-					name: 'Choose how to enter your address',
-					fields: [
-						{ id: 'f', name: 'method', label: 'How do you want to enter your address?', element: 'radio' }
-					],
-					transitions: twoTransitions
-				}),
-				...targets
-			])
-		);
-		const noQuestion = serviceToGraph(
-			makeService([step({ id: 'a', name: 'Choose a route', transitions: twoTransitions }), ...targets])
-		);
-
-		const question = (graph: ReturnType<typeof serviceToGraph>) => {
-			const gateway = graph.nodes.find((node) => node.type === 'condition');
-			return gateway?.type === 'condition' ? gateway.data.question : undefined;
-		};
-
-		expect(question(namedQuestion)).toBe('Has your baby been born?');
-		expect(question(fieldQuestion)).toBe('How do you want to enter your address?');
-		expect(question(noQuestion)).toBe('Which route applies?');
-	});
-
-	it('joins a step with no transitions to the end node', () => {
+	it('joins a step with no transitions to its own terminal node', () => {
 		const graph = serviceToGraph(
 			makeService([step({ id: 'a', transitions: [{ targetStepId: 'b' }] }), step({ id: 'b' })])
 		);
 
-		expect(graph.edges.some((edge) => edge.source === 'b' && edge.target === 'end')).toBe(true);
+		const terminal = graph.nodes.find((node) => node.type === 'terminal' && node.data.appearance === 'end');
+		expect(terminal).toBeDefined();
+		expect(graph.edges.some((edge) => edge.source === 'b' && edge.target === terminal?.id)).toBe(true);
 	});
 
 	it('connects the start node to the service startStepId', () => {
@@ -171,7 +133,7 @@ describe('journey graph layout', () => {
 		);
 		const { nodes, width, height } = layoutJourneyGraph(graph.nodes, graph.edges);
 		const start = nodes.find((node) => node.id === 'start');
-		const end = nodes.find((node) => node.id === 'end');
+		const end = nodes.find((node) => node.type === 'terminal' && node.data.appearance === 'end');
 
 		expect(start?.position.y).toBeLessThan(end?.position.y ?? 0);
 		expect(nodes.every((node) => Number.isFinite(node.position.x))).toBe(true);

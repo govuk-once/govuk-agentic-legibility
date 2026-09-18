@@ -1,13 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import Progress from '$lib/components/Progress.svelte';
-	import StepCard from '$lib/components/StepCard.svelte';
-	import StepEditorCard from '$lib/components/StepEditorCard.svelte';
-	import JourneyGraph from '$lib/graph/JourneyGraph.svelte';
-	import SaveBar from '$lib/components/SaveBar.svelte';
 	import { serviceExamples } from '$lib/examples';
-	import { humanKind, kindColour } from '$lib/schema';
-	import type { Service, ServiceStep } from '$lib/schema';
+	import { isBranchStep } from '$lib/schema';
 
 	const stages = [
 		{ number: 1, label: 'Start', state: 'complete' as const },
@@ -17,174 +13,42 @@
 		{ number: 5, label: 'Publish', state: 'upcoming' as const }
 	];
 
-	// Which example service is loaded. The examples are bundled and validated at build time, so this is
-	// just a slug into that list.
+	// Which example service is chosen here, before the graph editor itself is reached. The examples are
+	// bundled and validated at build time, so this is just a slug into that list.
 	let selectedSlug = $state(serviceExamples[0]?.slug ?? '');
 	const selectedExample = $derived(serviceExamples.find((example) => example.slug === selectedSlug) ?? null);
 
-	// The editable copy of the chosen service. Raw state because every change below replaces the whole
-	// object rather than mutating it in place. Seeded from the first example, then reseeded by the effect
-	// whenever a different example is chosen, so edits to one example never leak into another.
-	let workingService = $state.raw<Service | null>(
-		serviceExamples[0]?.service ? structuredClone(serviceExamples[0].service) : null
-	);
-
-	// Highlighting only, shared both ways with the graph.
-	let selectedStepId = $state<string | null>(null);
-	// Which step, if any, is open for editing. Kept separate from selectedStepId so selecting a step,
-	// whether from the list or the graph, only ever highlights it rather than forcing its editor open.
-	let editingStepId = $state<string | null>(null);
-
-	/**
-	 * Reseeds the working copy from the newly chosen example and drops any open editor and selection so
-	 * the new graph starts clean. Driven from the dropdown's change event rather than an effect, since a
-	 * change of example is a user action, not derived state.
-	 */
-	function handleExampleChange() {
-		workingService = selectedExample?.service ? structuredClone(selectedExample.service) : null;
-		editingStepId = null;
-		selectedStepId = null;
-	}
-
-	// The single place a step number is worked out, from its position in the list, so it can never go out
-	// of step after an add, remove or reorder.
-	const stepsWithNumbers = $derived(
-		(workingService?.steps ?? []).map((step, index) => ({ ...step, number: index + 1 }))
-	);
-
-	// Closes whichever editor is open as soon as a different step becomes highlighted, covering every way
-	// selectedStepId can change, a list click, a graph click, or clicking Edit elsewhere, in one place
-	// rather than repeating the check in each handler. This never fires for the step actually being
-	// edited, because handleEdit and handleAddStep always set both ids together.
-	$effect(() => {
-		if (editingStepId && editingStepId !== selectedStepId) {
-			editingStepId = null;
-		}
-	});
-
-	function handleSelect(stepId: string) {
-		selectedStepId = stepId;
-	}
-
-	function handleEdit(stepId: string) {
-		editingStepId = stepId;
-		selectedStepId = stepId;
-	}
-
-	function handleCancelEdit(stepId: string) {
-		if (editingStepId === stepId) {
-			editingStepId = null;
-		}
-	}
-
-	function handleApplyStep(updatedStep: ServiceStep) {
-		if (!workingService) return;
-		workingService = {
-			...workingService,
-			steps: workingService.steps.map((step) => (step.id === updatedStep.id ? updatedStep : step))
-		};
-		editingStepId = null;
-	}
-
-	/**
-	 * Removes a step from the service once its removal has been confirmed by the card itself. Also drops
-	 * any transition that pointed at the removed step, and moves the journey entry point to the new first
-	 * step if the entry step itself was removed, so the working copy stays close to valid.
-	 */
-	function handleRemoveStep(stepId: string) {
-		if (!workingService) return;
-
-		const steps = workingService.steps
-			.filter((step) => step.id !== stepId)
-			.map((step) => ({
-				...step,
-				transitions: step.transitions.filter((transition) => transition.targetStepId !== stepId)
-			}));
-		const startStepId =
-			workingService.startStepId === stepId
-				? (steps[0]?.id ?? workingService.startStepId)
-				: workingService.startStepId;
-
-		workingService = { ...workingService, startStepId, steps };
-		if (selectedStepId === stepId) selectedStepId = null;
-		if (editingStepId === stepId) editingStepId = null;
-	}
-
-	/**
-	 * Adds a new information step at the end of the service with placeholder content and opens it for
-	 * editing straight away, so adding a step immediately exercises the same editing path as any other.
-	 */
-	function handleAddStep() {
-		if (!workingService) return;
-
-		const newStep: ServiceStep = {
-			id: crypto.randomUUID(),
-			type: { kind: 'info', body: '' },
-			name: 'New step',
-			description: 'Not yet configured',
-			fields: [],
-			transitions: []
-		};
-		workingService = { ...workingService, steps: [...workingService.steps, newStep] };
-		editingStepId = newStep.id;
-		selectedStepId = newStep.id;
-	}
-
-	/**
-	 * Swaps a step with its neighbour in the given direction, reordering the service step list so both
-	 * the list and the graph pick up the new sequence. Order is presentational only: ids drive the
-	 * transitions and the layout, so a swap cannot break the routing.
-	 */
-	function handleMoveStep(stepId: string, direction: 'up' | 'down') {
-		if (!workingService) return;
-
-		const index = workingService.steps.findIndex((step) => step.id === stepId);
-		if (index === -1) return;
-
-		const targetIndex = direction === 'up' ? index - 1 : index + 1;
-		if (targetIndex < 0 || targetIndex >= workingService.steps.length) return;
-
-		const reordered = [...workingService.steps];
-		[reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-		workingService = { ...workingService, steps: reordered };
-	}
+	// Branch count uses the same predicate the graph editor itself uses to decide whether a step gets a
+	// gateway diamond, so this count and the diagram never disagree about what counts as a branch.
+	const branchCount = $derived(selectedExample?.service?.steps.filter(isBranchStep).length ?? 0);
 </script>
 
 <svelte:head>
 	<title>Edit and review the journey | Service Studio</title>
 </svelte:head>
 
-<!-- The service header identifies the prototype separately from the editable journey content. -->
 <ServiceHeader />
 
-<main class="journey-page">
+<main class="picker-page">
 	<Progress {stages} />
 
-	<!-- Introductory content explains the task before users reach the editing controls. -->
-	<div class="journey-page__heading">
-		<p class="govuk-caption-l">{selectedExample?.service?.name ?? 'Journey editor'}</p>
-		<h1 class="govuk-heading-xl journey-page__title">Edit and review the journey</h1>
-		<p class="govuk-body">Reorder, edit and review steps, questions and branching.</p>
+	<div class="picker-page__content govuk-!-padding-7">
+		<h1 class="govuk-heading-xl">Edit and review the journey</h1>
+		<p class="govuk-body">
+			Choose a service below, then open the graph editor. The editor takes over the full canvas so you
+			have more room to work with longer journeys.
+		</p>
 
-		<!-- Choosing an example loads a validated canonical schema from src/lib/examples. -->
-		<div class="govuk-form-group journey-page__example">
-			<label class="govuk-label govuk-label--s" for="example-service">Example service</label>
-			<select
-				class="govuk-select"
-				id="example-service"
-				bind:value={selectedSlug}
-				onchange={handleExampleChange}
-			>
+		<div class="govuk-form-group picker-page__select">
+			<label class="govuk-label govuk-label--s" for="example-service">Choose a service</label>
+			<select class="govuk-select" id="example-service" bind:value={selectedSlug}>
 				{#each serviceExamples as example (example.slug)}
 					<option value={example.slug}>{example.name}</option>
 				{/each}
 			</select>
 		</div>
-	</div>
 
-	{#if selectedExample && !selectedExample.service}
-		<!-- The chosen file did not match the canonical schema, so its issues are shown instead of a graph. -->
-		<div class="journey-page__error">
+		{#if selectedExample && !selectedExample.service}
 			<div class="govuk-error-summary" role="alert">
 				<h2 class="govuk-error-summary__title">This example does not match the canonical schema</h2>
 				<div class="govuk-error-summary__body">
@@ -195,168 +59,88 @@
 					</ul>
 				</div>
 			</div>
-		</div>
-	{:else if workingService}
-		<!-- The step list and graph stay together so both views of the same journey can be compared. -->
-		<div class="journey-page__columns">
-			<section class="journey-page__steps">
-				<div class="journey-page__steps-header">
-					<h2 class="govuk-heading-m journey-page__steps-heading">Steps</h2>
-					<p class="journey-page__steps-hint">
-						{workingService.steps.length} steps, use the arrows to reorder
-					</p>
+		{:else if selectedExample?.service}
+			<dl class="picker-page__stats">
+				<div class="picker-page__stat">
+					<dt class="govuk-heading-l govuk-!-margin-bottom-0">{selectedExample.service.steps.length}</dt>
+					<dd class="govuk-body-s govuk-!-margin-bottom-0">steps</dd>
 				</div>
+				<div class="picker-page__stat">
+					<dt class="govuk-heading-l govuk-!-margin-bottom-0">{branchCount}</dt>
+					<dd class="govuk-body-s govuk-!-margin-bottom-0">{branchCount === 1 ? 'branch' : 'branches'}</dd>
+				</div>
+			</dl>
 
-				{#each stepsWithNumbers as step, index (step.id)}
-					<!-- Editing is its own state, separate from highlighting, so only an explicit Edit click opens a step. -->
-					{#if step.id === editingStepId}
-						<StepEditorCard
-							{step}
-							number={step.number}
-							otherSteps={stepsWithNumbers
-								.filter((other) => other.id !== step.id)
-								.map((other) => ({ id: other.id, number: other.number, name: other.name }))}
-							canMoveUp={index > 0}
-							canMoveDown={index < stepsWithNumbers.length - 1}
-							onApply={handleApplyStep}
-							onCancel={handleCancelEdit}
-							onRemove={handleRemoveStep}
-							onMoveUp={(stepId) => handleMoveStep(stepId, 'up')}
-							onMoveDown={(stepId) => handleMoveStep(stepId, 'down')}
-						/>
-					{:else}
-						<StepCard
-							stepId={step.id}
-							number={step.number}
-							title={step.name}
-							description={step.description}
-							tagLabel={humanKind(step.type.kind)}
-							tagColour={kindColour(step.type.kind)}
-							selected={step.id === selectedStepId}
-							canMoveUp={index > 0}
-							canMoveDown={index < stepsWithNumbers.length - 1}
-							onSelect={handleSelect}
-							onEdit={handleEdit}
-							onRemove={handleRemoveStep}
-							onMoveUp={(stepId) => handleMoveStep(stepId, 'up')}
-							onMoveDown={(stepId) => handleMoveStep(stepId, 'down')}
-						/>
-					{/if}
-				{/each}
-
-				<!-- The add control remains after the ordered steps so its insertion point is unambiguous. -->
-				<button class="journey-page__add-step" type="button" onclick={handleAddStep}>
-					<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-						<path d="M7 1 V13 M1 7 H13" fill="none" stroke="#1d70b8" stroke-width="2" />
-					</svg>
-					Add a step
-				</button>
-			</section>
-
-			<!-- Selection is shared both ways so a graph click and an Edit click in the list stay in sync. -->
-			<JourneyGraph service={workingService} bind:selectedStepId />
-		</div>
-	{/if}
+			<a class="govuk-button picker-page__open picker-page__open--blue" href={resolve('/edit/[slug]', { slug: selectedExample.slug })}>
+				Open the graph editor
+				<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+					<rect x="1" y="1" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" />
+					<path d="M5 5 H13 V13" fill="none" stroke="currentColor" stroke-width="1.6" />
+				</svg>
+			</a>
+		{/if}
+	</div>
 </main>
 
-<!-- Save actions remain outside the main editor so they can form a consistent page footer. -->
-<SaveBar />
-
 <style>
-	.journey-page {
+	.picker-page {
 		flex-grow: 1;
 		font-family: 'GDS Transport', arial, sans-serif;
 	}
 
-	.journey-page__heading {
-		padding: 30px 40px 25px;
+	.picker-page__content {
+		max-width: 700px;
 	}
 
-	.journey-page__heading .govuk-caption-l {
-		margin-bottom: 10px;
-	}
-
-	.journey-page__title {
-		margin-bottom: 10px;
-	}
-
-	.journey-page__example {
-		margin-top: 20px;
-		margin-bottom: 0;
-	}
-
-	.journey-page__example .govuk-select {
+	.picker-page__select {
 		max-width: 420px;
+		margin-top: 20px;
+		margin-bottom: 30px;
 	}
 
-	.journey-page__error {
-		padding: 0 40px 30px;
-	}
-
-	.journey-page__columns {
+	.picker-page__stats {
 		display: flex;
-		align-items: flex-start;
-		gap: 30px;
-		padding: 0 40px 30px;
+		width: fit-content;
+		margin: 0 0 30px;
+		border: 1px solid #b1b4b6;
 	}
 
-	.journey-page__steps {
+	.picker-page__stat {
 		display: flex;
 		flex-direction: column;
-		flex-shrink: 0;
-		gap: 10px;
-		width: 620px;
+		gap: 2px;
+		padding: 15px 20px;
+		background-color: #f3f2f1;
 	}
 
-	.journey-page__steps-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
+	.picker-page__stat + .picker-page__stat {
+		border-left: 1px solid #b1b4b6;
 	}
 
-	.journey-page__steps-heading {
-		margin-bottom: 0;
-	}
-
-	.journey-page__steps-hint {
+	.picker-page__stat dt {
 		margin: 0;
-		font-size: 1rem;
+	}
+
+	.picker-page__stat dd {
+		margin: 0;
 		color: #505a5f;
 	}
 
-	.journey-page__add-step {
-		display: flex;
+	.picker-page__open {
+		display: inline-flex;
 		align-items: center;
-		justify-content: center;
 		gap: 10px;
-		padding: 15px;
-		background-color: transparent;
-		border: 1px dashed #505a5f;
-		font-family: inherit;
-		font-size: 1.0625rem;
-		font-weight: 700;
-		color: #1d70b8;
-		cursor: pointer;
+		margin-bottom: 0;
 	}
 
-	@media (max-width: 1100px) {
-		.journey-page__columns {
-			flex-direction: column;
-		}
-
-		.journey-page__steps {
-			width: 100%;
-		}
+	/* The GOV.UK Design System has no blue button variant of its own, blue is normally reserved for
+		links, but this screen's own design calls for a blue primary action here. */
+	.picker-page__open--blue {
+		background-color: #1d70b8;
+		box-shadow: 0 2px 0 #003078;
 	}
 
-	@media (max-width: 640px) {
-		.journey-page__heading {
-			padding: 20px 15px;
-		}
-
-		.journey-page__columns,
-		.journey-page__error {
-			padding: 0 15px 20px;
-		}
+	.picker-page__open--blue:hover {
+		background-color: #003078;
 	}
 </style>

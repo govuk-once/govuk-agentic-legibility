@@ -50,15 +50,19 @@
 		onMoveUp={() => onMoveUp(stepId)}
 		onMoveDown={() => onMoveDown(stepId)}
 	/>
+	<span class="govuk-body-s govuk-!-font-weight-bold govuk-!-margin-bottom-0 step-card__number" aria-hidden="true"
+		>{number}</span
+	>
 	<!-- A plain container, not a button, so the title stays a real heading rather than being nested inside
 		interactive content, which HTML does not allow. The invisible button layered over it is the actual
 		click target, sized to match by the absolute positioning below. A separate control from Edit:
 		activating this only highlights the step, both in this list and on the graph, it never opens the editor. -->
 	<div class="step-card__select">
-		<span class="step-card__number" aria-hidden="true">{number}</span>
 		<div class="step-card__summary">
-			<h3 class="govuk-heading-s govuk-!-margin-bottom-1">{title}</h3>
-			<p class="govuk-body govuk-!-margin-bottom-0">{description}</p>
+			<h3 class="govuk-heading-s govuk-!-margin-bottom-0">{title}</h3>
+			<p class="govuk-body-s govuk-!-margin-bottom-0 step-card__description">{description}</p>
+			<!-- Status uses the supplied GOV.UK colour modifier rather than local tag styling. -->
+			<strong class="govuk-tag govuk-tag--{tagColour} step-card__tag">{tagLabel}</strong>
 		</div>
 		<button
 			type="button"
@@ -67,48 +71,52 @@
 			onclick={() => onSelect(stepId)}
 		></button>
 	</div>
-	<!-- Status uses the supplied GOV.UK colour modifier rather than local tag styling. -->
-	<strong class="govuk-tag govuk-tag--{tagColour} step-card__tag">{tagLabel}</strong>
 
 	{#if confirmingRemoval}
 		<RemoveStepConfirm onRemove={() => onRemove(stepId)} onCancel={() => (confirmingRemoval = false)} />
 	{:else}
-		<button type="button" class="govuk-link step-card__edit" onclick={() => onEdit(stepId)}>Edit</button>
-		<button
-			type="button"
-			class="step-card__remove"
-			aria-label="Remove step {number}: {title}"
-			onclick={() => (confirmingRemoval = true)}
-		>
-			<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-				<path d="M2 2 L12 12 M12 2 L2 12" fill="none" stroke="#505a5f" stroke-width="1.6" />
-			</svg>
-		</button>
+		<div class="step-card__actions">
+			<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={() => onEdit(stepId)}>
+				Edit
+			</button>
+			<button
+				type="button"
+				class="step-card__remove"
+				aria-label="Remove step {number}: {title}"
+				onclick={() => (confirmingRemoval = true)}
+			>
+				<svg width="10" height="10" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+					<path d="M2 2 L12 12 M12 2 L2 12" fill="none" stroke="#505a5f" stroke-width="1.6" />
+				</svg>
+			</button>
+		</div>
 	{/if}
 </div>
 
 <style>
 	.step-card {
 		display: flex;
-		align-items: center;
-		gap: 15px;
-		padding: 15px 20px;
+		align-items: flex-start;
+		gap: 10px;
+		padding: 14px 16px;
 		background-color: #ffffff;
-		border: 1px solid #b1b4b6;
+		border-bottom: 1px solid #b1b4b6;
 		font-family: 'GDS Transport', arial, sans-serif;
 	}
 
 	.step-card--selected {
 		background-color: #e8f1f8;
-		border-left: 5px solid #1d70b8;
+	}
+
+	.step-card__number {
+		flex-shrink: 0;
+		padding-top: 2px;
+		color: #505a5f;
 	}
 
 	.step-card__select {
 		position: relative;
-		display: flex;
-		align-items: center;
 		flex-grow: 1;
-		gap: 15px;
 		min-width: 0;
 	}
 
@@ -122,33 +130,26 @@
 		cursor: pointer;
 	}
 
-	.step-card__number {
-		flex-shrink: 0;
-		width: 20px;
-		font-size: 1rem;
-		font-weight: 700;
-		color: #505a5f;
-	}
-
 	.step-card__summary {
 		display: flex;
 		flex-direction: column;
-		flex-grow: 1;
-		gap: 3px;
+		align-items: flex-start;
+		gap: 4px;
+	}
+
+	.step-card__description {
+		color: #505a5f;
 	}
 
 	.step-card__tag {
-		flex-shrink: 0;
+		margin: 4px 0 0;
 	}
 
-	.step-card button.govuk-link {
+	.step-card__actions {
 		flex-shrink: 0;
-		background: none;
-		border: 0;
-		padding: 0;
-		font: inherit;
-		font-size: 1rem;
-		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 
 	.step-card__remove {
@@ -158,17 +159,5 @@
 		border: 0;
 		padding: 0;
 		cursor: pointer;
-	}
-
-	@media (max-width: 640px) {
-		.step-card {
-			align-items: flex-start;
-			flex-wrap: wrap;
-			padding: 15px;
-		}
-
-		.step-card__summary {
-			min-width: 200px;
-		}
 	}
 </style>

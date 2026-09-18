@@ -24,14 +24,6 @@
 		color: #0b0c0c;
 	}
 
-	.remove-step-confirm :global(button.govuk-link) {
-		background: none;
-		border: 0;
-		padding: 0;
-		font: inherit;
-		cursor: pointer;
-	}
-
 	.remove-step-confirm__remove {
 		color: #d4351c;
 	}

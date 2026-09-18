@@ -328,5 +328,20 @@ export type Service = z.infer<typeof serviceSchema>;
 export type ServiceStep = z.infer<typeof serviceStep>;
 export type StepTransition = z.infer<typeof stepTransition>;
 export type Condition = z.infer<typeof condition>;
+export type Rule = z.infer<typeof rule>;
 export type Field = z.infer<typeof field>;
 export type ServiceStepKind = ServiceStep['type']['kind'];
+
+// The comparison operators a condition rule can use, read straight off the schema so the editor's
+// options list can never list a value the schema itself would reject.
+export const comparisonOperators = comparisonOperator.options;
+
+/**
+ * A step with more than one onward route is a branch, the point at which the graph editor draws a
+ * gateway diamond and asks for a route's label and condition. Exported so every place that needs to
+ * know whether a step branches, the graph builder, the step editor and the example picker's stats,
+ * shares one definition rather than repeating the same length check.
+ */
+export function isBranchStep(step: ServiceStep): boolean {
+	return step.transitions.length > 1;
+}

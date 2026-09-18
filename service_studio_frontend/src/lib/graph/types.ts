@@ -19,9 +19,9 @@ export type StepNodeData = {
 	height: number;
 };
 
-export type ConditionNodeData = {
-	question: string;
-};
+// A gateway diamond carries no data of its own: it is a plain shape, the route it stands for is named
+// and edited on the step that owns it.
+export type ConditionNodeData = Record<string, never>;
 
 export type TerminalNodeData = {
 	label: string;
@@ -56,21 +56,21 @@ export type TerminalNode = {
 
 export type JourneyNode = StepNode | ConditionNode | TerminalNode;
 
-// A connection between two nodes. The kind separates an ordinary sequence step from a branch outcome, and
-// only branch outcomes carry a label and a tag colour. The tag colour reuses the GOV.UK tag colour names
-// already used for step tags rather than inventing a second colour system, and it is a colour rather than
-// a good or bad flag because a branch is not always a good or bad outcome, it can just as easily be two
-// equally valid paths.
+// A connection between two nodes. The kind separates an ordinary sequence step from a branch outcome, so
+// the two can be told apart visually without either one carrying its own label: a branch route's label
+// and condition live on the step's own transition data, edited in the step editor, not drawn on the edge.
 export type JourneyEdge = {
 	id: string;
 	source: string;
 	target: string;
-	label?: string;
 	kind: 'sequence' | 'branch';
-	tagColour?: string;
 };
 
 export type JourneyGraphElements = {
 	nodes: JourneyNode[];
 	edges: JourneyEdge[];
 };
+
+// Which tool, if any, the graph toolbar has armed. Step/Condition/Start/End are all click to arm, then
+// click a step on the canvas to apply: null means no tool is armed and a click just selects a step.
+export type ArmedTool = 'step' | 'condition' | 'start' | 'end' | null;

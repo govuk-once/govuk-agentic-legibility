@@ -5,18 +5,33 @@
 		canMoveDown: boolean;
 		onMoveUp: () => void;
 		onMoveDown: () => void;
+		// Overrides the generated "Reorder/Move {label} up/down" wording. The step editor reuses this same
+		// arrow pair to move between steps rather than to reorder one, so its aria-labels need to say that
+		// instead, not just have a different {label} substituted into wording that no longer applies.
+		groupLabel?: string;
+		upLabel?: string;
+		downLabel?: string;
 	}
 
-	let { label, canMoveUp, canMoveDown, onMoveUp, onMoveDown }: Props = $props();
+	let {
+		label,
+		canMoveUp,
+		canMoveDown,
+		onMoveUp,
+		onMoveDown,
+		groupLabel,
+		upLabel,
+		downLabel
+	}: Props = $props();
 </script>
 
 <!-- Arrow buttons used rather than drag handles for consistent interaction  -->
-<div class="step-reorder" role="group" aria-label="Reorder {label}">
+<div class="step-reorder" role="group" aria-label={groupLabel ?? `Reorder ${label}`}>
 	<button
 		type="button"
 		class="step-reorder__button"
 		disabled={!canMoveUp}
-		aria-label="Move {label} up"
+		aria-label={upLabel ?? `Move ${label} up`}
 		onclick={onMoveUp}
 	>
 		<svg width="12" height="8" viewBox="0 0 12 8" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -27,7 +42,7 @@
 		type="button"
 		class="step-reorder__button"
 		disabled={!canMoveDown}
-		aria-label="Move {label} down"
+		aria-label={downLabel ?? `Move ${label} down`}
 		onclick={onMoveDown}
 	>
 		<svg width="12" height="8" viewBox="0 0 12 8" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
