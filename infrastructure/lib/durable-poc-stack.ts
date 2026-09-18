@@ -20,13 +20,11 @@ export class DurablePocStack extends Stack {
   ) {
     super(scope, id, props);
 
-    const vpc = props.vpc;
-
     const securityGroup = new ec2.SecurityGroup(
       this,
       "DurablePocSecurityGroup",
       {
-        vpc,
+        vpc: props.vpc,
         description:
           "Allow Chat UI and Temporal UI access",
         allowAllOutbound: true,
@@ -36,13 +34,13 @@ export class DurablePocStack extends Stack {
     securityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(7860),
-      "FastAPI Chat UI"
+      "Chat Application"
     );
 
     securityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(8080),
-      "Temporal Web UI"
+      "Temporal UI"
     );
 
     const role = new iam.Role(
@@ -73,68 +71,146 @@ export class DurablePocStack extends Stack {
       })
     );
 
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "s3:PutObject"
+        ],
+        resources: [
+          "arn:aws:s3:::temp-ailegibility-otel-traces/*"
+        ]
+      })
+    );
+
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
+        ],
+        resources: [
+          "arn:aws:bedrock:eu-west-2::foundation-model/*"
+        ]
+      })
+    );
+
     const userData = ec2.UserData.forLinux();
 
     userData.addCommands(
+      "set -euxo pipefail",
+
+      "# Update OS",
       "dnf update -y",
-      "dnf install -y git python3.11 python3.11-pip",
 
+      "# Install prerequisites",
+      "dnf install -y git curl",
+
+      "# Create application directory",
+      "mkdir -p /app",
+      "chown ec2-user:ec2-user /app",
+
+      "# Install UV as ec2-user",
+      "sudo -u ec2-user bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'",
+
+      "# Verify uv installation",
+      "ls -la /home/ec2-user/.local/bin",
+
+      "# Clone repository",
+      `sudo -u ec2-user git clone ${props.repoUrl} /app/durable_poc`,
+
+      "# Install Python 3.14",
+      "sudo -u ec2-user /home/ec2-user/.local/bin/uv python install 3.14",
+
+      "# Install project dependencies",
+      "cd /app/durable_poc",
+      "sudo -u ec2-user /home/ec2-user/.local/bin/uv sync",
+
+      "# Install Temporal CLI",
       "curl -sSf https://temporal.download/cli.sh | sh",
-      "mv /root/.temporalio/bin/temporal /usr/local/bin/",
 
+      "# Copy Temporal binary to globally accessible location",
+      "cp /root/.temporalio/bin/temporal /usr/local/bin/temporal",
+      "chmod 755 /usr/local/bin/temporal",
+
+      "# Verify Temporal installation",
+      "/usr/local/bin/temporal version || true",
+
+      "# Create environment file",
+      "cat << 'EOF' > /etc/durable-poc.env",
+      "DVLA_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
+      "POSTOFFICE_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
+      "HMRC_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
+      "DWP_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
+      "WORKFLOW_SERVER_URL=http://Workfl-Workf-CwPhUxgpA91a-749675269.eu-west-2.elb.amazonaws.com",
+      "AWS_REGION=eu-west-2",
+      "TEMPORAL_ADDRESS=localhost:7233",
+      "EOF",
+
+      "# Temporal Service",
       "cat << 'EOF' > /etc/systemd/system/temporal.service",
       "[Unit]",
       "Description=Temporal Dev Server",
       "After=network.target",
+      "",
       "[Service]",
       "Type=simple",
+      "User=ec2-user",
       "ExecStart=/usr/local/bin/temporal server start-dev --ip 0.0.0.0 --ui-port 8080",
       "Restart=always",
-      "User=ec2-user",
+      "",
       "[Install]",
       "WantedBy=multi-user.target",
       "EOF",
 
-      "mkdir -p /app && chown ec2-user:ec2-user /app",
-      `sudo -u ec2-user git clone ${props.repoUrl} /app/durable_poc`,
-      "sudo -u ec2-user python3.11 -m venv /app/durable_poc/venv",
-      "sudo -u ec2-user /app/durable_poc/venv/bin/pip install --upgrade pip",
-      "sudo -u ec2-user /app/durable_poc/venv/bin/pip install -r /app/durable_poc/requirements.txt",
-
+      "# Worker Service",
       "cat << 'EOF' > /etc/systemd/system/temporal-worker.service",
       "[Unit]",
       "Description=Durable POC Worker",
+      "Requires=temporal.service",
       "After=temporal.service",
+      "",
       "[Service]",
       "Type=simple",
-      "WorkingDirectory=/app/durable_poc",
-      "ExecStart=/app/durable_poc/venv/bin/python -m src.worker",
-      "Restart=always",
       "User=ec2-user",
+      "EnvironmentFile=/etc/durable-poc.env",
+      "WorkingDirectory=/app/durable_poc/durable_poc",
+      "ExecStart=/home/ec2-user/.local/bin/uv run python -m src.worker",
+      "Restart=always",
+      "",
       "[Install]",
       "WantedBy=multi-user.target",
       "EOF",
 
+      "# Chat Service",
       "cat << 'EOF' > /etc/systemd/system/durable-chat.service",
       "[Unit]",
-      "Description=Durable POC Chat App",
+      "Description=Durable POC Chat Application",
+      "Requires=temporal-worker.service",
       "After=temporal-worker.service",
+      "",
       "[Service]",
       "Type=simple",
-      "WorkingDirectory=/app/durable_poc",
-      "ExecStart=/app/durable_poc/venv/bin/python -m chat",
-      "Restart=always",
       "User=ec2-user",
+      "EnvironmentFile=/etc/durable-poc.env",
+      "WorkingDirectory=/app/durable_poc/durable_poc",
+      "ExecStart=/home/ec2-user/.local/bin/uv run python -m agent.chat",
+      "Restart=always",
+      "",
       "[Install]",
       "WantedBy=multi-user.target",
       "EOF",
 
+      "# Enable services",
       "systemctl daemon-reload",
       "systemctl enable temporal",
       "systemctl enable temporal-worker",
       "systemctl enable durable-chat",
+
+      "# Start services",
       "systemctl start temporal",
+      "sleep 20",
       "systemctl start temporal-worker",
+      "sleep 10",
       "systemctl start durable-chat"
     );
 
@@ -142,7 +218,7 @@ export class DurablePocStack extends Stack {
       this,
       "DurablePocInstance",
       {
-        vpc,
+        vpc: props.vpc,
         vpcSubnets: {
           subnetType: ec2.SubnetType.PUBLIC,
         },
@@ -152,8 +228,8 @@ export class DurablePocStack extends Stack {
         ),
         machineImage:
           ec2.MachineImage.latestAmazonLinux2023(),
-        role,
         securityGroup,
+        role,
         userData,
         associatePublicIpAddress: true,
       }
@@ -166,12 +242,12 @@ export class DurablePocStack extends Stack {
 
     new CfnOutput(this, "ChatAppUrl", {
       value: `http://${instance.instancePublicDnsName}:7860`,
-      description: "FastAPI Chat Application",
+      description: "Chat Application URL",
     });
 
-    new CfnOutput(this, "TemporalWebUrl", {
+    new CfnOutput(this, "TemporalUiUrl", {
       value: `http://${instance.instancePublicDnsName}:8080`,
-      description: "Temporal Web UI",
+      description: "Temporal UI URL",
     });
   }
 }
