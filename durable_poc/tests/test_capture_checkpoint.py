@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import evaluation.capture_checkpoint as capture_checkpoint
+import evaluation.scenario_case as scenario_case
 from evaluation.capture_checkpoint import validate_target
 
 
@@ -44,6 +45,9 @@ def test_new_case_reference_resolves_before_scenario_exists(
         capture_checkpoint, "DEFAULT_SCENARIO_ROOT", scenario_root
     )
 
+    monkeypatch.setattr(
+        scenario_case, "DEFAULT_SCENARIO_ROOT", scenario_root
+    )
     checkpoint_path, process_id, state_id = (
         capture_checkpoint.scenario_capture_target(
             Path("maternity_allowance/claim_start_date_today")
