@@ -188,6 +188,22 @@ def test_baby_not_born_span_becomes_common_semantic_events(tmp_path: Path) -> No
     }
 
 
+def test_converter_records_run_start_time_when_supplied(tmp_path: Path) -> None:
+    scenario_path, _ = write_inputs(tmp_path)
+    trace_path = tmp_path / "durable-otel.jsonl"
+    workflow_id = "eval-ma-baby-not-born-a6f89cb5"
+    write_jsonl(trace_path, [input_span(workflow_id=workflow_id)])
+
+    result = convert_trace(
+        trace_path=trace_path,
+        scenario_path=scenario_path,
+        workflow_id=workflow_id,
+        run_started_at="2026-09-16T17:44:00+00:00",
+    )
+
+    assert result["run"]["started_at"] == "2026-09-16T17:44:00+00:00"
+
+
 def test_converter_preserves_natural_language_date_as_string(tmp_path: Path) -> None:
     scenario_path, _ = write_inputs(
         tmp_path,

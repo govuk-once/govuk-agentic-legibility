@@ -192,6 +192,7 @@ async def wait_for_common_trace(
     trace_path: Path,
     scenario_path: Path,
     workflow_id: str,
+    run_started_at: str,
     timeout_seconds: float,
     require_submission: bool = False,
 ) -> dict[str, Any]:
@@ -206,6 +207,7 @@ async def wait_for_common_trace(
                 trace_path=trace_path,
                 scenario_path=scenario_path,
                 workflow_id=workflow_id,
+                run_started_at=run_started_at,
             )
             if require_submission and not any(
                 event.get("type") == "values_submitted"
@@ -327,6 +329,7 @@ async def run_once(
 ) -> TargetedRunResult:
     async with semaphore:
         started = perf_counter()
+        run_started_at = datetime.now(UTC).isoformat()
         scenario_id = scenario["id"]
         workflow_id = f"eval-{scenario_id}-{uuid4().hex[:8]}"
         handle = None
@@ -373,6 +376,7 @@ async def run_once(
                     trace_path=otel_trace,
                     scenario_path=scenario_path,
                     workflow_id=workflow_id,
+                    run_started_at=run_started_at,
                     timeout_seconds=trace_timeout_seconds,
                     require_submission=workflow_advanced,
                 )
