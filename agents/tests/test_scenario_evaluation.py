@@ -261,6 +261,85 @@ def test_matching_expected_submission_passes() -> None:
     assert result.issues == ()
 
 
+def test_relative_date_expectation_resolves_from_run_start_time() -> None:
+    """Dynamic dates are resolved from immutable run metadata in the requested timezone."""
+    scenario = {
+        "schema_version": "0.1",
+        "id": "ma-claim-start-date-today",
+        "journey_id": "dwp.maternity_allowance_ma1_claim",
+        "expected": {
+            "submissions": {
+                "prompt_flexible_start_date": {
+                    "values": {
+                        "chosen_ma_start_date": {
+                            "$relative_date": {
+                                "days": 0,
+                                "format": "%d/%m/%Y",
+                                "timezone": "Europe/London",
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+    trace = {
+        "schema_version": "0.1",
+        "source_trace": "durable-otel.jsonl",
+        "run": {
+            "id": "eval-ma-claim-start-date-today-12345678",
+            "journey_id": "dwp.maternity_allowance_ma1_claim",
+            "implementation": "durable_poc",
+            "status": "in_progress",
+            # 23:30 UTC is already 00:30 on 17 September in Europe/London.
+            "started_at": "2026-09-16T23:30:00+00:00",
+        },
+        "events": [
+            {
+                "type": "values_submitted",
+                "interaction_id": "prompt_flexible_start_date",
+                "values": {"chosen_ma_start_date": "17/09/2026"},
+            }
+        ],
+    }
+
+    result = evaluate_common_trace(scenario, trace)
+
+    assert result.passed
+    assert result.issues == ()
+
+
+def test_relative_date_expectation_requires_recorded_run_start_time() -> None:
+    """Dynamic expectations never fall back to the evaluator's wall clock."""
+    scenario = {
+        "schema_version": "0.1",
+        "id": "relative-date",
+        "journey_id": "dwp.maternity_allowance_ma1_claim",
+        "expected": {
+            "submissions": {
+                "prompt_flexible_start_date": {
+                    "values": {
+                        "chosen_ma_start_date": {
+                            "$relative_date": {
+                                "days": 0,
+                                "format": "%d/%m/%Y",
+                                "timezone": "Europe/London",
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+    trace = submission_trace()
+
+    with pytest.raises(
+        EvaluationInputError,
+        match=r"common trace\.run\.started_at must be a non-empty string",
+    ):
+        evaluate_common_trace(scenario, trace)
+
+
 def test_fixture_identity_is_optional_for_convention_based_scenarios() -> None:
     """Implementation-specific scenarios may omit duplicated fixture metadata."""
     scenario = submission_scenario()

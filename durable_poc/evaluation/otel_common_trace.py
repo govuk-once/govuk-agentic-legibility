@@ -161,6 +161,7 @@ def convert_trace(
     trace_path: Path,
     scenario_path: Path,
     workflow_id: str,
+    run_started_at: str | None = None,
 ) -> dict[str, Any]:
     """Convert one targeted durable evaluation run into a common trace object."""
     scenario_case = load_scenario_case(scenario_path)
@@ -248,17 +249,21 @@ def convert_trace(
     events.extend(event for _, event in semantic_events)
 
     fixture_hash = sha256(fixture_path.read_bytes()).hexdigest()
+    run: dict[str, Any] = {
+        "id": workflow_id,
+        "journey_id": journey_id,
+        "implementation": "durable_poc",
+        # Targeted eval workflows are intentionally terminated after the
+        # interaction under test; they do not complete the service journey.
+        "status": "in_progress",
+    }
+    if run_started_at is not None:
+        run["started_at"] = run_started_at
+
     return {
         "schema_version": "0.1",
         "source_trace": trace_path.name,
-        "run": {
-            "id": workflow_id,
-            "journey_id": journey_id,
-            "implementation": "durable_poc",
-            # Targeted eval workflows are intentionally terminated after the
-            # interaction under test; they do not complete the service journey.
-            "status": "in_progress",
-        },
+        "run": run,
         "initial_context": {
             "conversation_fixture": {
                 "id": fixture_id,
@@ -283,6 +288,10 @@ def main() -> int:
         ),
     )
     parser.add_argument("--workflow-id", required=True)
+    parser.add_argument(
+        "--run-started-at",
+        help="ISO-8601 run start timestamp used by dynamic expectations",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -290,6 +299,7 @@ def main() -> int:
         trace_path=args.trace,
         scenario_path=args.scenario,
         workflow_id=args.workflow_id,
+        run_started_at=args.run_started_at,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

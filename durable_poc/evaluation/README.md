@@ -28,6 +28,10 @@ durable_poc/evaluation/
         │   ├── scenario.yaml
         │   ├── conversation.json
         │   └── checkpoint.json
+        ├── claim_start_date_today/
+        │   ├── scenario.yaml
+        │   ├── conversation.json
+        │   └── checkpoint.json
         ├── date_stopped_work_natural_language/
         │   ├── scenario.yaml
         │   ├── conversation.json
@@ -63,6 +67,29 @@ expected:
 `conversation.json` must have the same `id` and `journey_id` as the scenario.
 The checkpoint's `current_state` is authoritative for the executor process and
 state at which the test starts.
+
+### Dynamic expected values
+
+Expected values are literal by default. For date values that are intentionally
+relative to the time of the eval run, use `$relative_date`:
+
+```yaml
+expected:
+  submissions:
+    prompt_flexible_start_date:
+      values:
+        chosen_ma_start_date:
+          $relative_date:
+            days: 0
+            format: "%d/%m/%Y"
+            timezone: "Europe/London"
+```
+
+The evaluator resolves this against `common_trace.run.started_at`, not the wall
+clock at evaluation time. This means a saved common trace can be re-evaluated
+later and will produce the same expected date. `days` is an integer offset from
+the run date in the requested IANA timezone; `0` means the run's local calendar
+date.
 
 ## Why use an executor checkpoint?
 
@@ -399,6 +426,9 @@ The other committed cases follow the same pattern:
 ```bash
 uv run python -m evaluation.checkpoint_runner \
   maternity_allowance/baby_not_born
+
+uv run python -m evaluation.checkpoint_runner \
+  maternity_allowance/claim_start_date_today
 
 uv run python -m evaluation.checkpoint_runner \
   maternity_allowance/date_stopped_work_natural_language
