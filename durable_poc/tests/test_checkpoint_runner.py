@@ -2,11 +2,12 @@
 
 from pathlib import Path
 
+import pytest
+
 from evaluation.checkpoint_runner import (
     agent_input,
-    build_captured_checkpoint_state,
+    build_checkpoint_state,
     load_document,
-    resolve_checkpoint_state,
 )
 
 DURABLE_ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +25,7 @@ def test_date_stopped_work_uses_captured_real_interpreter_state() -> None:
     definition = load_document(DEFINITION)
     checkpoint = scenario["input"]["checkpoint"]
 
-    state = build_captured_checkpoint_state(definition, checkpoint, CHECKPOINT_DIR)
+    state = build_checkpoint_state(definition, checkpoint, CHECKPOINT_DIR)
 
     assert len(state.frames) == 2
     assert state.frames[0].process_id == "main"
@@ -44,18 +45,39 @@ def test_date_stopped_work_uses_captured_real_interpreter_state() -> None:
     assert len(state.transcript) == 18
 
 
-def test_captured_checkpoint_is_selected_when_scenario_declares_id() -> None:
-    scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
+def test_baby_not_born_uses_captured_real_interpreter_state() -> None:
+    scenario = load_document(SCENARIO_DIR / "baby-not-born.yaml")
     definition = load_document(DEFINITION)
 
-    state = resolve_checkpoint_state(
+    state = build_checkpoint_state(
         definition,
         scenario["input"]["checkpoint"],
         CHECKPOINT_DIR,
     )
 
     assert len(state.frames) == 2
-    assert state.frames[-1].state_id == "prompt_date_stopped_work"
+    assert state.frames[0].process_id == "main"
+    assert state.frames[0].state_id == "announce_section3"
+    assert state.frames[1].process_id == "section2_about_baby"
+    assert state.frames[1].state_id == "prompt_is_baby_born"
+    assert state.frames[1].invoker_state == "invoke_section2_about_baby"
+    assert state.frames[0].vars["section1_data"]["identity"]["first_name"] == "Jane"
+    assert state.frames[1].vars["is_baby_born"] is None
+    assert state.step_counter == 17
+
+
+def test_checkpoint_id_is_required() -> None:
+    definition = load_document(DEFINITION)
+
+    with pytest.raises(ValueError, match="checkpoint.id"):
+        build_checkpoint_state(
+            definition,
+            {
+                "process_id": "section2_about_baby",
+                "state_id": "prompt_is_baby_born",
+            },
+            CHECKPOINT_DIR,
+        )
 
 
 def test_date_stopped_work_fixture_uses_full_history_and_natural_language_turn(
@@ -86,7 +108,7 @@ def test_interpreter_rehydrates_captured_invoker_state() -> None:
 
     scenario = load_document(SCENARIO_DIR / "date-stopped-work-natural-language.yaml")
     definition_dict = load_document(DEFINITION)
-    state = build_captured_checkpoint_state(
+    state = build_checkpoint_state(
         definition_dict,
         scenario["input"]["checkpoint"],
         CHECKPOINT_DIR,
