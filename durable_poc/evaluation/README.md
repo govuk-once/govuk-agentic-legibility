@@ -236,20 +236,21 @@ gds-cli aws <profile> -- \
   ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
 ```
 
-Repeat the same scenario with bounded concurrency using:
+A deeper checkpoint can supply values established earlier in the journey:
 
 ```bash
 gds-cli aws <profile> -- \
   uv run python -m evaluation.checkpoint_runner \
-  ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml \
-  --repeat 10 \
-  --concurrency 5
+  ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml
 ```
 
-For the first scenario the runner loads `dwp_ma1_schema.json` locally, so it
-does not need the workflow-definition server or domain stubs. Those services
-will still be needed by checkpoint scenarios whose continuation performs calls
-to them.
+Repeat any scenario with bounded concurrency using `--repeat` and `--concurrency`.
+
+The runner loads `dwp_ma1_schema.json` locally, so a targeted scenario does not
+need the workflow-definition server or domain stubs unless execution after the
+tested interaction reaches an external call. Deeper checkpoints can provide
+`vars` and `input` values that would already have been established earlier in
+the real journey.
 
 The checkpoint is currently an `InterpreterState` initialisation point rather
 than a captured Temporal event-history snapshot. This keeps the scenario
