@@ -1,7 +1,10 @@
 """Tests for capturing semantic evaluator checkpoints."""
 
+from pathlib import Path
+
 import pytest
 
+import evaluation.capture_checkpoint as capture_checkpoint
 from evaluation.capture_checkpoint import validate_target
 
 
@@ -31,3 +34,53 @@ def test_validate_target_rejects_wrong_state() -> None:
             expected_process="section4_about_payment",
             expected_state="prompt_date_stopped_work",
         )
+
+
+def test_new_case_reference_resolves_before_scenario_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scenario_root = tmp_path / "scenarios"
+    monkeypatch.setattr(
+        capture_checkpoint, "DEFAULT_SCENARIO_ROOT", scenario_root
+    )
+
+    checkpoint_path, process_id, state_id = (
+        capture_checkpoint.scenario_capture_target(
+            Path("maternity_allowance/claim_start_date_today")
+        )
+    )
+
+    assert checkpoint_path == (
+        scenario_root
+        / "maternity_allowance"
+        / "claim_start_date_today"
+        / "checkpoint.json"
+    ).resolve()
+    assert process_id is None
+    assert state_id is None
+    assert not checkpoint_path.parent.exists()
+
+
+def test_existing_checkpoint_validates_target_without_scenario(
+    tmp_path: Path,
+) -> None:
+    case_directory = tmp_path / "claim_start_date_today"
+    case_directory.mkdir()
+    (case_directory / "checkpoint.json").write_text(
+        """{
+  \"current_state\": {
+    \"process_id\": \"section4_about_payment\",
+    \"state_id\": \"prompt_claim_start_date\"
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    checkpoint_path, process_id, state_id = (
+        capture_checkpoint.scenario_capture_target(case_directory)
+    )
+
+    assert checkpoint_path == case_directory / "checkpoint.json"
+    assert process_id == "section4_about_payment"
+    assert state_id == "prompt_claim_start_date"

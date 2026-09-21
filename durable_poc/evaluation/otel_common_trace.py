@@ -11,31 +11,8 @@ from typing import Any
 
 import yaml
 
-DURABLE_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = DURABLE_ROOT.parent
-DEFAULT_FIXTURES = REPO_ROOT / "agents" / "src" / "evaluation" / "fixtures"
+from evaluation.scenario_case import load_document, load_scenario_case
 
-
-def load_document(path: Path) -> dict[str, Any]:
-    """Load a JSON or YAML object from disk."""
-    text = path.read_text(encoding="utf-8")
-    value = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain an object")
-    return value
-
-
-def resolve_fixture(
-    fixture_id: str,
-    version: str,
-    directory: Path,
-) -> tuple[Path, dict[str, Any]]:
-    """Resolve a conversation fixture by its stable ID and version."""
-    for path in directory.glob("*.json"):
-        fixture = load_document(path)
-        if fixture.get("id") == fixture_id and fixture.get("version") == version:
-            return path, fixture
-    raise ValueError(f"Fixture {fixture_id!r} version {version!r} not found")
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -184,37 +161,17 @@ def convert_trace(
     trace_path: Path,
     scenario_path: Path,
     workflow_id: str,
-    fixture_dir: Path = DEFAULT_FIXTURES,
 ) -> dict[str, Any]:
     """Convert one targeted durable evaluation run into a common trace object."""
-    scenario = load_document(scenario_path)
-    scenario_input = scenario.get("input")
-    if not isinstance(scenario_input, dict):
-        raise ValueError("Scenario is missing input")
+    scenario_case = load_scenario_case(scenario_path)
+    scenario = scenario_case.scenario
+    fixture = scenario_case.conversation
+    fixture_path = scenario_case.conversation_path
+    process_id, state_id = scenario_case.target
 
-    checkpoint = scenario_input.get("checkpoint")
-    if not isinstance(checkpoint, dict):
-        raise ValueError("Scenario is missing input.checkpoint")
-    process_id = checkpoint.get("process_id")
-    state_id = checkpoint.get("state_id")
-    if not isinstance(process_id, str) or not isinstance(state_id, str):
-        raise ValueError("Scenario checkpoint requires process_id and state_id")
-
-    fixture_ref = scenario_input.get("conversation_fixture")
-    if not isinstance(fixture_ref, dict):
-        raise ValueError("Scenario is missing input.conversation_fixture")
-    fixture_id = fixture_ref.get("id")
-    fixture_version = fixture_ref.get("version")
-    if not isinstance(fixture_id, str) or not isinstance(fixture_version, str):
-        raise ValueError("Conversation fixture reference requires id and version")
-
-    journey_id = scenario.get("journey_id")
-    if not isinstance(journey_id, str):
-        raise ValueError("Scenario requires journey_id")
-
-    fixture_path, fixture = resolve_fixture(fixture_id, fixture_version, fixture_dir)
-    if fixture.get("journey_id") != journey_id:
-        raise ValueError("Fixture journey_id does not match scenario")
+    fixture_id = fixture["id"]
+    fixture_version = fixture["version"]
+    journey_id = scenario["journey_id"]
 
     records = read_jsonl(trace_path)
     spans = _target_spans(
@@ -318,9 +275,14 @@ def main() -> int:
         description="Convert durable SFSM OTEL JSONL to common trace YAML."
     )
     parser.add_argument("trace", type=Path, help="Raw OTEL JSONL file")
-    parser.add_argument("scenario", type=Path, help="Evaluation scenario YAML")
+    parser.add_argument(
+        "scenario",
+        type=Path,
+        help=(
+            "Scenario case directory or path relative to evaluation/scenarios"
+        ),
+    )
     parser.add_argument("--workflow-id", required=True)
-    parser.add_argument("--fixture-dir", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -328,7 +290,6 @@ def main() -> int:
         trace_path=args.trace,
         scenario_path=args.scenario,
         workflow_id=args.workflow_id,
-        fixture_dir=args.fixture_dir,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

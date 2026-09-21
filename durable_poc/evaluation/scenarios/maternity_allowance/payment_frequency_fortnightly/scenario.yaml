@@ -1,0 +1,8 @@
+schema_version: '0.1'
+id: ma-payment-frequency-fortnightly
+journey_id: dwp.maternity_allowance_ma1_claim
+expected:
+  submissions:
+    prompt_payment_frequency:
+      values:
+        payment_frequency: every_2_weeks

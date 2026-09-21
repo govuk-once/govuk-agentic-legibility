@@ -1,236 +1,121 @@
-# Durable FSM Workflow Executor
+# Durable workflow evaluation
 
-A deterministic, durable Finite State Machine (FSM) executor built on the Temporal Python SDK paired with a real-time, GOV.UK-styled conversational interface and split-screen execution trace sidebar.
+The durable PoC evaluation runner tests one real workflow interaction repeatedly
+without replaying every earlier service step. Each test case is self-contained
+under `durable_poc/evaluation/scenarios/` and combines:
 
-This project allows complex, long-running, asynchronous business processes to be defined entirely in JSON. The Python workflow executor interprets these definitions dynamically without requiring workflow-specific code. It handles human-in-the-loop interactions, branching logic, sub-processes, durable timers, and external HTTP integrations natively.
+- the semantic expectation (`scenario.yaml`);
+- the user-visible conversation ending in the turn under test (`conversation.json`);
+- a real captured SFSM interpreter stack frame (`checkpoint.json`).
 
-The agent layer uses AWS Bedrock (Claude) and the Strands framework purely as a silent NLU intent parser—converting user natural language into structured API calls—while the web UI directly renders transcript outputs, interactive input schemas, and real-time execution trace events straight from Temporal query snapshots.
+The runner starts a fresh Temporal workflow from the captured checkpoint, seeds
+the real `WorkflowAgent` with the preceding conversation, sends the final user
+turn, converts the executor OTEL evidence to the shared common-trace vocabulary,
+and scores that trace with the shared evaluator.
 
-## Key Features
-
-* **Zero-Code Workflows**: Define states, transitions, HTTP calls, and polling loops entirely in JSON definitions (`SFSMDefinition`).
-* **Strict Determinism**: All predicates and path resolutions are evaluated using structural recursion without string `eval()`, `exec()`, or unsafe expression engines, ensuring deterministic replay inside the Temporal sandbox.
-* **Dual-Path Web Architecture**: Decouples LLM processing from UI display. The LLM handles intent parsing and tool invocation, while a background WebSockets stream renders transcript entries (`OutputState`) and interactive prompts (`InputState`) straight from Temporal.
-* **Real-Time Event Trace Sidebar**: Split-screen execution sidebar displaying granular, real-time trace badges across four distinct event channels: `USER`, `AGENT` (tool selection), `ENGINE` (FSM transitions and HTTP dispatches), and `SYSTEM` (schema option renders).
-* **Synchronous Input Validation**: Human inputs are submitted via Temporal Updates (not Signals), allowing the workflow to synchronously validate payloads against schema kinds, regex patterns, or `file_ref` metadata and reject stale or duplicate tokens immediately.
-* **Configurable Service Routing & Idempotency**: Environment-driven activity routing table (`SERVICE_ENV_MAP`) that validates target endpoints and automatically forwards interpolated `Idempotency-Key` headers to external APIs.
-* **Sub-process Stack Frames**: Sub-processes execute as stack frames (`StackFrame`) within a single Temporal workflow context (rather than Child Workflows), supporting return mappings while keeping state serializable for Continue-As-New.
-* **Activity Boundaries**: HTTP payloads are projected inside activities. Large response bodies never cross the workflow boundary, preventing history bloat.
-* **UI Enhancements**: Dynamic button generation for selection schemas, file upload attachment bridge, timeout warning badge displays, terminal completion cards, and an active workflow resume dropdown picker.
-
-## Project Structure
+## File structure
 
 ```text
-durable_poc/
-├── agent/
-│   ├── __init__.py
-│   ├── agent.py         # Strands agent composition, value coercion & trace callbacks
-│   ├── chat.py          # FastAPI Web Server, WebSockets UI & Split-Screen Trace
-│   ├── tools.py         # Tool functions bridging agent to Temporal & Server
-│   └── prompts/
-│       └── system.txt   # Silent NLU system prompt with execution constraints
-├── src/
-│   ├── actions.py       # Date arithmetic math helpers
-│   ├── model.py         # Pydantic models enforcing the JSON definition schema
-│   ├── paths.py         # Dot-path resolution, string interpolation & ISO durations
-│   ├── predicates.py    # Pure, deterministic condition evaluator
-│   ├── context.py       # Dataclasses for interpreter state, frames & transcripts
-│   ├── interpreter.py   # Core Temporal Workflow loop, event yielding & sub-process stack
-│   ├── activities.py    # Temporal activities (Configured HTTP requests & idempotency)
-│   ├── errors.py        # Error taxonomy (Retryable, Validation, Definition)
-│   ├── worker.py        # Temporal worker bootstrap
-│   └── demo.py          # Interactive terminal CLI frontend (legacy)
-├── tests/
-│   ├── test_agent.py        # Agent composition and session state tests
-│   ├── test_agent_tools.py  # Tool function unit tests
-│   ├── test_chat.py         # FastAPI WebSocket interface & trace tests
-│   ├── test_pure.py         # Unit tests for paths and predicates
-│   └── test_workflow.py     # Integration tests using local Temporal dev server
-├── dvla_coa_adv_schema.json # DVLA Change of Address FSM Definition
-└── dwp_ma1_schema.json      # DWP Maternity Allowance (MA1) FSM Definition
+durable_poc/evaluation/
+├── README.md
+├── capture_checkpoint.py
+├── checkpoint_runner.py
+├── otel_common_trace.py
+├── scenario_case.py
+└── scenarios/
+    └── maternity_allowance/
+        ├── baby_not_born/
+        │   ├── scenario.yaml
+        │   ├── conversation.json
+        │   └── checkpoint.json
+        ├── date_stopped_work_natural_language/
+        │   ├── scenario.yaml
+        │   ├── conversation.json
+        │   └── checkpoint.json
+        ├── payment_frequency_fortnightly/
+        │   ├── scenario.yaml
+        │   ├── conversation.json
+        │   └── checkpoint.json
+        └── work_status_fixed_term_contract_ended/
+            ├── scenario.yaml
+            ├── conversation.json
+            └── checkpoint.json
 ```
 
-## Prerequisites
+The filenames inside a case directory are conventions, not scenario
+configuration. `scenario.yaml` therefore does not repeat paths or checkpoint
+IDs.
 
-* **Python 3.14+** and [uv](https://docs.astral.sh/uv/) installed
-* **Temporal CLI** installed (`brew install temporal`)
+For example:
 
-Install dependencies:
+```yaml
+schema_version: "0.1"
+id: "ma-work-status-fixed-term-contract-ended"
+journey_id: "dwp.maternity_allowance_ma1_claim"
 
-```bash
-just build
+expected:
+  submissions:
+    prompt_reason_stopped_work:
+      values:
+        reason_stopped_work: "resigned_or_redundant"
 ```
 
-Run the tests:
+`conversation.json` must have the same `id` and `journey_id` as the scenario.
+The checkpoint's `current_state` is authoritative for the executor process and
+state at which the test starts.
 
-```bash
-just test-poc
-```
+## Why use an executor checkpoint?
 
-The test suite validates pure Python logic (path resolution, predicates), Temporal workflow loops (using a local dev server), agent tool functions, coercion logic, and the FastAPI WebSocket interface.
+A targeted eval should test the interaction of interest without making every
+run replay the entire Maternity Allowance journey. Starting the workflow from a
+real executor checkpoint gives each repetition the same accumulated service
+state while still exercising the real interpreter and agent.
 
----
+A checkpoint is a **semantic SFSM checkpoint**, not a Temporal event-history
+checkpoint. It contains the serialisable `InterpreterState` needed to resume
+the journey, including:
 
-## Running the Agentic Chat Interface
+- parent and child stack frames;
+- frame variables and invocation inputs;
+- transcript entries;
+- environment values;
+- the real interpreter step counter;
+- metadata describing the current awaited input.
 
-The project includes a conversational AI agent that guides users through workflows using natural language. The agent uses Claude via AWS Bedrock and maintains workflow state using the HATEOAS pattern — each tool response is self-describing, carrying the continuation token and next expected input.
+This matters for deeper interactions. For example, a section-4 checkpoint can
+contain both the `main` frame and the active `section4_about_payment` frame,
+including values accumulated in earlier sections. Reconstructing only the
+current frame by hand would not faithfully represent a state the executor had
+actually reached.
 
-### Prerequisites
+The snapshot is taken while the current `InputState` is already suspended at
+step `N`. A new workflow must execute that input state again, so the runner
+restores the checkpoint with step counter `N - 1`. The interpreter then
+recreates step `N` and issues a fresh awaiting-input token. The captured
+`awaiting` object is validation metadata rather than runtime state to restore.
 
-1. **Python 3.14+** and **uv** installed
-2. **Temporal CLI** installed (`brew install temporal`)
-3. **AWS credentials** with `bedrock:InvokeModel` permission for Claude Sonnet in your target region
-4. **Workflow server** running (serves workflow definitions)
+## Conversation data
 
-### Required Credentials
+`conversation.json` contains the full user-visible conversation required to put
+the agent in the same conversational context as the captured executor state.
+The **final user message is the turn under test**. All preceding messages are
+seeded into the agent's history.
 
-The agent calls Claude via Amazon Bedrock. You need valid AWS credentials configured via any standard method (environment variables, `~/.aws/credentials`, SSO, etc.). Verify with:
+The authoritative current executor prompt is supplied from the workflow
+definition, so if that exact prompt is the final assistant message in the
+conversation prefix the runner removes it from the seeded history before
+sending the turn under test.
 
-```bash
-aws sts get-caller-identity
-```
+Only use deliberately synthetic journeys and conversations. A captured
+interpreter state can contain everything entered earlier in the service
+journey; do not commit checkpoints captured from real users or containing real
+claimant PII.
 
-The default model is `anthropic.claude-sonnet-4-6` in `eu-west-2`. Override with environment variables if needed:
+## Running a test case
 
-```bash
-export BEDROCK_MODEL_ID="anthropic.claude-sonnet-4-6"
-export AWS_REGION="eu-west-2"
-```
+Run commands from `durable_poc/`.
 
-### Running the Demo
-
-You need four terminal windows, all running from the repository root.
-
-#### Terminal 1: Temporal Server
-
-```bash
-temporal server start-dev
-```
-
-Runs on `localhost:7233`. The Temporal UI is available at `http://localhost:8233`.
-
-#### Terminal 2: Workflow Definition Server
-
-The workflow server must be running on port 8080, serving workflow definitions at `GET /api/v1/workflows/{id}`.  The workflow server code is [here](https://github.com/govuk-once/spike-legibility-workflow-server). Clone it and follow the instructions to run it.
-
-Verify it is responding:
-
-```bash
-curl http://localhost:8080/api/v1/workflows
-```
-
-#### Terminal 3: Temporal Worker
-
-Starts the Python worker that executes the FSM interpreter and activities:
-
-```bash
-cd durable_poc
-PYTHONPATH=. uv run python -m src.worker
-```
-
-The worker connects to Temporal on `localhost:7233` and listens on the `sfsm-queue` task queue.
-
-#### Terminal 4: Web Agent Chat UI
-
-Launch the WebSockets server and chat interface:
-
-```bash
-cd durable_poc
-PYTHONPATH=. uv run python -m agent.chat
-```
-
-Open `http://localhost:7860` in your browser.
-
----
-
-## Using the Chat Interface
-
-Type a natural language message in the chat box to start a workflow:
-
-> *"I need to change the address on my driving licence."*
-
-The agent will:
-1. Fetch the appropriate workflow definition from the server
-2. Start a Temporal workflow execution
-3. Stream prompts, options, and transcript outputs directly via WebSockets to the frontend, interpreting user responses into structured schema values behind the scenes.
-
-To resume an active running workflow from a previous session, select it directly from the **Resume Active Session** dropdown at the top of the interface and click **Resume**.
-
-
-The agent will query Temporal for running workflows and pick up where you left off.
-
----
-
-## Configuration Reference
-
-| Environment Variable | Default | Purpose |
-|---|---|---|
-| `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server gRPC address |
-| `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server URL |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | AWS Bedrock Claude model identifier |
-| `AWS_REGION` | `eu-west-2` | AWS region for Bedrock |
-| `DVLA_BASE` | `http://localhost:8000` | Target base URL for DVLA service activity calls |
-| `POSTOFFICE_BASE` | `http://localhost:8000` | Target base URL for Post Office activity calls |
-
----
-
-## Running the Terminal CLI Demo (Legacy)
-
-The project also includes an interactive terminal demo (`demo.py`) that executes workflows without an AI agent. This requires the same Temporal server and worker, plus a stub backend server.
-
-#### Terminal 1: Temporal Server
-
-```bash
-temporal server start-dev
-```
-
-#### Terminal 2: Backend Stub Server
-
-```bash
-python stub_server.py
-```
-*(Runs on `http://localhost:8000`)*
-
-#### Terminal 3: Temporal Worker
-
-```bash
-cd durable_poc
-PYTHONPATH=. uv run python -m src.worker
-```
-
-#### Terminal 4: The Interactive CLI
-
-```bash
-cd durable_poc
-PYTHONPATH=. uv run python -m src.demo
-```
-
-Follow the prompts in this terminal to step through the state machine.
----
-
-## State Types Reference
-
-* **`input`**: Suspends the workflow and exposes an awaited schema. Resumes when a matching payload is submitted via Update. Supports timeouts and retry counts.
-* **`choice`**: Evaluates a list of rules (using operators like `eq`, `lt`, `is_true`, `not_empty`, `contains`) and branches execution.
-* **`assign`**: Mutates the current stack frame's variable context (including date math like `date_subtract` and arithmetic `add`).
-* **`call`**: Dispatches `http_call` activity with service validation, capture projections, error catches, and idempotency headers.
-* **`invoke`**: Pushes a sub-process stack frame onto the workflow call stack, binding inputs and catch routes.
-* **`output`**: Emits internal transcript messages or fires external notification activities.
-* **`wait`**: Durably sleeps the workflow for an ISO 8601 duration string (e.g., `PT5M`).
-* **`end`**: Terminates the current process frame with a status, outcome, and return payload.
-
-## Targeted Maternity Allowance evaluation smoke run
-
-The checkpoint runner exercises one real workflow interaction with the real
-`WorkflowAgent` without replaying every earlier Maternity Allowance step. It
-starts a fresh Temporal workflow from the scenario's interpreter checkpoint,
-seeds the agent with the fixture's preceding user-visible conversation, sends
-the final user message, waits for the executor's OTEL `InputState` span, converts
-that span to the shared common-trace format, and evaluates the trace against the
-scenario's `expected.submissions`.
-
-Start Temporal and the worker with OTEL file export enabled, for example from
-`durable_poc/`:
+Start Temporal and start the worker with OTEL file export enabled, for example:
 
 ```bash
 mkdir -p .traces
@@ -238,82 +123,187 @@ OTEL_EXPORT_FILE="$PWD/.traces/durable-otel.jsonl" \
   uv run python -m src.worker
 ```
 
-Then run the scenario from another terminal:
+A scenario is invoked by its path relative to `evaluation/scenarios`, without
+needing to name `scenario.yaml`:
 
 ```bash
-gds-cli aws <profile> -- \
+uv run python -m evaluation.checkpoint_runner \
+  maternity_allowance/work_status_fixed_term_contract_ended
+```
+
+With the GDS AWS credentials wrapper:
+
+```bash
+gds-cli aws once-ailegibility-development-admin -- \
   uv run python -m evaluation.checkpoint_runner \
-  ../agents/evaluation/scenarios/maternity-allowance/baby-not-born.yaml
+  maternity_allowance/work_status_fixed_term_contract_ended
 ```
 
-Each scenario references a captured executor checkpoint containing the real
-state established earlier in a deliberately synthetic journey:
+The other committed cases follow the same pattern:
 
 ```bash
-gds-cli aws <profile> -- \
-  uv run python -m evaluation.checkpoint_runner \
-  ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml
+uv run python -m evaluation.checkpoint_runner \
+  maternity_allowance/baby_not_born
+
+uv run python -m evaluation.checkpoint_runner \
+  maternity_allowance/date_stopped_work_natural_language
+
+uv run python -m evaluation.checkpoint_runner \
+  maternity_allowance/payment_frequency_fortnightly
 ```
 
-Repeat any scenario with bounded concurrency using `--repeat` and `--concurrency`.
+An explicit case directory or `scenario.yaml` path is also accepted.
 
-The runner loads `dwp_ma1_schema.json` locally, so a targeted scenario does not
-need the workflow-definition server or domain stubs unless execution after the
-tested interaction reaches an external call. Every targeted scenario must reference
-a captured executor checkpoint; the runner never synthesizes a partial
-`InterpreterState` from the workflow definition.
+## Repeated runs
 
-Pause a synthetic browser journey at the target input and capture its real
-`InterpreterState` with:
+Use `--repeat` to measure stochastic reliability and `--concurrency` to bound
+parallel calls:
 
 ```bash
-PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
-  <workflow-id> \
-  --scenario ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml \
-  --output evaluation/checkpoints/ma-date-stopped-work.json
+uv run python -m evaluation.checkpoint_runner \
+  maternity_allowance/work_status_fixed_term_contract_ended \
+  --repeat 20 \
+  --concurrency 4
 ```
 
-This saves the full semantic SFSM stack, variables, transcript and step counter
-without exporting Temporal event history. A scenario can reference the captured
-file by checkpoint ID; the runner reconstructs a fresh `InterpreterState` from
-that snapshot for every repetition. Parent/child invocation links are rehydrated
-from `dwp_ma1_schema.json`, and the suspended input state is recreated with a new
-Temporal token. Use synthetic journeys only, because interpreter state may contain
-personal data entered earlier in the journey.
+Each repetition gets a fresh workflow ID and a freshly rehydrated
+`InterpreterState`; repetitions do not share mutable workflow state.
 
-Convert a targeted run from Joe's OTEL JSONL into the common semantic trace with:
-
-```bash
-PYTHONPATH=. uv run python -m evaluation.otel_common_trace \
-  .traces/durable-otel.jsonl \
-  ../agents/durable_poc/evaluation/scenarios/maternity-allowance/baby-not-born.yaml \
-  --workflow-id eval-ma-baby-not-born-a6f89cb5 \
-  --output .traces/eval-ma-baby-not-born-a6f89cb5.common.yaml
-```
-
-The converter uses the executor's finished `interpreter.InputState` span as the
-authoritative record of the accepted value. It emits `interaction_available` and,
-when the input outcome is `received`, `values_submitted`. It filters by workflow ID
-and by the target process/state declared in the scenario. `checkpoint_runner.py`
-now performs this conversion automatically and passes the resulting common trace to
-the shared evaluator.
-
-Each invocation writes per-run artifacts under `.traces/evaluation-runs/` and a
-batch record under `.traces/evaluation-batches/<batch-id>/`:
+Per-run artefacts are written beneath:
 
 ```text
 .traces/evaluation-runs/<scenario-id>/<workflow-id>/
 ├── common.yaml
 └── evaluation.json
+```
 
+Batch metadata, JSONL results and the aggregate summary are written beneath:
+
+```text
 .traces/evaluation-batches/<batch-id>/
 ├── batch.json
 ├── results.jsonl
 └── summary.json
 ```
 
-`results.jsonl` contains one record per repetition, including scenario ID, model ID,
-workflow ID, outcome (`pass`, `fail` or `error`), evaluator issues, duration and
-artifact paths. This is the main machine-readable output for later quantitative
-analysis. Use `--otel-trace` if the worker writes to a path other than
-`.traces/durable-otel.jsonl`.
+A semantic mismatch is a failed eval rather than a process crash. Execution or
+trace-conversion errors are recorded separately as errors, so repeated evals
+retain evidence for both passes and failures.
+
+## Capturing or refreshing a real checkpoint
+
+The interpreter exposes an evaluation-only `evaluation_checkpoint` Temporal
+query. `capture_checkpoint.py` uses that query to save the real semantic state
+of a synthetic journey while it is paused at the interaction you want to test.
+
+First drive a deliberately synthetic journey in the normal application until
+it is waiting at the target input, then note its Temporal workflow ID.
+
+Capture directly into a case using its path relative to
+`evaluation/scenarios`:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
+  <workflow-id> \
+  --scenario maternity_allowance/date_stopped_work_natural_language
+```
+
+You can also capture the checkpoint **before creating the test case**. For
+example, if neither the directory nor `scenario.yaml` exists yet:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
+  <workflow-id> \
+  --scenario maternity_allowance/claim_start_date_today
+```
+
+This creates
+`evaluation/scenarios/maternity_allowance/claim_start_date_today/` and writes
+`checkpoint.json` into it. It deliberately does not invent `scenario.yaml` or
+`conversation.json`; add those afterwards when you define the conversation and
+expected submission.
+
+When an existing checkpoint is present, the command uses its
+`current_state.process_id` and `current_state.state_id` to verify that the live
+workflow is paused at the same semantic interaction before overwriting it. If a
+`scenario.yaml` already exists but the checkpoint does not, a single
+`expected.submissions` entry is used as a partial state-ID validation before the
+first checkpoint is written. If neither file exists yet, the first capture has
+no pre-existing semantic target to validate against.
+
+You can also capture to an explicit path without a scenario:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
+  <workflow-id> \
+  --output evaluation/scenarios/maternity_allowance/my_new_case/checkpoint.json
+```
+
+When capturing a new case this way, inspect `current_state`, `awaiting`, and the
+stack frames before committing it. In particular, confirm that the process and
+state are the intended interaction and that nested subprocess frames are
+present where expected.
+
+## Trace conversion and scoring
+
+The worker writes implementation-specific OTEL JSONL. The durable converter
+selects spans for the workflow ID and for the process/state recorded in the
+case's `checkpoint.json`, then emits common semantic events such as:
+
+```yaml
+events:
+  - type: interaction_available
+    interaction_id: prompt_reason_stopped_work
+  - type: values_submitted
+    interaction_id: prompt_reason_stopped_work
+    values:
+      reason_stopped_work: resigned_or_redundant
+```
+
+`conversation.json` supplies the fixture ID/version recorded in
+`initial_context`; its bytes are hashed into the common trace for provenance.
+The runner then evaluates the common trace against `scenario.yaml`.
+
+The converter can also be invoked directly:
+
+```bash
+uv run python -m evaluation.otel_common_trace \
+  .traces/durable-otel.jsonl \
+  maternity_allowance/baby_not_born \
+  --workflow-id <workflow-id> \
+  --output .traces/<workflow-id>.common.yaml
+```
+
+## Relationship to shared evaluation code
+
+The common trace vocabulary and deterministic evaluator remain shared in the
+sibling `agents` package. The Maternity Allowance cases live here because their
+captured SFSM checkpoints are specific to the durable implementation.
+
+Shared implementation-independent scenarios, such as the DVLA comparison
+scenarios, remain under `agents/evaluation/scenarios/` and continue to declare
+`input.conversation_fixture`. The shared evaluator checks that identity when it
+is present. Durable scenarios omit it because the colocated
+`conversation.json` convention is validated by the durable runner.
+
+This keeps the distinction explicit:
+
+- **shared scenario**: behaviour any implementation can be expected to exhibit;
+- **durable scenario case**: a targeted behaviour plus the durable executor
+  state required to reproduce that interaction.
+
+## Design principles
+
+- **One directory is one reproducible eval case.** The expectation,
+  conversation, and executor state should move together.
+- **Do not duplicate conventional paths in YAML.** `scenario.yaml`,
+  `conversation.json`, and `checkpoint.json` have fixed meanings.
+- **The captured checkpoint owns the executor target.** Do not duplicate
+  process/state identifiers in scenario configuration.
+- **Prefer semantic checkpoints over infrastructure histories.** Save the SFSM
+  state needed to resume the service, not Temporal event history, unless
+  Temporal behaviour itself is under test.
+- **Use the real agent and interpreter.** The targeted runner shortens setup; it
+  should not replace the system under evaluation with mocks.
+- **Keep failure evidence.** Failed model behaviour is an eval result worth
+  retaining, not a reason to discard the run.
