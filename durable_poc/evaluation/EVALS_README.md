@@ -164,6 +164,7 @@ input:
     id: "ma-baby-not-born"
     version: "1"
   checkpoint:
+    id: "baby-not-born"
     process_id: "section2_about_baby"
     state_id: "prompt_is_baby_born"
 
@@ -176,7 +177,7 @@ expected:
 
 The checkpoint identifies the current executor interaction. The fixture supplies the preceding conversation and the final user turn. The expectation describes the semantic value that should ultimately be accepted by the executor.
 
-For a deeper state, reference a captured checkpoint by ID:
+Every targeted scenario references a captured checkpoint by ID:
 
 ```yaml
 input:
@@ -189,7 +190,7 @@ input:
     state_id: "prompt_date_stopped_work"
 ```
 
-The ID resolves to `durable_poc/evaluation/checkpoints/<id>.json`. The process/state remain in the scenario as the semantic target and are validated against the captured file before a run starts.
+The ID resolves to `durable_poc/evaluation/checkpoints/<id>.json`. The process/state remain in the scenario as the semantic target and are validated against the captured file before a run starts. `checkpoint.id` is required: the runner does not construct a partial interpreter state from the workflow definition.
 
 At present, `expected.submissions` is recorded but **not yet scored** by the checkpoint runner.
 
