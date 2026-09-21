@@ -1,0 +1,288 @@
+{
+  "awaiting": {
+    "options": null,
+    "prompt": "On what date did you stop working or begin your absence/leave (DD/MM/YYYY)?",
+    "schema": {
+      "allow_skip": false,
+      "invalid_message": "Please enter a valid date in DD/MM/YYYY format.",
+      "kind": "string",
+      "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$"
+    },
+    "state_id": "prompt_date_stopped_work",
+    "state_type": "InputState",
+    "timeout_seconds": null,
+    "token": "tkn_53"
+  },
+  "current_state": {
+    "process_id": "section4_about_payment",
+    "state_id": "prompt_date_stopped_work",
+    "state_type": "InputState",
+    "step": 53
+  },
+  "interpreter_state": {
+    "env": {},
+    "frames": [
+      {
+        "invoker_state_id": null,
+        "process_id": "main",
+        "state_id": "summary_section4",
+        "vars": {
+          "confirmed_intent": true,
+          "meets_core_evidence_criteria": true,
+          "meets_eligibility_criteria": true,
+          "section1_data": {
+            "identity": {
+              "address": {
+                "address_line_1": "42 High Street",
+                "address_line_2": "Flat 3B",
+                "postcode": "M1 4BT",
+                "town_or_city": "Manchester"
+              },
+              "date_of_birth": "1992-06-15",
+              "first_name": "Jane",
+              "middle_name": "Mary",
+              "nino": "AA121212A",
+              "phone": "07700900123",
+              "surname": "Smith",
+              "title": "Mrs"
+            }
+          },
+          "section2_data": {
+            "actual_birth_date": null,
+            "birth_certificate_system_number": null,
+            "birth_certificate_upload_ref": null,
+            "born_in_uk": null,
+            "calculated_dates": {
+              "earliest_signing_date": "26/07/2026",
+              "is_claim_backdated_over_3_months": false,
+              "is_too_early": false,
+              "matb1_issue_date": "14/06/2026",
+              "smp_qualifying_week": "19/07/2026",
+              "test_period_start": "27/07/2025"
+            },
+            "due_date": "01/11/2026",
+            "is_baby_born": false,
+            "matb1_upload_ref": "DOC-20259F80"
+          },
+          "section3_data": {
+            "marriage_cert_upload_ref": null,
+            "partner_nino": null,
+            "partner_utr": null,
+            "rti_history": {
+              "average_monthly_earnings": 803.83,
+              "average_weekly_earnings": 185.5,
+              "employers": [
+                "Acme Retail Ltd",
+                "Global Logistics Corp"
+              ],
+              "has_active_employment": true,
+              "highest_13_weeks": [
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 1
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 2
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 3
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 4
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 5
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 6
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 7
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 8
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 9
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 10
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 11
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 12
+                },
+                {
+                  "gross_pay": 185.5,
+                  "week_number": 13
+                }
+              ],
+              "monthly_earnings": [
+                {
+                  "gross_pay": 803.83,
+                  "month_name": "Month 1 (Jan)"
+                },
+                {
+                  "gross_pay": 803.83,
+                  "month_name": "Month 2 (Feb)"
+                },
+                {
+                  "gross_pay": 803.83,
+                  "month_name": "Month 3 (Mar)"
+                }
+              ]
+            },
+            "se_utr": null,
+            "selected_employments": [
+              "employed"
+            ],
+            "smp1_upload_ref": "DOC-EFF87DA4",
+            "worked_in_15th_week": true
+          },
+          "section4_data": null,
+          "understands_benefits_impact": true
+        }
+      },
+      {
+        "invoker_state_id": "invoke_section4_about_payment",
+        "process_id": "section4_about_payment",
+        "state_id": "prompt_date_stopped_work",
+        "vars": {
+          "account_holder_name": null,
+          "account_number": null,
+          "bank_or_society_name": null,
+          "chosen_ma_start_date": null,
+          "date_stopped_work": null,
+          "input": {
+            "actual_birth_date": null,
+            "calculated_dates": {
+              "earliest_signing_date": "26/07/2026",
+              "is_claim_backdated_over_3_months": false,
+              "is_too_early": false,
+              "matb1_issue_date": "14/06/2026",
+              "smp_qualifying_week": "19/07/2026",
+              "test_period_start": "27/07/2025"
+            },
+            "employment_type_15th_week": null,
+            "is_baby_born": false
+          },
+          "is_map_flexible": null,
+          "is_pregnancy_sickness_in_4wk_window": null,
+          "map_end_date": null,
+          "payment_details_confirmed": null,
+          "payment_frequency": null,
+          "reason_stopped_work": "pregnancy_sick_leave",
+          "sort_code": null
+        }
+      }
+    ],
+    "step_counter": 53,
+    "transcript": [
+      {
+        "message": "We will now ask questions about you, this will include collecting your National Insurance Number, personal contact details, and residential address.",
+        "step": 9,
+        "timestamp": "2026-09-11T11:33:31.417840+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'section1_about_you' (Start state: 'prompt_nino')",
+        "step": 10,
+        "timestamp": "2026-09-11T11:33:31.417840+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83c\udf10 Dispatched HTTP POST request to service 'dwp' (/app/dwp/v1/identity-lookup)",
+        "step": 12,
+        "timestamp": "2026-09-11T11:33:43.459573+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \u2705 HTTP Call completed. Projected output assigned to 'lookup_res'",
+        "step": 12,
+        "timestamp": "2026-09-11T11:33:43.585818+00:00"
+      },
+      {
+        "message": "We will now ask you questions about your baby, in particular your expected or actual childbirth date and maternity evidence.",
+        "step": 16,
+        "timestamp": "2026-09-11T11:33:49.361952+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'section2_about_baby' (Start state: 'prompt_is_baby_born')",
+        "step": 17,
+        "timestamp": "2026-09-11T11:33:49.361952+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'calculate_deadlines' (Start state: 'compute_dates')",
+        "step": 21,
+        "timestamp": "2026-09-11T11:34:22.672733+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83c\udf10 Dispatched HTTP POST request to service 'dwp' (/app/dwp/v1/upload)",
+        "step": 28,
+        "timestamp": "2026-09-11T11:34:32.578645+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \u2705 HTTP Call completed. Projected output assigned to 'upload_res'",
+        "step": 28,
+        "timestamp": "2026-09-11T11:34:32.594374+00:00"
+      },
+      {
+        "message": "We will now ask about all employments you've had during your 66-week Test Period. Note that you must have worked for at least 26 weeks across all your employments combined.",
+        "step": 32,
+        "timestamp": "2026-09-11T11:34:32.594374+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'section3_about_work' (Start state: 'prompt_test_period_employments')",
+        "step": 33,
+        "timestamp": "2026-09-11T11:34:32.594374+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83c\udf10 Dispatched HTTP POST request to service 'hmrc' (/app/hmrc/v1/employment-and-earnings)",
+        "step": 37,
+        "timestamp": "2026-09-11T11:34:41.700448+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \u2705 HTTP Call completed. Projected output assigned to 'rti_history'",
+        "step": 37,
+        "timestamp": "2026-09-11T11:34:41.714685+00:00"
+      },
+      {
+        "message": "Because you worked as an employee during the 15th week before your due week, statutory rules require proof that your employer cannot pay you Statutory Maternity Pay (SMP).",
+        "step": 42,
+        "timestamp": "2026-09-11T11:35:07.869285+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83c\udf10 Dispatched HTTP POST request to service 'dwp' (/app/dwp/v1/upload)",
+        "step": 44,
+        "timestamp": "2026-09-11T11:35:17.476484+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \u2705 HTTP Call completed. Projected output assigned to 'upload_res'",
+        "step": 44,
+        "timestamp": "2026-09-11T11:35:17.489294+00:00"
+      },
+      {
+        "message": "Finally, we will ask about your current status, as well as your preferred payment frequency and bank details.",
+        "step": 49,
+        "timestamp": "2026-09-11T11:35:17.489294+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'section4_about_payment' (Start state: 'prompt_reason_stopped_work')",
+        "step": 50,
+        "timestamp": "2026-09-11T11:35:17.489294+00:00"
+      }
+    ]
+  },
+  "schema_version": "sfsm-interpreter-checkpoint/0.1",
+  "source_workflow_id": "sfsm-dwp.maternity_allowance_ma1_claim-40213399"
+}

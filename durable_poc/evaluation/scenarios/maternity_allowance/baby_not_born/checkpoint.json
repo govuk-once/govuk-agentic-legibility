@@ -1,0 +1,110 @@
+{
+  "awaiting": {
+    "options": null,
+    "prompt": "Has your baby already been born?",
+    "schema": {
+      "allow_skip": false,
+      "kind": "boolean"
+    },
+    "state_id": "prompt_is_baby_born",
+    "state_type": "InputState",
+    "timeout_seconds": null,
+    "token": "tkn_18"
+  },
+  "current_state": {
+    "process_id": "section2_about_baby",
+    "state_id": "prompt_is_baby_born",
+    "state_type": "InputState",
+    "step": 18
+  },
+  "interpreter_state": {
+    "env": {},
+    "frames": [
+      {
+        "invoker_state_id": null,
+        "process_id": "main",
+        "state_id": "announce_section3",
+        "vars": {
+          "confirmed_intent": true,
+          "meets_core_evidence_criteria": true,
+          "meets_eligibility_criteria": true,
+          "section1_data": {
+            "identity": {
+              "address": {
+                "address_line_1": "42 High Street",
+                "address_line_2": "Flat 3B",
+                "postcode": "M1 4BT",
+                "town_or_city": "Manchester"
+              },
+              "date_of_birth": "1992-06-15",
+              "first_name": "Jane",
+              "middle_name": "Mary",
+              "nino": "AA121212A",
+              "phone": "07700900123",
+              "surname": "Smith",
+              "title": "Mrs"
+            }
+          },
+          "section2_data": null,
+          "section3_data": null,
+          "section4_data": null,
+          "understands_benefits_impact": true
+        }
+      },
+      {
+        "invoker_state_id": "invoke_section2_about_baby",
+        "process_id": "section2_about_baby",
+        "state_id": "prompt_is_baby_born",
+        "vars": {
+          "actual_birth_date": null,
+          "birth_cert_upload_attempts": 0,
+          "birth_certificate_system_number": null,
+          "birth_certificate_upload_ref": null,
+          "birth_evidence_method": null,
+          "born_in_uk": null,
+          "calculated_dates": null,
+          "due_date": null,
+          "is_baby_born": null,
+          "is_stillborn_or_died": null,
+          "matb1_upload_attempts": 0,
+          "matb1_upload_ref": null
+        }
+      }
+    ],
+    "step_counter": 18,
+    "transcript": [
+      {
+        "message": "We will now ask questions about you, this will include collecting your National Insurance Number, personal contact details, and residential address.",
+        "step": 9,
+        "timestamp": "2026-09-11T12:11:25.195913+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'section1_about_you' (Start state: 'prompt_nino')",
+        "step": 10,
+        "timestamp": "2026-09-11T12:11:25.195913+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83c\udf10 Dispatched HTTP POST request to service 'dwp' (/app/dwp/v1/identity-lookup)",
+        "step": 12,
+        "timestamp": "2026-09-11T12:11:35.804943+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \u2705 HTTP Call completed. Projected output assigned to 'lookup_res'",
+        "step": 12,
+        "timestamp": "2026-09-11T12:11:35.822759+00:00"
+      },
+      {
+        "message": "We will now ask you questions about your baby, in particular your expected or actual childbirth date and maternity evidence.",
+        "step": 16,
+        "timestamp": "2026-09-11T12:11:41.944266+00:00"
+      },
+      {
+        "message": "[ENGINE LOG] \ud83d\udd00 Invoking sub-process stack frame 'section2_about_baby' (Start state: 'prompt_is_baby_born')",
+        "step": 17,
+        "timestamp": "2026-09-11T12:11:41.944266+00:00"
+      }
+    ]
+  },
+  "schema_version": "sfsm-interpreter-checkpoint/0.1",
+  "source_workflow_id": "sfsm-dwp.maternity_allowance_ma1_claim-f86a3e39"
+}

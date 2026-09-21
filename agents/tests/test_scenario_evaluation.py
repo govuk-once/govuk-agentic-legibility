@@ -176,6 +176,60 @@ def manual_trace() -> dict[str, Any]:
     }
 
 
+def submission_scenario() -> dict[str, Any]:
+    """Return a minimal scenario that checks an executor-accepted value."""
+    return {
+        "schema_version": "0.1",
+        "id": "ma-baby-not-born",
+        "journey_id": "dwp.maternity_allowance_ma1_claim",
+        "input": {
+            "conversation_fixture": {
+                "id": "ma-baby-not-born",
+                "version": "1",
+            }
+        },
+        "expected": {
+            "submissions": {
+                "prompt_is_baby_born": {
+                    "values": {"is_baby_born": False},
+                }
+            }
+        },
+    }
+
+
+def submission_trace(value: bool = False) -> dict[str, Any]:
+    """Return a minimal common trace containing one accepted submission."""
+    return {
+        "schema_version": "0.1",
+        "source_trace": "durable-otel.jsonl",
+        "run": {
+            "id": "eval-ma-baby-not-born-12345678",
+            "journey_id": "dwp.maternity_allowance_ma1_claim",
+            "implementation": "durable_poc",
+            "status": "in_progress",
+        },
+        "initial_context": {
+            "conversation_fixture": {
+                "id": "ma-baby-not-born",
+                "version": "1",
+                "sha256": "abc",
+            }
+        },
+        "events": [
+            {
+                "type": "interaction_available",
+                "interaction_id": "prompt_is_baby_born",
+            },
+            {
+                "type": "values_submitted",
+                "interaction_id": "prompt_is_baby_born",
+                "values": {"is_baby_born": value},
+            },
+        ],
+    }
+
+
 def _proposal(trace: dict[str, Any], interaction_id: str) -> dict[str, Any]:
     return next(
         event
@@ -197,6 +251,133 @@ def test_matching_trace_passes() -> None:
 
     assert result.passed
     assert result.issues == ()
+
+
+def test_matching_expected_submission_passes() -> None:
+    """Accepted executor values can be scored directly from common trace."""
+    result = evaluate_common_trace(submission_scenario(), submission_trace())
+
+    assert result.passed
+    assert result.issues == ()
+
+
+def test_relative_date_expectation_resolves_from_run_start_time() -> None:
+    """Dynamic dates are resolved from immutable run metadata in the requested timezone."""
+    scenario = {
+        "schema_version": "0.1",
+        "id": "ma-claim-start-date-today",
+        "journey_id": "dwp.maternity_allowance_ma1_claim",
+        "expected": {
+            "submissions": {
+                "prompt_flexible_start_date": {
+                    "values": {
+                        "chosen_ma_start_date": {
+                            "$relative_date": {
+                                "days": 0,
+                                "format": "%d/%m/%Y",
+                                "timezone": "Europe/London",
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+    trace = {
+        "schema_version": "0.1",
+        "source_trace": "durable-otel.jsonl",
+        "run": {
+            "id": "eval-ma-claim-start-date-today-12345678",
+            "journey_id": "dwp.maternity_allowance_ma1_claim",
+            "implementation": "durable_poc",
+            "status": "in_progress",
+            # 23:30 UTC is already 00:30 on 17 September in Europe/London.
+            "started_at": "2026-09-16T23:30:00+00:00",
+        },
+        "events": [
+            {
+                "type": "values_submitted",
+                "interaction_id": "prompt_flexible_start_date",
+                "values": {"chosen_ma_start_date": "17/09/2026"},
+            }
+        ],
+    }
+
+    result = evaluate_common_trace(scenario, trace)
+
+    assert result.passed
+    assert result.issues == ()
+
+
+def test_relative_date_expectation_requires_recorded_run_start_time() -> None:
+    """Dynamic expectations never fall back to the evaluator's wall clock."""
+    scenario = {
+        "schema_version": "0.1",
+        "id": "relative-date",
+        "journey_id": "dwp.maternity_allowance_ma1_claim",
+        "expected": {
+            "submissions": {
+                "prompt_flexible_start_date": {
+                    "values": {
+                        "chosen_ma_start_date": {
+                            "$relative_date": {
+                                "days": 0,
+                                "format": "%d/%m/%Y",
+                                "timezone": "Europe/London",
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+    trace = submission_trace()
+
+    with pytest.raises(
+        EvaluationInputError,
+        match=r"common trace\.run\.started_at must be a non-empty string",
+    ):
+        evaluate_common_trace(scenario, trace)
+
+
+def test_fixture_identity_is_optional_for_convention_based_scenarios() -> None:
+    """Implementation-specific scenarios may omit duplicated fixture metadata."""
+    scenario = submission_scenario()
+    scenario.pop("input")
+
+    result = evaluate_common_trace(scenario, submission_trace())
+
+    assert result.passed
+    assert result.issues == ()
+
+
+def test_mismatched_expected_submission_fails() -> None:
+    """A different executor-accepted value is a behavioural failure."""
+    result = evaluate_common_trace(submission_scenario(), submission_trace(True))
+
+    assert not result.passed
+    assert len(result.issues) == 1
+    assert result.issues[0].path == (
+        "expected.submissions.prompt_is_baby_born.values"
+    )
+    assert "expected" in result.issues[0].message
+    assert "observed" in result.issues[0].message
+
+
+def test_missing_expected_submission_fails() -> None:
+    """Each declared submission must appear exactly once."""
+    trace = submission_trace()
+    trace["events"] = [
+        event for event in trace["events"] if event.get("type") != "values_submitted"
+    ]
+
+    result = evaluate_common_trace(submission_scenario(), trace)
+
+    assert not result.passed
+    assert result.issues[0].path == "expected.submissions.prompt_is_baby_born"
+    assert result.issues[0].message == (
+        "expected one values_submitted event, observed 0"
+    )
 
 
 def test_equivalent_address_line_representations_pass() -> None:
