@@ -9,7 +9,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from evaluation.otel_common_trace import convert_trace, decode_received_value
+from evaluation.otel_common_trace import (
+    convert_trace,
+    decode_received_value,
+    decode_rejected_value,
+)
 
 
 def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
@@ -92,6 +96,39 @@ def input_span(
         "status": "UNSET",
     }
 
+
+
+def rejection_span(
+    *,
+    workflow_id: str,
+    process_id: str = "section4_about_payment",
+    state_id: str = "prompt_payment_frequency",
+    assign_target: str = "payment_frequency",
+    value_type: str = "str",
+    value: str = '"every_2_weeks"',
+    code: str = "invalid_selection",
+    message: str = "Invalid selection",
+    start_time: int = 150,
+) -> dict[str, object]:
+    return {
+        "name": "interpreter.input_validation.rejected",
+        "trace_id": "6cc99ce21539ab3657e2c6a366e6161b",
+        "span_id": "72d9df6a6b8b6892",
+        "start_time": start_time,
+        "end_time": start_time + 1,
+        "attributes": {
+            "temporalWorkflowID": workflow_id,
+            "state_id": state_id,
+            "process_id": process_id,
+            "schema_kind": "select_one",
+            "assign_target": assign_target,
+            "rejection_code": code,
+            "rejection_message": message,
+            "rejected_value_type": value_type,
+            "rejected_value": value,
+        },
+        "status": "UNSET",
+    }
 
 def test_baby_not_born_span_becomes_common_semantic_events(tmp_path: Path) -> None:
     scenario_path, fixture_dir, fixture_path = write_inputs(tmp_path)
@@ -186,12 +223,95 @@ def test_converter_preserves_natural_language_date_as_string(tmp_path: Path) -> 
     }
 
 
+
+def test_converter_records_rejected_attempt_before_accepted_value(tmp_path: Path) -> None:
+    scenario_path, fixture_dir, _ = write_inputs(
+        tmp_path,
+        process_id="section4_about_payment",
+        state_id="prompt_payment_frequency",
+    )
+    trace_path = tmp_path / "durable-otel.jsonl"
+    workflow_id = "eval-ma-payment-frequency-12345678"
+    accepted = input_span(
+        workflow_id=workflow_id,
+        process_id="section4_about_payment",
+        state_id="prompt_payment_frequency",
+        assign_target="payment_frequency",
+        value_type="str",
+        value="every_2_weeks",
+        start_time=100,
+    )
+    accepted["end_time"] = 300
+    write_jsonl(
+        trace_path,
+        [
+            accepted,
+            rejection_span(workflow_id=workflow_id, start_time=200),
+        ],
+    )
+
+    result = convert_trace(
+        trace_path=trace_path,
+        scenario_path=scenario_path,
+        workflow_id=workflow_id,
+        fixture_dir=fixture_dir,
+    )
+
+    assert result["events"] == [
+        {
+            "type": "interaction_available",
+            "interaction_id": "prompt_payment_frequency",
+        },
+        {
+            "type": "values_rejected",
+            "interaction_id": "prompt_payment_frequency",
+            "values": {"payment_frequency": '"every_2_weeks"'},
+            "reason": "invalid_selection",
+            "message": "Invalid selection",
+        },
+        {
+            "type": "values_submitted",
+            "interaction_id": "prompt_payment_frequency",
+            "values": {"payment_frequency": "every_2_weeks"},
+        },
+    ]
+
+
+def test_converter_can_return_rejection_without_accepted_input(tmp_path: Path) -> None:
+    scenario_path, fixture_dir, _ = write_inputs(
+        tmp_path,
+        process_id="section4_about_payment",
+        state_id="prompt_payment_frequency",
+    )
+    trace_path = tmp_path / "durable-otel.jsonl"
+    workflow_id = "eval-ma-payment-frequency-rejected"
+    write_jsonl(trace_path, [rejection_span(workflow_id=workflow_id)])
+
+    result = convert_trace(
+        trace_path=trace_path,
+        scenario_path=scenario_path,
+        workflow_id=workflow_id,
+        fixture_dir=fixture_dir,
+    )
+
+    assert result["events"][1] == {
+        "type": "values_rejected",
+        "interaction_id": "prompt_payment_frequency",
+        "values": {"payment_frequency": '"every_2_weeks"'},
+        "reason": "invalid_selection",
+        "message": "Invalid selection",
+    }
+
+
 def test_converter_requires_target_input_span(tmp_path: Path) -> None:
     scenario_path, fixture_dir, _ = write_inputs(tmp_path)
     trace_path = tmp_path / "durable-otel.jsonl"
     write_jsonl(trace_path, [input_span(workflow_id="different-workflow")])
 
-    with pytest.raises(ValueError, match="No interpreter.InputState span found"):
+    with pytest.raises(
+        ValueError,
+        match="No accepted or rejected input span found",
+    ):
         convert_trace(
             trace_path=trace_path,
             scenario_path=scenario_path,
@@ -218,3 +338,12 @@ def test_decode_received_value_rejects_invalid_boolean() -> None:
                 "received_value": "maybe",
             }
         )
+
+
+def test_decode_rejected_value_preserves_literal_quote_characters() -> None:
+    assert decode_rejected_value(
+        {
+            "rejected_value_type": "str",
+            "rejected_value": '"every_2_weeks"',
+        }
+    ) == '"every_2_weeks"'
