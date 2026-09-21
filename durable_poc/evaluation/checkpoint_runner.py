@@ -129,7 +129,7 @@ async def run_once(
                 region_name=region,
                 temporal_address=temporal_address,
                 task_queue=task_queue,
-                initial_messages=deepcopy(initial_messages),
+                conversation_history=deepcopy(initial_messages),
             )
 
             before = await wait_for_input(agent, workflow_id)
