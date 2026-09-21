@@ -122,7 +122,7 @@ expected:
         date_stopped_work: "03/09/2026"
 ```
 
-This expectation is currently recorded for the forthcoming durable OTEL/common-trace integration; the checkpoint runner does not yet score it directly.
+The shared evaluator compares this expectation with the corresponding `values_submitted` event in the common trace. The durable checkpoint runner performs that conversion and scoring automatically when OTEL file export is enabled.
 
 ## Expected assistance
 

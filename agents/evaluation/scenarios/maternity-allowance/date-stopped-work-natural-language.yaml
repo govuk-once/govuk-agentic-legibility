@@ -12,9 +12,6 @@ input:
     process_id: "section4_about_payment"
     state_id: "prompt_date_stopped_work"
 
-# This expectation is intentionally not scored by the checkpoint runner yet.
-# Once the durable OTEL-to-common-trace adapter lands, it should be evaluated
-# against the accepted value recorded for this interaction.
 expected:
   submissions:
     prompt_date_stopped_work:
