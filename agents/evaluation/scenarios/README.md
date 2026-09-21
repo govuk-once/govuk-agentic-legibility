@@ -91,7 +91,7 @@ should use the ID and version.
 
 ## Targeted durable-prototype checkpoints
 
-Maternity Allowance scenarios used by `durable_poc/evaluation/checkpoint_runner.py` can identify the semantic executor state at which the final fixture turn should be tested:
+Maternity Allowance scenarios used by `durable_poc/evaluation/checkpoint_runner.py` identify the semantic executor interaction at which the final fixture turn should be tested. Deeper states should reference a captured executor checkpoint:
 
 ```yaml
 input:
@@ -99,15 +99,14 @@ input:
     id: "ma-date-stopped-work-natural-language"
     version: "1"
   checkpoint:
+    id: "ma-date-stopped-work"
     process_id: "section4_about_payment"
     state_id: "prompt_date_stopped_work"
-    vars:
-      reason_stopped_work: "pregnancy_sick_leave"
-    input:
-      is_baby_born: false
 ```
 
-`vars` and `input` are optional. Use them when the target state depends on values established earlier in the journey. The checkpoint should contain only the semantic state needed to execute legitimately from that interaction onwards; it should not contain Temporal event-history mechanics.
+The checkpoint ID resolves to `durable_poc/evaluation/checkpoints/<id>.json`. The runner validates that the captured current process/state matches the scenario and starts a fresh workflow from the captured semantic `InterpreterState`. The snapshot contains SFSM state, not Temporal event history.
+
+Very early/simple scenarios may omit `checkpoint.id`; the durable runner then falls back to constructing a minimal single-frame state from the workflow definition. This is useful for cases such as the first state of a subprocess, but captured checkpoints are preferred once meaningful journey state has accumulated.
 
 The conversation fixture remains the source of conversational context. Its final user message is the turn under test; earlier messages are seeded into the agent as history.
 

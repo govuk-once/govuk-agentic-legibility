@@ -8,21 +8,9 @@ input:
     id: "ma-date-stopped-work-natural-language"
     version: "1"
   checkpoint:
+    id: "ma-date-stopped-work"
     process_id: "section4_about_payment"
     state_id: "prompt_date_stopped_work"
-    vars:
-      reason_stopped_work: "pregnancy_sick_leave"
-    input:
-      is_baby_born: false
-      actual_birth_date: null
-      calculated_dates:
-        earliest_signing_date: "03/09/2026"
-        is_claim_backdated_over_3_months: false
-        is_too_early: false
-        matb1_issue_date: "23/07/2026"
-        smp_qualifying_week: "27/08/2026"
-        test_period_start: "04/09/2025"
-      employment_type_15th_week: null
 
 # This expectation is intentionally not scored by the checkpoint runner yet.
 # Once the durable OTEL-to-common-trace adapter lands, it should be evaluated

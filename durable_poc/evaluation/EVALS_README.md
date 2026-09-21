@@ -94,22 +94,9 @@ For these evaluations, that is usually the wrong level of abstraction. We are te
 
 The preferred checkpoint is therefore a **semantic executor checkpoint**: a serialisable `InterpreterState` containing enough SFSM state to legitimately resume execution from the target interaction.
 
-For early states this can be constructed from the workflow definition. Deeper checkpoints can also supply the process variables and invocation inputs that would already exist at that point. For example:
+For early states this can be constructed from the workflow definition. Deeper states are more difficult to reconstruct faithfully: a real `InterpreterState` can contain parent and child stack frames, invocation inputs, accumulated process variables, transcript entries, environment values and the real step counter.
 
-```yaml
-checkpoint:
-  process_id: "section4_about_payment"
-  state_id: "prompt_date_stopped_work"
-  vars:
-    reason_stopped_work: "pregnancy_sick_leave"
-  input:
-    is_baby_born: false
-    calculated_dates:
-      smp_qualifying_week: "27/08/2026"
-      earliest_signing_date: "03/09/2026"
-```
-
-The checkpoint only needs to contain state that is meaningful for execution from the target interaction onwards. As scenarios move deeper into journeys, we expect to add a helper that captures this semantic `InterpreterState` from a successful interactive run rather than maintaining it manually.
+The interpreter therefore exposes an evaluation-only `evaluation_checkpoint` query. `capture_checkpoint.py` can use that query to save the semantic executor state from a real synthetic browser journey while it is paused at an input interaction. The targeted runner can then start each repetition from that captured semantic state.
 
 Conceptually:
 
@@ -128,6 +115,37 @@ reuse both for many targeted evaluation runs
 ```
 
 We should only introduce raw Temporal-history replay if we later have a specific need to test Temporal recovery, retries or other infrastructure behaviour.
+
+## Capturing a real executor checkpoint
+
+Run the service normally in the browser and stop when the executor is waiting at the interaction you want to evaluate. Keep that workflow running, note its Temporal workflow ID, and from `durable_poc/` run:
+
+```bash
+PYTHONPATH=. uv run python -m evaluation.capture_checkpoint \
+  <workflow-id> \
+  --scenario ../agents/evaluation/scenarios/maternity-allowance/date-stopped-work-natural-language.yaml \
+  --output evaluation/checkpoints/ma-date-stopped-work.json
+```
+
+`--scenario` is optional, but when supplied the command refuses to save a checkpoint unless the running workflow is currently waiting at the scenario's declared `process_id` and `state_id`. This helps avoid accidentally capturing the workflow one interaction too early or late.
+
+The saved file contains:
+
+- every active SFSM stack frame;
+- the current state ID and process ID for each frame;
+- each frame's variables, including resolved invocation `input`;
+- the parent invoke-state ID for child frames;
+- the current transcript;
+- the real `step_counter` and executor environment;
+- the current `AwaitingInput` as capture metadata.
+
+For example, a genuine section-4 checkpoint normally shows both the `main` frame and the active `section4_about_payment` frame. This is deliberately more complete than a manually constructed single-frame checkpoint.
+
+The captured file is a **semantic SFSM snapshot**, not Temporal event history. The invoker is stored by state ID rather than serialising the Pydantic state object itself. When the runner starts a fresh workflow, the interpreter rehydrates that ID to the real `InvokeState` from the current workflow definition so nested subprocesses can return to their parent frames normally.
+
+The snapshot is captured while the current `InputState` is already suspended at step `N`. Starting a new workflow from that state means executing that input state again, so the loader initialises the fresh run at step counter `N - 1`. The new workflow then recreates step `N` and generates its own input token. The captured `awaiting` object is therefore validation metadata rather than coroutine state to restore.
+
+Only capture deliberately synthetic journeys. Interpreter state can contain everything supplied earlier in a service journey and must not become a route for putting real claimant PII into committed test fixtures or logs.
 
 ## Scenarios
 
@@ -158,6 +176,21 @@ expected:
 
 The checkpoint identifies the current executor interaction. The fixture supplies the preceding conversation and the final user turn. The expectation describes the semantic value that should ultimately be accepted by the executor.
 
+For a deeper state, reference a captured checkpoint by ID:
+
+```yaml
+input:
+  conversation_fixture:
+    id: "ma-date-stopped-work-natural-language"
+    version: "1"
+  checkpoint:
+    id: "ma-date-stopped-work"
+    process_id: "section4_about_payment"
+    state_id: "prompt_date_stopped_work"
+```
+
+The ID resolves to `durable_poc/evaluation/checkpoints/<id>.json`. The process/state remain in the scenario as the semantic target and are validated against the captured file before a run starts.
+
 At present, `expected.submissions` is recorded but **not yet scored** by the checkpoint runner.
 
 ## Conversation fixtures
@@ -180,7 +213,7 @@ This keeps two things true at once:
 
 For early scenarios, conversation prefixes may be reconstructed from the journey definition and deterministic stub responses. This is useful for realistic context, but it is not the same as recovering a user's exact previous utterances from Temporal. Temporal workflow start input contains the workflow definition; the agent's user-visible conversation is separate state.
 
-A future checkpoint-capture tool should capture both the semantic executor state and the user-visible conversation prefix from a real browser journey so that deeper cases do not need to maintain either by hand.
+The executor checkpoint can be captured from a real synthetic browser journey and referenced by scenario ID. Capturing the corresponding user-visible conversation prefix remains separate work.
 
 ## Current runner
 
@@ -190,7 +223,7 @@ A future checkpoint-capture tool should capture both the semantic executor state
 load scenario and fixture
         |
         v
-build InterpreterState for target interaction
+load captured InterpreterState (or build simple inline state)
         |
         v
 start a fresh Temporal workflow
@@ -327,14 +360,13 @@ Configuration such as Temporal addresses, task queues, model IDs and service end
 The first two Maternity Allowance scenarios prove the basic targeted-run approach:
 
 - a fresh workflow can start at `section2_about_baby / prompt_is_baby_born`;
-- a deeper run can start at `section4_about_payment / prompt_date_stopped_work` with the required process variables and invocation inputs;
+- a deeper run can start at `section4_about_payment / prompt_date_stopped_work` from a captured real executor checkpoint containing both parent and child stack frames;
 - the agent can be seeded with a realistic preceding conversation history;
 - the final fixture turn can be sent through the real `WorkflowAgent`;
 - repeated runs can be launched independently and concurrently.
 
 Still to add:
 
-- automatic capture/reuse of semantic `InterpreterState` checkpoints from interactive runs;
 - convenient capture of real user-visible conversation prefixes from interactive runs;
 - OTEL-to-common-trace conversion for durable runs;
 - deterministic scoring of `expected.submissions`;
