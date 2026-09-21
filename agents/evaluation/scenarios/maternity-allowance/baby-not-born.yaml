@@ -1,0 +1,21 @@
+schema_version: "0.1"
+
+id: "ma-baby-not-born"
+journey_id: "dwp.maternity_allowance_ma1_claim"
+
+input:
+  conversation_fixture:
+    id: "ma-baby-not-born"
+    version: "1"
+  checkpoint:
+    process_id: "section2_about_baby"
+    state_id: "prompt_is_baby_born"
+
+# This expectation is intentionally not scored by the checkpoint runner yet.
+# Once the durable OTEL-to-common-trace adapter lands, it should be evaluated
+# against the accepted value recorded for this interaction.
+expected:
+  submissions:
+    prompt_is_baby_born:
+      values:
+        is_baby_born: false
