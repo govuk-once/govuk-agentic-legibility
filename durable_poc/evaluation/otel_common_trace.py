@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from evaluation.scenario_case import load_document, load_scenario_case
+from evaluation.scenario_case import load_scenario_case
 
 
 
