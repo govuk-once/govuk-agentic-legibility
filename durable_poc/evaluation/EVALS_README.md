@@ -321,6 +321,8 @@ events:
 
 The `interpreter.InputState` span is authoritative for `values_submitted`: it records the value actually accepted at the executor boundary, rather than merely the value an agent attempted to send. `received_value_type` is used to recover the typed value from OTEL's string attribute representation.
 
+Rejected update-validator attempts are recorded separately as `interpreter.input_validation.rejected` spans and become `values_rejected` common-trace events. These preserve the exact value presented to the executor plus a stable rejection reason. A later successful retry is still represented independently as `values_submitted`, so the trace can distinguish first-attempt success from eventual success.
+
 For a local trace file, convert one workflow with:
 
 ```bash

@@ -223,26 +223,39 @@ async def wait_for_common_trace(
     workflow_id: str,
     fixture_dir: Path,
     timeout_seconds: float,
+    require_submission: bool = False,
 ) -> dict[str, Any]:
-    """Wait for the worker's completed InputState span to reach OTEL JSONL."""
+    """Wait for target executor evidence to reach OTEL JSONL."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout_seconds
     last_error: Exception | None = None
 
     while True:
         try:
-            return convert_trace(
+            common_trace = convert_trace(
                 trace_path=trace_path,
                 scenario_path=scenario_path,
                 workflow_id=workflow_id,
                 fixture_dir=fixture_dir,
             )
+            if require_submission and not any(
+                event.get("type") == "values_submitted"
+                for event in common_trace.get("events", [])
+                if isinstance(event, dict)
+            ):
+                last_error = ValueError(
+                    "Rejected submission observed; waiting for accepted InputState span"
+                )
+            else:
+                return common_trace
         except FileNotFoundError as error:
             last_error = error
         except ValueError as error:
             message = str(error)
             if not (
-                message.startswith("No interpreter.InputState span found")
+                message.startswith(
+                    "No accepted or rejected input span found"
+                )
                 or message.startswith("Invalid JSON on")
             ):
                 raise
@@ -376,19 +389,31 @@ async def run_once(
 
             before = await wait_for_input(agent, workflow_id)
             before_id = before["awaiting"]["state_id"]
-            await agent.respond(current_user_message, context=before)
+
+            respond_error: Exception | None = None
+            try:
+                await agent.respond(current_user_message, context=before)
+            except Exception as error:  # noqa: BLE001 - rejected inputs are eval evidence
+                respond_error = error
 
             after = agent.session_state or {}
             awaiting = after.get("awaiting")
             after_id = awaiting.get("state_id") if isinstance(awaiting, dict) else None
 
-            common_trace = await wait_for_common_trace(
-                trace_path=otel_trace,
-                scenario_path=scenario_path,
-                workflow_id=workflow_id,
-                fixture_dir=fixture_dir,
-                timeout_seconds=trace_timeout_seconds,
-            )
+            workflow_advanced = awaiting is None or after_id != before_id
+            try:
+                common_trace = await wait_for_common_trace(
+                    trace_path=otel_trace,
+                    scenario_path=scenario_path,
+                    workflow_id=workflow_id,
+                    fixture_dir=fixture_dir,
+                    timeout_seconds=trace_timeout_seconds,
+                    require_submission=workflow_advanced,
+                )
+            except Exception:
+                if respond_error is not None:
+                    raise respond_error
+                raise
             run_dir = output_dir / scenario_id / workflow_id
             common_trace_path = run_dir / "common.yaml"
             write_yaml(common_trace_path, common_trace)
