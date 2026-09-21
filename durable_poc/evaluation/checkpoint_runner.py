@@ -22,6 +22,7 @@ from agent.agent import WorkflowAgent
 from src.context import InterpreterState, StackFrame, TranscriptEntry
 from src.interpreter import SFSMInterpreter
 from evaluation.otel_common_trace import convert_trace
+from evaluation.scenario_case import checkpoint_target, load_document, load_scenario_case
 
 DURABLE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = DURABLE_ROOT.parent
@@ -36,8 +37,6 @@ from agents.src.scenario_evaluation.evaluator import (  # noqa: E402
 )
 
 DEFAULT_DEFINITION = DURABLE_ROOT / "dwp_ma1_schema.json"
-DEFAULT_FIXTURES = REPO_ROOT / "agents" / "src" / "evaluation" / "fixtures"
-DEFAULT_CHECKPOINTS = DURABLE_ROOT / "evaluation" / "checkpoints"
 DEFAULT_OTEL_TRACE = Path(".traces") / "durable-otel.jsonl"
 DEFAULT_OUTPUT_DIR = Path(".traces") / "evaluation-runs"
 DEFAULT_BATCH_OUTPUT_DIR = Path(".traces") / "evaluation-batches"
@@ -63,51 +62,23 @@ class TargetedRunResult:
         return "pass" if self.evaluation.passed else "fail"
 
 
-def load_document(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    value = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain an object")
-    return value
-
-
-def load_fixture(fixture_id: str, version: str, directory: Path) -> dict[str, Any]:
-    for path in directory.glob("*.json"):
-        fixture = load_document(path)
-        if fixture.get("id") == fixture_id and fixture.get("version") == version:
-            return fixture
-    raise ValueError(f"Fixture {fixture_id!r} version {version!r} not found")
-
 
 def build_checkpoint_state(
     definition: dict[str, Any],
     checkpoint: dict[str, Any],
-    checkpoint_dir: Path,
 ) -> InterpreterState:
     """Rehydrate a captured semantic InterpreterState for a fresh workflow run."""
-    checkpoint_id = checkpoint.get("id")
-    if not isinstance(checkpoint_id, str) or not checkpoint_id:
-        raise ValueError("Checkpoint requires a non-empty checkpoint.id")
-
-    document = load_document(checkpoint_dir / f"{checkpoint_id}.json")
-    if document.get("schema_version") != "sfsm-interpreter-checkpoint/0.1":
+    if checkpoint.get("schema_version") != "sfsm-interpreter-checkpoint/0.1":
         raise ValueError(
-            f"Unsupported checkpoint schema version: {document.get('schema_version')!r}"
+            "Unsupported checkpoint schema version: "
+            f"{checkpoint.get('schema_version')!r}"
         )
 
-    current = document.get("current_state")
-    if not isinstance(current, dict):
-        raise ValueError("Captured checkpoint is missing current_state")
+    # Validate the semantic target before rebuilding the stack. The checkpoint is
+    # authoritative for the target interaction; scenario.yaml does not duplicate it.
+    checkpoint_target(checkpoint)
 
-    expected = (checkpoint["process_id"], checkpoint["state_id"])
-    actual = (current.get("process_id"), current.get("state_id"))
-    if actual != expected:
-        raise ValueError(
-            "Captured checkpoint target does not match scenario: "
-            f"expected {expected[0]}.{expected[1]}, got {actual[0]}.{actual[1]}"
-        )
-
-    captured = document.get("interpreter_state")
+    captured = checkpoint.get("interpreter_state")
     if not isinstance(captured, dict):
         raise ValueError("Captured checkpoint is missing interpreter_state")
 
@@ -221,7 +192,6 @@ async def wait_for_common_trace(
     trace_path: Path,
     scenario_path: Path,
     workflow_id: str,
-    fixture_dir: Path,
     timeout_seconds: float,
     require_submission: bool = False,
 ) -> dict[str, Any]:
@@ -236,7 +206,6 @@ async def wait_for_common_trace(
                 trace_path=trace_path,
                 scenario_path=scenario_path,
                 workflow_id=workflow_id,
-                fixture_dir=fixture_dir,
             )
             if require_submission and not any(
                 event.get("type") == "values_submitted"
@@ -343,8 +312,6 @@ async def run_once(
     scenario_path: Path,
     definition: dict[str, Any],
     checkpoint: dict[str, Any],
-    checkpoint_dir: Path,
-    fixture_dir: Path,
     initial_messages: list[dict[str, Any]],
     current_user_message: str,
     temporal_client: Client,
@@ -373,7 +340,7 @@ async def run_once(
                 SFSMInterpreter.run,
                 args=[
                     definition,
-                    build_checkpoint_state(definition, checkpoint, checkpoint_dir),
+                    build_checkpoint_state(definition, checkpoint),
                 ],
                 id=workflow_id,
                 task_queue=task_queue,
@@ -406,7 +373,6 @@ async def run_once(
                     trace_path=otel_trace,
                     scenario_path=scenario_path,
                     workflow_id=workflow_id,
-                    fixture_dir=fixture_dir,
                     timeout_seconds=trace_timeout_seconds,
                     require_submission=workflow_advanced,
                 )
@@ -448,21 +414,18 @@ async def run_once(
 
 
 async def run(args: argparse.Namespace) -> int:
-    scenario = load_document(args.scenario)
-    scenario_input = scenario["input"]
-    checkpoint = scenario_input["checkpoint"]
-    fixture_ref = scenario_input["conversation_fixture"]
-    fixture = load_fixture(fixture_ref["id"], fixture_ref["version"], args.fixture_dir)
+    scenario_case = load_scenario_case(args.scenario)
+    scenario = scenario_case.scenario
+    checkpoint = scenario_case.checkpoint
+    fixture = scenario_case.conversation
+    scenario_path = scenario_case.scenario_path
+    process_id, state_id = scenario_case.target
     definition = load_document(args.definition)
 
     if definition["id"] != scenario["journey_id"]:
         raise ValueError("Scenario journey_id does not match workflow definition")
-    if fixture["journey_id"] != scenario["journey_id"]:
-        raise ValueError("Fixture journey_id does not match scenario")
 
-    current_state = definition["processes"][checkpoint["process_id"]]["states"][
-        checkpoint["state_id"]
-    ]
+    current_state = definition["processes"][process_id]["states"][state_id]
     initial_messages, current_user_message = agent_input(
         fixture, current_state["prompt"]
     )
@@ -482,7 +445,7 @@ async def run(args: argparse.Namespace) -> int:
             "batch_id": batch_id,
             "started_at": started_at.isoformat(),
             "scenario_id": scenario["id"],
-            "scenario_path": str(args.scenario),
+            "scenario_path": str(scenario_path),
             "repeat": args.repeat,
             "concurrency": args.concurrency,
             "model_id": args.model_id,
@@ -497,11 +460,9 @@ async def run(args: argparse.Namespace) -> int:
             run_once(
                 attempt,
                 scenario=scenario,
-                scenario_path=args.scenario,
+                scenario_path=scenario_path,
                 definition=definition,
                 checkpoint=checkpoint,
-                checkpoint_dir=args.checkpoint_dir,
-                fixture_dir=args.fixture_dir,
                 initial_messages=initial_messages,
                 current_user_message=current_user_message,
                 temporal_client=temporal_client,
@@ -526,7 +487,7 @@ async def run(args: argparse.Namespace) -> int:
         record = evaluation_record(
             result,
             batch_id=batch_id,
-            scenario_path=args.scenario,
+            scenario_path=scenario_path,
             model_id=args.model_id,
             otel_trace=args.otel_trace,
             evaluation_path=evaluation_path,
@@ -575,13 +536,20 @@ def positive_int(value: str) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("scenario", type=Path)
+    parser = argparse.ArgumentParser(
+        description="Run a self-contained durable evaluation scenario case."
+    )
+    parser.add_argument(
+        "scenario",
+        type=Path,
+        help=(
+            "Scenario case directory or path relative to evaluation/scenarios, "
+            "for example maternity_allowance/work_status_fixed_term_contract_ended"
+        ),
+    )
     parser.add_argument("--repeat", type=positive_int, default=1)
     parser.add_argument("--concurrency", type=positive_int, default=1)
     parser.add_argument("--definition", type=Path, default=DEFAULT_DEFINITION)
-    parser.add_argument("--fixture-dir", type=Path, default=DEFAULT_FIXTURES)
-    parser.add_argument("--checkpoint-dir", type=Path, default=DEFAULT_CHECKPOINTS)
     parser.add_argument(
         "--otel-trace",
         type=Path,

@@ -1,0 +1,8 @@
+schema_version: '0.1'
+id: ma-baby-not-born
+journey_id: dwp.maternity_allowance_ma1_claim
+expected:
+  submissions:
+    prompt_is_baby_born:
+      values:
+        is_baby_born: false
