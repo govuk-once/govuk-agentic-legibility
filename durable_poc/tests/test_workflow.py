@@ -290,7 +290,7 @@ async def test_workflow_traces_propagate_across_boundary(
     rejected = rejected_spans[-1]
     assert rejected.attributes["state_id"] == "ask_subscribe"
     assert rejected.attributes["process_id"] == "main"
-    assert rejected.attributes["assign_target"] == "subscribe"
+    assert rejected.attributes["assign_target"] == "wants_alerts"
     assert rejected.attributes["rejection_code"] == "expected_boolean"
     assert rejected.attributes["rejected_value_type"] == "str"
     assert rejected.attributes["rejected_value"] == "InvalidString"
