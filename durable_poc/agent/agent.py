@@ -373,7 +373,7 @@ class WorkflowAgent:
                 attributes={"temporalWorkflowID": workflow_id},
             ):
                 logger.info(
-                    "Tool get_workflow_definition called: workflow_id=%d", workflow_id
+                    "Tool get_workflow_definition called: workflow_id=%s", workflow_id
                 )
                 await owner._trace(
                     "AGENT",
@@ -403,7 +403,7 @@ class WorkflowAgent:
                     )
                 except Exception as e:
                     logger.exception(
-                        "Tool get_workflow_definition failed for workflow_id=%d",
+                        "Tool get_workflow_definition failed for workflow_id=%s",
                         workflow_id,
                     )
                     await owner._trace(
@@ -426,7 +426,7 @@ class WorkflowAgent:
                 "tool.start_workflow",
                 attributes={"temporalWorkflowID": workflow_id},
             ):
-                logger.info("Tool start_workflow called: workflow_id=%d", workflow_id)
+                logger.info("Tool start_workflow called: workflow_id=%s", workflow_id)
                 try:
                     http_client = await owner._get_http_client()
                     temporal_client = await owner._get_temporal_client()
@@ -447,7 +447,7 @@ class WorkflowAgent:
                     )
                 except Exception as e:
                     logger.exception(
-                        "Tool start_workflow failed for workflow_id=%d", workflow_id
+                        "Tool start_workflow failed for workflow_id=%s", workflow_id
                     )
                     await owner._trace("ENGINE", "Start Workflow Failed", str(e))
                     raise
