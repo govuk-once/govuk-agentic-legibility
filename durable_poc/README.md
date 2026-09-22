@@ -71,42 +71,73 @@ The test suite validates pure Python logic (path resolution, predicates), Tempor
 
 ---
 
-## Running the Agentic Chat Interface
+# Deployment to AWS
 
-The project includes a conversational AI agent that guides users through workflows using natural language. The agent uses Claude via AWS Bedrock and maintains workflow state using the HATEOAS pattern — each tool response is self-describing, carrying the continuation token and next expected input.
+The project can be deployed to AWS using AWS CDK. The deployment provisions the infrastructure required to run the Durable FSM Executor stack, including:
 
-## Prerequisites
+- EC2 host for the chat application and Temporal services
+- Networking resources (VPC, Security Groups)
+- IAM roles and permissions
+- Public DNS endpoint
+- Environment configuration for Bedrock access
+- Systemd services for:
+  - Temporal Server
+  - Temporal Worker
+  - Chat Interface
 
-1. **Python 3.14+** and **uv** installed
-2. **Temporal CLI** installed
-
-```bash
-brew install temporal
-```
-
-3. **AWS credentials** withbedrock:InvokeModel` permission for Claude Sonnet in your target region
-4. **Workflow Server** & **Backend Stub Server** available, either:
-   - Running locally
-   - Deployed to AWS and accessible via its load balancer URL
-
-### Required Credentials
-
-The agent calls Claude via Amazon Bedrock. You need valid AWS credentials configured via any standard method (environment variables, `~/.aws/credentials`, SSO, etc.). Verify with:
-
-Verify your credentials are working:
+To deploy after making code changes, from the repository root:
 
 ```bash
-aws sts get-caller-identity
+cd infrastructure
+cdk deploy DurablePocStack
 ```
 
-The default model is `anthropic.claude-sonnet-4-6` in `eu-west-2`. Override with environment variables if needed:
+After deployment, view CloudFormation Outputs:
 
 ```bash
-export BEDROCK_MODEL_ID="anthropic.claude-sonnet-4-6"
-export AWS_REGION="eu-west-2"
+aws cloudformation describe-stacks \
+  --stack-name DurablePocStack
 ```
 
-### Local Ports Reference
+After deployment completes, you may connect to the EC2 instance and check the startup logs:
+
+```text
+sudo less /var/log/cloud-init-output.log
+```
+
+you may also check that the application services are running:
+
+```text
+sudo systemctl status temporal
+sudo systemctl status temporal-worker
+sudo systemctl status durable-chat
+```
+
+---
+
+## Running the Agentic Chat Interface (AWS Hosted Environment)
+
+The Durable FSM Workflow Executor has been deployed to AWS for shared testing and demonstration purposes. The following services are hosted in AWS and can be consumed directly without running them locally:
+
+- Workflow Definition Server
+- Backend Stub Services
+- Temporal Worker
+- Temporal Server
+- Chat Interface
+
+The deployed chat interface can be accessed through the public DNS endpoint provisioned by the AWS CDK deployment:
+
+```text
+http://ec2-3-8-139-240.eu-west-2.compute.amazonaws.com:7860
+```
+
+Note: The instructions in the Running the Agentic Chat Interface section below are intended for local development only. If you are using the AWS-hosted deployment, you do not need to start Temporal, the worker, the Workflow Server, or the Stub Server locally.
+
+---
+
+## Running the Agentic Chat Interface (Local Development Only)
+
+The following instructions are intended for contributors developing the project locally. For most users, a fully deployed version of the platform is available in AWS and can be accessed through its public DNS endpoint without starting any services locally.
 
 When running locally, the following default ports are used:
 
@@ -142,7 +173,7 @@ http://localhost:8233
 
 ---
 
-### Terminal 2: Temporal Worker
+####  Terminal 2: Temporal Worker
 
 Starts the Python worker that executes the FSM interpreter and activities:
 
@@ -165,11 +196,11 @@ sfsm-queue
 
 task queue.
 
-### Terminal 3: Backend Stub Server
+---
 
-The worker executes HTTP activities that call backend services. Therefore, the service endpoint environment variables must be available in the same terminal session where the Temporal worker is running.
+#### Terminal 3: Backend Stub Server
 
-The stub server is currently deployed to AWS ECS under the `govuk-once-ailegibility-development` account.
+The worker executes HTTP activities that call backend services. The stub server is currently deployed to AWS ECS under the `govuk-once-ailegibility-development` account. Therefore, the service endpoint environment variables must be available in the same terminal session where the Temporal worker is running.
 
 Configure the service endpoints:
 
@@ -195,12 +226,11 @@ Default local URL:
 ```text
 http://localhost:8000
 ```
+---
 
-### Terminal 4: Workflow Definition Server
+#### Terminal 4: Workflow Definition Server
 
-The chat application retrieves workflow definitions from the Workflow Server.
-
-The Workflow Server is currently deployed to AWS ECS under the `govuk-once-ailegibility-development` account.
+The chat application retrieves workflow definitions from the Workflow Server. The Workflow Server is currently deployed to AWS ECS under the `govuk-once-ailegibility-development` account.
 
 Before starting the chat UI, configure the Workflow Server endpoint:
 
@@ -224,19 +254,9 @@ Default local URL:
 http://localhost:8080
 ```
 
-Workflow definitions are served via:
+---
 
-```text
-GET /api/v1/workflows/{id}
-```
-
-Verify that the server is responding using an endpoint known to exist in your deployment, for example:
-
-```bash
-curl http://localhost:8080/health
-```
-
-### Terminal 5: Agent Chat UI
+#### Terminal 5: Agent Chat UI
 
 Start the WebSocket server and chat interface:
 
@@ -273,26 +293,11 @@ The agent will query Temporal for running workflows and pick up where you left o
 
 ---
 
-## Configuration Reference
-
-| Environment Variable | Default | Purpose |
-| --- | --- | --- |
-| `TEMPORAL_ADDRESS` | `localhost:7233` | Temporal server gRPC address |
-| `WORKFLOW_SERVER_URL` | `http://localhost:8080` | Workflow definition server URL |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Claude model identifier in Bedrock |
-| `AWS_REGION` | `eu-west-2` | AWS region used for Bedrock |
-| `DVLA_BASE` | `http://localhost:8000` | DVLA service base URL |
-| `POSTOFFICE_BASE` | `http://localhost:8000` | Post Office service base URL |
-| `HMRC_BASE` | `http://localhost:8000` | HMRC service base URL |
-| `DWP_BASE` | `http://localhost:8000` | DWP service base URL |
-
----
-
 # Running the Terminal CLI Demo (Legacy)
 
 The project also includes a terminal-based demo (`demo.py`) that executes workflows without using the chat interface.
 
-This requires the following services to be running:
+This requires the following services to be running (see instructions above):
 
 - Temporal Server
 - Temporal Worker
@@ -306,18 +311,4 @@ cd durable_poc
 PYTHONPATH=. uv run python -m src.demo
 ```
 
-You can then interact with workflows directly through the terminal instead of the web-based chat interface.
-`
-Follow the prompts in this terminal to step through the state machine.
----
-
-## State Types Reference
-
-* **`input`**: Suspends the workflow and exposes an awaited schema. Resumes when a matching payload is submitted via Update. Supports timeouts and retry counts.
-* **`choice`**: Evaluates a list of rules (using operators like `eq`, `lt`, `is_true`, `not_empty`, `contains`) and branches execution.
-* **`assign`**: Mutates the current stack frame's variable context (including date math like `date_subtract` and arithmetic `add`).
-* **`call`**: Dispatches `http_call` activity with service validation, capture projections, error catches, and idempotency headers.
-* **`invoke`**: Pushes a sub-process stack frame onto the workflow call stack, binding inputs and catch routes.
-* **`output`**: Emits internal transcript messages or fires external notification activities.
-* **`wait`**: Durably sleeps the workflow for an ISO 8601 duration string (e.g., `PT5M`).
-* **`end`**: Terminates the current process frame with a status, outcome, and return payload.
+You can then interact with workflows directly through the terminal instead of the web-based chat interface. Follow the prompts in this terminal to step through the state machine.
