@@ -63,6 +63,7 @@ class SessionStore:
         form_metadata: dict[str, Any],
         definition: dict[str, Any],
         policy: InteractionPolicy = InteractionPolicy.MANUAL,
+        conversation_history: list[dict[str, Any]] | None = None,
     ) -> FormSession:
         session_id = str(uuid.uuid4())
         session = FormSession(
@@ -72,6 +73,7 @@ class SessionStore:
             form_metadata=form_metadata,
             definition=definition,
             policy=policy,
+            conversation_history=conversation_history or [],
         )
         self._sessions[session_id] = session
         return session

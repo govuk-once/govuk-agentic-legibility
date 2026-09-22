@@ -3,25 +3,47 @@
 
   interface Props {
     sessionId: string;
+    preloadedConversation?: Array<{ role: string; content: string }>;
     onStateChange: () => void;
   }
 
-  let { sessionId, onStateChange }: Props = $props();
+  let { sessionId, preloadedConversation = [], onStateChange }: Props = $props();
 
   interface ChatMessage {
     role: "user" | "assistant";
     text: string;
+    preloaded?: boolean;
   }
 
-  let messages: ChatMessage[] = $state([
-    {
-      role: "assistant",
-      text: "Hello. I can help you complete this form. Tell me about your situation, or ask me questions about any of the form fields.",
-    },
-  ]);
+  let messages: ChatMessage[] = $state([]);
   let inputText = $state("");
   let sending = $state(false);
   let messagesContainer: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    const initial: ChatMessage[] = [];
+
+    if (preloadedConversation.length > 0) {
+      for (const msg of preloadedConversation) {
+        initial.push({
+          role: msg.role as "user" | "assistant",
+          text: msg.content,
+          preloaded: true,
+        });
+      }
+      initial.push({
+        role: "assistant",
+        text: "I have context from our earlier conversation. I'll use it to help with the form.",
+      });
+    } else {
+      initial.push({
+        role: "assistant",
+        text: "Hello. I can help you complete this form. Tell me about your situation, or ask me questions about any of the form fields.",
+      });
+    }
+
+    messages = initial;
+  });
 
   function scrollToBottom() {
     if (messagesContainer) {
@@ -65,15 +87,28 @@
 
 <div class="chat-panel">
   <h2 class="govuk-heading-m">AI assistance</h2>
-  <p class="govuk-body-s govuk-!-margin-bottom-2">
-    Describe your situation and the assistant can help fill in the form.
-  </p>
+  {#if preloadedConversation.length > 0}
+    <p class="govuk-body-s govuk-!-margin-bottom-2">
+      <strong class="govuk-tag govuk-tag--blue" style="font-size: 12px;">Conversation loaded</strong>
+      The assistant has context from a previous conversation ({preloadedConversation.length} messages).
+    </p>
+  {:else}
+    <p class="govuk-body-s govuk-!-margin-bottom-2">
+      Describe your situation and the assistant can help fill in the form.
+    </p>
+  {/if}
 
   <div class="chat-messages" bind:this={messagesContainer}>
     {#each messages as msg}
-      <div class="chat-message chat-message--{msg.role}">
+      <div
+        class="chat-message chat-message--{msg.role}"
+        class:chat-message--preloaded={msg.preloaded}
+      >
         <strong class="govuk-body-s" style="display: block; margin-bottom: 4px;">
           {msg.role === "user" ? "You" : "Assistant"}
+          {#if msg.preloaded}
+            <span style="color: #505a5f; font-weight: normal;"> (earlier)</span>
+          {/if}
         </strong>
         <span class="govuk-body-s">{msg.text}</span>
       </div>

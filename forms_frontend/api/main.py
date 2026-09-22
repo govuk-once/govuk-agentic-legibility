@@ -38,6 +38,8 @@ from forms_frontend.api.proposals import propose_answer
 
 logger = logging.getLogger(__name__)
 
+FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
+
 app = FastAPI(title="GOV.UK Forms Frontend API")
 
 app.add_middleware(
@@ -84,14 +86,30 @@ def _task_queue() -> str:
     return _env("TEMPORAL_TASK_QUEUE", "sfsm-queue")
 
 
+def _to_strands_messages(conversation: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert simple {role, content} messages to Strands Message format.
+
+    Strands expects: {"role": "user", "content": [{"text": "..."}]}
+    Fixtures provide: {"role": "user", "content": "..."}
+    """
+    messages = []
+    for msg in conversation:
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            content = [{"text": content}]
+        messages.append({"role": msg["role"], "content": content})
+    return messages
+
+
 def _create_agent(conversation_history: list[dict] | None = None) -> WorkflowAgent:
+    strands_messages = _to_strands_messages(conversation_history) if conversation_history else None
     return WorkflowAgent(
         workflow_server_url=_workflow_server_url(),
         model_id=_env("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6"),
         region_name=_env("AWS_REGION", "eu-west-2"),
         temporal_address=_env("TEMPORAL_ADDRESS", "localhost:7233"),
         task_queue=_task_queue(),
-        conversation_history=conversation_history,
+        conversation_history=strands_messages,
     )
 
 
@@ -127,6 +145,7 @@ def _lookup_state_presentation(
 class StartSessionRequest(BaseModel):
     form_id: str | int
     policy: str = "manual"
+    fixture_id: str | None = None
 
 
 class StartSessionResponse(BaseModel):
@@ -135,6 +154,8 @@ class StartSessionResponse(BaseModel):
     form_name: str
     temporal_workflow_id: str
     policy: str
+    fixture_id: str | None = None
+    conversation_messages: int = 0
 
 
 class SubmitAnswerRequest(BaseModel):
@@ -153,6 +174,53 @@ class PolicyRequest(BaseModel):
 # =====================================================================
 # Endpoints
 # =====================================================================
+
+
+def _load_fixtures() -> list[dict[str, Any]]:
+    """Load all conversation fixtures from the fixtures directory."""
+    fixtures = []
+    if FIXTURES_DIR.is_dir():
+        for path in sorted(FIXTURES_DIR.glob("*.json")):
+            try:
+                data = json.loads(path.read_text())
+                fixtures.append({
+                    "id": data["id"],
+                    "title": data.get("title", path.stem),
+                    "description": data.get("description", ""),
+                    "form_id": data.get("form_id"),
+                    "message_count": len(data.get("conversation", [])),
+                })
+            except (json.JSONDecodeError, KeyError):
+                logger.warning("Skipping invalid fixture: %s", path)
+    return fixtures
+
+
+def _load_fixture(fixture_id: str) -> dict[str, Any] | None:
+    """Load a single fixture by id."""
+    if FIXTURES_DIR.is_dir():
+        for path in FIXTURES_DIR.glob("*.json"):
+            try:
+                data = json.loads(path.read_text())
+                if data.get("id") == fixture_id:
+                    return data
+            except (json.JSONDecodeError, KeyError):
+                continue
+    return None
+
+
+@app.get("/api/fixtures")
+async def list_fixtures() -> list[dict[str, Any]]:
+    """List available conversation fixtures."""
+    return _load_fixtures()
+
+
+@app.get("/api/fixtures/{fixture_id}")
+async def get_fixture(fixture_id: str) -> dict[str, Any]:
+    """Get a single fixture by id."""
+    fixture = _load_fixture(fixture_id)
+    if not fixture:
+        raise HTTPException(status_code=404, detail="Fixture not found")
+    return fixture
 
 
 @app.get("/api/forms")
@@ -200,12 +268,26 @@ async def start_session(req: StartSessionRequest) -> StartSessionResponse:
     form_metadata = definition.get("defaults", {}).get("forms", {})
     policy = InteractionPolicy(req.policy) if req.policy in InteractionPolicy.__members__.values() else InteractionPolicy.MANUAL
 
+    conversation_history: list[dict[str, Any]] = []
+    if req.fixture_id:
+        fixture = _load_fixture(req.fixture_id)
+        if fixture:
+            conversation_history = fixture.get("conversation", [])
+            logger.info(
+                "Loaded fixture %r with %d messages",
+                req.fixture_id,
+                len(conversation_history),
+            )
+        else:
+            logger.warning("Fixture %r not found, starting with empty history", req.fixture_id)
+
     session = store.create(
         form_id=str(req.form_id),
         temporal_workflow_id=temporal_workflow_id,
         form_metadata=form_metadata,
         definition=definition,
         policy=policy,
+        conversation_history=conversation_history,
     )
 
     return StartSessionResponse(
@@ -214,6 +296,8 @@ async def start_session(req: StartSessionRequest) -> StartSessionResponse:
         form_name=form_metadata.get("name", f"Form {req.form_id}"),
         temporal_workflow_id=temporal_workflow_id,
         policy=session.policy.value,
+        fixture_id=req.fixture_id,
+        conversation_messages=len(conversation_history),
     )
 
 
@@ -312,7 +396,11 @@ async def chat(session_id: str, req: ChatRequest) -> dict[str, Any]:
 
     session.conversation_history.append({"role": "user", "content": req.message})
 
-    response = await agent.respond(req.message, context=state)
+    try:
+        response = await agent.respond(req.message, context=state)
+    except Exception as e:
+        logger.exception("Agent respond failed for session %s", session_id)
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     session.conversation_history.append({"role": "assistant", "content": response})
 
@@ -350,10 +438,11 @@ async def propose(session_id: str) -> dict[str, Any]:
     if not awaiting:
         return {"has_answer": False, "value": None, "explanation": "No question pending"}
 
-    agent = _get_or_create_agent(session)
     proposal = await propose_answer(
-        agent=agent, awaiting=awaiting, session_state=state
+        conversation_history=session.conversation_history,
+        awaiting=awaiting,
     )
+    logger.info("Proposal result for session %s: %s", session_id, proposal)
 
     if not proposal.get("has_answer"):
         session.pending_proposal = None
@@ -423,9 +512,9 @@ async def _auto_progress(
         if not awaiting:
             break
 
-        agent = _get_or_create_agent(session)
         proposal = await propose_answer(
-            agent=agent, awaiting=awaiting, session_state=state
+            conversation_history=session.conversation_history,
+            awaiting=awaiting,
         )
 
     session.pending_proposal = None

@@ -1,11 +1,15 @@
 <script lang="ts">
   import {
     listForms,
+    listFixtures,
+    getFixture,
     startSession,
     getSessionState,
     setPolicy,
     type FormSummary,
     type SessionState,
+    type ConversationFixture,
+    type ConversationFixtureDetail,
   } from "./lib/api";
   import FormQuestion from "./lib/components/FormQuestion.svelte";
   import ChatPanel from "./lib/components/ChatPanel.svelte";
@@ -16,12 +20,16 @@
 
   let view: View = $state("list");
   let forms: FormSummary[] = $state([]);
+  let fixtures: ConversationFixture[] = $state([]);
   let sessionId: string = $state("");
   let sessionState: SessionState | null = $state(null);
   let formName: string = $state("");
   let loading: boolean = $state(false);
   let error: string = $state("");
   let policy: string = $state("manual");
+  let selectedFixtureId: string = $state("");
+  let fixturePreview: ConversationFixtureDetail | null = $state(null);
+  let preloadedConversation: Array<{ role: string; content: string }> = $state([]);
 
   async function loadForms() {
     loading = true;
@@ -30,8 +38,38 @@
       forms = await listForms();
     } catch (e: any) {
       error = e.message || "Failed to load forms";
-    } finally {
-      loading = false;
+    }
+    try {
+      fixtures = await listFixtures();
+    } catch {
+      fixtures = [];
+    }
+    loading = false;
+  }
+
+  function extractNumericId(formId: string | number): string {
+    const s = String(formId);
+    const match = s.match(/(\d+)$/);
+    return match ? match[1] : s;
+  }
+
+  function fixturesForForm(formId: string | number): ConversationFixture[] {
+    const numericId = extractNumericId(formId);
+    return fixtures.filter((f) => {
+      const fixtureNumeric = extractNumericId(f.form_id ?? "");
+      return fixtureNumeric === numericId;
+    });
+  }
+
+  async function handleFixtureSelect(fixtureId: string) {
+    selectedFixtureId = fixtureId;
+    fixturePreview = null;
+    if (fixtureId) {
+      try {
+        fixturePreview = await getFixture(fixtureId);
+      } catch {
+        fixturePreview = null;
+      }
     }
   }
 
@@ -39,9 +77,16 @@
     loading = true;
     error = "";
     try {
-      const session = await startSession(formId, policy);
+      const session = await startSession(formId, policy, selectedFixtureId || null);
       sessionId = session.session_id;
       formName = session.form_name;
+
+      if (fixturePreview?.conversation) {
+        preloadedConversation = fixturePreview.conversation;
+      } else {
+        preloadedConversation = [];
+      }
+
       const state = await getSessionState(sessionId);
       sessionState = state;
       view = "form";
@@ -81,6 +126,9 @@
     sessionId = "";
     sessionState = null;
     formName = "";
+    selectedFixtureId = "";
+    fixturePreview = null;
+    preloadedConversation = [];
   }
 
   $effect(() => {
@@ -134,80 +182,150 @@
     {#if view === "list"}
       <h1 class="govuk-heading-xl">Available forms</h1>
 
-      <div class="govuk-form-group" style="margin-bottom: 30px;">
-        <fieldset class="govuk-fieldset">
-          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
-            Interaction policy
-          </legend>
-          <div class="policy-switcher">
-            <button
-              class="policy-btn"
-              class:policy-btn--active={policy === "manual"}
-              onclick={() => (policy = "manual")}
-            >
-              Manual
-            </button>
-            <button
-              class="policy-btn"
-              class:policy-btn--active={policy === "confirm"}
-              onclick={() => (policy = "confirm")}
-            >
-              Confirm
-            </button>
-            <button
-              class="policy-btn"
-              class:policy-btn--active={policy === "auto"}
-              onclick={() => (policy = "auto")}
-            >
-              Automatic
-            </button>
-          </div>
-          <div class="govuk-hint">
-            {#if policy === "manual"}
-              You complete the form normally. The agent can answer questions but won't fill in answers.
-            {:else if policy === "confirm"}
-              The agent proposes answers from the conversation. You confirm or edit before submission.
-            {:else}
-              The agent automatically submits answers it's confident about, skipping questions it can answer.
-            {/if}
-          </div>
-        </fieldset>
-      </div>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-two-thirds">
 
-      {#if loading}
-        <p class="govuk-body">Loading forms...</p>
-      {:else if forms.length === 0}
-        <p class="govuk-body">
-          No forms available. Ensure the workflow definition server is running.
-        </p>
-      {:else}
-        <table class="govuk-table">
-          <thead class="govuk-table__head">
-            <tr class="govuk-table__row">
-              <th scope="col" class="govuk-table__header">Form ID</th>
-              <th scope="col" class="govuk-table__header">Name</th>
-              <th scope="col" class="govuk-table__header">Action</th>
-            </tr>
-          </thead>
-          <tbody class="govuk-table__body">
+          <div class="govuk-form-group" style="margin-bottom: 30px;">
+            <fieldset class="govuk-fieldset">
+              <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+                Interaction policy
+              </legend>
+              <div class="policy-switcher">
+                <button
+                  class="policy-btn"
+                  class:policy-btn--active={policy === "manual"}
+                  onclick={() => (policy = "manual")}
+                >
+                  Manual
+                </button>
+                <button
+                  class="policy-btn"
+                  class:policy-btn--active={policy === "confirm"}
+                  onclick={() => (policy = "confirm")}
+                >
+                  Confirm
+                </button>
+                <button
+                  class="policy-btn"
+                  class:policy-btn--active={policy === "auto"}
+                  onclick={() => (policy = "auto")}
+                >
+                  Automatic
+                </button>
+              </div>
+              <div class="govuk-hint">
+                {#if policy === "manual"}
+                  You complete the form normally. The agent can answer questions but won't fill in answers.
+                {:else if policy === "confirm"}
+                  The agent proposes answers from the conversation. You confirm or edit before submission.
+                {:else}
+                  The agent automatically submits answers it's confident about, skipping questions it can answer.
+                {/if}
+              </div>
+            </fieldset>
+          </div>
+
+          {#if loading}
+            <p class="govuk-body">Loading forms...</p>
+          {:else if forms.length === 0}
+            <p class="govuk-body">
+              No forms available. Ensure the workflow definition server is running.
+            </p>
+          {:else}
             {#each forms as form}
-              <tr class="govuk-table__row">
-                <td class="govuk-table__cell">{form.id}</td>
-                <td class="govuk-table__cell">{form.name || form.slug || "—"}</td>
-                <td class="govuk-table__cell">
+              {@const formFixtures = fixturesForForm(form.id)}
+              <div class="govuk-summary-card" style="margin-bottom: 20px;">
+                <div class="govuk-summary-card__title-wrapper">
+                  <h2 class="govuk-summary-card__title">{form.name || form.slug || `Form ${form.id}`}</h2>
+                  <div class="govuk-summary-card__actions">
+                    <span class="govuk-body-s" style="color: #505a5f;">ID: {form.id}</span>
+                  </div>
+                </div>
+                <div class="govuk-summary-card__content">
+                  {#if formFixtures.length > 0}
+                    <div class="govuk-form-group" style="margin-bottom: 15px;">
+                      <label class="govuk-label govuk-label--s" for="fixture-{form.id}">
+                        Conversation history
+                      </label>
+                      <div class="govuk-hint">
+                        Pre-load a conversation so the agent already knows the user's details.
+                      </div>
+                      <select
+                        class="govuk-select"
+                        id="fixture-{form.id}"
+                        onchange={(e) => handleFixtureSelect((e.target as HTMLSelectElement).value)}
+                      >
+                        <option value="">No conversation history</option>
+                        {#each formFixtures as fx}
+                          <option value={fx.id}>{fx.title} ({fx.message_count} messages)</option>
+                        {/each}
+                      </select>
+                    </div>
+
+                    {#if fixturePreview && selectedFixtureId && formFixtures.some(f => f.id === selectedFixtureId)}
+                      <details class="govuk-details" style="margin-bottom: 15px;">
+                        <summary class="govuk-details__summary">
+                          <span class="govuk-details__summary-text">Preview conversation</span>
+                        </summary>
+                        <div class="govuk-details__text">
+                          <p class="govuk-body-s" style="color: #505a5f; margin-bottom: 10px;">
+                            {fixturePreview.description}
+                          </p>
+                          {#each fixturePreview.conversation as msg}
+                            <div class="chat-message chat-message--{msg.role}" style="margin-bottom: 8px; padding: 8px; font-size: 14px;">
+                              <strong>{msg.role === "user" ? "User" : "Assistant"}:</strong>
+                              {msg.content}
+                            </div>
+                          {/each}
+                        </div>
+                      </details>
+                    {/if}
+                  {:else}
+                    <p class="govuk-body-s" style="color: #505a5f;">
+                      No conversation fixtures available for this form.
+                    </p>
+                  {/if}
+
                   <button
-                    class="govuk-button govuk-button--secondary"
+                    class="govuk-button"
+                    data-module="govuk-button"
                     onclick={() => handleStartForm(form.id)}
                     disabled={loading}
                   >
-                    Start
+                    Start form
+                    {#if selectedFixtureId && formFixtures.some(f => f.id === selectedFixtureId)}
+                      with conversation
+                    {/if}
                   </button>
-                </td>
-              </tr>
+                </div>
+              </div>
             {/each}
-          </tbody>
-        </table>
-      {/if}
+          {/if}
+        </div>
+
+        <div class="govuk-grid-column-one-third">
+          <div style="background-color: #f3f2f1; padding: 15px; border-left: 4px solid #1d70b8;">
+            <h3 class="govuk-heading-s">How it works</h3>
+            <p class="govuk-body-s">
+              Select a form and optionally load a conversation history.
+              The conversation gives the agent context about the user's situation.
+            </p>
+            <p class="govuk-body-s">
+              <strong>Manual:</strong> Answer every question yourself.
+              The chat is available for help.
+            </p>
+            <p class="govuk-body-s">
+              <strong>Confirm:</strong> The agent proposes answers
+              from the conversation. You review each one.
+            </p>
+            <p class="govuk-body-s">
+              <strong>Automatic:</strong> The agent submits answers
+              it's confident about and skips ahead to the first
+              question it can't answer.
+            </p>
+          </div>
+        </div>
+      </div>
 
     {:else if view === "form"}
       <div class="forms-layout">
@@ -262,7 +380,7 @@
         </div>
 
         <div>
-          <ChatPanel {sessionId} onStateChange={refreshState} />
+          <ChatPanel {sessionId} {preloadedConversation} onStateChange={refreshState} />
         </div>
       </div>
 

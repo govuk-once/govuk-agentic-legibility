@@ -108,19 +108,47 @@ export interface Proposal {
   state_id?: string;
   question_text?: string;
   requires_confirmation?: boolean;
+  steps_taken?: number;
+}
+
+export interface ConversationFixture {
+  id: string;
+  title: string;
+  description: string;
+  form_id: string | null;
+  message_count: number;
+}
+
+export interface ConversationFixtureDetail extends ConversationFixture {
+  conversation: Array<{ role: string; content: string }>;
 }
 
 export async function listForms(): Promise<FormSummary[]> {
   return request<FormSummary[]>("/api/forms");
 }
 
+export async function listFixtures(): Promise<ConversationFixture[]> {
+  return request<ConversationFixture[]>("/api/fixtures");
+}
+
+export async function getFixture(
+  fixtureId: string
+): Promise<ConversationFixtureDetail> {
+  return request<ConversationFixtureDetail>(`/api/fixtures/${fixtureId}`);
+}
+
 export async function startSession(
   formId: string | number,
-  policy: string = "manual"
+  policy: string = "manual",
+  fixtureId?: string | null
 ): Promise<StartSessionResponse> {
   return request<StartSessionResponse>("/api/sessions", {
     method: "POST",
-    body: JSON.stringify({ form_id: String(formId), policy }),
+    body: JSON.stringify({
+      form_id: String(formId),
+      policy,
+      fixture_id: fixtureId || null,
+    }),
   });
 }
 

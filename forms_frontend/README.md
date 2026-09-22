@@ -134,7 +134,7 @@ uv run python -m src.worker
 ### Terminal 4 — Forms frontend API
 ```bash
 # From repository root
-gds-cli aws once-ailegibility-development-admin \
+gds-cli aws <account-name> \
   env \
     PYTHONPATH=durable_poc:. \
     AWS_REGION=eu-west-2 \

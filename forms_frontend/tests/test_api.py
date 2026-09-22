@@ -377,3 +377,106 @@ def test_presentation_metadata_returned(api_client, mock_temporal):
     data = resp.json()
     assert data["presentation"] is not None
     assert data["presentation"]["answer_type"] == "selection"
+
+
+# =====================================================================
+# Fixtures
+# =====================================================================
+
+
+def test_list_fixtures(api_client):
+    resp = api_client.get("/api/fixtures")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) >= 3
+    ids = [f["id"] for f in data]
+    assert "form-6-full-details" in ids
+    assert "form-6-partial-details" in ids
+    assert "form-2130-feedback" in ids
+
+
+def test_get_fixture(api_client):
+    resp = api_client.get("/api/fixtures/form-6-full-details")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == "form-6-full-details"
+    assert data["form_id"] == "6"
+    assert len(data["conversation"]) == 7
+    assert data["conversation"][0]["role"] == "user"
+    assert "Sarah Thompson" in data["conversation"][0]["content"]
+
+
+def test_get_fixture_not_found(api_client):
+    resp = api_client.get("/api/fixtures/nonexistent")
+    assert resp.status_code == 404
+
+
+def test_fixture_has_form_id(api_client):
+    resp = api_client.get("/api/fixtures")
+    data = resp.json()
+    for fixture in data:
+        assert fixture["form_id"] is not None
+        assert fixture["message_count"] > 0
+
+
+def test_start_session_with_fixture(api_client, mock_temporal):
+    mock_temporal.set_awaiting({
+        "token": "tkn_1",
+        "prompt": "What is your full name?",
+        "schema": {"kind": "string"},
+        "state_id": "uyQrCFqM",
+        "state_type": "input",
+        "timeout_seconds": None,
+    })
+
+    resp = api_client.post(
+        "/api/sessions",
+        json={
+            "form_id": "2130",
+            "policy": "confirm",
+            "fixture_id": "form-6-full-details",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["fixture_id"] == "form-6-full-details"
+    assert data["conversation_messages"] == 7
+    assert data["policy"] == "confirm"
+
+
+def test_start_session_without_fixture(api_client, mock_temporal):
+    mock_temporal.set_awaiting({
+        "token": "tkn_1",
+        "prompt": "Q1",
+        "schema": {"kind": "string"},
+        "state_id": "s1",
+        "state_type": "input",
+        "timeout_seconds": None,
+    })
+
+    resp = api_client.post(
+        "/api/sessions",
+        json={"form_id": "2130"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["fixture_id"] is None
+    assert data["conversation_messages"] == 0
+
+
+def test_start_session_with_nonexistent_fixture(api_client, mock_temporal):
+    mock_temporal.set_awaiting({
+        "token": "tkn_1",
+        "prompt": "Q1",
+        "schema": {"kind": "string"},
+        "state_id": "s1",
+        "state_type": "input",
+        "timeout_seconds": None,
+    })
+
+    resp = api_client.post(
+        "/api/sessions",
+        json={"form_id": "2130", "fixture_id": "does-not-exist"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["conversation_messages"] == 0

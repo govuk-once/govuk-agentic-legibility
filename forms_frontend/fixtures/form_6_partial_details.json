@@ -1,0 +1,29 @@
+{
+  "id": "form-6-partial-details",
+  "version": "1",
+  "title": "Holiday pay claim amendment — only security details",
+  "description": "The user has provided their identity details but has NOT mentioned any holiday amendment information. The agent should be able to answer the security questions (name, reference, NI, email, DOB, address, company) but should stop at the amendment section, since no holiday dates or entitlement have been discussed.",
+  "form_id": "6",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I need to update my holiday pay claim. I'm James Okonkwo, reference LN55512345. My NI number is AB 98 76 54 D."
+    },
+    {
+      "role": "assistant",
+      "content": "Hello James. I can help you amend your claim. I have your name, reference number, and National Insurance number. Could you also confirm your contact and personal details?"
+    },
+    {
+      "role": "user",
+      "content": "My email is james.okonkwo@example.com, date of birth 22 November 1990. I live at Flat 3, 17 High Street, Manchester, M1 2JF. I was working at Northern Textiles Group."
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you. I have all your identity details. What specific changes do you need to make to your holiday pay claim?"
+    },
+    {
+      "role": "user",
+      "content": "I'm not sure yet actually, let me just go through the form and I'll fill in the amendment parts myself."
+    }
+  ]
+}
