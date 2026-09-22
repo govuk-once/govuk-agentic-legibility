@@ -7,7 +7,6 @@ implement a second Forms routing engine or send data to any department.
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -61,6 +60,14 @@ class PreviewRun:
                 elif kind == "select_many":
                     prop.update(type="array", items={"type": "string", "enum": [opt.value if hasattr(opt, "value") else opt for opt in schema.options or []]})
                     prop["enum_labels"] = {opt.value: opt.label for opt in schema.options or [] if hasattr(opt, "value")}
+                elif kind == "boolean":
+                    prop["type"] = "boolean"
+                elif kind == "file_ref":
+                    # Clients must supply an already-uploaded reference; the
+                    # generic Svelte preview does not implement file uploads.
+                    prop.update(type="object", properties={
+                        "ref": {"type": "string"}, "bytes": {"type": "integer"},
+                        "content_type": {"type": "string"}}, required=["ref", "bytes"])
                 elif kind == "string":
                     prop["type"] = "string"
                     answer_type = presentation.get("answer_type")
@@ -102,6 +109,13 @@ class PreviewRun:
                 value = ""
             if not isinstance(value, str) or (required and not value.strip()):
                 raise ValueError("Enter a value")
+        elif schema.kind == "boolean":
+            if not isinstance(value, bool):
+                raise ValueError("Select Yes or No")
+        elif schema.kind == "file_ref":
+            if (not isinstance(value, dict) or "error" in value or not value.get("ref")
+                    or not isinstance(value.get("bytes"), int) or value["bytes"] <= 0):
+                raise ValueError("Supply an uploaded file reference with a positive byte count")
         elif schema.kind in ("select_one", "select_many"):
             options = {opt.value for opt in schema.options or [] if hasattr(opt, "value")}
             if schema.kind == "select_one":

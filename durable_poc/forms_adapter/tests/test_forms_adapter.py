@@ -53,7 +53,7 @@ def test_actual_model_validates_all_states_and_transitions(form_id):
     for sid, state in process.states.items():
         if state.type == "input":
             assert state.next in process.states, sid
-            assert state.schema_.kind in {"string", "select_one", "select_many"}
+            assert state.schema_.kind in {"string", "select_one", "select_many", "boolean", "file_ref"}
         elif state.type == "choice":
             assert state.default in process.states
             assert all(rule.next in process.states for rule in state.rules)
@@ -69,23 +69,25 @@ def test_linear_form_6_preserves_content_and_can_finish():
     assert process.states["uyQrCFqM"].schema_.model_extra["presentation"]["guidance_markdown"].startswith("## Part 1")
     assert process.states["uyQrCFqM"].schema_.model_extra["presentation"]["answer_settings"]["input_type"] == "first_and_last_name"
     assert process.states["uyQrCFqM"].next == "nK3iWXxs"
-    assert process.states["v2rxCDt3"].next == "v2rxCDt3__address_line_2"
-    assert len([s for s in process.states.values() if s.type == "input"]) == 14
+    assert process.states["v2rxCDt3"].next == "wWPXauTh"
+    assert process.states["v2rxCDt3"].schema_.kind == "string"
+    assert process.states["v2rxCDt3"].schema_.model_extra["presentation"]["answer_settings"]["input_type"]["uk_address"] == "true"
+    assert len([s for s in process.states.values() if s.type == "input"]) == 11
     run = start("6")
-    # 11 original questions, plus 3 extra address fields; name is one string.
+    # Exactly one input per original question; rendering compound values belongs
+    # to a Forms-aware frontend, not to the process graph.
     for sid, value in [
         ("uyQrCFqM", "Alex Example"),
         ("nK3iWXxs", "LN00000000"), ("opyfSJWo", "QQ000000C"),
         ("ywWSZiYg", "alex@example.invalid"), ("8FTw3t4z", "2000-01-02"),
-        ("v2rxCDt3", "1 Sample Street"), ("v2rxCDt3__address_line_2", ""),
-        ("v2rxCDt3__town_or_city", "London"), ("v2rxCDt3__postcode", "SW1A 1AA"),
+        ("v2rxCDt3", "1 Sample Street, London SW1A 1AA"),
         ("wWPXauTh", "Synthetic Ltd"), ("B9LuEbyQ", ""),
         ("VRYgtG3z", ""), ("gV9s3nJy", ""), ("hY9HnrAz", ""),
     ]:
         response = answer(run, sid, value)
     assert response["terminal"]
     assert response["answers"]["uyQrCFqM"] == "Alex Example"
-    assert response["answers"]["v2rxCDt3"]["town_or_city"] == "London"
+    assert response["answers"]["v2rxCDt3"] == "1 Sample Street, London SW1A 1AA"
     assert response["answers"]["B9LuEbyQ"] == ""
 
 
@@ -133,7 +135,7 @@ def _first_four(run: PreviewRun, assistance: str):
     answer(run, "Z9qiMdb6", "I'm using this service as a member of the public")
     answer(run, "NeNd3HYi", "Satisfied")
     answer(run, "oygaerZY", "Some sample feedback")
-    return answer(run, "mq4KgkUb", assistance)
+    return answer(run, "mq4KgkUb", {"Yes": True, "No": False}.get(assistance, assistance))
 
 
 def test_2130_no_skips_all_assistance_questions():
@@ -178,8 +180,9 @@ def test_2130_optional_choice_has_explicit_skip_supported_by_preview():
 
 def test_real_predicates_used_by_branches():
     rules = compiled("2130").processes["main"].states["mq4KgkUb__route"].rules
-    assert evaluate(rules[0].when, {"answers": {"mq4KgkUb": "No"}})
-    assert not evaluate(rules[0].when, {"answers": {"mq4KgkUb": "Yes"}})
+    assert rules[0].when == {"op": "is_false", "path": "answers.mq4KgkUb"}
+    assert evaluate(rules[0].when, {"answers": {"mq4KgkUb": False}})
+    assert not evaluate(rules[0].when, {"answers": {"mq4KgkUb": True}})
 
 
 def test_multi_select_contains_and_skip_to_end():
@@ -198,16 +201,117 @@ def test_multi_select_contains_and_skip_to_end():
 @pytest.mark.parametrize("mutation,reason", [
     (lambda f: f["content"]["steps"][0]["data"].update(is_repeatable=True), "repeatable"),
     (lambda f: f["content"]["steps"][0].update(exit_pages=[{"id": 1}]), "exit_pages"),
-    (lambda f: f["content"]["steps"][0]["data"].update(answer_type="file"), "file"),
+    (lambda f: f["content"]["steps"][0]["data"].update(answer_type="file", is_optional=True), "optional file_ref"),
     (lambda f: f["content"].update(payment_url="https://payment.invalid"), "payment"),
     (lambda f: f["content"]["steps"][0].update(next_step_id="unknown"), "unknown"),
     (lambda f: f["content"]["steps"][3]["routing_conditions"][0].update(goto_page_id="unknown"), "unknown"),
-    (lambda f: f["content"]["steps"][3]["routing_conditions"][0].update(check_page_id="Z9qiMdb6"), "cross-page"),
+    (lambda f: f["content"]["steps"][3]["routing_conditions"][0].update(check_page_id="dKg1ApnD"), "preceding"),
 ])
 def test_unsupported_features_reported(mutation, reason):
     fixture = copy.deepcopy(export("2130"))
     mutation(fixture)
     with pytest.raises(UnsupportedForm, match=reason):
+        compile_form(fixture)
+
+
+def test_routed_yes_no_is_boolean_but_unrouted_yes_no_remains_selection():
+    definition = compiled("2130")
+    states = definition.processes["main"].states
+    assert states["mq4KgkUb"].schema_.kind == "boolean"
+    assert states["mq4KgkUb__route"].rules[0].when["op"] == "is_false"
+    fixture = export("2130")
+    fixture["content"]["steps"][3]["routing_conditions"] = []
+    unrouted = SFSMDefinition.model_validate(compile_form(fixture))
+    assert unrouted.processes["main"].states["mq4KgkUb"].schema_.kind == "select_one"
+
+
+def test_scalar_questions_have_no_type_allowlist_and_preserve_source_metadata():
+    fixture = export("6")
+    phone = fixture["content"]["steps"][1]
+    phone["data"]["answer_type"] = "phone_number"
+    phone["data"]["answer_settings"] = None
+    another = fixture["content"]["steps"][2]
+    another["data"]["answer_type"] = "some_future_scalar"
+    another["data"]["answer_settings"] = {"widget": "future"}
+    states = compiled("6").processes["main"].states
+    assert states["nK3iWXxs"].schema_.kind == "string"  # baseline text
+    changed = SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states
+    for step in (phone, another):
+        state = changed[step["id"]]
+        assert state.schema_.kind == "string"
+        assert state.schema_.model_extra["presentation"]["answer_type"] == step["data"]["answer_type"]
+        assert state.schema_.model_extra["presentation"]["answer_settings"] == step["data"]["answer_settings"]
+
+
+def test_routing_on_a_generic_string_uses_native_equality():
+    fixture = export("6")
+    question = fixture["content"]["steps"][1]
+    question["routing_conditions"] = [{"answer_value": "skip", "goto_page_id": "ywWSZiYg"}]
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    route = definition.processes["main"].states["nK3iWXxs__route"]
+    assert route.rules[0].when == {"op": "eq", "path": "answers.nK3iWXxs", "value": "skip"}
+    run = PreviewRun(definition, definition.processes["main"].start)
+    answer(run, "uyQrCFqM", "Alex Example")
+    assert answer(run, "nK3iWXxs", "skip")["interaction"]["id"] == "ywWSZiYg"
+
+
+def test_cross_page_routing_uses_earlier_answer_not_current_answer():
+    fixture = export("2130")
+    third = fixture["content"]["steps"][2]
+    third["routing_conditions"] = [{
+        "check_page_id": "Z9qiMdb6", "routing_page_id": third["id"],
+        "answer_value": "I'm using this service as a member of the public",
+        "goto_page_id": "31pMZdRv", "skip_to_end": False,
+    }]
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    choice = definition.processes["main"].states[f"{third['id']}__route"]
+    assert choice.rules[0].when["path"] == "answers.Z9qiMdb6"
+    run = PreviewRun(definition, definition.processes["main"].start)
+    answer(run, "Z9qiMdb6", "I'm using this service as a member of the public")
+    answer(run, "NeNd3HYi", "Satisfied")
+    assert answer(run, third["id"], "Synthetic")["interaction"]["id"] == "31pMZdRv"
+
+
+def test_file_question_uses_existing_file_ref_contract_and_never_uploads_bytes():
+    fixture = export("6")
+    question = fixture["content"]["steps"][1]
+    question["data"]["answer_type"] = "file"
+    question["data"]["answer_settings"] = {"max_files": 1}
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    state = definition.processes["main"].states[question["id"]]
+    assert state.schema_.kind == "file_ref"
+    assert state.schema_.model_extra["presentation"]["answer_settings"] == {"max_files": 1}
+    run = PreviewRun(definition, definition.processes["main"].start)
+    answer(run, "uyQrCFqM", "Alex Example")
+    assert run.current()["interaction"]["input_schema"]["properties"]["answer"]["type"] == "object"
+    with pytest.raises(ValueError, match="reference"):
+        answer(run, question["id"], "binary file bytes")
+    answer(run, question["id"], {"ref": "synthetic-blob-1", "bytes": 128, "content_type": "application/pdf"})
+    assert run.answers[question["id"]]["ref"] == "synthetic-blob-1"
+
+
+def test_ambiguous_non_routed_selection_falls_back_to_string_not_a_guessed_cardinality():
+    fixture = export("2130")
+    first = fixture["content"]["steps"][0]
+    first["data"]["answer_settings"]["only_one_option"] = None
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    state = definition.processes["main"].states[first["id"]]
+    assert state.schema_.kind == "string"
+    assert state.schema_.model_extra["presentation"]["answer_settings"]["selection_options"]
+    routed = fixture["content"]["steps"][3]
+    routed["data"]["answer_settings"]["only_one_option"] = None
+    with pytest.raises(UnsupportedForm, match="routed selection needs"):
+        compile_form(fixture)
+
+
+def test_null_boolean_flags_default_to_false_but_true_repeatable_still_rejected():
+    fixture = export("6")
+    question = fixture["content"]["steps"][0]
+    question["data"]["is_optional"] = None
+    question["data"]["is_repeatable"] = None
+    assert SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states[question["id"]].schema_.kind == "string"
+    question["data"]["is_repeatable"] = True
+    with pytest.raises(UnsupportedForm, match="repeatable"):
         compile_form(fixture)
 
 
@@ -228,6 +332,29 @@ def test_batch_compilation_continues_past_unsupported(tmp_path):
     assert "Compiled 2/3" in result.stdout
     assert {path.name for path in output.iterdir()} == {"6.json", "2130.json"}
     assert [r["status"] for r in json.loads(report.read_text())].count("unsupported") == 1
+    assert any("address collected as one string" in w
+               for row in json.loads(report.read_text()) if row["status"] == "ok"
+               for w in row.get("warnings", []))
+
+
+def test_batch_report_warns_on_unfamiliar_type_and_file_without_rejecting(tmp_path):
+    source = tmp_path / "exports"
+    source.mkdir()
+    fixture = export("6")
+    fixture["content"]["steps"][1]["data"]["answer_type"] = "future_scalar"
+    fixture["content"]["steps"][2]["data"]["answer_type"] = "file"
+    (source / "6.json").write_text(json.dumps(fixture))
+    report = tmp_path / "report.json"
+    result = subprocess.run([sys.executable, "-m", "forms_adapter", "--batch", str(source),
+                             "--output", str(tmp_path / "compiled"), "--report", str(report)],
+                            capture_output=True, text=True, cwd=FIXTURES.parents[2])
+    assert result.returncode == 0, result.stderr
+    entry = json.loads(report.read_text())[0]
+    assert entry["status"] == "ok"
+    assert any("unrecognised answer_type 'future_scalar'" in warning for warning in entry["warnings"])
+    assert any("file_ref needs an upload-capable client" in warning for warning in entry["warnings"])
+    compiled_definition = SFSMDefinition.model_validate_json((tmp_path / "compiled" / "6.json").read_text())
+    assert compiled_definition.processes["main"].states["opyfSJWo"].schema_.kind == "file_ref"
 
 
 def test_web_preview_uses_compiled_sfms_without_agent(tmp_path):
@@ -240,7 +367,7 @@ def test_web_preview_uses_compiled_sfms_without_agent(tmp_path):
     run_id = response["run_id"]
     url = f"/api/forms/runs/{run_id}/answers"
     assert client.post(url, json={"answer": "not an option"}).status_code == 422
-    for value in ("I'm using this service as a member of the public", "Satisfied", "Feedback", "No"):
+    for value in ("I'm using this service as a member of the public", "Satisfied", "Feedback", False):
         response = client.post(url, json={"answer": value}).json()
     assert response["interaction"]["id"] == "31pMZdRv"
     assert client.post(url, json={"answer": None}).json()["terminal"] is True

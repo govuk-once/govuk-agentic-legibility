@@ -1,4 +1,4 @@
-"""Conservative GOV.UK Forms -> SFSM/0.2 compiler.
+"""GOV.UK Forms -> SFSM/0.2 journey compiler.
 
 SFSM is deliberately the output contract: progression is represented by ``next``
 references and native ``choice`` predicates, never by a client or an agent.
@@ -49,9 +49,16 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
         data = item.get("data")
         if not isinstance(data, dict):
             _unsupported(where, "missing data")
-        if not isinstance(data.get("is_optional", False), bool) or not isinstance(data.get("is_repeatable", False), bool):
-            _unsupported(where, "is_optional and is_repeatable must be booleans")
-        if data.get("is_repeatable"):
+        # Older exports may omit these flags or explicitly store null. Both mean
+        # the Forms default (false); never interpret a non-boolean string as truthy.
+        data = dict(data)
+        for flag in ("is_optional", "is_repeatable"):
+            value = data.get(flag)
+            if value is None:
+                data[flag] = False
+            elif not isinstance(value, bool):
+                _unsupported(where, f"{flag} must be a boolean or null")
+        if data["is_repeatable"]:
             _unsupported(where, "repeatable question")
         sid = item.get("id")
         if not isinstance(sid, str) or not sid or sid in seen or "__" in sid:
@@ -75,36 +82,48 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
     return content, steps
 
 
-def _fields(question: Question) -> list[tuple[str, str, bool]]:
-    """(field suffix, human label, required) within a Forms question."""
-    answer_type = question.data.get("answer_type")
-    settings = question.data.get("answer_settings") or {}
-    required = not question.data.get("is_optional", False)
-    if answer_type == "name":
-        # Capturing a name needs only a string input. Preserve the original
-        # full-name / component / title settings in presentation metadata so a
-        # Forms-aware frontend can choose the appropriate controls later.
-        return [("", "", required)]
-    if answer_type == "address":
-        address_types = settings.get("input_type", {})
-        if not isinstance(address_types, dict) or address_types.get("uk_address") not in ("true", True) or address_types.get("international_address") not in ("false", False, None):
-            _unsupported(question.id, "only UK-only addresses are supported")
-        return [("address_line_1", "Address line 1", required),
-                ("address_line_2", "Address line 2", False),
-                ("town_or_city", "Town or city", required),
-                ("postcode", "Postcode", required)]
-    if answer_type in ("text", "national_insurance_number", "email", "date", "number", "organisation_name", "selection"):
-        if answer_type == "selection":
-            options = settings.get("selection_options")
-            if not isinstance(options, list) or not options:
-                _unsupported(question.id, "selection has no options")
-            if settings.get("only_one_option") not in ("true", "false", True, False):
-                _unsupported(question.id, "unrecognised only_one_option")
-        return [("", "", required)]
-    _unsupported(question.id, f"unsupported answer_type {answer_type!r}")
+def _selection_options(question: Question) -> tuple[bool | None, list[dict[str, str]]]:
+    """Parse actual Forms selection settings without guessing cardinality."""
+    settings = question.data.get("answer_settings")
+    if not isinstance(settings, dict):
+        return None, []
+    raw_only_one = settings.get("only_one_option")
+    if raw_only_one in (True, "true"):
+        only_one = True
+    elif raw_only_one in (False, "false"):
+        only_one = False
+    else:
+        only_one = None
+    raw_options = settings.get("selection_options")
+    if not isinstance(raw_options, list) or not raw_options:
+        return only_one, []
+    options = []
+    for opt in raw_options:
+        if (not isinstance(opt, dict)
+                or not isinstance(opt.get("value"), str)
+                or not isinstance(opt.get("name"), str)
+                or opt.get("is_other") or opt.get("requires_text")
+                or any(prev["value"] == opt.get("value") for prev in options)):
+            return only_one, []
+        options.append({"value": opt["value"], "label": opt["name"]})
+    return only_one, options
 
 
-def _presentation(question: Question, *, suffix: str = "", label: str = "") -> dict[str, Any]:
+def _boolean_choices(question: Question, *, required: bool) -> bool:
+    """Use a native boolean *only* for unambiguous routed Yes/No selections.
+
+    Unrouted questions, even if their wording sounds binary, remain strings or
+    ordinary selections. Optional selections retain an explicit skip option.
+    """
+    if (question.data.get("answer_type") != "selection"
+            or not question.routing or not required):
+        return False
+    only_one, options = _selection_options(question)
+    values = {option["value"].strip().lower() for option in options}
+    return only_one is True and values in ({"yes", "no"}, {"true", "false"})
+
+
+def _presentation(question: Question) -> dict[str, Any]:
     data = question.data
     return {
         "source": "govuk_forms",
@@ -116,44 +135,50 @@ def _presentation(question: Question, *, suffix: str = "", label: str = "") -> d
         "guidance_markdown": data.get("guidance_markdown"),
         "answer_type": data.get("answer_type"),
         "answer_settings": data.get("answer_settings"),
-        "is_optional": bool(data.get("is_optional", False)),
-        "field": suffix or None,
-        "field_label": label or None,
-        "required": next(req for field, _, req in _fields(question) if field == suffix),
-        "is_first_field": _fields(question)[0][0] == suffix,
+        "is_optional": data["is_optional"],
+        # Retain the existing renderer's metadata contract even though the
+        # process graph now has exactly one input state per Forms question.
+        "field": None,
+        "field_label": None,
+        "required": not data["is_optional"],
+        "is_first_field": True,
     }
 
 
-def _schema(question: Question, *, required: bool, suffix: str) -> dict[str, Any]:
-    data = question.data
-    answer_type = data.get("answer_type")
-    settings = data.get("answer_settings") or {}
+def _schema(question: Question) -> dict[str, Any]:
+    answer_type = question.data.get("answer_type")
+    required = not question.data["is_optional"]
     schema: dict[str, Any] = {"kind": "string"}
-    if answer_type == "selection":
-        only_one = settings["only_one_option"] in ("true", True)
-        schema["kind"] = "select_one" if only_one else "select_many"
-        options = []
-        for opt in settings["selection_options"]:
-            if not isinstance(opt, dict) or not isinstance(opt.get("value"), str) or not isinstance(opt.get("name"), str):
-                _unsupported(question.id, "selection option must have string name and value")
-            if any(prior["value"] == opt["value"] for prior in options):
-                _unsupported(question.id, "duplicate selection value")
-            if opt.get("is_other") or opt.get("requires_text"):
-                _unsupported(question.id, "free-text selection option is not implemented")
-            options.append({"value": opt["value"], "label": opt["name"]})
-        # The interpreter currently validates select_one against its option list
-        # even when allow_skip=True. Use a real, distinct skip option instead.
-        if not required and only_one:
-            if any(opt["value"] == "__forms_skip__" for opt in options):
-                _unsupported(question.id, "reserved optional selection value")
-            options.append({"value": "__forms_skip__", "label": "Skip this question"})
-        schema["options"] = options
+    if answer_type == "file":
+        # SFSM and the Temporal interpreter already accept a file *reference*.
+        # Producing that reference is a separate client/upload integration.
+        # The interpreter cannot currently accept a skipped file_ref value.
+        if not required:
+            _unsupported(question.id, "optional file_ref skip is not implemented")
+        schema = {"kind": "file_ref"}
+    elif answer_type == "selection":
+        only_one, options = _selection_options(question)
+        if only_one is None or not options:
+            if question.routing:
+                _unsupported(question.id, "routed selection needs valid options and only_one_option")
+            # For non-routed questions, collect an unrestricted string rather
+            # than guessing whether an ambiguous selection is single/multiple.
+            # The full original settings survive in presentation metadata.
+        elif _boolean_choices(question, required=required):
+            schema = {"kind": "boolean"}
+        else:
+            schema = {"kind": "select_one" if only_one else "select_many", "options": options}
+            if not required and only_one:
+                if any(opt["value"] == "__forms_skip__" for opt in options):
+                    _unsupported(question.id, "reserved optional selection value")
+                schema["options"] = [*options, {"value": "__forms_skip__", "label": "Skip this question"}]
+    # Other answer types, including unfamiliar *scalar* types, are string
+    # inputs. Known structural types (file and selection) are handled above.
     if not required:
         schema["allow_skip"] = True
         if schema["kind"] == "string":
             schema["default"] = ""
-    schema["presentation"] = _presentation(question, suffix=suffix,
-        label=dict((name, label) for name, label, _ in _fields(question)).get(suffix, ""))
+    schema["presentation"] = _presentation(question)
     return schema
 
 
@@ -162,30 +187,26 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
     content, questions = normalise_form(export)
     ids = {question.id for question in questions}
     states: dict[str, dict[str, Any]] = {}
+    already_asked: set[str] = set()
     for question in questions:
-        fields = _fields(question)
-        if question.routing and len(fields) != 1:
-            _unsupported(question.id, "routing on compound input is not implemented")
         after = f"{question.id}__route" if question.routing else (question.next_id or "end_form")
-        for idx, (suffix, label, required) in enumerate(fields):
-            sid = question.id if idx == 0 else f"{question.id}__{suffix}"
-            next_state = (f"{question.id}__{fields[idx + 1][0]}" if idx < len(fields) - 1 else after)
-            prompt = question.data["question_text"] if idx == 0 else label
-            if idx == 0 and label:
-                prompt += f" — {label}"
-            states[sid] = {
-                "type": "input", "prompt": prompt,
-                "schema": _schema(question, required=required, suffix=suffix),
-                "assign": f"answers.{question.id}" + (f".{suffix}" if suffix else ""),
-                "next": next_state,
-            }
+        states[question.id] = {
+            "type": "input",
+            "prompt": question.data["question_text"],
+            "schema": _schema(question),
+            "assign": f"answers.{question.id}",
+            "next": after,
+        }
         if question.routing:
             rules = []
             for condition in question.routing:
                 if not isinstance(condition, dict):
                     _unsupported(question.id, "routing condition must be an object")
-                if condition.get("routing_page_id") not in (None, question.id) or condition.get("check_page_id") not in (None, question.id):
-                    _unsupported(question.id, "cross-page routing is not supported")
+                if condition.get("routing_page_id") not in (None, question.id):
+                    _unsupported(question.id, "routing_page_id differs from the current page")
+                check_id = condition.get("check_page_id") or question.id
+                if check_id != question.id and check_id not in already_asked:
+                    _unsupported(question.id, "cross-page condition must check a preceding question")
                 if condition.get("exit_page_id") is not None or condition.get("exit_page_markdown") or condition.get("exit_page_heading"):
                     _unsupported(question.id, "exit-page routing is not implemented")
                 if condition.get("validation_errors"):
@@ -200,17 +221,30 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                     target = "end_form"
                 if target is None or (target != "end_form" and target not in ids):
                     _unsupported(question.id, f"invalid routing target {target!r}")
-                kind = states[question.id]["schema"]["kind"]
-                if kind not in ("select_one", "select_many"):
-                    _unsupported(question.id, "routing on non-selection input not supported")
-                values = {o["value"] for o in states[question.id]["schema"]["options"]}
-                if answer not in values:
-                    _unsupported(question.id, f"routing answer_value {answer!r} missing from selection")
-                rules.append({"when": {"op": "contains" if kind == "select_many" else "eq",
-                                       "path": f"answers.{question.id}", "value": answer},
-                              "next": target})
+                check_id = condition.get("check_page_id") or question.id
+                kind = states[check_id]["schema"]["kind"]
+                path = f"answers.{check_id}"
+                if kind == "boolean":
+                    normalised = answer.strip().lower()
+                    if normalised not in ("yes", "no", "true", "false"):
+                        _unsupported(question.id, f"invalid boolean routing answer {answer!r}")
+                    predicate = {"op": "is_true" if normalised in ("yes", "true") else "is_false", "path": path}
+                elif kind in ("select_one", "select_many"):
+                    values = {o["value"] for o in states[check_id]["schema"]["options"]}
+                    if answer not in values:
+                        _unsupported(question.id, f"routing answer_value {answer!r} missing from selection")
+                    predicate = {"op": "contains" if kind == "select_many" else "eq",
+                                 "path": path, "value": answer}
+                elif kind == "string":
+                    # Equality of the collected value is independent of the UI
+                    # control that produced it. No agent decides progression.
+                    predicate = {"op": "eq", "path": path, "value": answer}
+                else:
+                    _unsupported(question.id, f"cannot route on {kind} input")
+                rules.append({"when": predicate, "next": target})
             states[f"{question.id}__route"] = {"type": "choice", "rules": rules,
                                                "default": question.next_id or "end_form"}
+        already_asked.add(question.id)
     if "end_form" in states or any(q.id == "end_form" for q in questions):
         _unsupported("form", "reserved end_form state ID")
     states["end_form"] = {"type": "end", "status": "success", "outcome": "form_answers_collected"}

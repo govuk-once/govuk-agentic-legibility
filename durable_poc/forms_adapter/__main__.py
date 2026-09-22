@@ -9,6 +9,32 @@ from pathlib import Path
 from .compiler import UnsupportedForm, compile_form
 
 
+# Diagnostic only. This is NOT an allow-list: unfamiliar answer types compile
+# as strings and are reported so a new structural Forms type is not overlooked.
+ORDINARY_SCALARS = {
+    "text", "name", "address", "national_insurance_number", "email",
+    "date", "number", "organisation_name", "phone_number",
+}
+
+
+def _warnings(export: dict, definition: dict) -> list[str]:
+    states = definition["processes"]["main"]["states"]
+    warnings = []
+    for step in export["content"]["steps"]:
+        sid = step["id"]
+        kind = states[sid]["schema"]["kind"]
+        answer_type = step["data"].get("answer_type")
+        if answer_type == "address" and kind == "string":
+            warnings.append(f"{sid}: address collected as one string; original address configuration retained")
+        elif answer_type == "file":
+            warnings.append(f"{sid}: file_ref needs an upload-capable client; no file bytes are uploaded by the adapter")
+        elif answer_type == "selection" and kind == "string":
+            warnings.append(f"{sid}: ambiguous selection compiled as a string; original choices retained")
+        elif answer_type not in ORDINARY_SCALARS | {"selection", "file"}:
+            warnings.append(f"{sid}: unrecognised answer_type {answer_type!r} compiled as a string")
+    return warnings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Compile GOV.UK Forms to SFSM/0.2")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -24,15 +50,20 @@ def main() -> int:
         args.output.mkdir(parents=True, exist_ok=True)
     elif args.output.is_dir():
         parser.error("single-form --output must be a file")
-    results: list[dict[str, str]] = []
+    results: list[dict[str, object]] = []
     for path in paths:
         try:
-            definition = compile_form(json.loads(path.read_text(encoding="utf-8")))
+            export = json.loads(path.read_text(encoding="utf-8"))
+            definition = compile_form(export)
             dest = args.output / path.name if args.batch else args.output
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(json.dumps(definition, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             print(f"OK          {path.name} -> {dest}")
-            results.append({"file": path.name, "status": "ok", "output": str(dest)})
+            result = {"file": path.name, "status": "ok", "output": str(dest)}
+            warnings = _warnings(export, definition)
+            if warnings:
+                result["warnings"] = warnings
+            results.append(result)
         except (UnsupportedForm, ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
             print(f"UNSUPPORTED {path.name}: {error}")
             results.append({"file": path.name, "status": "unsupported", "reason": str(error)})
