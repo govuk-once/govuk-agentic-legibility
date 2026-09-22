@@ -102,6 +102,6 @@ To add an example, drop a JSON file into `src/lib/examples`. It must match the c
 
 ## Next steps
 
-* A more intuative drag, drop, connect for the graph editor.
+* A more intuative drag, drop, connect for the graph editor. --inprogres
 * A fuller step editor covering fields, conditions and the endpoint call contract
 * Join the editor up with the onboarding route once its design is settled
