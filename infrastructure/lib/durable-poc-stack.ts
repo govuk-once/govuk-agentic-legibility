@@ -6,6 +6,7 @@ import {
 import { Construct } from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 export interface DurablePocStackProps extends StackProps {
   vpc: ec2.IVpc;
@@ -67,6 +68,8 @@ export class DurablePocStack extends Stack {
         ],
         resources: [
           `arn:aws:ssm:${this.region}:${this.account}:parameter/durable_poc/*`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/workflow-service/*`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/flex-mock/*`,
         ],
       })
     );
@@ -103,7 +106,7 @@ export class DurablePocStack extends Stack {
       "dnf update -y",
 
       "# Install prerequisites",
-      "dnf install -y git curl",
+      "dnf install -y git",
 
       "# Create application directory",
       "mkdir -p /app",
@@ -136,12 +139,16 @@ export class DurablePocStack extends Stack {
       "/usr/local/bin/temporal version || true",
 
       "# Create environment file",
-      "cat << 'EOF' > /etc/durable-poc.env",
-      "DVLA_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
-      "POSTOFFICE_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
-      "HMRC_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
-      "DWP_BASE=http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
-      "WORKFLOW_SERVER_URL=http://Workfl-Workf-CwPhUxgpA91a-749675269.eu-west-2.elb.amazonaws.com",
+      "aws --version",
+      "MOCK_SERVER_URL=$(aws ssm get-parameter --region eu-west-2 --name /flex-mock/server-url --query 'Parameter.Value' --output text)",
+      "WORKFLOW_SERVER_URL=$(aws ssm get-parameter --region eu-west-2 --name /workflow-service/server-url --query 'Parameter.Value' --output text)",
+
+      "cat <<EOF >/etc/durable-poc.env",
+      "DVLA_BASE=${MOCK_SERVER_URL}",
+      "POSTOFFICE_BASE=${MOCK_SERVER_URL}",
+      "HMRC_BASE=${MOCK_SERVER_URL}",
+      "DWP_BASE=${MOCK_SERVER_URL}",
+      "WORKFLOW_SERVER_URL=${WORKFLOW_SERVER_URL}",
       "AWS_REGION=eu-west-2",
       "TEMPORAL_ADDRESS=localhost:7233",
       "EOF",
@@ -234,6 +241,16 @@ export class DurablePocStack extends Stack {
         associatePublicIpAddress: true,
       }
     );
+
+    new ssm.StringParameter(this, "DurablePocChatUrl", {
+      parameterName: "/durable_poc/chat_url",
+      stringValue: `http://${instance.instancePublicDnsName}:7860`,
+    });
+
+    new ssm.StringParameter(this, "DurablePocTemporalUrl", {
+      parameterName: "/durable_poc/temporal_url",
+      stringValue: `http://${instance.instancePublicDnsName}:8080`,
+    });
 
     new CfnOutput(this, "InstancePublicDns", {
       value: instance.instancePublicDnsName,
