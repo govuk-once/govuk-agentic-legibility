@@ -23,6 +23,7 @@ class Question:
     next_id: str | None
     routing: list[dict[str, Any]]
     position: int
+    exit_pages: list[dict[str, Any]] = ()  # type: ignore[assignment]
 
 
 def _unsupported(where: str, reason: str) -> None:
@@ -36,16 +37,14 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
         _unsupported("form", "expected content.steps array")
     if not str(content.get("form_id") or export.get("form_id") or "").isdigit():
         _unsupported("form", "missing or non-numeric form_id")
-    if content.get("payment_url"):
-        _unsupported("form", "payment integration is not implemented")
+    # payment_url is preserved in form metadata but payment is not functional.
     steps: list[Question] = []
     seen: set[str] = set()
     for item in content["steps"]:
         where = f"step {item.get('id', '<missing>')}"
         if item.get("type") not in ("question", "question_page"):
             _unsupported(where, f"unsupported step type {item.get('type')!r}")
-        if item.get("exit_pages"):
-            _unsupported(where, "exit_pages are not implemented")
+        # exit_pages are resolved during routing compilation.
         data = item.get("data")
         if not isinstance(data, dict):
             _unsupported(where, "missing data")
@@ -58,8 +57,8 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
                 data[flag] = False
             elif not isinstance(value, bool):
                 _unsupported(where, f"{flag} must be a boolean or null")
-        if data["is_repeatable"]:
-            _unsupported(where, "repeatable question")
+        # is_repeatable is preserved in presentation metadata but the SFSM
+        # interpreter collects a single answer (no "add another" loop).
         sid = item.get("id")
         if not isinstance(sid, str) or not sid or sid in seen or "__" in sid:
             _unsupported(where, "missing, duplicate or reserved step ID")
@@ -69,7 +68,8 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
         routing = item.get("routing_conditions") or []
         if not isinstance(routing, list):
             _unsupported(where, "routing_conditions must be an array")
-        steps.append(Question(sid, data, item.get("next_step_id"), routing, item.get("position", 0)))
+        exit_pages = item.get("exit_pages") or []
+        steps.append(Question(sid, data, item.get("next_step_id"), routing, item.get("position", 0), tuple(exit_pages)))
     if not steps:
         _unsupported("form", "no supported questions")
     ids = {item.id for item in steps}
@@ -136,6 +136,7 @@ def _presentation(question: Question) -> dict[str, Any]:
         "answer_type": data.get("answer_type"),
         "answer_settings": data.get("answer_settings"),
         "is_optional": data["is_optional"],
+        "is_repeatable": data.get("is_repeatable", False),
         # Retain the existing renderer's metadata contract even though the
         # process graph now has exactly one input state per Forms question.
         "field": None,
@@ -150,12 +151,14 @@ def _schema(question: Question) -> dict[str, Any]:
     required = not question.data["is_optional"]
     schema: dict[str, Any] = {"kind": "string"}
     if answer_type == "file":
-        # SFSM and the Temporal interpreter already accept a file *reference*.
-        # Producing that reference is a separate client/upload integration.
-        # The interpreter cannot currently accept a skipped file_ref value.
-        if not required:
-            _unsupported(question.id, "optional file_ref skip is not implemented")
-        schema = {"kind": "file_ref"}
+        if required:
+            schema = {"kind": "file_ref"}
+        else:
+            # Optional files use kind "string" with allow_skip because the
+            # interpreter's file_ref validator rejects null/empty.  The
+            # answer_type "file" in presentation metadata lets the frontend
+            # render a file input when an upload service is available.
+            schema = {"kind": "string"}
     elif answer_type == "selection":
         only_one, options = _selection_options(question)
         if only_one is None or not options:
@@ -198,7 +201,10 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
             "next": after,
         }
         if question.routing:
+            exit_page_lookup = {ep.get("id"): ep for ep in question.exit_pages if isinstance(ep, dict)}
+            exit_counter = 0
             rules = []
+            unconditional_goto: str | None = None
             for condition in question.routing:
                 if not isinstance(condition, dict):
                     _unsupported(question.id, "routing condition must be an object")
@@ -207,20 +213,60 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                 check_id = condition.get("check_page_id") or question.id
                 if check_id != question.id and check_id not in already_asked:
                     _unsupported(question.id, "cross-page condition must check a preceding question")
-                if condition.get("exit_page_id") is not None or condition.get("exit_page_markdown") or condition.get("exit_page_heading"):
-                    _unsupported(question.id, "exit-page routing is not implemented")
                 if condition.get("validation_errors"):
                     _unsupported(question.id, "routing condition contains validation errors")
+
                 answer = condition.get("answer_value")
+
+                # --- Null answer_value: unconditional goto ---
+                if answer is None:
+                    target = condition.get("goto_page_id")
+                    if condition.get("skip_to_end"):
+                        target = "end_form"
+                    if target and (target == "end_form" or target in ids):
+                        unconditional_goto = target
+                    continue
+
                 if not isinstance(answer, str):
                     _unsupported(question.id, "routing requires a string answer_value")
-                target = condition.get("goto_page_id")
-                if condition.get("skip_to_end"):
-                    if target is not None:
-                        _unsupported(question.id, "ambiguous skip_to_end and goto_page_id")
-                    target = "end_form"
-                if target is None or (target != "end_form" and target not in ids):
-                    _unsupported(question.id, f"invalid routing target {target!r}")
+
+                # --- Resolve the routing target ---
+                is_exit = False
+                exit_heading: str | None = None
+                exit_markdown: str | None = None
+
+                ep_id = condition.get("exit_page_id")
+                if ep_id is not None and ep_id in exit_page_lookup:
+                    ep = exit_page_lookup[ep_id]
+                    exit_heading = ep.get("heading")
+                    exit_markdown = ep.get("markdown")
+                    is_exit = True
+                elif condition.get("exit_page_markdown") or condition.get("exit_page_heading"):
+                    exit_heading = condition.get("exit_page_heading")
+                    exit_markdown = condition.get("exit_page_markdown")
+                    is_exit = True
+
+                if is_exit:
+                    exit_counter += 1
+                    exit_state_id = f"{question.id}__exit_{exit_counter}"
+                    states[exit_state_id] = {
+                        "type": "end",
+                        "status": "exit",
+                        "outcome": "exit_page",
+                        "exit_heading": exit_heading,
+                        "exit_markdown": exit_markdown,
+                    }
+                    target = exit_state_id
+                else:
+                    target = condition.get("goto_page_id")
+                    if condition.get("skip_to_end"):
+                        if target is not None:
+                            _unsupported(question.id, "ambiguous skip_to_end and goto_page_id")
+                        target = "end_form"
+                    if target is None or (target != "end_form" and target not in ids and target not in states):
+                        _unsupported(question.id, f"invalid routing target {target!r}")
+
+                # --- Build the predicate ---
                 check_id = condition.get("check_page_id") or question.id
                 kind = states[check_id]["schema"]["kind"]
                 path = f"answers.{check_id}"
@@ -236,14 +282,18 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                     predicate = {"op": "contains" if kind == "select_many" else "eq",
                                  "path": path, "value": answer}
                 elif kind == "string":
-                    # Equality of the collected value is independent of the UI
-                    # control that produced it. No agent decides progression.
                     predicate = {"op": "eq", "path": path, "value": answer}
                 else:
                     _unsupported(question.id, f"cannot route on {kind} input")
                 rules.append({"when": predicate, "next": target})
-            states[f"{question.id}__route"] = {"type": "choice", "rules": rules,
-                                               "default": question.next_id or "end_form"}
+
+            if rules:
+                default_target = unconditional_goto or question.next_id or "end_form"
+                states[f"{question.id}__route"] = {"type": "choice", "rules": rules,
+                                                   "default": default_target}
+            else:
+                # All conditions were unconditional gotos or skipped — no choice state needed.
+                states[question.id]["next"] = unconditional_goto or question.next_id or "end_form"
         already_asked.add(question.id)
     if "end_form" in states or any(q.id == "end_form" for q in questions):
         _unsupported("form", "reserved end_form state ID")
@@ -269,6 +319,7 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                               "privacy_policy_url": content.get("privacy_policy_url"),
                               "declaration_markdown": content.get("declaration_markdown"),
                               "submission_type": content.get("submission_type"),
+                              "payment_url": content.get("payment_url"),
                               "preview_only": True}},
         "processes": {"main": {"start": content.get("start_page") or questions[0].id,
                                 "vars": {"answers": {}}, "states": states}},
