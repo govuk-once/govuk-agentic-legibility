@@ -1,0 +1,111 @@
+/* Chat panel custom styles */
+.chat-panel {
+  border-left: 4px solid #1d70b8;
+  background-color: #f3f2f1;
+  padding: 15px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 15px;
+  max-height: 60vh;
+}
+
+.chat-message {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.chat-message--user {
+  background-color: #ffffff;
+  border-left: 3px solid #1d70b8;
+}
+
+.chat-message--assistant {
+  background-color: #ffffff;
+  border-left: 3px solid #00703c;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-input-row textarea {
+  flex: 1;
+  min-height: 44px;
+  resize: vertical;
+}
+
+/* Proposal banner */
+.proposal-banner {
+  background-color: #fff7e6;
+  border: 2px solid #ffdd00;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.proposal-banner__heading {
+  margin-top: 0;
+}
+
+/* Auto-answered log */
+.auto-answered-summary {
+  background-color: #f0f4f8;
+  border: 1px solid #b1b4b6;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.auto-answered-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #dee0e2;
+}
+
+.auto-answered-item:last-child {
+  border-bottom: none;
+}
+
+/* Two-column layout */
+.forms-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .forms-layout {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+/* Policy switcher */
+.policy-switcher {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.policy-btn {
+  padding: 8px 16px;
+  border: 2px solid #0b0c0c;
+  background-color: #f3f2f1;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.policy-btn--active {
+  background-color: #1d70b8;
+  color: #ffffff;
+  border-color: #003078;
+}
