@@ -17,10 +17,11 @@ from typing import Any
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 from temporalio.client import Client as TemporalClient
 from temporalio.contrib.opentelemetry import TracingInterceptor
 
@@ -547,6 +548,135 @@ async def _auto_progress(
             for q in session.auto_answered
         ],
     }
+
+
+@app.get("/api/sessions/{session_id}/auto-progress")
+async def auto_progress_stream(session_id: str, request: Request) -> EventSourceResponse:
+    """Stream auto-progress events as the agent steps through questions.
+
+    Each SSE event is a JSON object with type: "step", "waiting", or "done".
+    """
+    session = store.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    async def event_generator():
+        temporal = await get_temporal_client()
+        state = await tool_functions.get_workflow_state(
+            workflow_id=session.temporal_workflow_id, temporal_client=temporal
+        )
+
+        # Count total input states in the definition for progress denominator
+        total_questions = 0
+        for proc in session.definition.get("processes", {}).values():
+            for s in proc.get("states", {}).values():
+                if s.get("type") == "input":
+                    total_questions += 1
+
+        steps_taken = len(session.auto_answered)
+        max_steps = 20
+
+        while steps_taken < max_steps:
+            if await request.is_disconnected():
+                break
+
+            awaiting = state.get("awaiting")
+            if not awaiting:
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done",
+                        "reason": "complete",
+                        "steps_taken": steps_taken,
+                        "total_questions": total_questions,
+                    }),
+                }
+                return
+
+            yield {
+                "event": "waiting",
+                "data": json.dumps({
+                    "type": "waiting",
+                    "question": awaiting.get("prompt", ""),
+                    "step": steps_taken + 1,
+                    "total_questions": total_questions,
+                }),
+            }
+
+            proposal = await propose_answer(
+                conversation_history=session.conversation_history,
+                awaiting=awaiting,
+            )
+
+            if not proposal.get("has_answer"):
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done",
+                        "reason": "needs_input",
+                        "question": awaiting.get("prompt", ""),
+                        "steps_taken": steps_taken,
+                        "total_questions": total_questions,
+                    }),
+                }
+                return
+
+            token = awaiting["token"]
+            value = proposal["value"]
+
+            try:
+                state = await tool_functions.submit_input(
+                    workflow_id=session.temporal_workflow_id,
+                    token=token,
+                    value=value,
+                    temporal_client=temporal,
+                )
+            except Exception:
+                logger.exception("Auto-progress submission failed at step %d", steps_taken)
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done",
+                        "reason": "error",
+                        "steps_taken": steps_taken,
+                        "total_questions": total_questions,
+                    }),
+                }
+                return
+
+            session.auto_answered.append(
+                AutoAnsweredQuestion(
+                    state_id=awaiting.get("state_id", ""),
+                    question_text=awaiting.get("prompt", ""),
+                    submitted_value=value,
+                    explanation=proposal.get("explanation", ""),
+                )
+            )
+            steps_taken += 1
+
+            yield {
+                "event": "step",
+                "data": json.dumps({
+                    "type": "step",
+                    "question": awaiting.get("prompt", ""),
+                    "value": str(value),
+                    "explanation": proposal.get("explanation", ""),
+                    "steps_taken": steps_taken,
+                    "total_questions": total_questions,
+                }),
+            }
+
+        yield {
+            "event": "done",
+            "data": json.dumps({
+                "type": "done",
+                "reason": "max_steps",
+                "steps_taken": steps_taken,
+                "total_questions": total_questions,
+            }),
+        }
+
+    return EventSourceResponse(event_generator())
 
 
 @app.post("/api/sessions/{session_id}/confirm-proposal")

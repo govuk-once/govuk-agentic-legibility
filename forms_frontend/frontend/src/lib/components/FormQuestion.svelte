@@ -4,9 +4,11 @@
     confirmProposal,
     rejectProposal,
     requestProposal,
+    streamAutoProgress,
     type AwaitingInput,
     type Presentation,
     type Proposal,
+    type AutoProgressEvent,
   } from "../api";
   import TextInput from "./inputs/TextInput.svelte";
   import Textarea from "./inputs/Textarea.svelte";
@@ -45,6 +47,18 @@
   let proposalLoading = $state(false);
   let proposalRequested = $state(false);
 
+  // Auto-progress streaming state
+  interface ProgressStep {
+    question: string;
+    value: string;
+    explanation: string;
+  }
+  let autoProgressActive = $state(false);
+  let autoProgressSteps: ProgressStep[] = $state([]);
+  let autoProgressCurrent = $state("");
+  let autoProgressTotal = $state(0);
+  let autoProgressDone = $state(0);
+
   const pres = $derived(presentation ?? awaiting.schema?.presentation ?? null);
   const answerType = $derived(pres?.answer_type ?? "text");
   const answerSettings = $derived(pres?.answer_settings ?? {});
@@ -73,42 +87,73 @@
       !pendingProposal &&
       !proposalRequested &&
       !proposalLoading &&
+      !autoProgressActive &&
       sessionId &&
       awaiting?.token
     ) {
       proposalRequested = true;
-      requestProposalNow();
+      if (policy === "auto") {
+        startAutoProgress();
+      } else {
+        requestProposalNow();
+      }
     }
   });
 
-  // Reset the guard when the question changes
   $effect(() => {
     if (awaiting?.token) {
       proposalRequested = false;
     }
   });
 
+  function startAutoProgress() {
+    autoProgressActive = true;
+    autoProgressSteps = [];
+    autoProgressCurrent = "";
+    autoProgressTotal = 0;
+    autoProgressDone = 0;
+
+    const stream = streamAutoProgress(
+      sessionId,
+      (event: AutoProgressEvent) => {
+        if (event.total_questions) {
+          autoProgressTotal = event.total_questions;
+        }
+
+        if (event.type === "waiting") {
+          autoProgressCurrent = event.question ?? "";
+        } else if (event.type === "step") {
+          autoProgressDone = event.steps_taken ?? autoProgressDone + 1;
+          autoProgressSteps = [
+            ...autoProgressSteps,
+            {
+              question: event.question ?? "",
+              value: event.value ?? "",
+              explanation: event.explanation ?? "",
+            },
+          ];
+          autoProgressCurrent = "";
+        } else if (event.type === "done") {
+          autoProgressActive = false;
+          autoProgressDone = event.steps_taken ?? autoProgressDone;
+          onSubmitted();
+        }
+      },
+      () => {
+        autoProgressActive = false;
+        onSubmitted();
+      }
+    );
+  }
+
   async function requestProposalNow() {
     proposalLoading = true;
     try {
       const result = await requestProposal(sessionId);
-
-      // Auto mode: the backend may have auto-progressed the workflow.
-      // The result may contain steps_taken > 0 even though has_answer is false.
-      // Always refresh state so the frontend shows the current question.
-      if (result.steps_taken && result.steps_taken > 0) {
-        onSubmitted();
-        return;
-      }
-
-      // Confirm mode: backend stored the pending_proposal on the session.
-      // Refresh state to pick it up and show the ProposalBanner.
       if (result.has_answer) {
         onSubmitted();
         return;
       }
-
-      // No answer available — user fills in manually. Nothing to refresh.
     } catch (e) {
       console.error("Proposal request failed:", e);
     } finally {
@@ -169,7 +214,78 @@
     await rejectProposal(sessionId);
     onSubmitted();
   }
+
+  function formatValue(val: string): string {
+    if (val === "true") return "Yes";
+    if (val === "false") return "No";
+    return val;
+  }
 </script>
+
+{#if autoProgressActive || autoProgressSteps.length > 0}
+  <div class="auto-progress" role="status" aria-live="polite">
+    <h2 class="govuk-heading-m">
+      {#if autoProgressActive}
+        Completing form automatically...
+      {:else}
+        The assistant answered {autoProgressDone} question{autoProgressDone !== 1 ? "s" : ""}
+      {/if}
+    </h2>
+
+    {#if autoProgressActive && autoProgressTotal > 0}
+      <div class="govuk-!-margin-bottom-4">
+        <div class="progress-bar" role="progressbar"
+          aria-valuenow={autoProgressDone}
+          aria-valuemin={0}
+          aria-valuemax={autoProgressTotal}
+          aria-label="Form progress"
+        >
+          <div
+            class="progress-bar__fill"
+            style="width: {Math.round((autoProgressDone / autoProgressTotal) * 100)}%"
+          ></div>
+        </div>
+        <p class="govuk-body-s govuk-!-margin-top-1" style="color: #505a5f;">
+          {autoProgressDone} of {autoProgressTotal} questions
+        </p>
+      </div>
+    {/if}
+
+    {#if autoProgressSteps.length > 0}
+      <table class="govuk-table govuk-table--small-text-until-tablet">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Question</th>
+            <th scope="col" class="govuk-table__header">Answer</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {#each autoProgressSteps as step}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">{step.question}</td>
+              <td class="govuk-table__cell">
+                <strong>{formatValue(step.value)}</strong>
+                {#if step.explanation}
+                  <br /><span class="govuk-body-s" style="color: #505a5f;">{step.explanation}</span>
+                {/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if autoProgressActive && autoProgressCurrent}
+      <div class="govuk-inset-text govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+        Reviewing: <strong>{autoProgressCurrent}</strong>
+      </div>
+    {/if}
+  </div>
+
+  {#if !autoProgressActive}
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible" />
+  {/if}
+{/if}
 
 {#if proposalLoading}
   <div class="govuk-inset-text" role="status" aria-live="polite">
@@ -177,14 +293,10 @@
       <strong>The assistant is reviewing this question...</strong>
     </p>
     <p class="govuk-body-s" style="color: #505a5f;">
-      {#if policy === "auto"}
-        Automatically answering questions the assistant is confident about.
-      {:else}
-        Checking whether an answer can be suggested from the conversation.
-      {/if}
+      Checking whether an answer can be suggested from the conversation.
     </p>
   </div>
-{:else}
+{:else if !autoProgressActive}
   <div class="govuk-form-group" class:govuk-form-group--error={!!validationError}>
     {#if pres?.guidance_markdown}
       <details class="govuk-details">
@@ -344,3 +456,25 @@
     </form>
   </div>
 {/if}
+
+<style>
+  .auto-progress {
+    background-color: #f3f2f1;
+    border-left: 4px solid #1d70b8;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .progress-bar {
+    height: 20px;
+    background-color: #dee0e2;
+    border-radius: 0;
+    overflow: hidden;
+  }
+
+  .progress-bar__fill {
+    height: 100%;
+    background-color: #00703c;
+    transition: width 0.4s ease;
+  }
+</style>

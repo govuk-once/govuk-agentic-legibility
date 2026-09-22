@@ -208,3 +208,49 @@ export async function setPolicy(
     body: JSON.stringify({ policy }),
   });
 }
+
+export interface AutoProgressEvent {
+  type: "step" | "waiting" | "done";
+  question?: string;
+  value?: string;
+  explanation?: string;
+  reason?: string;
+  step?: number;
+  steps_taken?: number;
+  total_questions?: number;
+}
+
+export function streamAutoProgress(
+  sessionId: string,
+  onEvent: (event: AutoProgressEvent) => void,
+  onError?: (error: any) => void
+): { close: () => void } {
+  const source = new EventSource(`${BASE}/api/sessions/${sessionId}/auto-progress`);
+
+  function handleMessage(eventType: string) {
+    return (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as AutoProgressEvent;
+        onEvent(data);
+        if (data.type === "done") {
+          source.close();
+        }
+      } catch (err) {
+        onError?.(err);
+      }
+    };
+  }
+
+  source.addEventListener("step", handleMessage("step"));
+  source.addEventListener("waiting", handleMessage("waiting"));
+  source.addEventListener("done", handleMessage("done"));
+
+  source.onerror = (e) => {
+    onError?.(e);
+    source.close();
+  };
+
+  return {
+    close: () => source.close(),
+  };
+}
