@@ -1,0 +1,248 @@
+{
+  "id": 553,
+  "form_id": 6,
+  "tag": "live",
+  "content": {
+    "name": " Amend my claim for holiday pay accrued",
+    "steps": [
+      {
+        "id": "uyQrCFqM",
+        "data": {
+          "hint_text": "Use the same name you used on your claim",
+          "answer_type": "name",
+          "is_optional": false,
+          "page_heading": "How to complete this form",
+          "is_repeatable": false,
+          "question_text": "What is your full name?",
+          "answer_settings": {
+            "input_type": "first_and_last_name",
+            "title_needed": "false"
+          },
+          "guidance_markdown": "## Part 1: Security questions\r\n\r\nYour answers must be the same as what you told us on your online claim. \r\nYou will need the following information to hand:\r\n\r\n* claim reference number\r\n* National Insurance number\r\n\r\n## Part 2: Amendment section\r\n\r\nOnly answer a question if you need to change what you submitted in your online claim.\r\n\r\nLeave questions blank that you do not want to change.\r\n\r\nYou will need the following information to hand:\r\n\r\n* date your holiday year started\r\n* number of holidays you were entitled to\r\n* number of holidays taken\r\n* number of holidays carried over\r\n\r\n##Start part 1"
+        },
+        "type": "question_page",
+        "position": 1,
+        "next_step_id": "nK3iWXxs",
+        "routing_conditions": []
+      },
+      {
+        "id": "nK3iWXxs",
+        "data": {
+          "hint_text": "For example LN12345678. This is found in our initial email to you.",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is your claim reference number ? ",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 2,
+        "next_step_id": "opyfSJWo",
+        "routing_conditions": []
+      },
+      {
+        "id": "opyfSJWo",
+        "data": {
+          "hint_text": "For example QQ123456C. It is on your National Insurance card, benefit letter, payslip or P60.",
+          "answer_type": "national_insurance_number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is your National Insurance number?",
+          "answer_settings": null,
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 3,
+        "next_step_id": "ywWSZiYg",
+        "routing_conditions": []
+      },
+      {
+        "id": "ywWSZiYg",
+        "data": {
+          "hint_text": "Use the email  address you gave us when you created your claim",
+          "answer_type": "email",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is your email address?",
+          "answer_settings": null,
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 4,
+        "next_step_id": "8FTw3t4z",
+        "routing_conditions": []
+      },
+      {
+        "id": "8FTw3t4z",
+        "data": {
+          "hint_text": "",
+          "answer_type": "date",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is your date of birth?",
+          "answer_settings": {
+            "input_type": "date_of_birth"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 5,
+        "next_step_id": "v2rxCDt3",
+        "routing_conditions": []
+      },
+      {
+        "id": "v2rxCDt3",
+        "data": {
+          "hint_text": "Use the address you gave us in your claim",
+          "answer_type": "address",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is your address?",
+          "answer_settings": {
+            "input_type": {
+              "uk_address": "true",
+              "international_address": "false"
+            }
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 6,
+        "next_step_id": "wWPXauTh",
+        "routing_conditions": []
+      },
+      {
+        "id": "wWPXauTh",
+        "data": {
+          "hint_text": "",
+          "answer_type": "organisation_name",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What company were you made redundant from?",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 7,
+        "next_step_id": "B9LuEbyQ",
+        "routing_conditions": []
+      },
+      {
+        "id": "B9LuEbyQ",
+        "data": {
+          "hint_text": "For example 23 8 2021",
+          "answer_type": "date",
+          "is_optional": true,
+          "page_heading": "Part 2: Amendment section",
+          "is_repeatable": false,
+          "question_text": "When did your holiday (leave) year start?",
+          "answer_settings": {
+            "input_type": "other_date"
+          },
+          "guidance_markdown": "Only answer a question if you need to change what you submitted in your online claim.\r\n\r\nLeave questions blank that you do not want to change.\r\n\r\n##Start part 2"
+        },
+        "type": "question_page",
+        "position": 8,
+        "next_step_id": "VRYgtG3z",
+        "routing_conditions": []
+      },
+      {
+        "id": "VRYgtG3z",
+        "data": {
+          "hint_text": "Include bank holidays",
+          "answer_type": "number",
+          "is_optional": true,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many days were you entitled to take during your whole leave year?",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 9,
+        "next_step_id": "gV9s3nJy",
+        "routing_conditions": []
+      },
+      {
+        "id": "gV9s3nJy",
+        "data": {
+          "hint_text": "Include bank holidays",
+          "answer_type": "number",
+          "is_optional": true,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many days did you take between the start of your leave year and the date you were made redundant? ",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 10,
+        "next_step_id": "hY9HnrAz",
+        "routing_conditions": []
+      },
+      {
+        "id": "hY9HnrAz",
+        "data": {
+          "hint_text": "If none, enter 0",
+          "answer_type": "number",
+          "is_optional": true,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many days did you carry over from your last leave year allowance?",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question_page",
+        "position": 11,
+        "next_step_id": null,
+        "routing_conditions": []
+      }
+    ],
+    "form_id": "6",
+    "live_at": "2025-02-21T11:41:48.384Z",
+    "language": "en",
+    "form_slug": "amend-my-claim-for-holiday-pay-accrued",
+    "created_at": "2022-09-13T12:11:27.144Z",
+    "creator_id": null,
+    "start_page": "uyQrCFqM",
+    "updated_at": "2025-02-21T11:41:48.384Z",
+    "payment_url": null,
+    "support_url": null,
+    "support_email": "redundancypaymentsonline@insolvency.gov.uk",
+    "support_phone": null,
+    "submission_type": "email",
+    "declaration_text": null,
+    "support_url_text": null,
+    "submission_format": [],
+    "first_made_live_at": "2023-09-13T00:00:00.000000Z",
+    "privacy_policy_url": "https://www.gov.uk/government/organisations/insolvency-service/about/personal-information-charter",
+    "declaration_markdown": "",
+    "share_preview_completed": true,
+    "question_section_completed": true,
+    "what_happens_next_markdown": "We will update your claim with the new information you provided. We aim to do this within 10 working days. After we have updated your information, we will let you know if you are due a payment. You do not need to send us any further evidence to complete your application.\n\nIf you have not had a response from us within 15 working days, contact us at: [redundancypaymentsonline@insolvency.gov.uk](mailto:redundancypaymentsonline@insolvency.gov.uk)\n\nMake sure you have told the insolvency practitioner handling your employer’s insolvency about the changes you have made to your claim information. They may need to change the information they provided the Insolvency Service.\n\nTo make another amendment to your redundancy claim, complete the relevant form from the [redundancy claim amendment forms](https://www.gov.uk/guidance/amend-a-redundancy-claim) page.",
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false,
+    "declaration_section_completed": true
+  },
+  "created_at": "2025-08-27 09:45:46.087594",
+  "updated_at": "2026-08-12 16:14:09.95049",
+  "language": "en",
+  "version": 1
+}
