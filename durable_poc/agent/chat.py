@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GOV.UK Chat Assistant")
 
-agent_instance: Any = None
 _polling_client: TemporalClient | None = None
 
 
@@ -113,6 +112,31 @@ def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
 
     return {"kind": kind, "options": choices}
 
+
+def create_agent() -> WorkflowAgent:
+    workflow_server_url = os.environ.get(
+        "WORKFLOW_SERVER_URL",
+        "http://localhost:8080",
+    )
+    model_id = os.environ.get(
+        "BEDROCK_MODEL_ID",
+        "anthropic.claude-sonnet-4-6",
+    )
+    region_name = os.environ.get(
+        "AWS_REGION",
+        "eu-west-2",
+    )
+    temporal_address = os.environ.get(
+        "TEMPORAL_ADDRESS",
+        "localhost:7233",
+    )
+
+    return WorkflowAgent(
+        workflow_server_url=workflow_server_url,
+        model_id=model_id,
+        region_name=region_name,
+        temporal_address=temporal_address,
+    )
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -395,7 +419,9 @@ async def get_index() -> HTMLResponse:
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
 
+    agent = create_agent()
     session_id = str(uuid.uuid4())
+    logger.info("Created agent=%s session=%s", id(agent), session_id)
     session_id_var.set(session_id)
     ctx = baggage.set_baggage("session_id", session_id)
     token = attach(ctx)
@@ -424,7 +450,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     async def refresh_active_workflows() -> None:
         """Send list of active workflows to dropdown picker."""
-        if not agent_instance:
+        if not agent:
             return
         try:
             polling_client = await _get_polling_client()
@@ -447,7 +473,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             try:
                 await asyncio.sleep(0.5)
 
-                if not active_workflow_id or not agent_instance:
+                if not active_workflow_id or not agent:
                     continue
 
                 try:
@@ -509,7 +535,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     )
                     active_workflow_id = None
                     session_state = None
-                    agent_instance._session_state = None
+                    agent._session_state = None
                     last_seen_index = 0
                     handled_tokens.clear()
 
@@ -560,7 +586,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
             if payload.get("action") == "resume":
                 resume_id = payload.get("workflow_id")
-                if resume_id and agent_instance:
+                if resume_id and agent:
                     active_workflow_id = resume_id
                     workflow_id_var.set(resume_id)
                     await emit_event("USER", "Resuming Selected Workflow", resume_id)
@@ -568,13 +594,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     session_state = await tool_functions.get_workflow_state(
                         workflow_id=resume_id, temporal_client=polling_client
                     )
-                    agent_instance._update_session_state(resume_id, session_state)
+                    agent._update_session_state(resume_id, session_state)
                     last_seen_index = 0
                     handled_tokens.clear()
                 continue
 
             user_msg = payload.get("message", "").strip()
-            if not user_msg or not agent_instance:
+            if not user_msg or not agent:
                 continue
 
             if active_workflow_id:
@@ -597,12 +623,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 )
 
                 await emit_event("AGENT", "Invoking Bedrock LLM with user context...")
-                agent_response = await agent_instance.respond(
+                logger.info("agent=%s workflow=%s", id(agent), active_workflow_id)
+                agent_response = await agent.respond(
                     user_msg, context=session_state, on_trace=emit_event
                 )
                 logger.info("Agent response text=%r", agent_response)
 
-                session_state = getattr(agent_instance, "session_state", session_state)
+                session_state = getattr(agent, "session_state", session_state)
 
                 workflow_started = (session_state and session_state.get("workflow_id"))
 
@@ -679,22 +706,8 @@ def main() -> None:
         datefmt="%H:%M:%S",
     )
 
-    global agent_instance
-
     provider = create_agent_provider(session_processor=session_processor)
     trace.set_tracer_provider(provider)
-
-    workflow_server_url = os.environ.get("WORKFLOW_SERVER_URL", "http://localhost:8080")
-    model_id = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6")
-    region_name = os.environ.get("AWS_REGION", "eu-west-2")
-    temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
-
-    agent_instance = WorkflowAgent(
-        workflow_server_url=workflow_server_url,
-        model_id=model_id,
-        region_name=region_name,
-        temporal_address=temporal_address,
-    )
 
     uvicorn.run(app, host="0.0.0.0", port=7860)
 
