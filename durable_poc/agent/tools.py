@@ -52,7 +52,7 @@ async def list_available_workflows(
         raise WorkflowServerError(
             f"Workflow server returned {response.status_code} while listing workflows"
         )
-    workflows = response.json()
+    workflows = response.json()["workflows"]
     logger.info("Retrieved %d workflow definition(s) from server", len(workflows))
     return workflows
 
