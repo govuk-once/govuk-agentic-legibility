@@ -448,3 +448,47 @@ def test_optional_final_zero_or_skip_cannot_regress_to_first_input(review_journe
     assert state["status"] == "COMPLETED" and state["review_required"]
     assert state["awaiting"] is None and state["answer_history"][-1]["value"] == ""
     assert len(transport.executions["initial-run"].submissions) == 11
+
+@pytest.mark.asyncio
+async def test_review_ready_when_interpreter_reaches_end_before_temporal_closes(form_6_definition):
+    """Live Temporal can expose EndState briefly while describe() still says RUNNING."""
+    from forms_frontend.api.sessions import FormSession, InteractionPolicy
+
+    end_state_id = next(
+        state_id
+        for state_id, state in form_6_definition["processes"]["main"]["states"].items()
+        if state.get("type") == "end" and state.get("outcome") != "exit_page"
+    )
+
+    class Handle:
+        async def query(self, name):
+            assert name == "current_state_info"
+            return {
+                "process_id": "main",
+                "state_id": end_state_id,
+                "state_type": "EndState",
+                "step": 12,
+            }
+
+    class Temporal:
+        def get_workflow_handle(self, workflow_id):
+            assert workflow_id == "still-closing"
+            return Handle()
+
+    session = FormSession(
+        session_id="review-gap",
+        form_id="6",
+        temporal_workflow_id="still-closing",
+        form_metadata={},
+        definition=form_6_definition,
+        policy=InteractionPolicy.AUTO,
+        review_before_submit=True,
+    )
+    ready = await api._refresh_review_readiness(
+        session,
+        Temporal(),
+        {"status": "RUNNING", "awaiting": None, "transcript": []},
+    )
+    assert ready is True
+    assert session.review_ready is True
+    assert session.review_terminal_outcome != "exit_page"

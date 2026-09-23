@@ -2,12 +2,13 @@
 export function sessionView(selectedView, state) {
   if (selectedView === "list") return "list";
   if (state?.review_required) return "review";
-  if (state?.status === "COMPLETED") return "complete";
+  if (state?.status === "COMPLETED" || (state?.review_confirmed && state?.review_ready)) return "complete";
   return "form";
 }
 
 /** A final answer must not be followed by an older awaiting question. */
 export function waitForCompletion(state, completionExpected, previousToken) {
+  if (state.review_required) return false;
   return state.status === "ADVANCING"
     || (completionExpected && state.status !== "COMPLETED")
     || (previousToken && state.status !== "COMPLETED"

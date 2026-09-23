@@ -46,6 +46,7 @@ export interface SessionState {
   review_before_submit: boolean;
   review_required: boolean;
   review_confirmed: boolean;
+  review_ready: boolean;
   review_revision: number;
   review_replay_needs_input: boolean;
   pending_proposal: Proposal | null;

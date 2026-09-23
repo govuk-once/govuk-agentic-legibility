@@ -273,6 +273,64 @@ def _get_or_create_agent(session: FormSession) -> WorkflowAgent:
     return _agents[session.session_id]
 
 
+def _lookup_definition_state(
+    definition: dict[str, Any], process_id: str | None, state_id: str | None
+) -> dict[str, Any] | None:
+    """Look up one SFSM state without interpreting or advancing the journey."""
+    if not process_id or not state_id:
+        return None
+    process = definition.get("processes", {}).get(process_id) or {}
+    state = (process.get("states") or {}).get(state_id)
+    return state if isinstance(state, dict) else None
+
+
+async def _refresh_review_readiness(
+    session: FormSession, temporal: TemporalClient, state: dict[str, Any]
+) -> bool:
+    """Latch review readiness when the interpreter itself reaches EndState.
+
+    There is a small but observable gap after the final input update: the
+    interpreter has consumed the answer and reached its terminal EndState while
+    Temporal can still describe the execution as RUNNING.  Waiting only for the
+    transport status caused the review UI to sit forever on an ``ADVANCING``
+    placeholder in live runs.
+
+    This does *not* infer completion from question counts.  We query the same
+    authoritative SFSM interpreter for its current state and only enable review
+    when that state is an actual EndState.
+    """
+    if not session.review_before_submit or session.review_confirmed:
+        return False
+    if session.review_ready:
+        return True
+    if state.get("awaiting"):
+        return False
+
+    try:
+        handle = temporal.get_workflow_handle(session.temporal_workflow_id)
+        info = await handle.query("current_state_info")
+    except Exception:
+        # Some test doubles/older runtimes do not expose this query.  The normal
+        # COMPLETED path below remains valid, so failure here is non-fatal.
+        return False
+
+    if not isinstance(info, dict) or info.get("state_type") != "EndState":
+        return False
+    definition_state = _lookup_definition_state(
+        session.definition, info.get("process_id"), info.get("state_id")
+    )
+    if not definition_state or definition_state.get("type") != "end":
+        return False
+
+    outcome = definition_state.get("outcome")
+    session.review_terminal_outcome = outcome if isinstance(outcome, str) else None
+    # Exit pages are terminal redirects/messages, not forms awaiting approval.
+    if outcome == "exit_page":
+        return False
+    session.review_ready = True
+    return True
+
+
 def _lookup_state_presentation(
     definition: dict[str, Any], state_id: str | None
 ) -> dict[str, Any] | None:
@@ -510,14 +568,29 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         if not presentation:
             presentation = awaiting.get("schema", {}).get("presentation")
 
+    # Review is a journey-level state, not a Temporal transport status.  The
+    # interpreter can be sitting on its terminal EndState for a short period
+    # before Temporal reports the execution as CLOSED.  Detect that state
+    # directly so the browser can render Check your answers immediately.
+    if not state.get("awaiting"):
+        await _refresh_review_readiness(session, temporal, state)
+
     if state.get("status") == "COMPLETED" and session.terminal_result is None:
         session.terminal_result = await _terminal_result(
             temporal, session.temporal_workflow_id, state
         )
     result = session.terminal_result if state.get("status") == "COMPLETED" else None
+    if (state.get("status") == "COMPLETED"
+            and session.review_before_submit
+            and not session.review_confirmed
+            and (result or {}).get("outcome") != "exit_page"):
+        # Preserve the old completed-execution path for runtimes where the
+        # EndState query is no longer available after closure.
+        session.review_ready = True
+        if isinstance((result or {}).get("outcome"), str):
+            session.review_terminal_outcome = result["outcome"]
     review_required = (session.review_before_submit and not session.review_confirmed
-                       and state.get("status") == "COMPLETED"
-                       and (result or {}).get("outcome") != "exit_page")
+                       and session.review_ready)
 
     return {
         "session_id": session_id,
@@ -531,6 +604,7 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         "review_before_submit": session.review_before_submit,
         "review_required": review_required,
         "review_confirmed": session.review_confirmed,
+        "review_ready": session.review_ready,
         "review_revision": session.review_revision,
         "review_replay_needs_input": session.review_replay_needs_input,
         "answer_history": [_answer_data(item) for item in session.answer_history],
@@ -1057,7 +1131,14 @@ async def _assert_review_ready(session: FormSession, temporal: TemporalClient) -
     if not session.review_before_submit or session.review_confirmed:
         raise HTTPException(409, "There is no form awaiting final review")
     state = await _current_state(session, temporal)
-    if state.get("status") != "COMPLETED":
+    if not state.get("awaiting"):
+        await _refresh_review_readiness(session, temporal, state)
+    if state.get("status") == "COMPLETED":
+        # Closed workflows are necessarily past the final EndState; keep the
+        # compatibility path used by mocks and older workers.
+        if session.review_terminal_outcome != "exit_page":
+            session.review_ready = True
+    if not session.review_ready:
         raise HTTPException(409, "All questions must be answered before final review")
     if session.terminal_result is None:
         session.terminal_result = await _terminal_result(
@@ -1202,6 +1283,8 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
         session.temporal_workflow_id = new_id
         session.terminal_state = None  # A review edit has started a NEW execution.
         session.terminal_result = None
+        session.review_ready = state.get("status") == "COMPLETED"
+        session.review_terminal_outcome = None
         _remember_completion(session, state)
         session.accepted_tokens = {item.token for item in rebuilt}
         session.answer_history = rebuilt

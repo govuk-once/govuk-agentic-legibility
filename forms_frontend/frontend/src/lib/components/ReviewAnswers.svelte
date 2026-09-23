@@ -9,12 +9,12 @@
     onStateChange: (updated: SessionState) => void;
     onComplete: () => void | Promise<void>;
   }
-  let { sessionId, state, onStateChange, onComplete }: Props = $props();
+  let { sessionId, state: sessionState, onStateChange, onComplete }: Props = $props();
   let editing = $state(-1);
   let draft: any = $state("");
   let busy = $state(false);
   let error = $state("");
-  const answers = $derived(state.answer_history ?? []);
+  const answers = $derived(sessionState.answer_history ?? []);
   const autoCount = $derived(answers.filter((a) => a.source === "auto").length);
 
   function startEdit(index: number) {
@@ -40,7 +40,7 @@
     error = "";
     try {
       const next = await amendReview(sessionId, index, answer.state_id,
-        prepared.value, state.review_revision);
+        prepared.value, sessionState.review_revision);
       editing = -1;
       onStateChange(next);
     } catch (e: any) {
@@ -56,7 +56,10 @@
     error = "";
     try {
       await confirmReview(sessionId);
-      await onComplete();
+      // The API has accepted the user's final approval.  Do not wait for the
+      // underlying Temporal execution to move from its terminal EndState to a
+      // transport-level CLOSED status before showing completion.
+      onStateChange({ ...sessionState, review_confirmed: true, review_required: false });
     } catch (e: any) {
       error = e.message || "Unable to finish reviewing your answers";
     } finally {

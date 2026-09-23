@@ -26,3 +26,26 @@ test('review preference must be acknowledged by the API at session start', () =>
   assert.equal(reviewAcknowledged(true, false), false);
   assert.equal(reviewAcknowledged(true, undefined), false);
 });
+
+test('terminal EndState review interrupts transport-level advancing state', () => {
+  const review = {
+    status: 'ADVANCING',
+    awaiting: null,
+    review_required: true,
+    review_ready: true,
+    review_confirmed: false,
+  };
+  assert.equal(waitForCompletion(review, true, 'final-token'), false);
+  assert.equal(sessionView('form', review), 'review');
+});
+
+test('confirmed terminal review can show completion before Temporal closes', () => {
+  const state = {
+    status: 'RUNNING',
+    awaiting: null,
+    review_required: false,
+    review_ready: true,
+    review_confirmed: true,
+  };
+  assert.equal(sessionView('review', state), 'complete');
+});

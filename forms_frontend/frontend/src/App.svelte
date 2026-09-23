@@ -182,7 +182,7 @@
     transitionPending = false;
     pendingPreviousToken = undefined;
     completionExpected = false;
-    view = updated.review_required ? "review" : updated.status === "COMPLETED" ? "complete" : "form";
+    view = sessionView("form", updated);
   }
 
   async function handleReviewToggle(checked: boolean) {

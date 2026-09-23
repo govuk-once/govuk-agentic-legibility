@@ -63,6 +63,12 @@ class FormSession:
     answer_history: list[AcceptedAnswer] = field(default_factory=list)
     review_before_submit: bool = False
     review_confirmed: bool = False
+    # True once the authoritative interpreter has reached a terminal EndState.
+    # This can precede Temporal reporting the execution as CLOSED by a short
+    # interval, and lets the browser render final review without waiting on
+    # transport-level completion.
+    review_ready: bool = False
+    review_terminal_outcome: str | None = None
     review_revision: int = 0
     review_replay_needs_input: bool = False
     # A completed Temporal execution cannot revert to an awaiting question.
