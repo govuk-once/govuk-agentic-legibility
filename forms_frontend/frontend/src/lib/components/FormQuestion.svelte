@@ -32,6 +32,7 @@
     awaiting: AwaitingInput;
     presentation: Presentation | null;
     pendingProposal: Proposal | null;
+    uploadMode?: "mock" | "local";
     policy: string;
     answeredCount: number;
     pendingTransition: boolean;
@@ -45,6 +46,7 @@
     awaiting,
     presentation,
     pendingProposal,
+    uploadMode = "mock",
     policy,
     answeredCount,
     pendingTransition,
@@ -222,7 +224,7 @@
     submitting = true;
     try {
       if (kind === "file_ref" && value instanceof File) {
-        submitValue = await uploadFile(sessionId, awaiting.token, value);
+        submitValue = await uploadFile(sessionId, awaiting.token, value, uploadMode);
       }
       const result = await submitAnswer(sessionId, awaiting.token, submitValue);
       if (result.status === "COMPLETED") {
@@ -397,7 +399,11 @@
           <input class="govuk-file-upload" type="file" id="question-input"
             onchange={(event) => { value = event.currentTarget.files?.[0] ?? null; }} />
           {#if isOptional}<p class="govuk-hint">You can skip this question.</p>{/if}
-          <p class="govuk-hint">Local prototype only: maximum 10 MiB. Use synthetic files.</p>
+          {#if uploadMode === "mock"}
+            <p class="govuk-hint">Preview only: your file will not be uploaded or stored. Only its size and type are recorded so you can continue through this form.</p>
+          {:else}
+            <p class="govuk-hint">Local development upload only: maximum 10 MiB. Use synthetic files.</p>
+          {/if}
         </div>
       {:else if answerType === "name"}
         <NameInput

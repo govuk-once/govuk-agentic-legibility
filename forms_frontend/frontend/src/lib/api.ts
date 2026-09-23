@@ -40,6 +40,7 @@ export interface SessionState {
   presentation: Presentation | null;
   form_metadata: FormMetadata;
   policy: string;
+  upload_mode?: "mock" | "local";
   auto_answered: AutoAnswered[];
   answered_count: number;
   answer_history: AcceptedAnswer[];
@@ -197,9 +198,20 @@ export async function submitAnswer(
 }
 
 export async function uploadFile(
-  sessionId: string, token: string, file: File
-): Promise<{ ref: string; bytes: number; content_type: string }> {
-  const response = await fetch(`/api/sessions/${sessionId}/files?token=${encodeURIComponent(token)}`, {
+  sessionId: string, token: string, file: File, mode: "mock" | "local" = "mock"
+): Promise<{ ref: string; bytes: number; content_type: string; mock?: boolean }> {
+  const path = `/api/sessions/${sessionId}/files?token=${encodeURIComponent(token)}`;
+  if (mode === "mock") {
+    // Preview mode NEVER transmits the File object or reads its contents.
+    // The server issues a session/token-bound reference to allow progression.
+    return request<{ ref: string; bytes: number; content_type: string; mock: boolean }>(
+      `/api/sessions/${sessionId}/files/mock?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+      body: JSON.stringify({ bytes: file.size, content_type: file.type || "application/octet-stream" }),
+    });
+  }
+  // Explicitly opt-in local development mode, for synthetic files only.
+  const response = await fetch(path, {
     method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" },
     body: file,
   });

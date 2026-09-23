@@ -55,6 +55,7 @@ No journey logic is duplicated.
 | PUT | `/api/sessions/{id}/policy` | Change interaction policy and final-review preference |
 | POST | `/api/sessions/{id}/review/amend` | Validate a review edit through a new Temporal workflow |
 | POST | `/api/sessions/{id}/review/confirm` | Accept the reviewed answers as final |
+| POST | `/api/sessions/{id}/files/mock?token=...` | Preview-only file metadata reference; does not upload bytes |
 | POST | `/api/sessions/{id}/files?token=...` | Opt-in local synthetic-file upload for an active file question |
 
 ### `frontend/` — GOV.UK Forms UI (Svelte + GOV.UK Frontend)
@@ -74,13 +75,20 @@ Renders form questions using GOV.UK Frontend components based on the
 - `organisation_name` → Text input
 - `number` → Numeric input
 - `boolean` → Yes / No radio buttons
-- `file_ref` → Opt-in local file upload (synthetic files only; max 10 MiB)
+- `file_ref` → Metadata-only mock by default; optional opt-in local upload (synthetic files only; max 10 MiB)
 
 ### Local file-upload testing
 
-The older `durable_poc/agent/chat.py` upload control sends filename, type and
-byte-count metadata, not actual file bytes. This frontend can store synthetic
-file bytes locally before submitting an opaque `file_ref` to Temporal. Opt in:
+By default the frontend uses **preview-only file selection**: it sends the
+selected file's size and MIME type (never its bytes or name) to the Forms API.
+The API creates an opaque, token-bound `mock://` reference which the normal
+Temporal interpreter accepts, allowing the user to proceed even with a
+required file question. Review labels these files **not uploaded**. This is
+only a journey preview: no file has reached a department and a mock reference
+must not be treated as a real attachment when implementing final submission.
+Optional file questions can still be skipped without selecting a file.
+
+To test *actual local storage* with synthetic files, explicitly opt in:
 
 ```bash
 FORMS_ENABLE_DEV_UPLOADS=1 \
@@ -88,11 +96,12 @@ FORMS_UPLOAD_DIR=/tmp/forms-synthetic-uploads \
 PYTHONPATH=durable_poc:. uv run python -m forms_frontend.api.main
 ```
 
-This is a local-only development feature, **not** production document storage.
-Only upload synthetic files. Uploaded files remain on disk until you delete
-them manually. The endpoint is disabled by default, restricted to loopback,
-and verifies the current Temporal input token. The API rejects invented file
-references that were not uploaded in the same session and question.
+Local byte storage is a development-only feature, **not** production document
+storage. Only upload synthetic files. Stored files remain on disk until you
+delete them manually. Real uploads are disabled by default and restricted to
+loopback. Both real and mock references are server-generated and bound to the
+same session and input token, so users cannot submit fabricated references.
+A server restarted with a different upload mode requires a fresh page refresh.
 
 ### Interaction Policies
 

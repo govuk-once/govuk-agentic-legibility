@@ -33,6 +33,9 @@ test('review shows safe upload metadata but never a file reference', () => {
   const upload = answer({ ref: 'opaque-secret', bytes: 128 }, 'file_ref');
   assert.equal(formatReviewValue(upload), 'Uploaded file (128 bytes)');
   assert.ok(!formatReviewValue(upload).includes('opaque-secret'));
+  const mock = answer({ ref: 'mock://private', bytes: 128, mock: true }, 'file_ref');
+  assert.equal(formatReviewValue(mock), 'File selected for preview (128 bytes; not uploaded)');
+  assert.ok(!formatReviewValue(mock).includes('mock://'));
 });
 
 test('review drafts do not mutate accepted array values', () => {

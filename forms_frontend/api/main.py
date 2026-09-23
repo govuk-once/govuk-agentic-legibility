@@ -22,7 +22,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from temporalio.client import Client as TemporalClient
 from temporalio.contrib.opentelemetry import TracingInterceptor
@@ -402,6 +402,13 @@ class SubmitAnswerRequest(BaseModel):
     value: Any
 
 
+class MockFileRequest(BaseModel):
+    """Metadata only: the browser never sends file bytes in preview mode."""
+
+    bytes: int = Field(gt=0, le=2**53 - 1)
+    content_type: str = Field(default="application/octet-stream", max_length=200)
+
+
 class ChatRequest(BaseModel):
     message: str
 
@@ -603,6 +610,7 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         "presentation": presentation,
         "form_metadata": session.form_metadata,
         "policy": session.policy.value,
+        "upload_mode": "local" if os.getenv("FORMS_ENABLE_DEV_UPLOADS") == "1" else "mock",
         "answered_count": len(session.accepted_tokens),
         "review_before_submit": session.review_before_submit,
         "review_required": review_required,
@@ -643,9 +651,35 @@ def _check_file_submission(session: FormSession, token: str, value: Any) -> None
     if not isinstance(value, dict):
         raise HTTPException(422, "Upload a file before submitting a file question")
     ref = value.get("ref")
-    recorded = session.uploaded_files.get(ref) if isinstance(ref, str) else None
+    is_mock = value.get("mock") is True
+    references = session.mock_files if is_mock else session.uploaded_files
+    recorded = references.get(ref) if isinstance(ref, str) else None
     if recorded != (token, value.get("bytes"), value.get("content_type")):
-        raise HTTPException(422, "File reference was not uploaded for this question")
+        raise HTTPException(422, "File reference was not issued for this question")
+
+
+@app.post("/api/sessions/{session_id}/files/mock")
+async def mock_file(session_id: str, request: MockFileRequest, token: str) -> dict[str, object]:
+    """Create a token-bound preview reference without receiving or storing bytes.
+
+    Preview references are conspicuously marked as NOT uploaded. They are for
+    running the SFSM journey only, not for departmental form submission.
+    """
+    if os.getenv("FORMS_ENABLE_DEV_UPLOADS") == "1":
+        raise HTTPException(409, "Mock uploads disabled while local uploads are enabled")
+    session = store.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    temporal = await get_temporal_client()
+    state = await tool_functions.get_workflow_state(
+        workflow_id=session.temporal_workflow_id, temporal_client=temporal)
+    awaiting = state.get("awaiting") or {}
+    if awaiting.get("token") != token or (awaiting.get("schema") or {}).get("kind") != "file_ref":
+        raise HTTPException(409, "Workflow is not awaiting this file input")
+    ref = f"mock://{session.session_id}/{uuid.uuid4().hex}"
+    content_type = request.content_type or "application/octet-stream"
+    session.mock_files[ref] = (token, request.bytes, content_type)
+    return {"ref": ref, "bytes": request.bytes, "content_type": content_type, "mock": True}
 
 
 @app.post("/api/sessions/{session_id}/files")
@@ -1236,10 +1270,14 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
                         raise HTTPException(409, "The replacement journey changed before the edited question")
                     break  # Different branch: ask user to answer the NEW question.
                 value = req.value if index == req.index else previous.value
-                # Only a recognised file_ref from the same session can be replayed.
+                # Only a recognised real or mock ref from the same session can
+                # be replayed; a mock is never represented as an uploaded file.
                 if (awaiting.get("schema") or {}).get("kind") == "file_ref" and value is not None:
-                    if not isinstance(value, dict) or value.get("ref") not in session.uploaded_files:
-                        raise HTTPException(409, "A previous file upload is no longer available")
+                    if not isinstance(value, dict):
+                        raise HTTPException(409, "A previous file reference is no longer available")
+                    references = session.mock_files if value.get("mock") is True else session.uploaded_files
+                    if value.get("ref") not in references:
+                        raise HTTPException(409, "A previous file reference is no longer available")
                 try:
                     initial = await tool_functions.submit_input(
                         workflow_id=new_id, token=awaiting["token"], value=value,

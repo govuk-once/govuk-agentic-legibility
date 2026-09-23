@@ -80,8 +80,10 @@ class FormSession:
     submission_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
     accepted_tokens: set[str] = field(default_factory=set)
     pending_submission_token: str | None = None
-    # Opaque local refs permitted for this session and current input token.
+    # Real local and metadata-only refs are issued separately, bound to one
+    # session and the current Temporal input token. No mock file bytes exist.
     uploaded_files: dict[str, tuple[str, int, str]] = field(default_factory=dict)
+    mock_files: dict[str, tuple[str, int, str]] = field(default_factory=dict)
 
 
 class SessionStore:

@@ -5,7 +5,9 @@ export function formatReviewValue(answer) {
     || (Array.isArray(value) && value.length === 0)) return "Not answered";
   if (value === true || value === false) return value ? "Yes" : "No";
   if (answer.schema.kind === "file_ref" && typeof value === "object") {
-    return `Uploaded file (${value.bytes ?? "?"} bytes)`;
+    return value.mock === true
+      ? `File selected for preview (${value.bytes ?? "?"} bytes; not uploaded)`
+      : `Uploaded file (${value.bytes ?? "?"} bytes)`;
   }
   if (answer.schema.kind === "select_one" || answer.schema.kind === "select_many") {
     const options = answer.schema.options ?? [];

@@ -499,6 +499,7 @@
               awaiting={sessionState.awaiting}
               presentation={sessionState.presentation}
               pendingProposal={sessionState.pending_proposal}
+              uploadMode={sessionState.upload_mode ?? "mock"}
               {policy}
               answeredCount={sessionState.answered_count ?? sessionState.auto_answered.length}
               pendingTransition={transitionPending}
