@@ -388,4 +388,15 @@ The S3 bucket name is resolved from AWS Systems Manager Parameter Store (`/durab
 | `python -m chat` | `chat.py` | **FastAPI Web App & WebSocket UI**: Launches the web application on `http://localhost:7860`. Serves the GOV.UK frontend and manages real-time agent/workflow streaming. |
 | `python -m src.demo` | `src/demo.py` | **Terminal CLI (Legacy)**: Interactive terminal CLI driving workflows directly via raw Temporal queries/updates without the agent layer. |
 
-```
+---
+
+## State Types Reference
+
+* **`input`**: Suspends the workflow and exposes an awaited schema. Resumes when a matching payload is submitted via Update. Supports timeouts and retry counts.
+* **`choice`**: Evaluates a list of rules (using operators like `eq`, `lt`, `is_true`, `not_empty`, `contains`) and branches execution.
+* **`assign`**: Mutates the current stack frame's variable context (including date math like `date_subtract` and arithmetic `add`).
+* **`call`**: Dispatches `http_call` activity with service validation, capture projections, error catches, and idempotency headers.
+* **`invoke`**: Pushes a sub-process stack frame onto the workflow call stack, binding inputs and catch routes.
+* **`output`**: Emits internal transcript messages or fires external notification activities.
+* **`wait`**: Durably sleeps the workflow for an ISO 8601 duration string (e.g., `PT5M`).
+* **`end`**: Terminates the current process frame with a status, outcome, and return payload.

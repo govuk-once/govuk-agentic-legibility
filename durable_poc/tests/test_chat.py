@@ -6,19 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from starlette.testclient import TestClient
 
-from agent.chat import app, clean_text_pipes, get_options_from_state
+from agent.chat import app, get_options_from_state
 
 
 # ---------------------------------------------------------------------------
 # Unit Tests for Helper Functions
 # ---------------------------------------------------------------------------
-
-
-def test_clean_text_pipes_removes_standalone_pipes() -> None:
-    """clean_text_pipes strips leading and trailing vertical pipe characters from text lines."""
-    raw_text = "| Welcome to GOV.UK |\n| Please confirm your address |"
-    cleaned = clean_text_pipes(raw_text)
-    assert cleaned == "Welcome to GOV.UK\nPlease confirm your address"
 
 
 def test_get_options_from_state_boolean() -> None:
@@ -77,7 +70,7 @@ def test_get_index_renders_html_interface() -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "GOV.UK Chat Assistant" in response.text
-    assert "Execution Event Trace" in response.text
+    assert "Execution Events" in response.text
     assert "workflow-picker" in response.text
 
 
@@ -85,15 +78,14 @@ def test_get_index_renders_html_interface() -> None:
 async def test_websocket_connection_and_trace_stream() -> None:
     """WebSocket accepts connections and broadcasts initial active workflow choices."""
     mock_agent = MagicMock()
-    mock_agent._get_temporal_client = AsyncMock()
 
     mock_polling_client = AsyncMock()
 
     # Patch agent_instance, polling client, and list_active_workflows to prevent gRPC hangs
     with (
-        patch("agent.chat.agent_instance", mock_agent),
+        patch("agent.chat.create_agent", return_value=mock_agent),
         patch("agent.chat._get_polling_client", AsyncMock(return_value=mock_polling_client)),
-        patch("agent.tools.list_active_workflows", AsyncMock(return_value=[])),
+        patch("agent.chat.tool_functions.list_active_workflows",AsyncMock(return_value=[]))
     ):
         client = TestClient(app)
         with client.websocket_connect("/ws") as websocket:

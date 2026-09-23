@@ -6,7 +6,6 @@ import asyncio
 import json
 import logging
 import os
-import re
 import uuid
 import uvicorn
 from datetime import datetime
@@ -27,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GOV.UK Chat Assistant")
 
-agent_instance: Any = None
 _polling_client: TemporalClient | None = None
 
 
@@ -38,14 +36,6 @@ async def _get_polling_client() -> TemporalClient:
         temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
         _polling_client = await TemporalClient.connect(temporal_address)
     return _polling_client
-
-
-def clean_text_pipes(text: str) -> str:
-    """Strip leading/trailing standalone vertical pipe characters from text lines."""
-    if not text:
-        return ""
-    lines = [re.sub(r"^\s*\|\s*|\s*\|\s*$", "", line) for line in text.splitlines()]
-    return "\n".join(lines).strip()
 
 
 def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
@@ -123,6 +113,31 @@ def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
     return {"kind": kind, "options": choices}
 
 
+def create_agent() -> WorkflowAgent:
+    workflow_server_url = os.environ.get(
+        "WORKFLOW_SERVER_URL",
+        "http://localhost:8080",
+    )
+    model_id = os.environ.get(
+        "BEDROCK_MODEL_ID",
+        "anthropic.claude-sonnet-4-6",
+    )
+    region_name = os.environ.get(
+        "AWS_REGION",
+        "eu-west-2",
+    )
+    temporal_address = os.environ.get(
+        "TEMPORAL_ADDRESS",
+        "localhost:7233",
+    )
+
+    return WorkflowAgent(
+        workflow_server_url=workflow_server_url,
+        model_id=model_id,
+        region_name=region_name,
+        temporal_address=temporal_address,
+    )
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -156,7 +171,7 @@ HTML_TEMPLATE = """
         .tag { background-color: #1d70b8; color: #fff; padding: 2px 8px; font-weight: bold; font-size: 14px; text-transform: uppercase; }
         .phase-banner { border-bottom: 1px solid #b1b4b6; padding-bottom: 10px; margin-bottom: 20px; }
         #chat-window { border: 2px solid #0b0c0c; background-color: #f8f8f8; height: 440px; overflow-y: auto; padding: 15px; margin-bottom: 15px; }
-        #trace-window { border: 2px solid #0b0c0c; background-color: #1e1e1e; color: #d4d4d4; font-family: monospace; height: 530px; overflow-y: auto; padding: 12px; font-size: 13px; }
+        #event-window { border: 2px solid #0b0c0c; background-color: #1e1e1e; color: #d4d4d4; font-family: monospace; height: 530px; overflow-y: auto; padding: 12px; font-size: 13px; }
         
         /* Preserve line breaks (\n) and whitespace inside message bubbles */
         .msg { 
@@ -230,9 +245,7 @@ HTML_TEMPLATE = """
             <div id="chat-window">
                 <div class="msg assistant">Hello, how can I help you today?</div>
             </div>
-            
-            <div id="completion-box"></div>
-            <div id="timeout-box"></div>
+
             <div id="options-box" class="options-container"></div>
             
             <div class="input-row">
@@ -244,8 +257,8 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="sidebar-container">
-            <h2>Execution Event Trace</h2>
-            <div id="trace-window"></div>
+            <h2>Execution Events</h2>
+            <div id="event-window"></div>
         </div>
     </div>
 
@@ -259,10 +272,8 @@ HTML_TEMPLATE = """
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const ws = new WebSocket(`${protocol}//${location.host}/ws`);
         const chatWindow = document.getElementById("chat-window");
-        const traceWindow = document.getElementById("trace-window");
+        const eventWindow = document.getElementById("event-window");
         const optionsBox = document.getElementById("options-box");
-        const timeoutBox = document.getElementById("timeout-box");
-        const completionBox = document.getElementById("completion-box");
         const userInput = document.getElementById("user-input");
         const submitBtn = document.getElementById("submit-btn");
         const workflowPicker = document.getElementById("workflow-picker");
@@ -276,14 +287,10 @@ HTML_TEMPLATE = """
                 appendMessage(data.role, data.text);
             } else if (data.type === "options") {
                 renderOptions(data.options, data.kind);
-            } else if (data.type === "timeout") {
-                renderTimeout(data.seconds);
-            } else if (data.type === "completed") {
-                renderCompletion(data.status);
             } else if (data.type === "active_workflows") {
                 populateWorkflowPicker(data.workflows);
-            } else if (data.type === "trace") {
-                appendTrace(data.category, data.summary, data.detail, data.timestamp);
+            } else if (data.type === "event") {
+                appendEvent(data.category, data.summary, data.detail, data.timestamp);
             }
         };
 
@@ -295,9 +302,9 @@ HTML_TEMPLATE = """
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
-        function appendTrace(category, summary, detail, timestamp) {
+        function appendEvent(category, summary, detail, timestamp) {
             const div = document.createElement("div");
-            div.className = "trace-entry";
+            div.className = "event-entry";
             div.innerHTML = `
                 <div class="trace-header">
                     <span class="trace-badge badge-${category}">${category}</span>
@@ -306,8 +313,8 @@ HTML_TEMPLATE = """
                 <div><strong>${summary}</strong></div>
                 <div class="trace-body">${detail ? (typeof detail === 'object' ? JSON.stringify(detail, null, 2) : detail) : ''}</div>
             `;
-            traceWindow.appendChild(div);
-            traceWindow.scrollTop = traceWindow.scrollHeight;
+            eventWindow.appendChild(div);
+            eventWindow.scrollTop = eventWindow.scrollHeight;
         }
 
         function renderOptions(options, kind) {
@@ -356,23 +363,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        function renderTimeout(seconds) {
-            if (seconds) {
-                const mins = Math.ceil(seconds / 60);
-                timeoutBox.innerHTML = `<div class="timeout-badge">⏱ Please respond within ${mins} minute(s)</div>`;
-            } else {
-                timeoutBox.innerHTML = "";
-            }
-        }
-
-        function renderCompletion(status) {
-            completionBox.innerHTML = `<div class="completion-card">🏁 Workflow Completed (Status: ${status || 'SUCCESS'})</div>`;
-            userInput.disabled = true;
-            submitBtn.disabled = true;
-            optionsBox.innerHTML = "";
-            timeoutBox.innerHTML = "";
-        }
-
         function populateWorkflowPicker(workflows) {
             workflowPicker.innerHTML = '<option value="">-- Select Active Workflow --</option>';
             workflows.forEach(wf => {
@@ -405,7 +395,6 @@ HTML_TEMPLATE = """
             ws.send(JSON.stringify({ message: text }));
             userInput.value = "";
             optionsBox.innerHTML = "";
-            timeoutBox.innerHTML = "";
         }
 
         function sendMessage() {
@@ -430,7 +419,9 @@ async def get_index() -> HTMLResponse:
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
 
+    agent = create_agent()
     session_id = str(uuid.uuid4())
+    logger.info("Created agent=%s session=%s", id(agent), session_id)
     session_id_var.set(session_id)
     ctx = baggage.set_baggage("session_id", session_id)
     token = attach(ctx)
@@ -442,12 +433,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     last_seen_index = 0
     handled_tokens: set[str] = set()
 
-    async def emit_trace(category: str, summary: str, detail: Any = None) -> None:
+    async def emit_event(category: str, summary: str, detail: Any = None) -> None:
         try:
             ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             await websocket.send_json(
                 {
-                    "type": "trace",
+                    "type": "event",
                     "category": category,
                     "summary": summary,
                     "detail": detail,
@@ -459,7 +450,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     async def refresh_active_workflows() -> None:
         """Send list of active workflows to dropdown picker."""
-        if not agent_instance:
+        if not agent:
             return
         try:
             polling_client = await _get_polling_client()
@@ -481,14 +472,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         while True:
             try:
                 await asyncio.sleep(0.5)
-                if session_state and session_state.get("workflow_id"):
-                    new_wf_id = session_state.get("workflow_id")
-                    if new_wf_id != active_workflow_id:
-                        active_workflow_id = new_wf_id
-                        last_seen_index = 0
-                        handled_tokens.clear()
 
-                if not active_workflow_id or not agent_instance:
+                if not active_workflow_id or not agent:
                     continue
 
                 try:
@@ -507,21 +492,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 token = awaiting.get("token") if awaiting else None
 
                 execution_status = updated_state.get("status", "RUNNING")
-                if not awaiting and execution_status in (
-                    "COMPLETED",
-                    "FAILED",
-                    "TERMINATED",
-                ):
-                    await websocket.send_json(
-                        {"type": "completed", "status": execution_status}
-                    )
-                    await emit_trace(
-                        "ENGINE",
-                        "Workflow Execution Completed",
-                        {"status": execution_status},
-                    )
-                    active_workflow_id = None
-                    return
 
                 if current_len > last_seen_index:
                     for idx in range(last_seen_index, current_len):
@@ -531,10 +501,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                             if isinstance(entry, dict)
                             else getattr(entry, "message", "")
                         )
-                        clean_msg = clean_text_pipes(msg_text)
+                        clean_msg = msg_text
 
                         if clean_msg.startswith("[ENGINE LOG]"):
-                            await emit_trace(
+                            await emit_event(
                                 "ENGINE",
                                 "FSM Execution Event",
                                 clean_msg.replace("[ENGINE LOG]", "").strip(),
@@ -547,16 +517,35 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                                     "text": clean_msg,
                                 }
                             )
-                            await emit_trace(
+                            await emit_event(
                                 "ENGINE", "OutputState Transcript Emitted", clean_msg
                             )
 
                     last_seen_index = current_len
+                
+                if not awaiting and execution_status in (
+                    "COMPLETED",
+                    "FAILED",
+                    "TERMINATED",
+                ):
+                    await emit_event(
+                        "ENGINE",
+                        "Workflow Execution Completed",
+                        {"status": execution_status},
+                    )
+                    active_workflow_id = None
+                    session_state = None
+                    agent._session_state = None
+                    last_seen_index = 0
+                    handled_tokens.clear()
+
+                    await refresh_active_workflows()
+                    continue
 
                 if token and token not in handled_tokens:
                     handled_tokens.add(token)
                     prompt_text = awaiting.get("prompt", "")
-                    clean_prompt = clean_text_pipes(prompt_text)
+                    clean_prompt = prompt_text
                     if clean_prompt:
                         await websocket.send_json(
                             {
@@ -565,7 +554,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                                 "text": clean_prompt,
                             }
                         )
-                        await emit_trace(
+                        await emit_event(
                             "ENGINE",
                             f"Awaiting InputState [{token}]",
                             {
@@ -583,11 +572,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         }
                     )
 
-                    timeout_secs = awaiting.get("timeout_seconds")
-                    await websocket.send_json(
-                        {"type": "timeout", "seconds": timeout_secs}
-                    )
-
             except WebSocketDisconnect:
                 break
             except Exception as e:
@@ -602,21 +586,21 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
             if payload.get("action") == "resume":
                 resume_id = payload.get("workflow_id")
-                if resume_id and agent_instance:
+                if resume_id and agent:
                     active_workflow_id = resume_id
                     workflow_id_var.set(resume_id)
-                    await emit_trace("USER", "Resuming Selected Workflow", resume_id)
+                    await emit_event("USER", "Resuming Selected Workflow", resume_id)
                     polling_client = await _get_polling_client()
                     session_state = await tool_functions.get_workflow_state(
                         workflow_id=resume_id, temporal_client=polling_client
                     )
-                    agent_instance._update_session_state(resume_id, session_state)
+                    agent._update_session_state(resume_id, session_state)
                     last_seen_index = 0
                     handled_tokens.clear()
                 continue
 
             user_msg = payload.get("message", "").strip()
-            if not user_msg or not agent_instance:
+            if not user_msg or not agent:
                 continue
 
             if active_workflow_id:
@@ -630,7 +614,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     "user_message_preview": user_msg[:100],
                 },
             ):
-                await emit_trace("USER", "Submitted Natural Language Input", user_msg)
+                await emit_event("USER", "Submitted Natural Language Input", user_msg)
 
                 prev_token = (
                     session_state.get("awaiting", {}).get("token")
@@ -638,15 +622,36 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     else None
                 )
 
-                await emit_trace("AGENT", "Invoking Bedrock LLM with user context...")
-                agent_response = await agent_instance.respond(
-                    user_msg, context=session_state, on_trace=emit_trace
+                await emit_event("AGENT", "Invoking Bedrock LLM with user context...")
+                logger.info("agent=%s workflow=%s", id(agent), active_workflow_id)
+                agent_response = await agent.respond(
+                    user_msg, context=session_state, on_trace=emit_event
                 )
-                session_state = getattr(agent_instance, "session_state", session_state)
+                logger.info("Agent response text=%r", agent_response)
+
+                session_state = getattr(agent, "session_state", session_state)
+
+                workflow_started = (session_state and session_state.get("workflow_id"))
+
+                if (agent_response and agent_response.strip() and not workflow_started
+                ):
+                    await websocket.send_json(
+                        {
+                            "type": "message",
+                            "role": "assistant",
+                            "text": agent_response,
+                        }
+                    )
 
                 if session_state and session_state.get("workflow_id"):
-                    active_workflow_id = session_state.get("workflow_id")
-                    workflow_id_var.set(active_workflow_id)
+                    new_workflow_id = session_state.get("workflow_id")
+
+                    if new_workflow_id != active_workflow_id:
+                        active_workflow_id = new_workflow_id
+                        workflow_id_var.set(active_workflow_id)
+
+                        last_seen_index = 0
+                        handled_tokens.clear()
 
                 new_token = (
                     session_state.get("awaiting", {}).get("token")
@@ -661,7 +666,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     and agent_response
                     and agent_response.strip()
                 ):
-                    clean_warning = clean_text_pipes(agent_response)
+                    clean_warning = agent_response
                     if clean_warning:
                         await websocket.send_json(
                             {
@@ -670,7 +675,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                                 "text": clean_warning,
                             }
                         )
-                        await emit_trace(
+                        await emit_event(
                             "AGENT", "Agent emitted validation warning text", clean_warning
                         )
 
@@ -701,22 +706,8 @@ def main() -> None:
         datefmt="%H:%M:%S",
     )
 
-    global agent_instance
-
     provider = create_agent_provider(session_processor=session_processor)
     trace.set_tracer_provider(provider)
-
-    workflow_server_url = os.environ.get("WORKFLOW_SERVER_URL", "http://localhost:8080")
-    model_id = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6")
-    region_name = os.environ.get("AWS_REGION", "eu-west-2")
-    temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
-
-    agent_instance = WorkflowAgent(
-        workflow_server_url=workflow_server_url,
-        model_id=model_id,
-        region_name=region_name,
-        temporal_address=temporal_address,
-    )
 
     uvicorn.run(app, host="0.0.0.0", port=7860)
 
