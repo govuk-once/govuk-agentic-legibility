@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FormMetadata, AutoAnswered } from "../api";
   import AutoProgressLog from "./AutoProgressLog.svelte";
+  import { marked } from "marked"; // 1. Import marked
 
   interface Props {
     metadata: FormMetadata | null;
@@ -11,9 +12,17 @@
   }
 
   let { metadata, transcript = [], result = null, autoAnswered = [], onBack }: Props = $props();
+  
   const exitMessage = $derived(result?.outcome === "exit_page"
     ? [...transcript].reverse().find(entry => entry.message && !entry.message.startsWith("[ENGINE LOG]"))?.message
     : null);
+
+  // 2. Derive the parsed HTML string
+  const whatHappensNextHtml = $derived(
+    metadata?.what_happens_next_markdown 
+      ? marked.parse(metadata.what_happens_next_markdown) 
+      : ""
+  );
 </script>
 
 <div class="govuk-panel govuk-panel--confirmation">
@@ -30,8 +39,11 @@
 {#if exitMessage}
   <div class="govuk-inset-text" style="white-space: pre-wrap;">{exitMessage}</div>
 {:else if metadata?.what_happens_next_markdown}
-  <h2 class="govuk-heading-m">Original form: what happens next</h2>
-  <p class="govuk-body">{metadata.what_happens_next_markdown}</p>
+  <h2 class="govuk-heading-m">What happens next</h2>
+  <!-- 3. Render using {@html}. Use a <div> instead of <p> because marked outputs <p> tags by default -->
+  <div class="govuk-body">
+    {@html whatHappensNextHtml}
+  </div>
 {/if}
 
 {#if metadata?.support_url}
