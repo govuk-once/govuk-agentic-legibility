@@ -5,16 +5,15 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
 
 _repo = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_repo / "durable_poc"))
 
-from forms_frontend.api.proposals import (
-    _coerce_proposal_value,
-    _parse_proposal_response,
-)
-
+from forms_frontend.api.proposals import ( # noqa: E402
+    _coerce_proposal_value, # noqa: E402
+    _parse_proposal_response, # noqa: E402
+    propose_answer, # noqa: E402
+) # noqa: E402
 
 # =====================================================================
 # Coercion
@@ -203,3 +202,16 @@ def test_form_2130_has_conditional_branches(form_2130_definition):
     assert route2["rules"][0]["when"]["op"] == "eq"
     assert route2["rules"][0]["when"]["value"] == "A friend, relative or work colleague"
     assert route2["rules"][0]["next"] == "31pMZdRv"
+
+
+@pytest.mark.asyncio # noqa: F821
+async def test_repeat_control_never_auto_answers_without_explicit_runtime_context():
+    result = await propose_answer(
+        conversation_history=[{"role": "user", "content": "I have two sites: London and Leeds"}],
+        awaiting={
+            "prompt": "Do you want to add another answer?",
+            "schema": {"kind": "boolean", "presentation": {"repeat_control": True}},
+        },
+    )
+    assert result["has_answer"] is False
+    assert result["value"] is None

@@ -3,7 +3,7 @@
 from datetime import timedelta
 import pytest
 
-from src.paths import interpolate, parse_duration, resolve_dict, resolve_path
+from src.paths import append_path, interpolate, parse_duration, resolve_dict, resolve_path
 from src.predicates import evaluate
 
 
@@ -47,3 +47,22 @@ def test_resolve_dict() -> None:
 def test_interpolate() -> None:
     ctx = {"workflow_id": "123", "step": 5}
     assert interpolate("key:{{workflow_id}}:{{step}}", ctx) == "key:123:5"
+
+
+def test_append_path_creates_list_and_preserves_prior_values():
+    context = {"answers": {}, "repeat": {"current": ["x", "y"]}}
+    append_path(context, "answers.sites", context["repeat"]["current"])
+    first = context["answers"]["sites"]
+    append_path(context, "answers.sites", ["z"])
+    assert context["answers"]["sites"] == [["x", "y"], ["z"]]
+    assert first == [["x", "y"]]  # A new list; never mutate the original.
+    assert context["answers"]["sites"] is not first
+
+
+def test_append_path_rejects_non_list_and_missing_value():
+    context = {"answers": {"sites": "existing"}}
+    with pytest.raises(ValueError, match="must be a list"):
+        append_path(context, "answers.sites", "new")
+    assert context["answers"]["sites"] == "existing"
+    with pytest.raises(ValueError, match="resolved no value"):
+        append_path({"answers": {}}, "answers.sites", None)

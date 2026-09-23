@@ -99,6 +99,10 @@ async def propose_answer(
     """
     prompt_text = awaiting.get("prompt", "")
     schema = awaiting.get("schema", {})
+    presentation = schema.get("presentation") or {}
+    if presentation.get("repeat_control") is True:
+        return {"has_answer": False, "value": None,
+                "explanation": "Confirm whether another repeated answer is needed."}
     if schema.get("kind") == "file_ref":
         return {"has_answer": False, "value": None,
                 "explanation": "Upload the file, or skip this optional question."}
@@ -133,7 +137,7 @@ def _parse_proposal_response(
     text = response.strip()
     if text.startswith("```"):
         lines = text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [l for l in lines if not l.strip().startswith("```")] # noqa: E741
         text = "\n".join(lines).strip()
 
     try:

@@ -71,6 +71,6 @@ def _parse_date(val: Any) -> datetime | None:
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y %H:%M:%S"):
         try:
             return datetime.strptime(val_str, fmt)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             pass
     return None

@@ -17,8 +17,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.model import ChoiceState, EndState, InputState, OutputState, SFSMDefinition
-from src.paths import set_path
+from src.model import AssignState, ChoiceState, EndState, InputState, OutputState, SFSMDefinition
+from src.paths import append_path, resolve_path, set_path
 from src.predicates import evaluate
 
 DEFAULT_DIRECTORY = Path(__file__).resolve().parents[2] / "compiled_forms"
@@ -31,6 +31,7 @@ class PreviewRun:
     answers: dict[str, Any] = field(default_factory=dict)
     terminal: bool = False
     transcript: list[str] = field(default_factory=list)
+    repeat: dict[str, Any] = field(default_factory=dict)
 
     def current(self) -> dict[str, Any]:
         process = self.definition.processes[self.definition.entry]
@@ -41,8 +42,16 @@ class PreviewRun:
             seen.add(self.state_id)
             state = process.states[self.state_id]
             if isinstance(state, ChoiceState):
-                context = {"answers": self.answers}
+                context = {"answers": self.answers, "repeat": getattr(self, "repeat", {})}
                 self.state_id = next((rule.next for rule in state.rules if evaluate(rule.when, context)), state.default)
+            elif isinstance(state, AssignState):
+                context = {"answers": self.answers, "repeat": getattr(self, "repeat", {})}
+                for path, expression in state.set.items():
+                    if not isinstance(expression, dict) or expression.get("op") != "append":
+                        raise ValueError(f"unsupported preview assignment at {self.state_id}")
+                    value = resolve_path(context, expression.get("value_path", ""))
+                    append_path(context, path, value)
+                self.state_id = state.next
             elif isinstance(state, OutputState):
                 if state.channel != "transcript":
                     raise ValueError(f"unsupported preview output channel {state.channel!r}")
@@ -137,7 +146,7 @@ class PreviewRun:
                 raise ValueError("Select one or more available options")
         else:
             raise ValueError(f"unsupported preview schema kind {schema.kind}")
-        set_path({"answers": self.answers}, state.assign, value)
+        set_path({"answers": self.answers, "repeat": self.repeat}, state.assign, value)
         self.state_id = state.next
         return self.current()
 

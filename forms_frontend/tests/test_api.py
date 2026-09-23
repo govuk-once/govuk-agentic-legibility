@@ -5,13 +5,10 @@ These tests mock Temporal and Bedrock — no live services required.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-import pytest
 
 _repo = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_repo / "durable_poc"))

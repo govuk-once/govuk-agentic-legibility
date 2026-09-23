@@ -2,7 +2,7 @@
 
 This adapter compiles exported Forms **into the repository's existing `sfsm/0.2`
 model**, keeping question collection separate from frontend presentation. It does not
-change the Temporal interpreter except for optional `file_ref` skips, submit a form, take payment, upload file *bytes* or
+change the Temporal interpreter beyond a generic list-append operation, submit a form, take payment, upload file *bytes* or
 involve an LLM. Use **synthetic answers only** in the local preview: values remain
 in process memory, and there is no authentication or persistence.
 
@@ -63,7 +63,7 @@ an isolated preview API; the existing DVLA/Flex API on port 8001 is unchanged.
   headings, question text, hints, guidance and answer settings are retained in the
   input's `schema.presentation` metadata. The web preview displays guidance as
   preformatted Markdown source, not rendered HTML.
-* **One input state per Forms question**, keeping the original step ID. Ordinary
+* **One input state per non-repeatable Forms question**, keeping the original step ID. Ordinary
   answers (including names, UK/international addresses, telephone numbers, dates,
   NINOs and previously unseen scalar types) become unrestricted `string` inputs.
   `schema.presentation` retains all original Forms `answer_type`, `answer_settings`,
@@ -96,14 +96,43 @@ an isolated preview API; the existing DVLA/Flex API on port 8001 is unchanged.
   `null`, or answered with a valid uploaded reference. The new `forms_frontend`
   has an opt-in local synthetic-file uploader; the compiler itself stores no
   bytes. Multiple-file inputs are still unsupported.
-* Omitted/null `is_optional` and `is_repeatable` are interpreted as `false`;
-  explicit repeatability remains unsupported and prevents compilation. Payments
-  are flagged `preview_only`; repeatable questions and malformed routing remain
-  unsupported. Declarations
+* Omitted/null `is_optional` and `is_repeatable` are interpreted as `false`.
+  Required repeatable questions without routing compile to ordinary SFSM input,
+  assign and choice states. The original input is revisited for each answer;
+  a generic `append` assignment stores all answers, in order, at
+  `answers.<step_id>`, and a synthetic boolean "Do you want to add another
+  answer?" input controls the loop. Temporal still issues a fresh token for
+  every revisit. Selections retain their type, including list-valued
+  `select_many` answers. Addresses retain the adapter's *existing* one-string
+  representation and source presentation settings, rather than gaining new
+  structured address fields in this increment. Optional repeatables and any
+  routing from or referring to repeatable answers remain unsupported and fail
+  compilation. The export does not specify repetition limits, so the generated
+  loop has no maximum. Automatic proposals hand repeat-loop control to a user
+  rather than guessing when all answers have been supplied. Payments are flagged
+  `preview_only`; malformed routing remains unsupported. Declarations
   and `what_happens_next` are metadata only; `end_form` means **answers collected**,
   not submitted or paid for.
 * The preview runner is deliberately not a Temporal implementation: it supports the
-  adapter's input/choice/output/end subset using the **real SFSM model and predicates**.
+  adapter's input/assign/choice/output/end subset using the **real SFSM model and predicates**.
   Running the full Temporal workflow requires the project's Temporal environment.
 
 Run focused tests from `durable_poc` with `python -m pytest forms_adapter/tests -q`.
+
+For Form 691, both `NhGF9hjQ` (establishment address, via the existing address
+string input) and `S1vHVvFS` (per-site redundancy count, text) become loops.
+Batch compilation continues to reject unsupported repeatable combinations.
+
+To run the focused suite locally (not required to apply the patch):
+
+```sh
+cd durable_poc
+python -m pytest forms_adapter/tests tests/test_pure.py -q
+cd ..
+python -m pytest forms_frontend/tests/test_proposals.py -q
+```
+
+A full Temporal integration run additionally requires the project's Temporal
+Python dependencies and the Temporal CLI binary, then `cd durable_poc &&
+python -m pytest forms_adapter/tests/test_repeatable_temporal.py -q`. The local preview tests are **not**
+a substitute for a running Temporal worker.

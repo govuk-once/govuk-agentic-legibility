@@ -11,7 +11,6 @@ import asyncio
 import json
 import logging
 import os
-import sys
 import tempfile
 import uuid
 import ipaddress
@@ -348,12 +347,16 @@ def _lookup_state_presentation(
 def _review_is_safe(definition: dict[str, Any]) -> bool:
     """Do not replay journeys with non-idempotent actions or sub-processes.
 
-    Compiled Forms in this POC use only input/choice/output/end. Review is
-    offered only for these journeys; future departmental actions need an
+    Compiled Forms in this POC use input/choice/output/end and pure append
+    assignments for repeatable questions. Review remains unavailable for
+    arbitrary assignments and future departmental actions need an
     explicit pre-submission gate rather than replaying side effects.
     """
     return all(
         state.get("type") in {"input", "choice", "end"}
+        or (state.get("type") == "assign" and state.get("set")
+            and all(isinstance(expr, dict) and expr.get("op") == "append"
+                    for expr in state["set"].values()))
         or (state.get("type") == "output" and state.get("channel") == "transcript")
         for proc in definition.get("processes", {}).values()
         for state in proc.get("states", {}).values()

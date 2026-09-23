@@ -201,7 +201,7 @@ def test_multi_select_contains_and_skip_to_end():
 
 
 @pytest.mark.parametrize("mutation,reason", [
-    (lambda f: f["content"]["steps"][0]["data"].update(is_repeatable=True), "repeatable"),
+    (lambda f: f["content"]["steps"][0]["data"].update(is_repeatable="yes"), "is_repeatable"),
     (lambda f: f["content"]["steps"][0].update(exit_pages=[{"id": 1}]), "exit_pages"),
     (lambda f: f["content"]["steps"][0].update(next_step_id="unknown"), "unknown"),
     (lambda f: f["content"]["steps"][3]["routing_conditions"][0].update(goto_page_id="unknown"), "unknown"),
@@ -302,15 +302,15 @@ def test_ambiguous_non_routed_selection_is_rejected():
         compile_form(fixture)
 
 
-def test_null_boolean_flags_default_to_false_but_true_repeatable_still_rejected():
+def test_null_boolean_flags_default_to_false_and_true_repeatable_is_supported():
     fixture = export("6")
     question = fixture["content"]["steps"][0]
     question["data"]["is_optional"] = None
     question["data"]["is_repeatable"] = None
     assert SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states[question["id"]].schema_.kind == "string"
     question["data"]["is_repeatable"] = True
-    with pytest.raises(UnsupportedForm, match="repeatable"):
-        compile_form(fixture)
+    states = SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states
+    assert states[question["id"]].next == f"{question['id']}__append"
 
 
 def test_batch_compilation_continues_past_unsupported(tmp_path):
@@ -321,6 +321,7 @@ def test_batch_compilation_continues_past_unsupported(tmp_path):
         (source / f"{form_id}.json").write_text((FIXTURES / f"{form_id}.json").read_text())
     bad = export("6")
     bad["content"]["steps"][0]["data"]["is_repeatable"] = True
+    bad["content"]["steps"][0]["data"]["is_optional"] = True
     (source / "bad.json").write_text(json.dumps(bad))
     output.mkdir()
     (output / "bad.json").write_text("STALE UNSUPPORTED DEFINITION")
@@ -445,3 +446,94 @@ def test_payment_report_distinguishes_preview_only(tmp_path):
                              capture_output=True, text=True, cwd=FIXTURES.parents[2])
     assert process.returncode == 0, process.stderr
     assert json.loads(report.read_text())[0]["status"] == "preview_only"
+
+
+def test_repeatable_question_compiles_to_native_sfsm_loop_and_validates():
+    definition = compiled("repeatable")
+    states = definition.processes["main"].states
+    original = states["site"]
+    assert original.assign == "repeat.site.current"
+    assert original.next == "site__append"
+    assert states["site__append"].set == {
+        "answers.site": {"op": "append", "value_path": "repeat.site.current"}
+    }
+    assert states["site__append"].next == "site__more"
+    assert states["site__more"].schema_.kind == "boolean"
+    assert states["site__more"].schema_.model_extra["presentation"]["repeat_control"] is True
+    assert states["site__repeat_route"].rules[0].when == {
+        "op": "is_true", "path": "repeat.site.more"
+    }
+    assert states["site__repeat_route"].rules[0].next == "site"
+    assert states["site__repeat_route"].default == "count"
+
+
+@pytest.mark.parametrize("values", [
+    ["1 Alpha Road, London"],
+    ["1 Alpha Road, London", "2 Beta Road, Leeds"],
+    ["1 Alpha Road, London", "2 Beta Road, Leeds", "3 Gamma Road, Cardiff"],
+])
+def test_repeatable_question_collects_every_answer_in_order(values):
+    run = start("repeatable")
+    first_token_like_visit = run.state_id
+    assert first_token_like_visit == "site"
+    for index, value in enumerate(values):
+        result = answer(run, "site", value)
+        assert result["interaction"]["id"] == "site__more"
+        result = answer(run, "site__more", index < len(values) - 1)
+        if index < len(values) - 1:
+            assert result["interaction"]["id"] == "site"
+        else:
+            assert result["interaction"]["id"] == "count"
+    assert run.answers["site"] == values
+    assert answer(run, "count", "42")["terminal"]
+
+
+def test_repeatable_invalid_answer_is_rejected_without_appending():
+    run = start("repeatable")
+    with pytest.raises(ValueError, match="Enter a value"):
+        answer(run, "site", None)
+    assert "site" not in run.answers
+    assert run.state_id == "site"
+
+
+def test_repeatable_selection_preserves_each_typed_answer():
+    fixture = export("repeatable")
+    q = fixture["content"]["steps"][0]
+    q["data"]["answer_type"] = "selection"
+    q["data"]["answer_settings"] = {
+        "only_one_option": "true",
+        "selection_options": [
+            {"name": "London", "value": "london"},
+            {"name": "Leeds", "value": "leeds"},
+        ],
+    }
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    run = PreviewRun(definition, definition.processes[definition.entry].start)
+    answer(run, "site", "london")
+    answer(run, "site__more", True)
+    answer(run, "site", "leeds")
+    answer(run, "site__more", False)
+    assert run.answers["site"] == ["london", "leeds"]
+
+
+def test_optional_repeatable_is_rejected_conservatively():
+    fixture = export("repeatable")
+    fixture["content"]["steps"][0]["data"]["is_optional"] = True
+    with pytest.raises(UnsupportedForm, match="optional repeatable"):
+        compile_form(fixture)
+
+
+def test_routing_on_or_from_repeatable_answer_is_rejected_conservatively():
+    fixture = export("repeatable")
+    fixture["content"]["steps"][0]["routing_conditions"] = [
+        {"answer_value": "x", "goto_page_id": "count", "skip_to_end": False}
+    ]
+    with pytest.raises(UnsupportedForm, match="routing on a repeatable"):
+        compile_form(fixture)
+
+    fixture = export("repeatable")
+    fixture["content"]["steps"][1]["routing_conditions"] = [
+        {"check_page_id": "site", "routing_page_id": "count", "answer_value": "x", "skip_to_end": True}
+    ]
+    with pytest.raises(UnsupportedForm, match="depend on repeatable"):
+        compile_form(fixture)

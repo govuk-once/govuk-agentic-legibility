@@ -57,9 +57,6 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
                 data[flag] = False
             elif not isinstance(value, bool):
                 _unsupported(where, f"{flag} must be a boolean or null")
-        # One input state cannot implement the Forms "add another" loop.
-        if data["is_repeatable"]:
-            _unsupported(where, "repeatable question is not implemented")
         sid = item.get("id")
         if not isinstance(sid, str) or not sid or sid in seen or "__" in sid:
             _unsupported(where, "missing, duplicate or reserved step ID")
@@ -195,6 +192,7 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
     ids = {question.id for question in questions}
     states: dict[str, dict[str, Any]] = {}
     already_asked: set[str] = set()
+    repeatable_ids = {question.id for question in questions if question.data.get("is_repeatable")}
     for question in questions:
         where = f"step {question.id}"
         exit_pages: dict[Any, dict[str, Any]] = {}
@@ -208,12 +206,69 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                 _unsupported(where, f"duplicate exit_page id {page_id!r}")
             exit_pages[page_id] = page
         used_exits: set[Any] = set()
+        is_repeatable = bool(question.data.get("is_repeatable"))
+        if is_repeatable and question.data.get("is_optional"):
+            _unsupported(where, "optional repeatable questions are not yet supported")
+        if is_repeatable and question.routing:
+            _unsupported(where, "routing on a repeatable question is not yet supported")
+
         after = f"{question.id}__route" if question.routing else (question.next_id or "end_form")
-        states[question.id] = {
-            "type": "input", "prompt": question.data["question_text"],
-            "schema": _schema(question), "assign": f"answers.{question.id}",
-            "next": after,
-        }
+        if is_repeatable:
+            current_path = f"repeat.{question.id}.current"
+            more_path = f"repeat.{question.id}.more"
+            states[question.id] = {
+                "type": "input", "prompt": question.data["question_text"],
+                "schema": _schema(question), "assign": current_path,
+                "next": f"{question.id}__append",
+            }
+            states[f"{question.id}__append"] = {
+                "type": "assign",
+                "set": {f"answers.{question.id}": {"op": "append", "value_path": current_path}},
+                "next": f"{question.id}__more",
+            }
+            more_presentation = {
+                "source": "govuk_forms_adapter",
+                "step_id": f"{question.id}__more",
+                "position": question.position,
+                "question_text": "Do you want to add another answer?",
+                "page_heading": None,
+                "hint_text": None,
+                "guidance_markdown": None,
+                "answer_type": "selection",
+                "answer_settings": {
+                    "only_one_option": "true",
+                    "selection_options": [
+                        {"name": "Yes", "value": "Yes"},
+                        {"name": "No", "value": "No"},
+                    ],
+                },
+                "is_optional": False,
+                "is_repeatable": False,
+                "field": None,
+                "field_label": None,
+                "required": True,
+                "is_first_field": True,
+                "repeat_for_step_id": question.id,
+                "repeat_control": True,
+            }
+            states[f"{question.id}__more"] = {
+                "type": "input",
+                "prompt": "Do you want to add another answer?",
+                "schema": {"kind": "boolean", "presentation": more_presentation},
+                "assign": more_path,
+                "next": f"{question.id}__repeat_route",
+            }
+            states[f"{question.id}__repeat_route"] = {
+                "type": "choice",
+                "rules": [{"when": {"op": "is_true", "path": more_path}, "next": question.id}],
+                "default": after,
+            }
+        else:
+            states[question.id] = {
+                "type": "input", "prompt": question.data["question_text"],
+                "schema": _schema(question), "assign": f"answers.{question.id}",
+                "next": after,
+            }
         if question.routing:
             rules = []
             unconditional: str | None = None
@@ -226,6 +281,8 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                 check_id = condition.get("check_page_id") or question.id
                 if check_id != question.id and check_id not in already_asked:
                     _unsupported(where, "cross-page condition must check a preceding question")
+                if check_id in repeatable_ids:
+                    _unsupported(where, "routing conditions cannot yet depend on repeatable answers")
                 if condition.get("validation_errors"):
                     _unsupported(where, "routing condition contains validation errors")
                 skip = condition.get("skip_to_end")
@@ -313,7 +370,7 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
         _unsupported("form", "reserved end_form state ID")
     states["end_form"] = {"type": "end", "status": "success", "outcome": "form_answers_collected"}
     for sid, state in states.items():
-        for target in ([state["next"]] if state["type"] in ("input", "output") else
+        for target in ([state["next"]] if state["type"] in ("input", "output", "assign") else
                        [r["next"] for r in state["rules"]] + [state["default"]] if state["type"] == "choice" else []):
             if target not in states:
                 _unsupported(sid, f"generated transition to missing state {target!r}")
