@@ -22,6 +22,8 @@
   import NiNumberInput from "./inputs/NiNumberInput.svelte";
   import ProposalBanner from "./ProposalBanner.svelte";
   import { createProposalAttemptGate } from "../proposalAttemptGate.js";
+  import { submissionValue } from "../submissionValue.js";
+  import { cumulativeAnsweredCount } from "../autoProgressCount.js";
   import { onDestroy } from "svelte";
 
   interface Props {
@@ -30,8 +32,9 @@
     presentation: Presentation | null;
     pendingProposal: Proposal | null;
     policy: string;
-    autoAnsweredCount: number;
-    onSubmitted: () => void | Promise<void>;
+    answeredCount: number;
+    pendingTransition: boolean;
+    onSubmitted: (afterToken?: string) => void | Promise<void>;
     onComplete: () => void;
   }
 
@@ -41,7 +44,8 @@
     presentation,
     pendingProposal,
     policy,
-    autoAnsweredCount,
+    answeredCount,
+    pendingTransition,
     onSubmitted,
     onComplete,
   }: Props = $props();
@@ -56,13 +60,7 @@
   let activeStream: ReturnType<typeof streamAutoProgress> | null = null;
 
   // Auto-progress streaming state
-  interface ProgressStep {
-    question: string;
-    value: string;
-    explanation: string;
-  }
   let autoProgressActive = $state(false);
-  let autoProgressSteps: ProgressStep[] = $state([]);
   let autoProgressCurrent = $state("");
   let autoProgressTotal = $state(0);
   let autoProgressDone = $state(0);
@@ -100,6 +98,7 @@
       !proposalLoading &&
       !autoProgressActive &&
       !submitting &&
+      !pendingTransition &&
       proposalGate.claim(sessionId, token, policy)
     ) {
       if (policy === "auto") {
@@ -126,12 +125,11 @@
   function startAutoProgress() {
     autoProgressActive = true;
     autoProgressError = "";
-    autoProgressSteps = [];
     autoProgressCurrent = "";
     autoProgressTotal = 0;
     // SSE reports cumulative automatic answers. Do not reset a 7/11 journey
     // to 0/11 when it resumes after a question answered manually.
-    autoProgressDone = autoAnsweredCount;
+    autoProgressDone = answeredCount;
 
     activeStream = streamAutoProgress(
       sessionId,
@@ -139,27 +137,23 @@
         if (event.total_questions != null) {
           autoProgressTotal = event.total_questions;
         }
+        if (event.answered_count != null) {
+          autoProgressDone = cumulativeAnsweredCount(autoProgressDone, event);
+        }
 
         if (event.type === "waiting") {
           autoProgressCurrent = event.question ?? "";
         } else if (event.type === "step") {
-          autoProgressDone = event.steps_taken ?? autoProgressDone + 1;
-          autoProgressSteps = [
-            ...autoProgressSteps,
-            {
-              question: event.question ?? "",
-              value: event.value ?? "",
-              explanation: event.explanation ?? "",
-            },
-          ];
+          if (event.answered_count == null) {
+            autoProgressDone = cumulativeAnsweredCount(autoProgressDone, event);
+          }
           autoProgressCurrent = "";
         } else if (event.type === "done") {
           activeStream?.close();
           activeStream = null;
           autoProgressActive = false;
           autoProgressCurrent = "";
-          autoProgressDone = event.steps_taken ?? autoProgressDone;
-          if (event.reason !== "complete") {
+          if (event.reason !== "complete" && event.reason !== "pending" && event.reason !== "policy_changed") {
             // The question reached by the server may have a *new* token;
             // simply remembering the token that started the SSE is insufficient.
             autoPausedForUser = true;
@@ -167,7 +161,9 @@
           if (event.reason === "error") {
             autoProgressError = "Automatic completion stopped. Please answer this question yourself.";
           }
-          void onSubmitted();
+          void Promise.resolve(onSubmitted()).catch(() => {
+            autoProgressError = "Unable to refresh the journey. Check progress before continuing.";
+          });
         }
       },
       () => {
@@ -177,7 +173,9 @@
         autoProgressCurrent = "";
         autoPausedForUser = true;
         autoProgressError = "Automatic completion was interrupted. You can answer the question below.";
-        void onSubmitted();
+        void Promise.resolve(onSubmitted()).catch(() => {
+          autoProgressError = "Unable to refresh the journey. Check progress before continuing.";
+        });
       }
     );
   }
@@ -204,22 +202,16 @@
   }
 
   async function handleSubmit() {
+    if (submitting || pendingTransition) return;
     validationError = "";
 
-    if (!isOptional && (value === null || value === "" || value === undefined)) {
-      validationError = "This field is required";
+    const prepared = submissionValue(value, awaiting.schema, isOptional);
+    if (prepared.error) {
+      validationError = prepared.error;
       return;
     }
 
-    let submitValue = value;
-
-    if (isOptional && (value === null || value === "" || value === undefined)) {
-      if (awaiting.schema?.allow_skip) {
-        submitValue = kind === "file_ref" ? null : (awaiting.schema.default ?? "");
-      } else {
-        submitValue = "";
-      }
-    }
+    let submitValue = prepared.value;
 
     submitting = true;
     try {
@@ -232,7 +224,7 @@
       } else {
         // Wait for the parent to receive the NEW Temporal awaiting token before
         // resuming auto mode. Otherwise the old question can be retried.
-        await onSubmitted();
+        await onSubmitted(awaiting.token);
         autoPausedForUser = false;
       }
     } catch (e: any) {
@@ -243,13 +235,14 @@
   }
 
   async function handleConfirmProposal() {
+    if (submitting || pendingTransition) return;
     submitting = true;
     try {
       const result = await confirmProposal(sessionId);
       if (result.status === "COMPLETED") {
         onComplete();
       } else {
-        onSubmitted();
+        await onSubmitted(awaiting.token);
       }
     } catch (e: any) {
       validationError = e.message || "Failed to confirm proposal";
@@ -263,60 +256,29 @@
     onSubmitted();
   }
 
-  function formatValue(val: string): string {
-    if (val === "true") return "Yes";
-    if (val === "false") return "No";
-    return val;
-  }
 </script>
 
 {#if autoProgressActive}
   <div class="auto-progress" role="status" aria-live="polite">
-    <h2 class="govuk-heading-m">
-      Completing form automatically...
-    </h2>
+    <p class="govuk-body-s govuk-!-margin-bottom-2"><strong>Completing form automatically...</strong></p>
 
     {#if autoProgressTotal > 0}
       <div class="govuk-!-margin-bottom-4">
         <div class="progress-bar" role="progressbar"
-          aria-valuenow={autoProgressDone}
+          aria-valuenow={Math.min(autoProgressDone, autoProgressTotal)}
           aria-valuemin={0}
           aria-valuemax={autoProgressTotal}
           aria-label="Form progress"
         >
           <div
             class="progress-bar__fill"
-            style="width: {Math.round((autoProgressDone / autoProgressTotal) * 100)}%"
+            style="width: {Math.min(100, Math.round((autoProgressDone / autoProgressTotal) * 100))}%"
           ></div>
         </div>
         <p class="govuk-body-s govuk-!-margin-top-1" style="color: #505a5f;">
-          {autoProgressDone} of {autoProgressTotal} questions
+          {autoProgressDone} of {autoProgressTotal} questions answered so far
         </p>
       </div>
-    {/if}
-
-    {#if autoProgressSteps.length > 0}
-      <table class="govuk-table govuk-table--small-text-until-tablet">
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th scope="col" class="govuk-table__header">Question</th>
-            <th scope="col" class="govuk-table__header">Answer</th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          {#each autoProgressSteps as step}
-            <tr class="govuk-table__row">
-              <td class="govuk-table__cell">{step.question}</td>
-              <td class="govuk-table__cell">
-                <strong>{formatValue(step.value)}</strong>
-                {#if step.explanation}
-                  <br /><span class="govuk-body-s" style="color: #505a5f;">{step.explanation}</span>
-                {/if}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
     {/if}
 
     {#if autoProgressCurrent}
@@ -328,7 +290,7 @@
 
 {/if}
 
-{#if autoPausedForUser && policy === "auto" && !autoProgressActive}
+{#if autoPausedForUser && policy === "auto" && !autoProgressActive && !pendingTransition}
   <div class="govuk-inset-text" role="status">
     <p class="govuk-body">
       <strong>The assistant needs your help with this question.</strong>
@@ -352,7 +314,7 @@
       Checking whether an answer can be suggested from the conversation.
     </p>
   </div>
-{:else if !autoProgressActive}
+  {:else if !autoProgressActive && !pendingTransition}
   <div class="govuk-form-group" class:govuk-form-group--error={!!validationError}>
     {#if pres?.guidance_markdown}
       <details class="govuk-details">
@@ -507,7 +469,7 @@
           class="govuk-button"
           data-module="govuk-button"
           type="submit"
-          disabled={submitting}
+          disabled={submitting || pendingTransition}
         >
           {#if submitting}
             Submitting...
@@ -526,7 +488,7 @@
   .auto-progress {
     background-color: #f3f2f1;
     border-left: 4px solid #1d70b8;
-    padding: 20px;
+    padding: 12px 16px;
     margin-bottom: 20px;
   }
 

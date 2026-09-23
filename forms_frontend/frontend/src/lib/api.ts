@@ -35,6 +35,7 @@ export interface SessionState {
   form_metadata: FormMetadata;
   policy: string;
   auto_answered: AutoAnswered[];
+  answered_count: number;
   pending_proposal: Proposal | null;
   transcript?: Array<{ message: string }>;
   result?: { status: string; outcome?: string } | null;
@@ -227,9 +228,10 @@ export interface AutoProgressEvent {
   question?: string;
   value?: string;
   explanation?: string;
-  reason?: "needs_input" | "complete" | "error" | "max_steps" | "policy_changed";
+  reason?: "needs_input" | "needs_upload" | "complete" | "pending" | "error" | "max_steps" | "policy_changed";
   step?: number;
   steps_taken?: number;
+  answered_count?: number;
   total_questions?: number;
 }
 

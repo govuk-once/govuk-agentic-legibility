@@ -123,6 +123,7 @@ def test_submit_string_answer(api_client, mock_temporal):
     session_id = start_resp.json()["session_id"]
 
     # After submit, advance to next question
+    old_awaiting = mock_temporal._awaiting
     mock_temporal.set_awaiting({
         "token": "tkn_2",
         "prompt": "Did you receive any assistance?",
@@ -139,6 +140,9 @@ def test_submit_string_answer(api_client, mock_temporal):
             "awaiting": mock_temporal._awaiting,
             "transcript": [],
         }
+        # The pre-submission query must still expose the token being answered;
+        # only the submit_input response represents the next state.
+        mock_temporal.set_awaiting(old_awaiting)
 
         resp = api_client.post(
             f"/api/sessions/{session_id}/submit",
@@ -167,6 +171,7 @@ def test_submit_boolean_answer(api_client, mock_temporal):
     start_resp = api_client.post("/api/sessions", json={"form_id": "2130"})
     session_id = start_resp.json()["session_id"]
 
+    old_awaiting = mock_temporal._awaiting
     mock_temporal.set_awaiting({
         "token": "tkn_3",
         "prompt": "Email?",
@@ -183,6 +188,7 @@ def test_submit_boolean_answer(api_client, mock_temporal):
             "awaiting": mock_temporal._awaiting,
             "transcript": [],
         }
+        mock_temporal.set_awaiting(old_awaiting)
 
         resp = api_client.post(
             f"/api/sessions/{session_id}/submit",
@@ -343,9 +349,6 @@ def test_submit_optional_empty(api_client, mock_temporal):
     start_resp = api_client.post("/api/sessions", json={"form_id": "2130"})
     session_id = start_resp.json()["session_id"]
 
-    mock_temporal.set_status("COMPLETED")
-    mock_temporal.set_awaiting(None)
-
     with patch("agent.tools.submit_input", new_callable=AsyncMock) as mock_submit:
         mock_submit.return_value = {
             "workflow_id": "sfsm-govuk.forms.2130-test1234",
@@ -386,7 +389,7 @@ def test_submit_stale_token(api_client, mock_temporal):
             f"/api/sessions/{session_id}/submit",
             json={"token": "tkn_1", "value": "stale answer"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 409
 
 
 # =====================================================================

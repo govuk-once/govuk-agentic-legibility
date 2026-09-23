@@ -1,14 +1,16 @@
 <script lang="ts">
-  import type { FormMetadata } from "../api";
+  import type { FormMetadata, AutoAnswered } from "../api";
+  import AutoProgressLog from "./AutoProgressLog.svelte";
 
   interface Props {
     metadata: FormMetadata | null;
     transcript?: Array<{ message: string }>;
     result?: { status: string; outcome?: string } | null;
+    autoAnswered?: AutoAnswered[];
     onBack: () => void;
   }
 
-  let { metadata, transcript = [], result = null, onBack }: Props = $props();
+  let { metadata, transcript = [], result = null, autoAnswered = [], onBack }: Props = $props();
   const exitMessage = $derived(result?.outcome === "exit_page"
     ? [...transcript].reverse().find(entry => entry.message && !entry.message.startsWith("[ENGINE LOG]"))?.message
     : null);
@@ -20,6 +22,10 @@
     This prototype does not submit answers to a department.
   </div>
 </div>
+
+{#if autoAnswered.length > 0}
+  <AutoProgressLog items={autoAnswered} />
+{/if}
 
 {#if exitMessage}
   <div class="govuk-inset-text" style="white-space: pre-wrap;">{exitMessage}</div>

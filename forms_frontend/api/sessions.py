@@ -9,6 +9,7 @@ Sessions track only the association and transient UI state.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -42,6 +43,10 @@ class FormSession:
     conversation_history: list[dict[str, Any]] = field(default_factory=list)
     auto_answered: list[AutoAnsweredQuestion] = field(default_factory=list)
     pending_proposal: dict[str, Any] | None = None
+    # Transient HTTP/SSE coordination only. Temporal remains authoritative.
+    submission_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    accepted_tokens: set[str] = field(default_factory=set)
+    pending_submission_token: str | None = None
     # Opaque local refs permitted for this session and current input token.
     uploaded_files: dict[str, tuple[str, int, str]] = field(default_factory=dict)
 

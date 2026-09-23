@@ -21,14 +21,25 @@ sys.path.insert(0, str(_repo / "durable_poc"))
 FIXTURES_DIR = _repo / "compiled_forms"
 
 
+def _compiled_fixture(form_id: str) -> dict[str, Any]:
+    path = FIXTURES_DIR / f"{form_id}.json"
+    if path.is_file():
+        return json.loads(path.read_text())
+    # The ZIP intentionally omits gitignored generated compiled_forms. Compile
+    # the checked-in original export so the test suite runs from a clean clone.
+    from forms_adapter import compile_form
+    export = _repo / "durable_poc" / "forms_adapter" / "tests" / "fixtures" / f"{form_id}.json"
+    return compile_form(json.loads(export.read_text()))
+
+
 @pytest.fixture
 def form_2130_definition() -> dict[str, Any]:
-    return json.loads((FIXTURES_DIR / "2130.json").read_text())
+    return _compiled_fixture("2130")
 
 
 @pytest.fixture
 def form_6_definition() -> dict[str, Any]:
-    return json.loads((FIXTURES_DIR / "6.json").read_text())
+    return _compiled_fixture("6")
 
 
 def _make_awaiting(

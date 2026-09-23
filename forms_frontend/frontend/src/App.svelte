@@ -30,6 +30,10 @@
   let selectedFixtureId: string = $state("");
   let fixturePreview: ConversationFixtureDetail | null = $state(null);
   let preloadedConversation: Array<{ role: string; content: string }> = $state([]);
+  let transitionPending = $state(false);
+  let pendingPreviousToken: string | undefined = $state(undefined);
+  let pendingRefreshError = $state("");
+  let refreshInFlight: Promise<void> | null = null;
 
   async function loadForms() {
     loading = true;
@@ -97,16 +101,47 @@
     }
   }
 
-  async function refreshState() {
-    if (!sessionId) return;
-    try {
-      sessionState = await getSessionState(sessionId);
-      if (sessionState?.status === "COMPLETED") {
-        view = "complete";
-      }
-    } catch (e: any) {
-      error = e.message;
+  function refreshState(afterToken?: string): Promise<void> {
+    // SSE completion and the manual form can both request a refresh. Never let
+    // one response overwrite a later authoritative state with a stale token.
+    const requestedSession = sessionId;
+    if (!requestedSession) return Promise.resolve();
+    if (afterToken) {
+      pendingPreviousToken = afterToken;
+      transitionPending = true;
     }
+    // A manual submit can overlap the SSE's final refresh. The in-flight poll
+    // must use the newly accepted token instead of accepting its old snapshot.
+    if (refreshInFlight) return refreshInFlight;
+    pendingRefreshError = "";
+    const task = (async () => {
+      const deadline = Date.now() + 15000;
+      while (sessionId === requestedSession) {
+        const next = await getSessionState(requestedSession);
+        const stillAdvancing = next.status === "ADVANCING"
+          || (pendingPreviousToken && next.status !== "COMPLETED"
+              && next.awaiting?.token === pendingPreviousToken)
+          || (next.status === "RUNNING" && !next.awaiting);
+        if (!stillAdvancing) {
+          sessionState = next;
+          transitionPending = false;
+          pendingPreviousToken = undefined;
+          if (next.status === "COMPLETED") view = "complete";
+          return;
+        }
+        transitionPending = true;
+        if (Date.now() >= deadline) {
+          pendingRefreshError = "Your answer was accepted, but the next step is not ready. Check progress; do not submit again.";
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    })().catch((e: any) => {
+      error = e.message || "Unable to check journey progress";
+      throw e;
+    }).finally(() => { refreshInFlight = null; });
+    refreshInFlight = task;
+    return task;
   }
 
   async function handlePolicyChange(newPolicy: string) {
@@ -119,7 +154,6 @@
 
   async function handleComplete() {
     await refreshState();
-    view = "complete";
   }
 
   function handleBackToList() {
@@ -130,6 +164,9 @@
     selectedFixtureId = "";
     fixturePreview = null;
     preloadedConversation = [];
+    transitionPending = false;
+    pendingPreviousToken = undefined;
+    pendingRefreshError = "";
   }
 
   $effect(() => {
@@ -363,6 +400,17 @@
             <AutoProgressLog items={sessionState.auto_answered} />
           {/if}
 
+          {#if transitionPending}
+            <div class="govuk-inset-text" role="status" aria-live="polite">
+              Your answer has been accepted. Waiting for the next question or completion.
+              {#if pendingRefreshError}
+                <p class="govuk-body">{pendingRefreshError}</p>
+                <button type="button" class="govuk-button govuk-button--secondary"
+                  onclick={() => void refreshState(pendingPreviousToken)}>Check progress</button>
+              {/if}
+            </div>
+          {/if}
+
           {#if sessionState?.awaiting}
             <FormQuestion
               {sessionId}
@@ -370,13 +418,15 @@
               presentation={sessionState.presentation}
               pendingProposal={sessionState.pending_proposal}
               {policy}
-              autoAnsweredCount={sessionState.auto_answered.length}
+              answeredCount={sessionState.answered_count ?? sessionState.auto_answered.length}
+              pendingTransition={transitionPending}
               onSubmitted={refreshState}
               onComplete={handleComplete}
             />
           {:else if sessionState?.status === "COMPLETED"}
             <FormComplete metadata={sessionState.form_metadata}
               transcript={sessionState.transcript ?? []} result={sessionState.result}
+              autoAnswered={sessionState.auto_answered}
               onBack={handleBackToList} />
           {:else}
             <p class="govuk-body">Waiting for the next question...</p>
@@ -393,6 +443,7 @@
         metadata={sessionState?.form_metadata ?? null}
         transcript={sessionState?.transcript ?? []}
         result={sessionState?.result}
+        autoAnswered={sessionState?.auto_answered ?? []}
         onBack={handleBackToList}
       />
     {/if}

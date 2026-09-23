@@ -93,11 +93,10 @@ async def _wait_for_workflow_progress(
 ) -> dict[str, Any]:
     """Return state after Temporal has consumed a submitted input.
 
-    ``submit_input`` is a Temporal update whose handler only records the value and
-    wakes the workflow.  The update can therefore complete just before the main
-    workflow loop advances to the next input state.  An immediate query may still
-    report the old ``awaiting`` token.  Treat that as transient rather than
-    returning the same question to the browser.
+    The update acknowledges receipt, not progression through the workflow loop.
+    In particular, ``awaiting=None`` with RUNNING status is an *intermediate*
+    state between the previous input and the next input (or completion). It is
+    not evidence that the journey has finished or that a new question is ready.
 
     The interpreter remains authoritative: this helper only waits until its
     observable state changes (or the workflow completes).
@@ -111,7 +110,10 @@ async def _wait_for_workflow_progress(
         awaiting = state.get("awaiting") or {}
         token = awaiting.get("token")
         status = state.get("status")
-        if status == "COMPLETED" or token != previous_token:
+        if status == "COMPLETED" or (token is not None and token != previous_token):
+            return state
+
+        if status not in (None, "RUNNING", "ADVANCING"):
             return state
 
         if loop.time() >= deadline:
@@ -120,12 +122,74 @@ async def _wait_for_workflow_progress(
                 workflow_id,
                 previous_token,
             )
-            return state
+            # Never return the *previous* awaiting input as a successful HTTP
+            # submission. The browser can poll state, but must not resubmit.
+            return {**state, "status": "ADVANCING", "awaiting": None}
 
         await asyncio.sleep(poll_interval)
         state = await tool_functions.get_workflow_state(
             workflow_id=workflow_id, temporal_client=temporal
         )
+
+
+async def _current_state(session: FormSession, temporal: TemporalClient) -> dict[str, Any]:
+    """Mask a consumed input while the next authoritative state is not ready."""
+    state = await tool_functions.get_workflow_state(
+        workflow_id=session.temporal_workflow_id, temporal_client=temporal
+    )
+    token = session.pending_submission_token
+    if token is not None:
+        awaiting = state.get("awaiting") or {}
+        if (state.get("status") == "COMPLETED"
+                or (awaiting.get("token") is not None and awaiting["token"] != token)
+                or state.get("status") not in (None, "RUNNING", "ADVANCING")):
+            session.pending_submission_token = None
+        else:
+            return {**state, "status": "ADVANCING", "awaiting": None}
+    return state
+
+
+async def _submit_once(
+    session: FormSession, temporal: TemporalClient, token: str, value: Any,
+    *, auto_record: AutoAnsweredQuestion | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """Token-guarded submission shared by manual, Confirm and Auto policies.
+
+    An accepted update is never sent twice, even if a subsequent Temporal query
+    still returns the previous input. The lock also serialises SSE and HTTP
+    submissions for this (single-process POC) session.
+    """
+    async with session.submission_lock:
+        state = await _current_state(session, temporal)
+        if token in session.accepted_tokens:
+            return state, False
+        awaiting = state.get("awaiting") or {}
+        if awaiting.get("token") != token:
+            raise HTTPException(409, "This question is no longer awaiting an answer")
+        if (awaiting.get("schema") or {}).get("kind") == "file_ref":
+            _check_file_submission(session, token, value)
+
+        # The Temporal update validator rejects invalid values and stale tokens;
+        # record acceptance *only after* the update returns successfully.
+        initial = await tool_functions.submit_input(
+            workflow_id=session.temporal_workflow_id,
+            token=token, value=value, temporal_client=temporal,
+        )
+        session.accepted_tokens.add(token)
+        # Record accepted automatic answers immediately, not after polling.
+        # A browser closing the SSE stream during the next-state wait must
+        # not silently lose a submission from the cumulative summary.
+        if auto_record is not None:
+            session.auto_answered.append(auto_record)
+        session.pending_submission_token = token
+        state = await _wait_for_workflow_progress(
+            temporal=temporal,
+            workflow_id=session.temporal_workflow_id,
+            previous_token=token, initial_state=initial,
+        )
+        if state["status"] != "ADVANCING":
+            session.pending_submission_token = None
+        return state, True
 
 
 def _workflow_server_url() -> str:
@@ -359,9 +423,7 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Session not found")
 
     temporal = await get_temporal_client()
-    state = await tool_functions.get_workflow_state(
-        workflow_id=session.temporal_workflow_id, temporal_client=temporal
-    )
+    state = await _current_state(session, temporal)
 
     awaiting = state.get("awaiting")
     presentation = None
@@ -379,6 +441,7 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         "presentation": presentation,
         "form_metadata": session.form_metadata,
         "policy": session.policy.value,
+        "answered_count": len(session.accepted_tokens),
         "auto_answered": [
             {
                 "state_id": q.state_id,
@@ -456,27 +519,10 @@ async def submit_answer(session_id: str, req: SubmitAnswerRequest) -> dict[str, 
         raise HTTPException(status_code=404, detail="Session not found")
 
     temporal = await get_temporal_client()
-    state = await tool_functions.get_workflow_state(
-        workflow_id=session.temporal_workflow_id, temporal_client=temporal)
-    awaiting = state.get("awaiting") or {}
-    if (awaiting.get("schema") or {}).get("kind") == "file_ref":
-        if awaiting.get("token") != req.token:
-            raise HTTPException(409, "Stale file input token")
-        _check_file_submission(session, req.token, req.value)
-
     try:
-        new_state = await tool_functions.submit_input(
-            workflow_id=session.temporal_workflow_id,
-            token=req.token,
-            value=req.value,
-            temporal_client=temporal,
-        )
-        new_state = await _wait_for_workflow_progress(
-            temporal=temporal,
-            workflow_id=session.temporal_workflow_id,
-            previous_token=req.token,
-            initial_state=new_state,
-        )
+        new_state, _ = await _submit_once(session, temporal, req.token, req.value)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -609,31 +655,24 @@ async def _auto_progress(
             break  # An LLM cannot generate a real upload reference.
 
         try:
-            state = await tool_functions.submit_input(
-                workflow_id=session.temporal_workflow_id,
-                token=token,
-                value=value,
-                temporal_client=temporal,
-            )
-            state = await _wait_for_workflow_progress(
-                temporal=temporal,
-                workflow_id=session.temporal_workflow_id,
-                previous_token=token,
-                initial_state=state,
+            state, submitted = await _submit_once(
+                session, temporal, token, value,
+                auto_record=AutoAnsweredQuestion(
+                    state_id=awaiting.get("state_id", ""),
+                    question_text=awaiting.get("prompt", ""),
+                    submitted_value=value,
+                    explanation=proposal.get("explanation", ""),
+                ),
             )
         except Exception:
             logger.exception("Auto-progress submission failed")
             break
 
-        session.auto_answered.append(
-            AutoAnsweredQuestion(
-                state_id=awaiting.get("state_id", ""),
-                question_text=awaiting.get("prompt", ""),
-                submitted_value=value,
-                explanation=proposal.get("explanation", ""),
-            )
-        )
-        steps_taken += 1
+        if submitted:
+            steps_taken += 1
+
+        if state.get("status") == "ADVANCING":
+            break
 
         awaiting = state.get("awaiting")
         if not awaiting:
@@ -690,9 +729,7 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
 
     async def event_generator():
         temporal = await get_temporal_client()
-        state = await tool_functions.get_workflow_state(
-            workflow_id=session.temporal_workflow_id, temporal_client=temporal
-        )
+        state = await _current_state(session, temporal)
 
         # Count total input states in the definition for progress denominator
         total_questions = 0
@@ -721,11 +758,14 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
 
             awaiting = state.get("awaiting")
             if not awaiting:
+                # RUNNING without an input is *not* completion. It is the
+                # transition between a consumed input and the next state.
+                reason = "complete" if state.get("status") == "COMPLETED" else "pending"
                 yield {
                     "event": "done",
                     "data": json.dumps({
                         "type": "done",
-                        "reason": "complete",
+                        "reason": reason,
                         "steps_taken": steps_taken,
                         "total_questions": total_questions,
                     }),
@@ -738,6 +778,7 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                     "type": "waiting",
                     "question": awaiting.get("prompt", ""),
                     "step": steps_taken + 1,
+                    "answered_count": len(session.accepted_tokens),
                     "total_questions": total_questions,
                 }),
             }
@@ -755,6 +796,7 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                         "reason": "needs_input",
                         "question": awaiting.get("prompt", ""),
                         "steps_taken": steps_taken,
+                        "answered_count": len(session.accepted_tokens),
                         "total_questions": total_questions,
                     }),
                 }
@@ -781,17 +823,14 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 return
 
             try:
-                state = await tool_functions.submit_input(
-                    workflow_id=session.temporal_workflow_id,
-                    token=token,
-                    value=value,
-                    temporal_client=temporal,
-                )
-                state = await _wait_for_workflow_progress(
-                    temporal=temporal,
-                    workflow_id=session.temporal_workflow_id,
-                    previous_token=token,
-                    initial_state=state,
+                state, submitted = await _submit_once(
+                    session, temporal, token, value,
+                    auto_record=AutoAnsweredQuestion(
+                        state_id=awaiting.get("state_id", ""),
+                        question_text=awaiting.get("prompt", ""),
+                        submitted_value=value,
+                        explanation=proposal.get("explanation", ""),
+                    ),
                 )
             except Exception:
                 logger.exception("Auto-progress submission failed at step %d", steps_taken)
@@ -806,28 +845,32 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 }
                 return
 
-            session.auto_answered.append(
-                AutoAnsweredQuestion(
-                    state_id=awaiting.get("state_id", ""),
-                    question_text=awaiting.get("prompt", ""),
-                    submitted_value=value,
-                    explanation=proposal.get("explanation", ""),
-                )
-            )
-            steps_taken += 1
-            steps_this_run += 1
+            if submitted:
+                steps_taken += 1
+                steps_this_run += 1
 
-            yield {
-                "event": "step",
-                "data": json.dumps({
-                    "type": "step",
-                    "question": awaiting.get("prompt", ""),
-                    "value": str(value),
-                    "explanation": proposal.get("explanation", ""),
-                    "steps_taken": steps_taken,
-                    "total_questions": total_questions,
-                }),
-            }
+                yield {
+                    "event": "step",
+                    "data": json.dumps({
+                        "type": "step",
+                        "question": awaiting.get("prompt", ""),
+                        "value": str(value),
+                        "explanation": proposal.get("explanation", ""),
+                        "steps_taken": steps_taken,
+                        "answered_count": len(session.accepted_tokens),
+                        "total_questions": total_questions,
+                    }),
+                }
+
+            # The event stream must not propose an answer to a transiently
+            # empty or old awaiting state. The browser polls the accepted
+            # submission and starts a new pass when the next token is ready.
+            if state.get("status") == "ADVANCING":
+                yield {"event": "done", "data": json.dumps({
+                    "type": "done", "reason": "pending", "steps_taken": steps_taken,
+                    "answered_count": len(session.accepted_tokens),
+                    "total_questions": total_questions})}
+                return
 
         yield {
             "event": "done",
@@ -853,40 +896,19 @@ async def confirm_proposal(session_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="No pending proposal")
 
     temporal = await get_temporal_client()
-    token = session.pending_proposal["token"]
-    value = session.pending_proposal["value"]
-    awaiting = (await tool_functions.get_workflow_state(
-        workflow_id=session.temporal_workflow_id, temporal_client=temporal)).get("awaiting") or {}
-    if (awaiting.get("schema") or {}).get("kind") == "file_ref":
-        if awaiting.get("token") != token:
-            raise HTTPException(409, "Stale file proposal token")
-        _check_file_submission(session, token, value)
+    proposal = session.pending_proposal
+    token = proposal["token"]
+    value = proposal["value"]
 
     try:
-        new_state = await tool_functions.submit_input(
-            workflow_id=session.temporal_workflow_id,
-            token=token,
-            value=value,
-            temporal_client=temporal,
-        )
-        new_state = await _wait_for_workflow_progress(
-            temporal=temporal,
-            workflow_id=session.temporal_workflow_id,
-            previous_token=token,
-            initial_state=new_state,
-        )
+        new_state, submitted = await _submit_once(session, temporal, token, value)
+    except HTTPException:
+        raise
     except Exception as e:
-        session.pending_proposal = None
         raise HTTPException(status_code=400, detail=str(e))
 
-    session.auto_answered.append(
-        AutoAnsweredQuestion(
-            state_id=session.pending_proposal.get("state_id", ""),
-            question_text=session.pending_proposal.get("question_text", ""),
-            submitted_value=value,
-            explanation=session.pending_proposal.get("explanation", ""),
-        )
-    )
+    # Confirmed proposals require user authorisation and are not *automatic*
+    # answers. They do contribute to accepted journey progress, via the token.
     session.pending_proposal = None
 
     awaiting = new_state.get("awaiting")
