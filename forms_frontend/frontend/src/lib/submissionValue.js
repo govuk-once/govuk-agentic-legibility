@@ -3,6 +3,21 @@
  *  skips must use their explicit compiled-schema option (not the empty string).
  */
 export function submissionValue(value, schema, isOptional) {
+  if (schema?.kind === "select_many") {
+    // Temporal's select_many validator requires an array, never the scalar
+    // value returned by a radio control. Empty required selections must also
+    // be rejected before reaching Temporal.
+    if (value === null || value === undefined || value === "") {
+      return isOptional ? { value: [] } : { error: "Select at least one option" };
+    }
+    if (!Array.isArray(value)) {
+      return { error: "Select one or more options" };
+    }
+    if (!isOptional && value.length === 0) {
+      return { error: "Select at least one option" };
+    }
+    return { value };
+  }
   const missing = value === null || value === undefined || value === "";
   if (missing && !isOptional) {
     return { error: "This field is required" };
@@ -13,7 +28,6 @@ export function submissionValue(value, schema, isOptional) {
       const skip = schema.options?.find((item) => item.value === "__forms_skip__");
       if (skip) return { value: skip.value };
     }
-    if (schema?.kind === "select_many") return { value: [] };
     return { value: schema?.default ?? "" };
   }
   if (schema?.kind === "boolean") {

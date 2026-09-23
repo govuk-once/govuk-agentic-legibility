@@ -14,6 +14,7 @@
   import TextInput from "./inputs/TextInput.svelte";
   import Textarea from "./inputs/Textarea.svelte";
   import Radios from "./inputs/Radios.svelte";
+  import Checkboxes from "./inputs/Checkboxes.svelte";
   import DateInput from "./inputs/DateInput.svelte";
   import NameInput from "./inputs/NameInput.svelte";
   import AddressInput from "./inputs/AddressInput.svelte";
@@ -86,7 +87,7 @@
       } else if (awaiting.schema?.default !== undefined) {
         value = awaiting.schema.default;
       } else {
-        value = kind === "boolean" ? null : "";
+        value = kind === "boolean" ? null : kind === "select_many" ? [] : "";
       }
       validationError = "";
     }
@@ -380,7 +381,7 @@
           error={validationError}
         />
       {:else if kind === "select_many"}
-        <Radios
+        <Checkboxes
           name="question-input"
           label={questionText}
           hint={hintText}

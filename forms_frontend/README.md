@@ -265,7 +265,6 @@ name, text, NI number, email, date, address, organisation, numbers.
 ## What's Not Yet Implemented
 
 - Departmental file-upload integration and production storage/access controls
-- Checkboxes for select_many — currently renders as radios
 - Full GOV.UK Forms Runner visual fidelity (some layout differences)
 - Page heading / guidance markdown rendering
 - Declaration page before final submission

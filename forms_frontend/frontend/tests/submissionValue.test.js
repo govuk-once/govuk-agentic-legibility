@@ -25,3 +25,23 @@ test('file skips use null, select_many skips use empty arrays and required input
   assert.deepEqual(submissionValue('', {kind:'select_many',allow_skip:true}, true), {value:[]});
   assert.deepEqual(submissionValue('', {kind:'string'}, false), {error:'This field is required'});
 });
+
+test('required select_many accepts arrays of options but never a scalar radio value', () => {
+  const schema = { kind: 'select_many', options: [
+    { value: 'low_demand', label: 'Lower demand' },
+    { value: 'insolvency', label: 'Insolvency' },
+  ] };
+  assert.deepEqual(submissionValue(['low_demand'], schema, false), { value: ['low_demand'] });
+  assert.deepEqual(submissionValue(['low_demand', 'insolvency'], schema, false),
+    { value: ['low_demand', 'insolvency'] });
+  assert.deepEqual(submissionValue([], schema, false),
+    { error: 'Select at least one option' });
+  assert.deepEqual(submissionValue('low_demand', schema, false),
+    { error: 'Select one or more options' });
+});
+
+test('optional select_many explicitly preserves an empty array for a skipped question', () => {
+  const schema = { kind: 'select_many', allow_skip: true };
+  assert.deepEqual(submissionValue([], schema, true), { value: [] });
+  assert.deepEqual(submissionValue(null, schema, true), { value: [] });
+});
