@@ -82,6 +82,52 @@ async def get_http_client() -> httpx.AsyncClient:
     return _http_client
 
 
+async def _wait_for_workflow_progress(
+    *,
+    temporal: TemporalClient,
+    workflow_id: str,
+    previous_token: str | None,
+    initial_state: dict[str, Any] | None = None,
+    timeout_seconds: float = 1.5,
+    poll_interval: float = 0.02,
+) -> dict[str, Any]:
+    """Return state after Temporal has consumed a submitted input.
+
+    ``submit_input`` is a Temporal update whose handler only records the value and
+    wakes the workflow.  The update can therefore complete just before the main
+    workflow loop advances to the next input state.  An immediate query may still
+    report the old ``awaiting`` token.  Treat that as transient rather than
+    returning the same question to the browser.
+
+    The interpreter remains authoritative: this helper only waits until its
+    observable state changes (or the workflow completes).
+    """
+
+    state = initial_state or {}
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+
+    while True:
+        awaiting = state.get("awaiting") or {}
+        token = awaiting.get("token")
+        status = state.get("status")
+        if status == "COMPLETED" or token != previous_token:
+            return state
+
+        if loop.time() >= deadline:
+            logger.warning(
+                "Timed out waiting for workflow %s to advance beyond token %s",
+                workflow_id,
+                previous_token,
+            )
+            return state
+
+        await asyncio.sleep(poll_interval)
+        state = await tool_functions.get_workflow_state(
+            workflow_id=workflow_id, temporal_client=temporal
+        )
+
+
 def _workflow_server_url() -> str:
     return _env("WORKFLOW_SERVER_URL", "http://localhost:8080")
 
@@ -425,6 +471,12 @@ async def submit_answer(session_id: str, req: SubmitAnswerRequest) -> dict[str, 
             value=req.value,
             temporal_client=temporal,
         )
+        new_state = await _wait_for_workflow_progress(
+            temporal=temporal,
+            workflow_id=session.temporal_workflow_id,
+            previous_token=req.token,
+            initial_state=new_state,
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -562,6 +614,12 @@ async def _auto_progress(
                 token=token,
                 value=value,
                 temporal_client=temporal,
+            )
+            state = await _wait_for_workflow_progress(
+                temporal=temporal,
+                workflow_id=session.temporal_workflow_id,
+                previous_token=token,
+                initial_state=state,
             )
         except Exception:
             logger.exception("Auto-progress submission failed")
@@ -729,6 +787,12 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                     value=value,
                     temporal_client=temporal,
                 )
+                state = await _wait_for_workflow_progress(
+                    temporal=temporal,
+                    workflow_id=session.temporal_workflow_id,
+                    previous_token=token,
+                    initial_state=state,
+                )
             except Exception:
                 logger.exception("Auto-progress submission failed at step %d", steps_taken)
                 yield {
@@ -804,6 +868,12 @@ async def confirm_proposal(session_id: str) -> dict[str, Any]:
             token=token,
             value=value,
             temporal_client=temporal,
+        )
+        new_state = await _wait_for_workflow_progress(
+            temporal=temporal,
+            workflow_id=session.temporal_workflow_id,
+            previous_token=token,
+            initial_state=new_state,
         )
     except Exception as e:
         session.pending_proposal = None

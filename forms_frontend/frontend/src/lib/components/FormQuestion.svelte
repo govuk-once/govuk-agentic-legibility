@@ -270,17 +270,13 @@
   }
 </script>
 
-{#if autoProgressActive || autoProgressSteps.length > 0}
+{#if autoProgressActive}
   <div class="auto-progress" role="status" aria-live="polite">
     <h2 class="govuk-heading-m">
-      {#if autoProgressActive}
-        Completing form automatically...
-      {:else}
-        The assistant answered {autoProgressDone} question{autoProgressDone !== 1 ? "s" : ""}
-      {/if}
+      Completing form automatically...
     </h2>
 
-    {#if autoProgressActive && autoProgressTotal > 0}
+    {#if autoProgressTotal > 0}
       <div class="govuk-!-margin-bottom-4">
         <div class="progress-bar" role="progressbar"
           aria-valuenow={autoProgressDone}
@@ -323,16 +319,13 @@
       </table>
     {/if}
 
-    {#if autoProgressActive && autoProgressCurrent}
+    {#if autoProgressCurrent}
       <div class="govuk-inset-text govuk-!-margin-top-2 govuk-!-margin-bottom-0">
         Reviewing: <strong>{autoProgressCurrent}</strong>
       </div>
     {/if}
   </div>
 
-  {#if !autoProgressActive}
-    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible" />
-  {/if}
 {/if}
 
 {#if autoPausedForUser && policy === "auto" && !autoProgressActive}

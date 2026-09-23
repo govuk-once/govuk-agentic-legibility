@@ -227,6 +227,104 @@ def test_submit_select_one_answer(api_client, mock_temporal):
         assert mock_submit.call_args.kwargs["value"] == "public"
 
 
+def test_submit_waits_for_temporal_to_advance_past_old_token(api_client, mock_temporal):
+    """A Temporal update can be acknowledged before the workflow loop advances.
+
+    The API must not return the just-submitted question again simply because the
+    first post-update query still observes its old awaiting token.
+    """
+    old_awaiting = {
+        "token": "tkn_1",
+        "prompt": "When did your holiday year start?",
+        "schema": {"kind": "string"},
+        "state_id": "holiday_year_start",
+        "state_type": "input",
+        "timeout_seconds": None,
+    }
+    next_awaiting = {
+        "token": "tkn_2",
+        "prompt": "How many days were you entitled to take?",
+        "schema": {"kind": "string"},
+        "state_id": "holiday_entitlement",
+        "state_type": "input",
+        "timeout_seconds": None,
+    }
+    mock_temporal.set_awaiting(old_awaiting)
+    start_resp = api_client.post("/api/sessions", json={"form_id": "2130"})
+    session_id = start_resp.json()["session_id"]
+
+    stale_state = {
+        "workflow_id": "sfsm-govuk.forms.2130-test1234",
+        "status": "RUNNING",
+        "awaiting": old_awaiting,
+        "transcript": [],
+    }
+    advanced_state = {**stale_state, "awaiting": next_awaiting}
+
+    with (
+        patch("agent.tools.submit_input", new_callable=AsyncMock, return_value=stale_state),
+        patch(
+            "agent.tools.get_workflow_state",
+            new_callable=AsyncMock,
+            side_effect=[stale_state, advanced_state],
+        ) as mock_state,
+    ):
+        resp = api_client.post(
+            f"/api/sessions/{session_id}/submit",
+            json={"token": "tkn_1", "value": "01/01/2026"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["awaiting"]["token"] == "tkn_2"
+    assert mock_state.await_count == 2
+
+
+def test_final_zero_answer_waits_for_completed_state(api_client, mock_temporal):
+    """Submitting the valid string value '0' must not redisplay the final input."""
+    final_awaiting = {
+        "token": "tkn_final",
+        "prompt": "How many days were you entitled to take?",
+        "schema": {"kind": "string", "allow_skip": True, "default": ""},
+        "state_id": "holiday_entitlement",
+        "state_type": "input",
+        "timeout_seconds": None,
+    }
+    mock_temporal.set_awaiting(final_awaiting)
+    start_resp = api_client.post("/api/sessions", json={"form_id": "2130"})
+    session_id = start_resp.json()["session_id"]
+
+    stale_state = {
+        "workflow_id": "sfsm-govuk.forms.2130-test1234",
+        "status": "RUNNING",
+        "awaiting": final_awaiting,
+        "transcript": [],
+    }
+    completed_state = {
+        "workflow_id": "sfsm-govuk.forms.2130-test1234",
+        "status": "COMPLETED",
+        "awaiting": None,
+        "transcript": [],
+    }
+
+    with (
+        patch("agent.tools.submit_input", new_callable=AsyncMock, return_value=stale_state) as mock_submit,
+        patch(
+            "agent.tools.get_workflow_state",
+            new_callable=AsyncMock,
+            side_effect=[stale_state, completed_state],
+        ),
+    ):
+        resp = api_client.post(
+            f"/api/sessions/{session_id}/submit",
+            json={"token": "tkn_final", "value": "0"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "COMPLETED"
+    assert resp.json()["awaiting"] is None
+    assert mock_submit.call_args.kwargs["value"] == "0"
+
+
 # =====================================================================
 # Optional fields
 # =====================================================================
