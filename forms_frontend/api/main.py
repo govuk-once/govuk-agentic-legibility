@@ -559,6 +559,8 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
     session = store.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.policy != InteractionPolicy.AUTO:
+        raise HTTPException(status_code=409, detail="Automatic mode is not enabled")
 
     async def event_generator():
         temporal = await get_temporal_client()
@@ -574,11 +576,22 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                     total_questions += 1
 
         steps_taken = len(session.auto_answered)
+        steps_this_run = 0
         max_steps = 20
 
-        while steps_taken < max_steps:
+        while steps_this_run < max_steps:
             if await request.is_disconnected():
                 break
+            if session.policy != InteractionPolicy.AUTO:
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done", "reason": "policy_changed",
+                        "steps_taken": steps_taken,
+                        "total_questions": total_questions,
+                    }),
+                }
+                return
 
             awaiting = state.get("awaiting")
             if not awaiting:
@@ -621,6 +634,18 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 }
                 return
 
+            # A policy switch during the LLM call must not submit its result.
+            if session.policy != InteractionPolicy.AUTO:
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done", "reason": "policy_changed",
+                        "steps_taken": steps_taken,
+                        "total_questions": total_questions,
+                    }),
+                }
+                return
+
             token = awaiting["token"]
             value = proposal["value"]
 
@@ -653,6 +678,7 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 )
             )
             steps_taken += 1
+            steps_this_run += 1
 
             yield {
                 "event": "step",

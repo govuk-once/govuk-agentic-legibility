@@ -369,6 +369,7 @@
               presentation={sessionState.presentation}
               pendingProposal={sessionState.pending_proposal}
               {policy}
+              autoAnsweredCount={sessionState.auto_answered.length}
               onSubmitted={refreshState}
               onComplete={handleComplete}
             />

@@ -20,6 +20,8 @@
   import NumberInput from "./inputs/NumberInput.svelte";
   import NiNumberInput from "./inputs/NiNumberInput.svelte";
   import ProposalBanner from "./ProposalBanner.svelte";
+  import { createProposalAttemptGate } from "../proposalAttemptGate.js";
+  import { onDestroy } from "svelte";
 
   interface Props {
     sessionId: string;
@@ -27,7 +29,8 @@
     presentation: Presentation | null;
     pendingProposal: Proposal | null;
     policy: string;
-    onSubmitted: () => void;
+    autoAnsweredCount: number;
+    onSubmitted: () => void | Promise<void>;
     onComplete: () => void;
   }
 
@@ -37,6 +40,7 @@
     presentation,
     pendingProposal,
     policy,
+    autoAnsweredCount,
     onSubmitted,
     onComplete,
   }: Props = $props();
@@ -45,7 +49,10 @@
   let submitting = $state(false);
   let validationError = $state("");
   let proposalLoading = $state(false);
-  let proposalRequested = $state(false);
+  const proposalGate = createProposalAttemptGate();
+  let autoPausedForUser = $state(false);
+  let autoProgressError = $state("");
+  let activeStream: ReturnType<typeof streamAutoProgress> | null = null;
 
   // Auto-progress streaming state
   interface ProgressStep {
@@ -81,42 +88,54 @@
     }
   });
 
+  // Attempt each token once, regardless of how often the parent refreshes the
+  // same Temporal state. In auto mode a "needs_input" response pauses the agent
+  // until the user supplies the missing answer (or explicitly retries).
   $effect(() => {
+    const token = awaiting?.token;
     if (
-      policy !== "manual" &&
+      !autoPausedForUser &&
       !pendingProposal &&
-      !proposalRequested &&
       !proposalLoading &&
       !autoProgressActive &&
-      sessionId &&
-      awaiting?.token
+      !submitting &&
+      proposalGate.claim(sessionId, token, policy)
     ) {
-      proposalRequested = true;
       if (policy === "auto") {
         startAutoProgress();
-      } else {
+      } else if (policy === "confirm") {
         requestProposalNow();
       }
     }
   });
 
+  // Closing the stream also stops processing its events after a policy switch
+  // or after navigating away. The API separately checks policy before submit.
   $effect(() => {
-    if (awaiting?.token) {
-      proposalRequested = false;
+    if (policy !== "auto" && activeStream) {
+      activeStream.close();
+      activeStream = null;
+      autoProgressActive = false;
+      autoProgressCurrent = "";
     }
   });
 
+  onDestroy(() => activeStream?.close());
+
   function startAutoProgress() {
     autoProgressActive = true;
+    autoProgressError = "";
     autoProgressSteps = [];
     autoProgressCurrent = "";
     autoProgressTotal = 0;
-    autoProgressDone = 0;
+    // SSE reports cumulative automatic answers. Do not reset a 7/11 journey
+    // to 0/11 when it resumes after a question answered manually.
+    autoProgressDone = autoAnsweredCount;
 
-    const stream = streamAutoProgress(
+    activeStream = streamAutoProgress(
       sessionId,
       (event: AutoProgressEvent) => {
-        if (event.total_questions) {
+        if (event.total_questions != null) {
           autoProgressTotal = event.total_questions;
         }
 
@@ -134,16 +153,38 @@
           ];
           autoProgressCurrent = "";
         } else if (event.type === "done") {
+          activeStream?.close();
+          activeStream = null;
           autoProgressActive = false;
+          autoProgressCurrent = "";
           autoProgressDone = event.steps_taken ?? autoProgressDone;
-          onSubmitted();
+          if (event.reason !== "complete") {
+            // The question reached by the server may have a *new* token;
+            // simply remembering the token that started the SSE is insufficient.
+            autoPausedForUser = true;
+          }
+          if (event.reason === "error") {
+            autoProgressError = "Automatic completion stopped. Please answer this question yourself.";
+          }
+          void onSubmitted();
         }
       },
       () => {
+        activeStream?.close();
+        activeStream = null;
         autoProgressActive = false;
-        onSubmitted();
+        autoProgressCurrent = "";
+        autoPausedForUser = true;
+        autoProgressError = "Automatic completion was interrupted. You can answer the question below.";
+        void onSubmitted();
       }
     );
+  }
+
+  function retryAutomaticCompletion() {
+    proposalGate.retry(sessionId, awaiting.token, "auto");
+    autoPausedForUser = false;
+    autoProgressError = "";
   }
 
   async function requestProposalNow() {
@@ -185,7 +226,10 @@
       if (result.status === "COMPLETED") {
         onComplete();
       } else {
-        onSubmitted();
+        // Wait for the parent to receive the NEW Temporal awaiting token before
+        // resuming auto mode. Otherwise the old question can be retried.
+        await onSubmitted();
+        autoPausedForUser = false;
       }
     } catch (e: any) {
       validationError = e.message || "Failed to submit answer";
@@ -285,6 +329,21 @@
   {#if !autoProgressActive}
     <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible" />
   {/if}
+{/if}
+
+{#if autoPausedForUser && policy === "auto" && !autoProgressActive}
+  <div class="govuk-inset-text" role="status">
+    <p class="govuk-body">
+      <strong>The assistant needs your help with this question.</strong>
+    </p>
+    <p class="govuk-body-s">Answer below to continue. Automatic completion will resume with the next question.</p>
+    {#if autoProgressError}
+      <p class="govuk-body-s">{autoProgressError}</p>
+    {/if}
+    <button type="button" class="govuk-button govuk-button--secondary" onclick={retryAutomaticCompletion}>
+      Try automatic completion again
+    </button>
+  </div>
 {/if}
 
 {#if proposalLoading}

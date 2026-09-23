@@ -81,7 +81,15 @@ before submission.
 
 **Automatic:** Agent submits answers it's confident about, skipping questions
 it can answer. Stops when information is missing. Shows a log of
-auto-answered questions for review.
+auto-answered questions for review. If the agent runs out of information, the
+current GOV.UK question stays visible **without switching out of Automatic
+mode**. Submitting an answer manually resumes automatic completion from the
+next Temporal input. The user can also select "Try automatic completion again"
+after adding information through chat. This only retries the current question;
+it never replays already accepted Temporal inputs.
+
+The frontend's dependency-free auto-progress regression tests can be run with
+`cd forms_frontend/frontend && npm run test:unit` (Node 18+).
 
 ## Prerequisites
 

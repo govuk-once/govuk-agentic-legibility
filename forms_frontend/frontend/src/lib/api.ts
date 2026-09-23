@@ -214,7 +214,7 @@ export interface AutoProgressEvent {
   question?: string;
   value?: string;
   explanation?: string;
-  reason?: string;
+  reason?: "needs_input" | "complete" | "error" | "max_steps" | "policy_changed";
   step?: number;
   steps_taken?: number;
   total_questions?: number;

@@ -480,3 +480,87 @@ def test_start_session_with_nonexistent_fixture(api_client, mock_temporal):
     )
     assert resp.status_code == 200
     assert resp.json()["conversation_messages"] == 0
+
+# =====================================================================
+# Automatic-mode handoff: Temporal stays authoritative when the agent
+# encounters a question it cannot answer.
+# =====================================================================
+
+
+def test_auto_progress_stops_at_unknown_question(api_client, mock_temporal):
+    from forms_frontend.api import main as api_main
+
+    awaiting = {
+        "token": "tkn_holiday_start",
+        "prompt": "When did your holiday (leave) year start?",
+        "schema": {"kind": "string", "allow_skip": True},
+        "state_id": "B9LuEbyQ",
+    }
+    mock_temporal.set_awaiting(awaiting)
+    session_id = api_client.post(
+        "/api/sessions", json={"form_id": "6", "policy": "auto"}
+    ).json()["session_id"]
+
+    with (
+        patch.object(api_main, "propose_answer", new_callable=AsyncMock) as propose,
+        patch("agent.tools.submit_input", new_callable=AsyncMock) as submit,
+    ):
+        propose.return_value = {"has_answer": False, "value": None}
+        resp = api_client.get(f"/api/sessions/{session_id}/auto-progress")
+
+    assert resp.status_code == 200
+    assert "event: waiting" in resp.text
+    assert '"reason": "needs_input"' in resp.text
+    submit.assert_not_called()
+    state = api_client.get(f"/api/sessions/{session_id}/state").json()
+    assert state["awaiting"]["token"] == "tkn_holiday_start"
+    assert state["policy"] == "auto"  # No implicit switch to Manual mode.
+
+
+def test_auto_progress_can_resume_after_manual_answer(api_client, mock_temporal):
+    from forms_frontend.api import main as api_main
+    from forms_frontend.api.sessions import AutoAnsweredQuestion
+
+    mock_temporal.set_awaiting({
+        "token": "tkn_holiday_start",
+        "prompt": "When did your holiday (leave) year start?",
+        "schema": {"kind": "string", "allow_skip": True},
+        "state_id": "B9LuEbyQ",
+    })
+    session_id = api_client.post(
+        "/api/sessions", json={"form_id": "6", "policy": "auto"}
+    ).json()["session_id"]
+    session = api_main.store.get(session_id)
+    assert session is not None
+    # Simulate an earlier, successful automatic pass. The 20-step limit must
+    # apply to each pass, not to the cumulative session count.
+    session.auto_answered.extend(
+        AutoAnsweredQuestion(str(i), f"Question {i}", f"Answer {i}")
+        for i in range(20)
+    )
+
+    new_awaiting = {
+        "token": "tkn_next",
+        "prompt": "How many days were you entitled to take?",
+        "schema": {"kind": "string", "allow_skip": True},
+        "state_id": "VRYgtG3z",
+    }
+    with patch("agent.tools.submit_input", new_callable=AsyncMock) as submit:
+        submit.return_value = {"status": "RUNNING", "awaiting": new_awaiting}
+        resp = api_client.post(
+            f"/api/sessions/{session_id}/submit",
+            json={"token": "tkn_holiday_start", "value": "01/01/2026"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["awaiting"]["token"] == "tkn_next"
+    assert session.policy.value == "auto"
+
+    # Mock Temporal's authoritative state after it accepted the manual answer.
+    mock_temporal.set_awaiting(new_awaiting)
+    with patch.object(api_main, "propose_answer", new_callable=AsyncMock) as propose:
+        propose.return_value = {"has_answer": False, "value": None}
+        resumed = api_client.get(f"/api/sessions/{session_id}/auto-progress")
+    assert resumed.status_code == 200
+    assert '"reason": "needs_input"' in resumed.text
+    assert '"steps_taken": 20' in resumed.text
+    assert '"reason": "max_steps"' not in resumed.text
