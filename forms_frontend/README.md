@@ -52,7 +52,9 @@ No journey logic is duplicated.
 | POST | `/api/sessions/{id}/propose` | Request agent answer proposal |
 | POST | `/api/sessions/{id}/confirm-proposal` | Accept proposed answer |
 | POST | `/api/sessions/{id}/reject-proposal` | Reject proposal (answer manually) |
-| PUT | `/api/sessions/{id}/policy` | Change interaction policy |
+| PUT | `/api/sessions/{id}/policy` | Change interaction policy and final-review preference |
+| POST | `/api/sessions/{id}/review/amend` | Validate a review edit through a new Temporal workflow |
+| POST | `/api/sessions/{id}/review/confirm` | Accept the reviewed answers as final |
 | POST | `/api/sessions/{id}/files?token=...` | Opt-in local synthetic-file upload for an active file question |
 
 ### `frontend/` — GOV.UK Forms UI (Svelte + GOV.UK Frontend)
@@ -107,6 +109,30 @@ mode**. Submitting an answer manually resumes automatic completion from the
 next Temporal input. The user can also select "Try automatic completion again"
 after adding information through chat. This only retries the current question;
 it never replays already accepted Temporal inputs.
+
+**Automatic with final review (enabled by default in the frontend):** The
+assistant fills in as many questions as it can, handing missing details to the
+user as before. Once Temporal has finished collecting answers, the frontend
+shows a GOV.UK-style Check your answers page listing **all accepted answers**,
+including those supplied manually, with Change links. An independent checkbox
+allows Automatic without final review. The mode controls who answers each
+question; the checkbox controls whether final approval is requested.
+
+Changing an answer at review uses **the existing SFSM interpreter**: the API
+starts a fresh Temporal run using the original definition and replays the
+accepted answers with the correction. It swaps runs only after Temporal accepts
+the revised answer. If branching changes or an old downstream answer fails
+validation, the frontend requests the newly required information and returns
+to final review on completion. Replayed answers retain their original source;
+an automatically generated answer changed by the user is counted as manual.
+
+The prototype collects answers but **does not submit them to a department**:
+final review therefore gates acceptance of the collected form, not any real
+service-side submission. Review/replay is deliberately unavailable for
+journeys with service actions or other potentially non-idempotent operations.
+Previously uploaded synthetic files can be retained in a replay but cannot be
+replaced from the review page. The history and review flag are in-memory POC
+session data; they are lost on server restart.
 
 The frontend's dependency-free auto-progress regression tests can be run with
 `cd forms_frontend/frontend && npm run test:unit` (Node 18+).
@@ -228,6 +254,7 @@ name, text, NI number, email, date, address, organisation, numbers.
 - Integration with existing Temporal-based runtime (no new interpreter)
 - Integration with existing agent (Strands/Bedrock)
 - Manual, confirm, and automatic interaction policies
+- Optional, default-on final review in Automatic mode with Change links
 - Rendering of converted forms using existing presentation metadata
 - All answer types found in forms 6 and 2130
 - Chat interface alongside the form
@@ -242,7 +269,6 @@ name, text, NI number, email, date, address, organisation, numbers.
 - Full GOV.UK Forms Runner visual fidelity (some layout differences)
 - Page heading / guidance markdown rendering
 - Declaration page before final submission
-- Check-your-answers summary page
 - Production session persistence (currently in-memory)
 - WebSocket for real-time agent updates (currently uses HTTP polling via
   refresh-after-submit)

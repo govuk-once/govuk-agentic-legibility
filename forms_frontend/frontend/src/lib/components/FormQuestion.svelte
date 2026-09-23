@@ -34,6 +34,7 @@
     policy: string;
     answeredCount: number;
     pendingTransition: boolean;
+    forceManualHandoff?: boolean;
     onSubmitted: (afterToken?: string) => void | Promise<void>;
     onComplete: () => void;
   }
@@ -46,6 +47,7 @@
     policy,
     answeredCount,
     pendingTransition,
+    forceManualHandoff = false,
     onSubmitted,
     onComplete,
   }: Props = $props();
@@ -55,7 +57,10 @@
   let validationError = $state("");
   let proposalLoading = $state(false);
   const proposalGate = createProposalAttemptGate();
-  let autoPausedForUser = $state(false);
+  let autoPausedForUser = $state(forceManualHandoff);
+  $effect(() => {
+    if (forceManualHandoff) autoPausedForUser = true;
+  });
   let autoProgressError = $state("");
   let activeStream: ReturnType<typeof streamAutoProgress> | null = null;
 

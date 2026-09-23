@@ -6,8 +6,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`API error ${res.status}: ${detail}`);
+    const body = await res.text();
+    let detail = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed.detail === "string") detail = parsed.detail;
+    } catch { /* Keep the server's original error text. */ }
+    throw new Error(detail || `API error ${res.status}`);
   }
   return res.json();
 }
@@ -24,6 +29,7 @@ export interface StartSessionResponse {
   form_name: string;
   temporal_workflow_id: string;
   policy: string;
+  review_before_submit: boolean;
 }
 
 export interface SessionState {
@@ -36,6 +42,12 @@ export interface SessionState {
   policy: string;
   auto_answered: AutoAnswered[];
   answered_count: number;
+  answer_history: AcceptedAnswer[];
+  review_before_submit: boolean;
+  review_required: boolean;
+  review_confirmed: boolean;
+  review_revision: number;
+  review_replay_needs_input: boolean;
   pending_proposal: Proposal | null;
   transcript?: Array<{ message: string }>;
   result?: { status: string; outcome?: string } | null;
@@ -96,6 +108,15 @@ export interface FormMetadata {
   submission_type: string;
 }
 
+export interface AcceptedAnswer {
+  state_id: string;
+  question_text: string;
+  value: any;
+  schema: InputSchema;
+  presentation: Presentation | null;
+  source: "auto" | "manual" | "confirm";
+}
+
 export interface AutoAnswered {
   state_id: string;
   question_text: string;
@@ -143,7 +164,8 @@ export async function getFixture(
 export async function startSession(
   formId: string | number,
   policy: string = "manual",
-  fixtureId?: string | null
+  fixtureId?: string | null,
+  reviewBeforeSubmit: boolean = false
 ): Promise<StartSessionResponse> {
   return request<StartSessionResponse>("/api/sessions", {
     method: "POST",
@@ -151,6 +173,7 @@ export async function startSession(
       form_id: String(formId),
       policy,
       fixture_id: fixtureId || null,
+      review_before_submit: reviewBeforeSubmit,
     }),
   });
 }
@@ -215,12 +238,26 @@ export async function rejectProposal(sessionId: string): Promise<any> {
 
 export async function setPolicy(
   sessionId: string,
-  policy: string
+  policy: string,
+  reviewBeforeSubmit?: boolean
 ): Promise<any> {
   return request(`/api/sessions/${sessionId}/policy`, {
     method: "PUT",
-    body: JSON.stringify({ policy }),
+    body: JSON.stringify({ policy, review_before_submit: reviewBeforeSubmit }),
   });
+}
+
+export async function amendReview(
+  sessionId: string, index: number, stateId: string, value: any, revision: number
+): Promise<SessionState> {
+  return request<SessionState>(`/api/sessions/${sessionId}/review/amend`, {
+    method: "POST",
+    body: JSON.stringify({ index, state_id: stateId, value, revision }),
+  });
+}
+
+export async function confirmReview(sessionId: string): Promise<{ review_confirmed: boolean }> {
+  return request(`/api/sessions/${sessionId}/review/confirm`, { method: "POST" });
 }
 
 export interface AutoProgressEvent {

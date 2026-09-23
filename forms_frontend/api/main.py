@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 import tempfile
+import uuid
 import ipaddress
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ from agent import tools as tool_functions
 from agent.agent import WorkflowAgent
 
 from forms_frontend.api.sessions import (
+    AcceptedAnswer,
     AutoAnsweredQuestion,
     FormSession,
     InteractionPolicy,
@@ -151,7 +153,7 @@ async def _current_state(session: FormSession, temporal: TemporalClient) -> dict
 
 async def _submit_once(
     session: FormSession, temporal: TemporalClient, token: str, value: Any,
-    *, auto_record: AutoAnsweredQuestion | None = None,
+    *, auto_record: AutoAnsweredQuestion | None = None, source: str = "manual",
 ) -> tuple[dict[str, Any], bool]:
     """Token-guarded submission shared by manual, Confirm and Auto policies.
 
@@ -181,6 +183,22 @@ async def _submit_once(
         # not silently lose a submission from the cumulative summary.
         if auto_record is not None:
             session.auto_answered.append(auto_record)
+        # Capture the *actual accepted* value and the question it belongs to.
+        # This history is read-only until a review edit has been validated by
+        # replaying it through a fresh instance of the SAME Temporal interpreter.
+        session.answer_history.append(AcceptedAnswer(
+            token=token,
+            state_id=awaiting.get("state_id") or "",
+            question_text=awaiting.get("prompt", ""),
+            schema=awaiting.get("schema") or {},
+            presentation=_lookup_state_presentation(
+                session.definition, awaiting.get("state_id")
+            ) or (awaiting.get("schema") or {}).get("presentation"),
+            value=value,
+            source="auto" if auto_record is not None else source,
+            explanation=auto_record.explanation if auto_record else "",
+        ))
+        session.review_replay_needs_input = False
         session.pending_submission_token = token
         state = await _wait_for_workflow_progress(
             temporal=temporal,
@@ -251,6 +269,32 @@ def _lookup_state_presentation(
     return None
 
 
+def _review_is_safe(definition: dict[str, Any]) -> bool:
+    """Do not replay journeys with non-idempotent actions or sub-processes.
+
+    Compiled Forms in this POC use only input/choice/output/end. Review is
+    offered only for these journeys; future departmental actions need an
+    explicit pre-submission gate rather than replaying side effects.
+    """
+    return all(
+        state.get("type") in {"input", "choice", "end"}
+        or (state.get("type") == "output" and state.get("channel") == "transcript")
+        for proc in definition.get("processes", {}).values()
+        for state in proc.get("states", {}).values()
+    ) and bool(definition.get("processes"))
+
+
+def _answer_data(entry: AcceptedAnswer) -> dict[str, Any]:
+    return {
+        "state_id": entry.state_id,
+        "question_text": entry.question_text,
+        "value": entry.value,
+        "schema": entry.schema,
+        "presentation": entry.presentation,
+        "source": entry.source,
+    }
+
+
 # =====================================================================
 # Request/Response models
 # =====================================================================
@@ -259,6 +303,7 @@ def _lookup_state_presentation(
 class StartSessionRequest(BaseModel):
     form_id: str | int
     policy: str = "manual"
+    review_before_submit: bool = False
     fixture_id: str | None = None
 
 
@@ -268,6 +313,7 @@ class StartSessionResponse(BaseModel):
     form_name: str
     temporal_workflow_id: str
     policy: str
+    review_before_submit: bool = False
     fixture_id: str | None = None
     conversation_messages: int = 0
 
@@ -283,6 +329,14 @@ class ChatRequest(BaseModel):
 
 class PolicyRequest(BaseModel):
     policy: str
+    review_before_submit: bool | None = None
+
+
+class ReviewAmendRequest(BaseModel):
+    index: int
+    state_id: str
+    value: Any
+    revision: int
 
 
 # =====================================================================
@@ -371,6 +425,9 @@ async def start_session(req: StartSessionRequest) -> StartSessionResponse:
         workflow_id=req.form_id, http_client=http, base_url=_workflow_server_url()
     )
 
+    if req.review_before_submit and not _review_is_safe(definition):
+        raise HTTPException(422, "Final review is not yet supported for forms with service actions")
+
     temporal_workflow_id = await tool_functions.start_workflow(
         workflow_id=req.form_id,
         http_client=http,
@@ -401,6 +458,7 @@ async def start_session(req: StartSessionRequest) -> StartSessionResponse:
         form_metadata=form_metadata,
         definition=definition,
         policy=policy,
+        review_before_submit=req.review_before_submit,
         conversation_history=conversation_history,
     )
 
@@ -410,6 +468,7 @@ async def start_session(req: StartSessionRequest) -> StartSessionResponse:
         form_name=form_metadata.get("name", f"Form {req.form_id}"),
         temporal_workflow_id=temporal_workflow_id,
         policy=session.policy.value,
+        review_before_submit=session.review_before_submit,
         fixture_id=req.fixture_id,
         conversation_messages=len(conversation_history),
     )
@@ -433,6 +492,11 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         if not presentation:
             presentation = awaiting.get("schema", {}).get("presentation")
 
+    result = await _terminal_result(temporal, session.temporal_workflow_id, state)
+    review_required = (session.review_before_submit and not session.review_confirmed
+                       and state.get("status") == "COMPLETED"
+                       and (result or {}).get("outcome") != "exit_page")
+
     return {
         "session_id": session_id,
         "workflow_id": session.temporal_workflow_id,
@@ -442,6 +506,12 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         "form_metadata": session.form_metadata,
         "policy": session.policy.value,
         "answered_count": len(session.accepted_tokens),
+        "review_before_submit": session.review_before_submit,
+        "review_required": review_required,
+        "review_confirmed": session.review_confirmed,
+        "review_revision": session.review_revision,
+        "review_replay_needs_input": session.review_replay_needs_input,
+        "answer_history": [_answer_data(item) for item in session.answer_history],
         "auto_answered": [
             {
                 "state_id": q.state_id,
@@ -453,7 +523,7 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         ],
         "pending_proposal": session.pending_proposal,
         "transcript": state.get("transcript") or [],
-        "result": await _terminal_result(temporal, session.temporal_workflow_id, state),
+        "result": result,
     }
 
 
@@ -901,7 +971,9 @@ async def confirm_proposal(session_id: str) -> dict[str, Any]:
     value = proposal["value"]
 
     try:
-        new_state, submitted = await _submit_once(session, temporal, token, value)
+        new_state, submitted = await _submit_once(
+            session, temporal, token, value, source="confirm"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -940,20 +1012,184 @@ async def reject_proposal(session_id: str) -> dict[str, Any]:
 
 @app.put("/api/sessions/{session_id}/policy")
 async def set_policy(session_id: str, req: PolicyRequest) -> dict[str, Any]:
-    """Change the interaction policy for a session."""
+    """Change answer policy and optional pre-submission review independently."""
     session = store.get(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
+        raise HTTPException(404, "Session not found")
     try:
-        session.policy = InteractionPolicy(req.policy)
+        new_policy = InteractionPolicy(req.policy)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid policy. Must be one of: {[p.value for p in InteractionPolicy]}",
-        )
+        raise HTTPException(400, f"Invalid policy. Must be one of: {[p.value for p in InteractionPolicy]}")
+    if req.review_before_submit is not None:
+        if session.review_confirmed:
+            raise HTTPException(409, "This form has already been finalised")
+        if req.review_before_submit and not _review_is_safe(session.definition):
+            raise HTTPException(422, "Final review is not yet supported for forms with service actions")
+        session.review_before_submit = req.review_before_submit
+    session.policy = new_policy
+    return {"session_id": session_id, "policy": session.policy.value,
+            "review_before_submit": session.review_before_submit}
 
-    return {"session_id": session_id, "policy": session.policy.value}
+
+async def _assert_review_ready(session: FormSession, temporal: TemporalClient) -> None:
+    if not session.review_before_submit or session.review_confirmed:
+        raise HTTPException(409, "There is no form awaiting final review")
+    state = await _current_state(session, temporal)
+    if state.get("status") != "COMPLETED":
+        raise HTTPException(409, "All questions must be answered before final review")
+    result = await _terminal_result(temporal, session.temporal_workflow_id, state)
+    if (result or {}).get("outcome") == "exit_page":
+        raise HTTPException(409, "An exit page is not a form for submission")
+
+
+@app.post("/api/sessions/{session_id}/review/confirm")
+async def confirm_review(session_id: str) -> dict[str, Any]:
+    """Explicit final approval after Temporal has collected the form answers.
+
+    The POC has no departmental submission integration. Approval marks the
+    answer set as final; it does not repeat any Temporal input or send data.
+    """
+    session = store.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    async with session.submission_lock:
+        if session.review_confirmed:
+            return {"review_confirmed": True}  # safe duplicate click
+        temporal = await get_temporal_client()
+        await _assert_review_ready(session, temporal)
+        session.review_confirmed = True
+    return {"review_confirmed": True}
+
+
+async def _discard_replay(temporal: TemporalClient, workflow_id: str) -> None:
+    """Best-effort cleanup of a failed replacement; original remains intact."""
+    try:
+        await temporal.get_workflow_handle(workflow_id).cancel()
+    except Exception:
+        logger.warning("Could not cancel abandoned review workflow %s", workflow_id)
+
+
+@app.post("/api/sessions/{session_id}/review/amend")
+async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, Any]:
+    """Revalidate a review edit through a new Temporal interpreter execution.
+
+    No previously accepted value is silently edited in place. Replay follows
+    the *new* authoritative SFSM path. If a changed answer alters routing or
+    invalidates a later answer, hand that new question back to the user.
+    """
+    session = store.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    async with session.submission_lock:
+        temporal = await get_temporal_client()
+        await _assert_review_ready(session, temporal)
+        if req.revision != session.review_revision:
+            raise HTTPException(409, "The answers have changed; refresh before editing")
+        original = list(session.answer_history)
+        if req.index < 0 or req.index >= len(original) or original[req.index].state_id != req.state_id:
+            raise HTTPException(409, "This answer is no longer available for editing")
+        if original[req.index].schema.get("kind") == "file_ref":
+            raise HTTPException(422, "File uploads cannot be changed during final review")
+        if original[req.index].value == req.value and type(original[req.index].value) is type(req.value):
+            return await get_session_state(session_id)
+
+        # Reuse the ORIGINAL definition, not a potentially updated export.
+        new_id = f"sfsm-review-{uuid.uuid4().hex[:16]}"
+        try:
+            handle = await temporal.start_workflow(
+                "SFSMInterpreter", arg=session.definition, id=new_id,
+                task_queue=_task_queue(),
+            )
+            new_id = handle.id
+        except Exception as exc:
+            logger.exception("Unable to start replacement Temporal workflow")
+            raise HTTPException(503, "Could not start review validation") from exc
+
+        rebuilt: list[AcceptedAnswer] = []
+        try:
+            state = await tool_functions.get_workflow_state(
+                workflow_id=new_id, temporal_client=temporal
+            )
+            # A just-started Temporal workflow may not yet be awaiting input.
+            if state.get("status") == "RUNNING" and not state.get("awaiting"):
+                state = await _wait_for_workflow_progress(
+                    temporal=temporal, workflow_id=new_id, previous_token=None,
+                    initial_state=state, timeout_seconds=10.0,
+                )
+            for index, previous in enumerate(original):
+                if state.get("status") == "COMPLETED":
+                    break  # A new branch can terminate before later old answers.
+                awaiting = state.get("awaiting")
+                if not awaiting or state.get("status") == "ADVANCING":
+                    raise HTTPException(503, "Replacement journey has not reached the next question")
+                if awaiting.get("state_id") != previous.state_id:
+                    if index <= req.index:
+                        raise HTTPException(409, "The replacement journey changed before the edited question")
+                    break  # Different branch: ask user to answer the NEW question.
+                value = req.value if index == req.index else previous.value
+                # Only a recognised file_ref from the same session can be replayed.
+                if (awaiting.get("schema") or {}).get("kind") == "file_ref" and value is not None:
+                    if not isinstance(value, dict) or value.get("ref") not in session.uploaded_files:
+                        raise HTTPException(409, "A previous file upload is no longer available")
+                try:
+                    initial = await tool_functions.submit_input(
+                        workflow_id=new_id, token=awaiting["token"], value=value,
+                        temporal_client=temporal,
+                    )
+                except Exception as exc:
+                    if index <= req.index:
+                        # Invalid edited answer: original completed run is unaffected.
+                        raise HTTPException(422, "The edited answer was rejected by the form") from exc
+                    # An old downstream answer is invalid under the changed path:
+                    # expose this *new* awaiting token to the user instead.
+                    break
+                rebuilt.append(AcceptedAnswer(
+                    token=awaiting["token"],
+                    state_id=awaiting.get("state_id") or "",
+                    question_text=awaiting.get("prompt", ""),
+                    schema=awaiting.get("schema") or {},
+                    presentation=_lookup_state_presentation(
+                        session.definition, awaiting.get("state_id")
+                    ) or (awaiting.get("schema") or {}).get("presentation"),
+                    value=value,
+                    source="manual" if index == req.index else previous.source,
+                    explanation="" if index == req.index else previous.explanation,
+                ))
+                state = await _wait_for_workflow_progress(
+                    temporal=temporal, workflow_id=new_id,
+                    previous_token=awaiting["token"], initial_state=initial,
+                    timeout_seconds=10.0,
+                )
+            if state.get("status") == "ADVANCING" or (state.get("status") == "RUNNING" and not state.get("awaiting")):
+                raise HTTPException(503, "Replacement journey has not finished advancing")
+            if len(rebuilt) <= req.index:
+                raise HTTPException(409, "Edited question is no longer on the new journey")
+        except HTTPException:
+            await _discard_replay(temporal, new_id)
+            raise
+        except Exception as exc:
+            await _discard_replay(temporal, new_id)
+            logger.exception("Review validation replay failed")
+            raise HTTPException(503, "Could not validate the amended answers") from exc
+
+        # Only NOW swap to the new authoritative Temporal run and its exact
+        # accepted-answer path. The original completed run remains untouched.
+        session.temporal_workflow_id = new_id
+        session.accepted_tokens = {item.token for item in rebuilt}
+        session.answer_history = rebuilt
+        session.auto_answered = [AutoAnsweredQuestion(
+            state_id=item.state_id, question_text=item.question_text,
+            submitted_value=item.value, explanation=item.explanation,
+        ) for item in rebuilt if item.source == "auto"]
+        session.pending_submission_token = None
+        session.pending_proposal = None
+        session.review_revision += 1
+        session.review_replay_needs_input = state.get("status") != "COMPLETED"
+        # A chat agent created before the amendment may hold the old run ID.
+        _agents.pop(session.session_id, None)
+        # Do NOT call get_session_state while holding submission_lock: it only
+        # queries Temporal, but a future version may need the same lock.
+    return await get_session_state(session_id)
 
 
 # --- Serve the built frontend ---

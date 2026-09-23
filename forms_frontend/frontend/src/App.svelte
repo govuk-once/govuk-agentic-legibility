@@ -15,8 +15,9 @@
   import ChatPanel from "./lib/components/ChatPanel.svelte";
   import FormComplete from "./lib/components/FormComplete.svelte";
   import AutoProgressLog from "./lib/components/AutoProgressLog.svelte";
+  import ReviewAnswers from "./lib/components/ReviewAnswers.svelte";
 
-  type View = "list" | "form" | "complete";
+  type View = "list" | "form" | "review" | "complete";
 
   let view: View = $state("list");
   let forms: FormSummary[] = $state([]);
@@ -27,6 +28,7 @@
   let loading: boolean = $state(false);
   let error: string = $state("");
   let policy: string = $state("manual");
+  let reviewBeforeSubmit = $state(true);
   let selectedFixtureId: string = $state("");
   let fixturePreview: ConversationFixtureDetail | null = $state(null);
   let preloadedConversation: Array<{ role: string; content: string }> = $state([]);
@@ -81,7 +83,7 @@
     loading = true;
     error = "";
     try {
-      const session = await startSession(formId, policy, selectedFixtureId || null);
+      const session = await startSession(formId, policy, selectedFixtureId || null, policy === "auto" && reviewBeforeSubmit);
       sessionId = session.session_id;
       formName = session.form_name;
 
@@ -93,7 +95,7 @@
 
       const state = await getSessionState(sessionId);
       sessionState = state;
-      view = "form";
+      view = state.review_required ? "review" : state.status === "COMPLETED" ? "complete" : "form";
     } catch (e: any) {
       error = e.message || "Failed to start form";
     } finally {
@@ -126,7 +128,8 @@
           sessionState = next;
           transitionPending = false;
           pendingPreviousToken = undefined;
-          if (next.status === "COMPLETED") view = "complete";
+          if (next.status === "COMPLETED") view = next.review_required ? "review" : "complete";
+          else view = "form";
           return;
         }
         transitionPending = true;
@@ -145,10 +148,42 @@
   }
 
   async function handlePolicyChange(newPolicy: string) {
-    policy = newPolicy;
-    if (sessionId) {
-      await setPolicy(sessionId, newPolicy);
+    const previous = policy;
+    if (!sessionId) {
+      policy = newPolicy;
+      return;
+    }
+    try {
+      await setPolicy(sessionId, newPolicy, newPolicy === "auto" && reviewBeforeSubmit);
       sessionState = await getSessionState(sessionId);
+      policy = newPolicy;
+      error = "";
+    } catch (e: any) {
+      // Keep the displayed mode in sync with the actual server policy. For
+      // action-bearing journeys final review is intentionally unavailable.
+      policy = previous;
+      error = e.message || "Unable to change interaction policy";
+    }
+  }
+
+  async function handleReviewChange(updated: SessionState) {
+    sessionState = updated;
+    transitionPending = false;
+    pendingPreviousToken = undefined;
+    view = updated.review_required ? "review" : updated.status === "COMPLETED" ? "complete" : "form";
+  }
+
+  async function handleReviewToggle(checked: boolean) {
+    const previous = reviewBeforeSubmit;
+    reviewBeforeSubmit = checked;
+    if (sessionId) {
+      try {
+        await setPolicy(sessionId, policy, checked);
+        sessionState = await getSessionState(sessionId);
+      } catch (e: any) {
+        reviewBeforeSubmit = previous;
+        error = e.message || "Unable to change review settings";
+      }
     }
   }
 
@@ -257,9 +292,22 @@
                 {:else if policy === "confirm"}
                   The agent proposes answers from the conversation. You confirm or edit before submission.
                 {:else}
-                  The agent automatically submits answers it's confident about, skipping questions it can answer.
+                  The assistant fills in answers it knows and asks you for any missing details.
                 {/if}
               </div>
+              {#if policy === "auto"}
+                <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-top-3">
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="initial-final-review" type="checkbox"
+                      checked={reviewBeforeSubmit}
+                      onchange={(e) => (reviewBeforeSubmit = e.currentTarget.checked)} />
+                    <label class="govuk-label govuk-checkboxes__label" for="initial-final-review">
+                      Let me check all answers before submitting
+                    </label>
+                  </div>
+                </div>
+                <p class="govuk-hint govuk-!-margin-top-2">Review and change any answers when the assistant has finished.</p>
+              {/if}
             </fieldset>
           </div>
 
@@ -357,9 +405,9 @@
               from the conversation. You review each one.
             </p>
             <p class="govuk-body-s">
-              <strong>Automatic:</strong> The agent submits answers
-              it's confident about and skips ahead to the first
-              question it can't answer.
+              <strong>Automatic:</strong> The assistant fills in answers
+              it knows and asks for missing information. You can choose
+              to review all answers at the end.
             </p>
           </div>
         </div>
@@ -395,8 +443,20 @@
               onclick={() => handlePolicyChange("auto")}
             >Auto</button>
           </div>
+          {#if policy === "auto"}
+            <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-bottom-4">
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="active-final-review" type="checkbox"
+                  checked={reviewBeforeSubmit}
+                  onchange={(e) => void handleReviewToggle(e.currentTarget.checked)} />
+                <label class="govuk-label govuk-checkboxes__label" for="active-final-review">
+                  Let me check all answers before submitting
+                </label>
+              </div>
+            </div>
+          {/if}
 
-          {#if sessionState?.auto_answered && sessionState.auto_answered.length > 0}
+          {#if sessionState?.auto_answered && sessionState.auto_answered.length > 0 && !sessionState.review_required}
             <AutoProgressLog items={sessionState.auto_answered} />
           {/if}
 
@@ -411,7 +471,10 @@
             </div>
           {/if}
 
-          {#if sessionState?.awaiting}
+          {#if sessionState?.review_required}
+            <ReviewAnswers {sessionId} state={sessionState}
+              onStateChange={handleReviewChange} onComplete={handleComplete} />
+          {:else if sessionState?.awaiting}
             <FormQuestion
               {sessionId}
               awaiting={sessionState.awaiting}
@@ -420,6 +483,7 @@
               {policy}
               answeredCount={sessionState.answered_count ?? sessionState.auto_answered.length}
               pendingTransition={transitionPending}
+              forceManualHandoff={sessionState.review_replay_needs_input}
               onSubmitted={refreshState}
               onComplete={handleComplete}
             />
@@ -438,6 +502,10 @@
         </div>
       </div>
 
+    {:else if view === "review" && sessionState?.review_required}
+      <h1 class="govuk-heading-l">{formName}</h1>
+      <ReviewAnswers {sessionId} state={sessionState}
+        onStateChange={handleReviewChange} onComplete={handleComplete} />
     {:else if view === "complete"}
       <FormComplete
         metadata={sessionState?.form_metadata ?? null}

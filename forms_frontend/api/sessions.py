@@ -33,6 +33,24 @@ class AutoAnsweredQuestion:
 
 
 @dataclass
+class AcceptedAnswer:
+    """An accepted Temporal input, in the order actually traversed.
+
+    This is review/display history, not a second journey executor. The SFSM
+    interpreter remains the authority for validation and routing.
+    """
+
+    token: str
+    state_id: str
+    question_text: str
+    schema: dict[str, Any]
+    presentation: dict[str, Any] | None
+    value: Any
+    source: str  # manual, confirm or auto
+    explanation: str = ""
+
+
+@dataclass
 class FormSession:
     session_id: str
     form_id: str
@@ -42,6 +60,11 @@ class FormSession:
     policy: InteractionPolicy = InteractionPolicy.MANUAL
     conversation_history: list[dict[str, Any]] = field(default_factory=list)
     auto_answered: list[AutoAnsweredQuestion] = field(default_factory=list)
+    answer_history: list[AcceptedAnswer] = field(default_factory=list)
+    review_before_submit: bool = False
+    review_confirmed: bool = False
+    review_revision: int = 0
+    review_replay_needs_input: bool = False
     pending_proposal: dict[str, Any] | None = None
     # Transient HTTP/SSE coordination only. Temporal remains authoritative.
     submission_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
@@ -70,6 +93,7 @@ class SessionStore:
         form_metadata: dict[str, Any],
         definition: dict[str, Any],
         policy: InteractionPolicy = InteractionPolicy.MANUAL,
+        review_before_submit: bool = False,
         conversation_history: list[dict[str, Any]] | None = None,
     ) -> FormSession:
         session_id = str(uuid.uuid4())
@@ -80,6 +104,7 @@ class SessionStore:
             form_metadata=form_metadata,
             definition=definition,
             policy=policy,
+            review_before_submit=review_before_submit,
             conversation_history=conversation_history or [],
         )
         self._sessions[session_id] = session
