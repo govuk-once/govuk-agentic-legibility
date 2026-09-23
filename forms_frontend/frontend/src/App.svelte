@@ -16,6 +16,7 @@
   import FormComplete from "./lib/components/FormComplete.svelte";
   import AutoProgressLog from "./lib/components/AutoProgressLog.svelte";
   import ReviewAnswers from "./lib/components/ReviewAnswers.svelte";
+  import { sessionView, waitForCompletion, reviewAcknowledged } from "./lib/sessionView.js";
 
   type View = "list" | "form" | "review" | "complete";
 
@@ -36,6 +37,10 @@
   let pendingPreviousToken: string | undefined = $state(undefined);
   let pendingRefreshError = $state("");
   let refreshInFlight: Promise<void> | null = null;
+  let completionExpected = $state(false);
+  // An authoritative terminal/review state takes precedence over a previous
+  // component's route. Never fall back to a stale question at completion.
+  const displayView: View = $derived(sessionView(view, sessionState));
 
   async function loadForms() {
     loading = true;
@@ -83,7 +88,12 @@
     loading = true;
     error = "";
     try {
-      const session = await startSession(formId, policy, selectedFixtureId || null, policy === "auto" && reviewBeforeSubmit);
+      const requestedReview = policy === "auto" && reviewBeforeSubmit;
+      const session = await startSession(formId, policy, selectedFixtureId || null, requestedReview);
+      if (!reviewAcknowledged(requestedReview, session.review_before_submit)) {
+        throw new Error("The Forms API did not enable final review. Restart the Forms API after applying the patch, then start a new form.");
+      }
+      completionExpected = false;
       sessionId = session.session_id;
       formName = session.form_name;
 
@@ -103,15 +113,14 @@
     }
   }
 
-  function refreshState(afterToken?: string): Promise<void> {
+  function refreshState(afterToken?: string, expectCompleted = false): Promise<void> {
     // SSE completion and the manual form can both request a refresh. Never let
     // one response overwrite a later authoritative state with a stale token.
     const requestedSession = sessionId;
     if (!requestedSession) return Promise.resolve();
-    if (afterToken) {
-      pendingPreviousToken = afterToken;
-      transitionPending = true;
-    }
+    if (expectCompleted) completionExpected = true;
+    if (afterToken) pendingPreviousToken = afterToken;
+    if (afterToken || completionExpected) transitionPending = true;
     // A manual submit can overlap the SSE's final refresh. The in-flight poll
     // must use the newly accepted token instead of accepting its old snapshot.
     if (refreshInFlight) return refreshInFlight;
@@ -120,14 +129,12 @@
       const deadline = Date.now() + 15000;
       while (sessionId === requestedSession) {
         const next = await getSessionState(requestedSession);
-        const stillAdvancing = next.status === "ADVANCING"
-          || (pendingPreviousToken && next.status !== "COMPLETED"
-              && next.awaiting?.token === pendingPreviousToken)
-          || (next.status === "RUNNING" && !next.awaiting);
+        const stillAdvancing = waitForCompletion(next, completionExpected, pendingPreviousToken);
         if (!stillAdvancing) {
           sessionState = next;
           transitionPending = false;
           pendingPreviousToken = undefined;
+          completionExpected = false;
           if (next.status === "COMPLETED") view = next.review_required ? "review" : "complete";
           else view = "form";
           return;
@@ -154,7 +161,11 @@
       return;
     }
     try {
-      await setPolicy(sessionId, newPolicy, newPolicy === "auto" && reviewBeforeSubmit);
+      const requestedReview = newPolicy === "auto" && reviewBeforeSubmit;
+      const updated = await setPolicy(sessionId, newPolicy, requestedReview);
+      if (!reviewAcknowledged(requestedReview, updated.review_before_submit)) {
+        throw new Error("The Forms API did not acknowledge the review setting. Restart the API.");
+      }
       sessionState = await getSessionState(sessionId);
       policy = newPolicy;
       error = "";
@@ -170,6 +181,7 @@
     sessionState = updated;
     transitionPending = false;
     pendingPreviousToken = undefined;
+    completionExpected = false;
     view = updated.review_required ? "review" : updated.status === "COMPLETED" ? "complete" : "form";
   }
 
@@ -178,7 +190,10 @@
     reviewBeforeSubmit = checked;
     if (sessionId) {
       try {
-        await setPolicy(sessionId, policy, checked);
+        const updated = await setPolicy(sessionId, policy, checked);
+        if (!reviewAcknowledged(checked, updated.review_before_submit)) {
+          throw new Error("The Forms API did not acknowledge the review setting. Restart the API.");
+        }
         sessionState = await getSessionState(sessionId);
       } catch (e: any) {
         reviewBeforeSubmit = previous;
@@ -188,7 +203,10 @@
   }
 
   async function handleComplete() {
-    await refreshState();
+    // The last accepted input, or the SSE's terminal event, is authoritative
+    // evidence that completion is expected. Do not render an old question
+    // while the subsequent Temporal query catches up.
+    await refreshState(undefined, true);
   }
 
   function handleBackToList() {
@@ -202,6 +220,7 @@
     transitionPending = false;
     pendingPreviousToken = undefined;
     pendingRefreshError = "";
+    completionExpected = false;
   }
 
   $effect(() => {
@@ -252,7 +271,7 @@
       </div>
     {/if}
 
-    {#if view === "list"}
+    {#if displayView === "list"}
       <h1 class="govuk-heading-xl">Available forms</h1>
 
       <div class="govuk-grid-row">
@@ -413,7 +432,7 @@
         </div>
       </div>
 
-    {:else if view === "form"}
+    {:else if displayView === "form"}
       <div class="forms-layout">
         <div>
           <a
@@ -466,7 +485,7 @@
               {#if pendingRefreshError}
                 <p class="govuk-body">{pendingRefreshError}</p>
                 <button type="button" class="govuk-button govuk-button--secondary"
-                  onclick={() => void refreshState(pendingPreviousToken)}>Check progress</button>
+                  onclick={() => void refreshState(pendingPreviousToken, completionExpected)}>Check progress</button>
               {/if}
             </div>
           {/if}
@@ -502,11 +521,11 @@
         </div>
       </div>
 
-    {:else if view === "review" && sessionState?.review_required}
+    {:else if displayView === "review" && sessionState?.review_required}
       <h1 class="govuk-heading-l">{formName}</h1>
       <ReviewAnswers {sessionId} state={sessionState}
         onStateChange={handleReviewChange} onComplete={handleComplete} />
-    {:else if view === "complete"}
+    {:else if displayView === "complete"}
       <FormComplete
         metadata={sessionState?.form_metadata ?? null}
         transcript={sessionState?.transcript ?? []}

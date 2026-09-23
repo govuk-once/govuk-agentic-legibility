@@ -36,7 +36,7 @@
     pendingTransition: boolean;
     forceManualHandoff?: boolean;
     onSubmitted: (afterToken?: string) => void | Promise<void>;
-    onComplete: () => void;
+    onComplete: () => void | Promise<void>;
   }
 
   let {
@@ -166,7 +166,7 @@
           if (event.reason === "error") {
             autoProgressError = "Automatic completion stopped. Please answer this question yourself.";
           }
-          void Promise.resolve(onSubmitted()).catch(() => {
+          void Promise.resolve(event.reason === "complete" ? onComplete() : onSubmitted()).catch(() => {
             autoProgressError = "Unable to refresh the journey. Check progress before continuing.";
           });
         }
@@ -225,7 +225,7 @@
       }
       const result = await submitAnswer(sessionId, awaiting.token, submitValue);
       if (result.status === "COMPLETED") {
-        onComplete();
+        await onComplete();
       } else {
         // Wait for the parent to receive the NEW Temporal awaiting token before
         // resuming auto mode. Otherwise the old question can be retried.
@@ -245,7 +245,7 @@
     try {
       const result = await confirmProposal(sessionId);
       if (result.status === "COMPLETED") {
-        onComplete();
+        await onComplete();
       } else {
         await onSubmitted(awaiting.token);
       }

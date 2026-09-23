@@ -65,6 +65,10 @@ class FormSession:
     review_confirmed: bool = False
     review_revision: int = 0
     review_replay_needs_input: bool = False
+    # A completed Temporal execution cannot revert to an awaiting question.
+    # Cache the authoritative terminal observation for this execution only.
+    terminal_state: dict[str, Any] | None = None
+    terminal_result: dict[str, Any] | None = None
     pending_proposal: dict[str, Any] | None = None
     # Transient HTTP/SSE coordination only. Temporal remains authoritative.
     submission_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)

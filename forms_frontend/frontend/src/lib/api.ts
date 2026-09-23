@@ -241,7 +241,7 @@ export async function setPolicy(
   policy: string,
   reviewBeforeSubmit?: boolean
 ): Promise<any> {
-  return request(`/api/sessions/${sessionId}/policy`, {
+  return request<{ policy: string; review_before_submit: boolean }>(`/api/sessions/${sessionId}/policy`, {
     method: "PUT",
     body: JSON.stringify({ policy, review_before_submit: reviewBeforeSubmit }),
   });

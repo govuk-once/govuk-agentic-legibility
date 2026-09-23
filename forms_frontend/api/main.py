@@ -134,11 +134,28 @@ async def _wait_for_workflow_progress(
         )
 
 
+def _remember_completion(session: FormSession, state: dict[str, Any]) -> dict[str, Any]:
+    """Latch an observed Temporal completion, not an inferred question count.
+
+    Completed executions cannot return to an earlier input. Queries during
+    completion (including queries racing with the final update) must not cause
+    the browser to show the first or last question again.
+    """
+    if state.get("status") == "COMPLETED":
+        session.terminal_state = {**state, "awaiting": None}
+        session.pending_submission_token = None
+        return session.terminal_state
+    return state
+
+
 async def _current_state(session: FormSession, temporal: TemporalClient) -> dict[str, Any]:
-    """Mask a consumed input while the next authoritative state is not ready."""
+    """Mask consumed inputs and preserve a previously observed terminal state."""
+    if session.terminal_state is not None:
+        return session.terminal_state
     state = await tool_functions.get_workflow_state(
         workflow_id=session.temporal_workflow_id, temporal_client=temporal
     )
+    state = _remember_completion(session, state)
     token = session.pending_submission_token
     if token is not None:
         awaiting = state.get("awaiting") or {}
@@ -205,6 +222,7 @@ async def _submit_once(
             workflow_id=session.temporal_workflow_id,
             previous_token=token, initial_state=initial,
         )
+        state = _remember_completion(session, state)
         if state["status"] != "ADVANCING":
             session.pending_submission_token = None
         return state, True
@@ -492,7 +510,11 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         if not presentation:
             presentation = awaiting.get("schema", {}).get("presentation")
 
-    result = await _terminal_result(temporal, session.temporal_workflow_id, state)
+    if state.get("status") == "COMPLETED" and session.terminal_result is None:
+        session.terminal_result = await _terminal_result(
+            temporal, session.temporal_workflow_id, state
+        )
+    result = session.terminal_result if state.get("status") == "COMPLETED" else None
     review_required = (session.review_before_submit and not session.review_confirmed
                        and state.get("status") == "COMPLETED"
                        and (result or {}).get("outcome") != "exit_page")
@@ -1037,8 +1059,11 @@ async def _assert_review_ready(session: FormSession, temporal: TemporalClient) -
     state = await _current_state(session, temporal)
     if state.get("status") != "COMPLETED":
         raise HTTPException(409, "All questions must be answered before final review")
-    result = await _terminal_result(temporal, session.temporal_workflow_id, state)
-    if (result or {}).get("outcome") == "exit_page":
+    if session.terminal_result is None:
+        session.terminal_result = await _terminal_result(
+            temporal, session.temporal_workflow_id, state
+        )
+    if (session.terminal_result or {}).get("outcome") == "exit_page":
         raise HTTPException(409, "An exit page is not a form for submission")
 
 
@@ -1175,6 +1200,9 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
         # Only NOW swap to the new authoritative Temporal run and its exact
         # accepted-answer path. The original completed run remains untouched.
         session.temporal_workflow_id = new_id
+        session.terminal_state = None  # A review edit has started a NEW execution.
+        session.terminal_result = None
+        _remember_completion(session, state)
         session.accepted_tokens = {item.token for item in rebuilt}
         session.answer_history = rebuilt
         session.auto_answered = [AutoAnsweredQuestion(

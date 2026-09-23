@@ -398,3 +398,53 @@ def test_changed_branch_invalidates_downstream_answers_and_requests_input(monkey
         assert [item["state_id"] for item in complete["answer_history"]][-2:] == [
             "mq4KgkUb", "31pMZdRv",
         ]
+
+
+def test_fully_automatic_form6_displays_final_review_not_first_question(review_journey, monkeypatch):
+    """Regression: all 11 auto answers end on the summary, never a new form."""
+    client, sid, transport = review_journey
+
+    async def all_answers(*, awaiting, conversation_history):
+        return {"has_answer": True, "value": "0" if awaiting["state_id"] == "hY9HnrAz"
+                else "synthetic answer", "explanation": "Fixture"}
+
+    monkeypatch.setattr(api, "propose_answer", all_answers)
+    events = _events(client.get(f"/api/sessions/{sid}/auto-progress"))
+    assert len([event for event in events if event["type"] == "step"]) == 11
+    assert events[-1]["reason"] == "complete"
+    state = client.get(f"/api/sessions/{sid}/state").json()
+    assert state["review_required"] and state["status"] == "COMPLETED"
+    assert state["awaiting"] is None
+    assert len(state["answer_history"]) == len(state["auto_answered"]) == 11
+    assert state["answer_history"][0]["state_id"] == "uyQrCFqM"
+    assert state["answer_history"][-1]["value"] == "0"
+    assert len(transport.executions["initial-run"].submissions) == 11
+
+    # The terminal observation is monotonic even when a subsequent query is
+    # delayed or erroneously supplies a historical first-question snapshot.
+    async def old_first_question(**kwargs):
+        return {"status": "RUNNING", "awaiting": transport.executions[
+            "initial-run"].awaiting(position=0), "transcript": []}
+
+    monkeypatch.setattr(api.tool_functions, "get_workflow_state", old_first_question)
+    repeat = client.get(f"/api/sessions/{sid}/state").json()
+    assert repeat["status"] == "COMPLETED" and repeat["awaiting"] is None
+    assert repeat["review_required"] and len(repeat["answer_history"]) == 11
+    assert client.post(f"/api/sessions/{sid}/review/confirm").status_code == 200
+    finished = client.get(f"/api/sessions/{sid}/state").json()
+    assert finished["status"] == "COMPLETED" and not finished["review_required"]
+
+
+def test_optional_final_zero_or_skip_cannot_regress_to_first_input(review_journey, monkeypatch):
+    client, sid, transport = review_journey
+    reach_final_review(review_journey, final_answer="")
+
+    async def old_first_question(**kwargs):
+        return {"status": "RUNNING", "awaiting": transport.executions[
+            "initial-run"].awaiting(position=0), "transcript": []}
+
+    monkeypatch.setattr(api.tool_functions, "get_workflow_state", old_first_question)
+    state = client.get(f"/api/sessions/{sid}/state").json()
+    assert state["status"] == "COMPLETED" and state["review_required"]
+    assert state["awaiting"] is None and state["answer_history"][-1]["value"] == ""
+    assert len(transport.executions["initial-run"].submissions) == 11
