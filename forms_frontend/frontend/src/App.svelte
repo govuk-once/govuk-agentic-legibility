@@ -117,7 +117,8 @@
     }
   }
 
-  function handleComplete() {
+  async function handleComplete() {
+    await refreshState();
     view = "complete";
   }
 
@@ -374,7 +375,9 @@
               onComplete={handleComplete}
             />
           {:else if sessionState?.status === "COMPLETED"}
-            <FormComplete metadata={sessionState.form_metadata} onBack={handleBackToList} />
+            <FormComplete metadata={sessionState.form_metadata}
+              transcript={sessionState.transcript ?? []} result={sessionState.result}
+              onBack={handleBackToList} />
           {:else}
             <p class="govuk-body">Waiting for the next question...</p>
           {/if}
@@ -388,6 +391,8 @@
     {:else if view === "complete"}
       <FormComplete
         metadata={sessionState?.form_metadata ?? null}
+        transcript={sessionState?.transcript ?? []}
+        result={sessionState?.result}
         onBack={handleBackToList}
       />
     {/if}

@@ -2,7 +2,7 @@
 
 This adapter compiles exported Forms **into the repository's existing `sfsm/0.2`
 model**, keeping question collection separate from frontend presentation. It does not
-modify the Temporal interpreter, submit a form, take payment, upload file *bytes* or
+change the Temporal interpreter except for optional `file_ref` skips, submit a form, take payment, upload file *bytes* or
 involve an LLM. Use **synthetic answers only** in the local preview: values remain
 in process memory, and there is no authentication or persistence.
 
@@ -30,6 +30,10 @@ remaining exports; single-form compilation exits nonzero when unsupported. Succe
 entries may also include `warnings` about deliberate simplifications (for example,
 addresses collected as a string, file references needing an uploader, or unfamiliar
 answer types falling back to a string). Warnings do not alter the SFSM schema.
+Batch reports distinguish `ok`, `preview_only` (payments omitted or unknown
+answer types) and `unsupported`. Only `ok` contributes to the "Compiled" count.
+If an export was previously converted but now fails stricter validation, its
+stale generated JSON is deleted, preventing the filesystem server from serving it.
 
 ## Web journey
 
@@ -72,29 +76,34 @@ an isolated preview API; the existing DVLA/Flex API on port 8001 is unchanged.
   A plain, unrouted Yes/No *text* question remains a string. An optional
   `select_one` includes an explicit `__forms_skip__` option because the current
   interpreter otherwise rejects skipped selections. An ambiguous **unrouted**
-  selection becomes a string with a report warning; ambiguous **routed**
-  selections remain unsupported because their cardinality affects the predicate.
+  selection (routed or not) is rejected rather than flattened into a string.
 * Deterministic `choice` states handle `answer_value` → `goto_page_id` and
   `skip_to_end`, defaulting to `next_step_id`. A string is compared with `eq`,
   multiple selections with `contains`, and boolean Yes/No with the native boolean
   predicates. A condition may check an earlier question; conditions referencing a
-  later question, invalid destinations and exit pages are rejected. Clients never
+  later question or invalid destination is rejected. Referenced exit pages compile
+  to an `output` state carrying their heading and guidance, followed by an
+  off-ramp `end` state. Malformed and unresolved exit pages reject compilation.
+  Clients never
   choose the next node independently.
-* A required Forms `file` question becomes an existing SFSM `file_ref` input,
+* A Forms `file` question becomes an existing SFSM `file_ref` input,
   preserving its source answer settings. The Temporal interpreter accepts a value
   such as `{"ref": "synthetic-1", "bytes": 128, "content_type": "application/pdf"}`.
   **This does not itself upload any bytes or implement storage**, and no upload API
   call is generated. An upload-capable client must provide a reference; the current
   Svelte preview does not provide a file-upload control (its JSON API can accept
-  pre-uploaded refs). Optional files remain unsupported because the current
-  interpreter does not accept a skipped `file_ref`.
+  pre-uploaded refs). Optional `file_ref` questions can now be skipped by sending
+  `null`, or answered with a valid uploaded reference. The new `forms_frontend`
+  has an opt-in local synthetic-file uploader; the compiler itself stores no
+  bytes. Multiple-file inputs are still unsupported.
 * Omitted/null `is_optional` and `is_repeatable` are interpreted as `false`;
-  explicit repeatability remains unsupported. Payments, repeatable questions,
-  exit-page flows and malformed routing are reported as unsupported. Declarations
+  explicit repeatability remains unsupported and prevents compilation. Payments
+  are flagged `preview_only`; repeatable questions and malformed routing remain
+  unsupported. Declarations
   and `what_happens_next` are metadata only; `end_form` means **answers collected**,
   not submitted or paid for.
 * The preview runner is deliberately not a Temporal implementation: it supports the
-  adapter's input/choice/end subset using the **real SFSM model and predicates**.
+  adapter's input/choice/output/end subset using the **real SFSM model and predicates**.
   Running the full Temporal workflow requires the project's Temporal environment.
 
 Run focused tests from `durable_poc` with `python -m pytest forms_adapter/tests -q`.

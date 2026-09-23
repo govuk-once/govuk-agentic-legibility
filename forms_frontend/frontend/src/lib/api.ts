@@ -36,6 +36,8 @@ export interface SessionState {
   policy: string;
   auto_answered: AutoAnswered[];
   pending_proposal: Proposal | null;
+  transcript?: Array<{ message: string }>;
+  result?: { status: string; outcome?: string } | null;
 }
 
 export interface AwaitingInput {
@@ -167,6 +169,17 @@ export async function submitAnswer(
     method: "POST",
     body: JSON.stringify({ token, value }),
   });
+}
+
+export async function uploadFile(
+  sessionId: string, token: string, file: File
+): Promise<{ ref: string; bytes: number; content_type: string }> {
+  const response = await fetch(`/api/sessions/${sessionId}/files?token=${encodeURIComponent(token)}`, {
+    method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  if (!response.ok) throw new Error(`Upload failed (${response.status}): ${await response.text()}`);
+  return response.json();
 }
 
 export async function sendChat(

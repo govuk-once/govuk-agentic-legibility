@@ -99,6 +99,9 @@ async def propose_answer(
     """
     prompt_text = awaiting.get("prompt", "")
     schema = awaiting.get("schema", {})
+    if schema.get("kind") == "file_ref":
+        return {"has_answer": False, "value": None,
+                "explanation": "Upload the file, or skip this optional question."}
 
     user_prompt = PROPOSAL_USER_TEMPLATE.format(
         prompt=prompt_text,

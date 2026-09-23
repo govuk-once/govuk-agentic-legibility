@@ -790,6 +790,10 @@ class SFSMInterpreter:
                         )
 
         if kind == "file_ref":
+            # A supplied optional file is still a native file reference; only
+            # the explicit optional skip is represented by null.
+            if val is None and schema.get("allow_skip") is True:
+                return
             if not isinstance(val, dict) or "error" in val:
                 self._raise_input_validation_error(
                     msg,

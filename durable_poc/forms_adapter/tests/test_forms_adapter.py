@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from forms_adapter import UnsupportedForm, compile_form, normalise_form
 from forms_adapter.preview import PreviewRun, create_app
-from src.model import SFSMDefinition
+from src.model import SFSMDefinition, OutputState, EndState
 from src.predicates import evaluate
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -57,6 +57,8 @@ def test_actual_model_validates_all_states_and_transitions(form_id):
         elif state.type == "choice":
             assert state.default in process.states
             assert all(rule.next in process.states for rule in state.rules)
+        elif state.type == "output":
+            assert state.next in process.states
         else:
             assert state.type == "end"
     assert definition.defaults["forms"]["preview_only"] is True
@@ -201,8 +203,6 @@ def test_multi_select_contains_and_skip_to_end():
 @pytest.mark.parametrize("mutation,reason", [
     (lambda f: f["content"]["steps"][0]["data"].update(is_repeatable=True), "repeatable"),
     (lambda f: f["content"]["steps"][0].update(exit_pages=[{"id": 1}]), "exit_pages"),
-    (lambda f: f["content"]["steps"][0]["data"].update(answer_type="file", is_optional=True), "optional file_ref"),
-    (lambda f: f["content"].update(payment_url="https://payment.invalid"), "payment"),
     (lambda f: f["content"]["steps"][0].update(next_step_id="unknown"), "unknown"),
     (lambda f: f["content"]["steps"][3]["routing_conditions"][0].update(goto_page_id="unknown"), "unknown"),
     (lambda f: f["content"]["steps"][3]["routing_conditions"][0].update(check_page_id="dKg1ApnD"), "preceding"),
@@ -290,17 +290,15 @@ def test_file_question_uses_existing_file_ref_contract_and_never_uploads_bytes()
     assert run.answers[question["id"]]["ref"] == "synthetic-blob-1"
 
 
-def test_ambiguous_non_routed_selection_falls_back_to_string_not_a_guessed_cardinality():
+def test_ambiguous_non_routed_selection_is_rejected():
     fixture = export("2130")
     first = fixture["content"]["steps"][0]
     first["data"]["answer_settings"]["only_one_option"] = None
-    definition = SFSMDefinition.model_validate(compile_form(fixture))
-    state = definition.processes["main"].states[first["id"]]
-    assert state.schema_.kind == "string"
-    assert state.schema_.model_extra["presentation"]["answer_settings"]["selection_options"]
+    with pytest.raises(UnsupportedForm, match="selection needs valid options"):
+        compile_form(fixture)
     routed = fixture["content"]["steps"][3]
     routed["data"]["answer_settings"]["only_one_option"] = None
-    with pytest.raises(UnsupportedForm, match="routed selection needs"):
+    with pytest.raises(UnsupportedForm, match="selection needs valid options"):
         compile_form(fixture)
 
 
@@ -324,6 +322,8 @@ def test_batch_compilation_continues_past_unsupported(tmp_path):
     bad = export("6")
     bad["content"]["steps"][0]["data"]["is_repeatable"] = True
     (source / "bad.json").write_text(json.dumps(bad))
+    output.mkdir()
+    (output / "bad.json").write_text("STALE UNSUPPORTED DEFINITION")
     report = tmp_path / "report.json"
     result = subprocess.run([sys.executable, "-m", "forms_adapter", "--batch", str(source),
                              "--output", str(output), "--report", str(report)],
@@ -350,7 +350,7 @@ def test_batch_report_warns_on_unfamiliar_type_and_file_without_rejecting(tmp_pa
                             capture_output=True, text=True, cwd=FIXTURES.parents[2])
     assert result.returncode == 0, result.stderr
     entry = json.loads(report.read_text())[0]
-    assert entry["status"] == "ok"
+    assert entry["status"] == "preview_only"
     assert any("unrecognised answer_type 'future_scalar'" in warning for warning in entry["warnings"])
     assert any("file_ref needs an upload-capable client" in warning for warning in entry["warnings"])
     compiled_definition = SFSMDefinition.model_validate_json((tmp_path / "compiled" / "6.json").read_text())
@@ -372,3 +372,76 @@ def test_web_preview_uses_compiled_sfms_without_agent(tmp_path):
     assert response["interaction"]["id"] == "31pMZdRv"
     assert client.post(url, json={"answer": None}).json()["terminal"] is True
     assert client.post(url, json={"answer": "extra"}).status_code == 422
+
+
+def test_routed_exit_page_survives_model_validation_and_preview():
+    fixture = export("2130")
+    step = fixture["content"]["steps"][3]
+    step["exit_pages"] = [{"id": 956, "heading": "You cannot continue",
+                           "markdown": "Contact the service team instead."}]
+    step["routing_conditions"][0].update(goto_page_id=None, exit_page_id=956)
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    states = definition.processes["main"].states
+    output = states["mq4KgkUb__exit_1"]
+    assert isinstance(output, OutputState)
+    assert output.message == "You cannot continue\n\nContact the service team instead."
+    assert isinstance(states[output.next], EndState)
+    assert states[output.next].status == "offramp"
+    run = PreviewRun(definition, definition.processes["main"].start)
+    answer(run, "Z9qiMdb6", "I'm using this service as a member of the public")
+    answer(run, "NeNd3HYi", "Satisfied")
+    answer(run, "oygaerZY", "Feedback")
+    result = answer(run, "mq4KgkUb", False)
+    assert result["terminal"] and result["outcome"] == "exit_page"
+    assert result["transcript"] == [output.message]
+
+
+def test_optional_file_keeps_native_schema_and_can_be_skipped():
+    fixture = export("6")
+    question = fixture["content"]["steps"][1]
+    question["data"].update(answer_type="file", is_optional=True)
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    state = definition.processes["main"].states[question["id"]]
+    assert state.schema_.kind == "file_ref" and state.schema_.allow_skip
+    for value in (None, {"ref": "synthetic", "bytes": 123, "content_type": "application/pdf"}):
+        run = PreviewRun(definition, definition.processes["main"].start)
+        answer(run, "uyQrCFqM", "Alex Example")
+        assert answer(run, question["id"], value)["answers"][question["id"]] == value
+
+
+@pytest.mark.parametrize("changes,exits,error", [
+    ({"answer_value": None, "goto_page_id": "nonexistent"}, [], "invalid routing target"),
+    ({"answer_value": None, "goto_page_id": None, "exit_page_id": 98}, [], "unknown exit_page_id"),
+    ({"answer_value": "No", "goto_page_id": None, "exit_page_id": 98},
+     [{"id": 98, "heading": "", "markdown": ""}], "missing content"),
+    ({"answer_value": "No", "goto_page_id": "31pMZdRv"},
+     [{"id": 98, "heading": "Unused"}], "unreferenced exit_pages"),
+])
+def test_invalid_routing_fails_instead_of_falling_through(changes, exits, error):
+    fixture = export("2130")
+    step = fixture["content"]["steps"][3]
+    step["exit_pages"] = exits
+    step["routing_conditions"][0].update(changes)
+    with pytest.raises(UnsupportedForm, match=error):
+        compile_form(fixture)
+
+
+def test_multiple_file_uploads_stay_unsupported():
+    fixture = export("6")
+    fixture["content"]["steps"][1]["data"].update(answer_type="file", answer_settings={"max_files": 3})
+    with pytest.raises(UnsupportedForm, match="multiple file"):
+        compile_form(fixture)
+
+
+def test_payment_report_distinguishes_preview_only(tmp_path):
+    fixture = export("6")
+    fixture["content"]["payment_url"] = "https://payment.example.invalid/"
+    src = tmp_path / "source.json"
+    dst = tmp_path / "compiled.json"
+    report = tmp_path / "report.json"
+    src.write_text(json.dumps(fixture))
+    process = subprocess.run([sys.executable, "-m", "forms_adapter", "--input", str(src),
+                              "--output", str(dst), "--report", str(report)],
+                             capture_output=True, text=True, cwd=FIXTURES.parents[2])
+    assert process.returncode == 0, process.stderr
+    assert json.loads(report.read_text())[0]["status"] == "preview_only"

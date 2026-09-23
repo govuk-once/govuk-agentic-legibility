@@ -5,6 +5,7 @@
     rejectProposal,
     requestProposal,
     streamAutoProgress,
+    uploadFile,
     type AwaitingInput,
     type Presentation,
     type Proposal,
@@ -214,7 +215,7 @@
 
     if (isOptional && (value === null || value === "" || value === undefined)) {
       if (awaiting.schema?.allow_skip) {
-        submitValue = awaiting.schema.default ?? "";
+        submitValue = kind === "file_ref" ? null : (awaiting.schema.default ?? "");
       } else {
         submitValue = "";
       }
@@ -222,6 +223,9 @@
 
     submitting = true;
     try {
+      if (kind === "file_ref" && value instanceof File) {
+        submitValue = await uploadFile(sessionId, awaiting.token, value);
+      }
       const result = await submitAnswer(sessionId, awaiting.token, submitValue);
       if (result.status === "COMPLETED") {
         onComplete();
@@ -425,6 +429,15 @@
           bind:value
           error={validationError}
         />
+      {:else if kind === "file_ref"}
+        <div class="govuk-form-group">
+          <label class="govuk-label govuk-label--m" for="question-input">{questionText}</label>
+          {#if hintText}<div class="govuk-hint">{hintText}</div>{/if}
+          <input class="govuk-file-upload" type="file" id="question-input"
+            onchange={(event) => { value = event.currentTarget.files?.[0] ?? null; }} />
+          {#if isOptional}<p class="govuk-hint">You can skip this question.</p>{/if}
+          <p class="govuk-hint">Local prototype only: maximum 10 MiB. Use synthetic files.</p>
+        </div>
       {:else if answerType === "name"}
         <NameInput
           label={questionText}

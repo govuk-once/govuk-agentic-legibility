@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.model import ChoiceState, EndState, InputState, SFSMDefinition
+from src.model import ChoiceState, EndState, InputState, OutputState, SFSMDefinition
 from src.paths import set_path
 from src.predicates import evaluate
 
@@ -30,6 +30,7 @@ class PreviewRun:
     state_id: str
     answers: dict[str, Any] = field(default_factory=dict)
     terminal: bool = False
+    transcript: list[str] = field(default_factory=list)
 
     def current(self) -> dict[str, Any]:
         process = self.definition.processes[self.definition.entry]
@@ -42,10 +43,16 @@ class PreviewRun:
             if isinstance(state, ChoiceState):
                 context = {"answers": self.answers}
                 self.state_id = next((rule.next for rule in state.rules if evaluate(rule.when, context)), state.default)
+            elif isinstance(state, OutputState):
+                if state.channel != "transcript":
+                    raise ValueError(f"unsupported preview output channel {state.channel!r}")
+                self.transcript.append(state.message or "")
+                self.state_id = state.next
             elif isinstance(state, EndState):
                 self.terminal = True
                 return {"status": state.status, "terminal": True, "interaction": None,
-                        "answers": self.answers}
+                        "answers": self.answers, "transcript": self.transcript,
+                        "outcome": state.outcome}
             elif isinstance(state, InputState):
                 schema = state.schema_
                 presentation = schema.model_extra.get("presentation", {}) if schema.model_extra else {}
@@ -113,8 +120,11 @@ class PreviewRun:
             if not isinstance(value, bool):
                 raise ValueError("Select Yes or No")
         elif schema.kind == "file_ref":
-            if (not isinstance(value, dict) or "error" in value or not value.get("ref")
-                    or not isinstance(value.get("bytes"), int) or value["bytes"] <= 0):
+            if value is None and schema.allow_skip:
+                pass
+            elif (not isinstance(value, dict) or "error" in value or not value.get("ref")
+                    or not isinstance(value.get("bytes"), int)
+                    or isinstance(value.get("bytes"), bool) or value["bytes"] <= 0):
                 raise ValueError("Supply an uploaded file reference with a positive byte count")
         elif schema.kind in ("select_one", "select_many"):
             options = {opt.value for opt in schema.options or [] if hasattr(opt, "value")}

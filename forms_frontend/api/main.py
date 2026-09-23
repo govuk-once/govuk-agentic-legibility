@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import sys
+import tempfile
+import ipaddress
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +38,7 @@ from forms_frontend.api.sessions import (
     SessionStore,
 )
 from forms_frontend.api.proposals import propose_answer
+from forms_frontend.api.uploads import InvalidUpload, save_local_upload
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +343,63 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
             for q in session.auto_answered
         ],
         "pending_proposal": session.pending_proposal,
+        "transcript": state.get("transcript") or [],
+        "result": await _terminal_result(temporal, session.temporal_workflow_id, state),
     }
+
+
+async def _terminal_result(temporal: TemporalClient, workflow_id: str, state: dict) -> dict | None:
+    if state.get("status") != "COMPLETED":
+        return None
+    try:
+        result = await temporal.get_workflow_handle(workflow_id).result()
+        return result if isinstance(result, dict) else None
+    except Exception:
+        logger.exception("Unable to read completion outcome for %s", workflow_id)
+        return None
+
+
+def _check_file_submission(session: FormSession, token: str, value: Any) -> None:
+    if value is None:
+        return  # Temporal enforces whether the file_ref is optional.
+    if not isinstance(value, dict):
+        raise HTTPException(422, "Upload a file before submitting a file question")
+    ref = value.get("ref")
+    recorded = session.uploaded_files.get(ref) if isinstance(ref, str) else None
+    if recorded != (token, value.get("bytes"), value.get("content_type")):
+        raise HTTPException(422, "File reference was not uploaded for this question")
+
+
+@app.post("/api/sessions/{session_id}/files")
+async def upload_file(session_id: str, request: Request, token: str) -> dict[str, object]:
+    """Store real synthetic bytes locally and return a file_ref for Temporal."""
+    if os.getenv("FORMS_ENABLE_DEV_UPLOADS") != "1":
+        raise HTTPException(403, "Local development uploads are disabled")
+    host = request.client.host if request.client else ""
+    try:
+        loopback = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        loopback = host == "testclient"
+    if not loopback:
+        raise HTTPException(403, "Local uploads are available only from loopback")
+    session = store.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    temporal = await get_temporal_client()
+    state = await tool_functions.get_workflow_state(
+        workflow_id=session.temporal_workflow_id, temporal_client=temporal)
+    awaiting = state.get("awaiting") or {}
+    if awaiting.get("token") != token or (awaiting.get("schema") or {}).get("kind") != "file_ref":
+        raise HTTPException(409, "Workflow is not awaiting this file input")
+    directory = Path(os.getenv("FORMS_UPLOAD_DIR", str(Path(tempfile.gettempdir()) / "forms-synthetic-uploads")))
+    try:
+        value = await save_local_upload(chunks=request.stream(), directory=directory,
+                                        session_id=session.session_id,
+                                        content_type=request.headers.get("content-type", "application/octet-stream"))
+    except InvalidUpload as exc:
+        raise HTTPException(413, str(exc)) from exc
+    session.uploaded_files[str(value["ref"])] = (token, int(value["bytes"]), str(value["content_type"]))
+    return value
 
 
 @app.post("/api/sessions/{session_id}/submit")
@@ -351,6 +410,13 @@ async def submit_answer(session_id: str, req: SubmitAnswerRequest) -> dict[str, 
         raise HTTPException(status_code=404, detail="Session not found")
 
     temporal = await get_temporal_client()
+    state = await tool_functions.get_workflow_state(
+        workflow_id=session.temporal_workflow_id, temporal_client=temporal)
+    awaiting = state.get("awaiting") or {}
+    if (awaiting.get("schema") or {}).get("kind") == "file_ref":
+        if awaiting.get("token") != req.token:
+            raise HTTPException(409, "Stale file input token")
+        _check_file_submission(session, req.token, req.value)
 
     try:
         new_state = await tool_functions.submit_input(
@@ -487,6 +553,8 @@ async def _auto_progress(
 
         token = awaiting["token"]
         value = proposal["value"]
+        if (awaiting.get("schema") or {}).get("kind") == "file_ref":
+            break  # An LLM cannot generate a real upload reference.
 
         try:
             state = await tool_functions.submit_input(
@@ -648,6 +716,11 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
 
             token = awaiting["token"]
             value = proposal["value"]
+            if (awaiting.get("schema") or {}).get("kind") == "file_ref":
+                yield {"event": "done", "data": json.dumps({
+                    "type": "done", "reason": "needs_upload", "steps_taken": steps_taken,
+                    "total_questions": total_questions})}
+                return
 
             try:
                 state = await tool_functions.submit_input(
@@ -718,6 +791,12 @@ async def confirm_proposal(session_id: str) -> dict[str, Any]:
     temporal = await get_temporal_client()
     token = session.pending_proposal["token"]
     value = session.pending_proposal["value"]
+    awaiting = (await tool_functions.get_workflow_state(
+        workflow_id=session.temporal_workflow_id, temporal_client=temporal)).get("awaiting") or {}
+    if (awaiting.get("schema") or {}).get("kind") == "file_ref":
+        if awaiting.get("token") != token:
+            raise HTTPException(409, "Stale file proposal token")
+        _check_file_submission(session, token, value)
 
     try:
         new_state = await tool_functions.submit_input(

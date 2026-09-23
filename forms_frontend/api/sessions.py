@@ -42,6 +42,8 @@ class FormSession:
     conversation_history: list[dict[str, Any]] = field(default_factory=list)
     auto_answered: list[AutoAnsweredQuestion] = field(default_factory=list)
     pending_proposal: dict[str, Any] | None = None
+    # Opaque local refs permitted for this session and current input token.
+    uploaded_files: dict[str, tuple[str, int, str]] = field(default_factory=dict)
 
 
 class SessionStore:

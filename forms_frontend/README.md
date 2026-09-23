@@ -53,6 +53,7 @@ No journey logic is duplicated.
 | POST | `/api/sessions/{id}/confirm-proposal` | Accept proposed answer |
 | POST | `/api/sessions/{id}/reject-proposal` | Reject proposal (answer manually) |
 | PUT | `/api/sessions/{id}/policy` | Change interaction policy |
+| POST | `/api/sessions/{id}/files?token=...` | Opt-in local synthetic-file upload for an active file question |
 
 ### `frontend/` — GOV.UK Forms UI (Svelte + GOV.UK Frontend)
 
@@ -71,6 +72,25 @@ Renders form questions using GOV.UK Frontend components based on the
 - `organisation_name` → Text input
 - `number` → Numeric input
 - `boolean` → Yes / No radio buttons
+- `file_ref` → Opt-in local file upload (synthetic files only; max 10 MiB)
+
+### Local file-upload testing
+
+The older `durable_poc/agent/chat.py` upload control sends filename, type and
+byte-count metadata, not actual file bytes. This frontend can store synthetic
+file bytes locally before submitting an opaque `file_ref` to Temporal. Opt in:
+
+```bash
+FORMS_ENABLE_DEV_UPLOADS=1 \
+FORMS_UPLOAD_DIR=/tmp/forms-synthetic-uploads \
+PYTHONPATH=durable_poc:. uv run python -m forms_frontend.api.main
+```
+
+This is a local-only development feature, **not** production document storage.
+Only upload synthetic files. Uploaded files remain on disk until you delete
+them manually. The endpoint is disabled by default, restricted to loopback,
+and verifies the current Temporal input token. The API rejects invented file
+references that were not uploaded in the same session and question.
 
 ### Interaction Policies
 
@@ -217,7 +237,7 @@ name, text, NI number, email, date, address, organisation, numbers.
 
 ## What's Not Yet Implemented
 
-- File upload (file_ref inputs) — rendered as text input fallback
+- Departmental file-upload integration and production storage/access controls
 - Checkboxes for select_many — currently renders as radios
 - Full GOV.UK Forms Runner visual fidelity (some layout differences)
 - Page heading / guidance markdown rendering

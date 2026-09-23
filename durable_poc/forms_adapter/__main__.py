@@ -27,11 +27,11 @@ def _warnings(export: dict, definition: dict) -> list[str]:
         if answer_type == "address" and kind == "string":
             warnings.append(f"{sid}: address collected as one string; original address configuration retained")
         elif answer_type == "file":
-            warnings.append(f"{sid}: file_ref needs an upload-capable client; no file bytes are uploaded by the adapter")
-        elif answer_type == "selection" and kind == "string":
-            warnings.append(f"{sid}: ambiguous selection compiled as a string; original choices retained")
+            warnings.append(f"{sid}: file_ref needs an upload-capable client; adapter does not store file bytes")
         elif answer_type not in ORDINARY_SCALARS | {"selection", "file"}:
-            warnings.append(f"{sid}: unrecognised answer_type {answer_type!r} compiled as a string")
+            warnings.append(f"{sid}: unrecognised answer_type {answer_type!r} compiled as a string (preview only)")
+    if export["content"].get("payment_url"):
+        warnings.append("payment integration omitted: preview-only; not a paid submission")
     return warnings
 
 
@@ -47,20 +47,29 @@ def main() -> int:
     if not paths:
         parser.error("no JSON exports found")
     if args.batch:
+        if args.batch.resolve() == args.output.resolve():
+            parser.error("batch output must differ from original export directory")
         args.output.mkdir(parents=True, exist_ok=True)
     elif args.output.is_dir():
         parser.error("single-form --output must be a file")
+    elif args.input.resolve() == args.output.resolve():
+        parser.error("output must differ from original export")
     results: list[dict[str, object]] = []
     for path in paths:
+        dest = args.output / path.name if args.batch else args.output
+        # Rejecting a previously accepted form must also remove stale compiled
+        # JSON or the filesystem workflow server could continue serving it.
+        dest.unlink(missing_ok=True)
         try:
             export = json.loads(path.read_text(encoding="utf-8"))
             definition = compile_form(export)
-            dest = args.output / path.name if args.batch else args.output
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(json.dumps(definition, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             print(f"OK          {path.name} -> {dest}")
-            result = {"file": path.name, "status": "ok", "output": str(dest)}
             warnings = _warnings(export, definition)
+            partial = bool(export["content"].get("payment_url")) or any(
+                "unrecognised answer_type" in w for w in warnings)
+            result = {"file": path.name, "status": "preview_only" if partial else "ok", "output": str(dest)}
             if warnings:
                 result["warnings"] = warnings
             results.append(result)
@@ -71,8 +80,9 @@ def main() -> int:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     passed = sum(item["status"] == "ok" for item in results)
-    print(f"Compiled {passed}/{len(results)}; unsupported {len(results) - passed}")
-    return 0 if args.batch or passed == 1 else 1
+    preview = sum(item["status"] == "preview_only" for item in results)
+    print(f"Compiled {passed}/{len(results)}; preview-only {preview}; unsupported {len(results) - passed - preview}")
+    return 0 if args.batch or passed + preview == 1 else 1
 
 
 if __name__ == "__main__":

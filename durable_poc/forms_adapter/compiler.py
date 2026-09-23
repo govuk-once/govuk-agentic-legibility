@@ -6,7 +6,7 @@ references and native ``choice`` predicates, never by a client or an agent.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.model import SFSMDefinition
@@ -23,7 +23,7 @@ class Question:
     next_id: str | None
     routing: list[dict[str, Any]]
     position: int
-    exit_pages: list[dict[str, Any]] = ()  # type: ignore[assignment]
+    exit_pages: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _unsupported(where: str, reason: str) -> None:
@@ -57,8 +57,9 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
                 data[flag] = False
             elif not isinstance(value, bool):
                 _unsupported(where, f"{flag} must be a boolean or null")
-        # is_repeatable is preserved in presentation metadata but the SFSM
-        # interpreter collects a single answer (no "add another" loop).
+        # One input state cannot implement the Forms "add another" loop.
+        if data["is_repeatable"]:
+            _unsupported(where, "repeatable question is not implemented")
         sid = item.get("id")
         if not isinstance(sid, str) or not sid or sid in seen or "__" in sid:
             _unsupported(where, "missing, duplicate or reserved step ID")
@@ -68,8 +69,12 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
         routing = item.get("routing_conditions") or []
         if not isinstance(routing, list):
             _unsupported(where, "routing_conditions must be an array")
-        exit_pages = item.get("exit_pages") or []
-        steps.append(Question(sid, data, item.get("next_step_id"), routing, item.get("position", 0), tuple(exit_pages)))
+        exit_pages = item.get("exit_pages")
+        if exit_pages is None:
+            exit_pages = []
+        if not isinstance(exit_pages, list):
+            _unsupported(where, "exit_pages must be an array")
+        steps.append(Question(sid, data, item.get("next_step_id"), routing, item.get("position", 0), exit_pages))
     if not steps:
         _unsupported("form", "no supported questions")
     ids = {item.id for item in steps}
@@ -151,22 +156,21 @@ def _schema(question: Question) -> dict[str, Any]:
     required = not question.data["is_optional"]
     schema: dict[str, Any] = {"kind": "string"}
     if answer_type == "file":
-        if required:
-            schema = {"kind": "file_ref"}
-        else:
-            # Optional files use kind "string" with allow_skip because the
-            # interpreter's file_ref validator rejects null/empty.  The
-            # answer_type "file" in presentation metadata lets the frontend
-            # render a file input when an upload service is available.
-            schema = {"kind": "string"}
+        settings = question.data.get("answer_settings") or {}
+        if not isinstance(settings, dict):
+            _unsupported(question.id, "invalid file answer_settings")
+        for key in ("max_files", "maximum_number_of_files", "max_number_of_files"):
+            count = settings.get(key)
+            if count is not None and (isinstance(count, bool) or str(count) != "1"):
+                _unsupported(question.id, "multiple file uploads are not supported")
+        if settings.get("allow_multiple_files") in (True, "true"):
+            _unsupported(question.id, "multiple file uploads are not supported")
+        # A supplied optional file is still a file_ref, not a string.
+        schema = {"kind": "file_ref"}
     elif answer_type == "selection":
         only_one, options = _selection_options(question)
         if only_one is None or not options:
-            if question.routing:
-                _unsupported(question.id, "routed selection needs valid options and only_one_option")
-            # For non-routed questions, collect an unrestricted string rather
-            # than guessing whether an ambiguous selection is single/multiple.
-            # The full original settings survive in presentation metadata.
+            _unsupported(question.id, "selection needs valid options and only_one_option")
         elif _boolean_choices(question, required=required):
             schema = {"kind": "boolean"}
         else:
@@ -186,120 +190,130 @@ def _schema(question: Question) -> dict[str, Any]:
 
 
 def compile_form(export: dict[str, Any]) -> dict[str, Any]:
-    """Return a definition validated by the *actual* SFSMDefinition model."""
+    """Compile only routes and inputs whose semantics can be preserved."""
     content, questions = normalise_form(export)
     ids = {question.id for question in questions}
     states: dict[str, dict[str, Any]] = {}
     already_asked: set[str] = set()
     for question in questions:
+        where = f"step {question.id}"
+        exit_pages: dict[Any, dict[str, Any]] = {}
+        for page in question.exit_pages:
+            if not isinstance(page, dict) or page.get("id") is None:
+                _unsupported(where, "invalid exit_pages entry (missing id)")
+            page_id = page["id"]
+            if not isinstance(page_id, (str, int)) or isinstance(page_id, bool):
+                _unsupported(where, "invalid exit_page id")
+            if page_id in exit_pages:
+                _unsupported(where, f"duplicate exit_page id {page_id!r}")
+            exit_pages[page_id] = page
+        used_exits: set[Any] = set()
         after = f"{question.id}__route" if question.routing else (question.next_id or "end_form")
         states[question.id] = {
-            "type": "input",
-            "prompt": question.data["question_text"],
-            "schema": _schema(question),
-            "assign": f"answers.{question.id}",
+            "type": "input", "prompt": question.data["question_text"],
+            "schema": _schema(question), "assign": f"answers.{question.id}",
             "next": after,
         }
         if question.routing:
-            exit_page_lookup = {ep.get("id"): ep for ep in question.exit_pages if isinstance(ep, dict)}
-            exit_counter = 0
             rules = []
-            unconditional_goto: str | None = None
+            unconditional: str | None = None
+            exit_counter = 0
             for condition in question.routing:
                 if not isinstance(condition, dict):
-                    _unsupported(question.id, "routing condition must be an object")
+                    _unsupported(where, "routing condition must be an object")
                 if condition.get("routing_page_id") not in (None, question.id):
-                    _unsupported(question.id, "routing_page_id differs from the current page")
+                    _unsupported(where, "routing_page_id differs from the current page")
                 check_id = condition.get("check_page_id") or question.id
                 if check_id != question.id and check_id not in already_asked:
-                    _unsupported(question.id, "cross-page condition must check a preceding question")
+                    _unsupported(where, "cross-page condition must check a preceding question")
                 if condition.get("validation_errors"):
-                    _unsupported(question.id, "routing condition contains validation errors")
-
-                answer = condition.get("answer_value")
-
-                # --- Null answer_value: unconditional goto ---
-                if answer is None:
-                    target = condition.get("goto_page_id")
-                    if condition.get("skip_to_end"):
-                        target = "end_form"
-                    if target and (target == "end_form" or target in ids):
-                        unconditional_goto = target
-                    continue
-
-                if not isinstance(answer, str):
-                    _unsupported(question.id, "routing requires a string answer_value")
-
-                # --- Resolve the routing target ---
-                is_exit = False
-                exit_heading: str | None = None
-                exit_markdown: str | None = None
-
+                    _unsupported(where, "routing condition contains validation errors")
+                skip = condition.get("skip_to_end")
+                if skip is not None and not isinstance(skip, bool):
+                    _unsupported(where, "skip_to_end must be a boolean")
+                goto = condition.get("goto_page_id")
                 ep_id = condition.get("exit_page_id")
-                if ep_id is not None and ep_id in exit_page_lookup:
-                    ep = exit_page_lookup[ep_id]
-                    exit_heading = ep.get("heading")
-                    exit_markdown = ep.get("markdown")
-                    is_exit = True
-                elif condition.get("exit_page_markdown") or condition.get("exit_page_heading"):
-                    exit_heading = condition.get("exit_page_heading")
-                    exit_markdown = condition.get("exit_page_markdown")
-                    is_exit = True
-
-                if is_exit:
-                    exit_counter += 1
-                    exit_state_id = f"{question.id}__exit_{exit_counter}"
-                    states[exit_state_id] = {
-                        "type": "end",
-                        "status": "exit",
-                        "outcome": "exit_page",
-                        "exit_heading": exit_heading,
-                        "exit_markdown": exit_markdown,
-                    }
-                    target = exit_state_id
+                inline_heading = condition.get("exit_page_heading")
+                inline_markdown = condition.get("exit_page_markdown")
+                has_inline = inline_heading is not None or inline_markdown is not None
+                if skip and (goto is not None or ep_id is not None or has_inline):
+                    _unsupported(where, "ambiguous skip_to_end and another destination")
+                if goto is not None and (ep_id is not None or has_inline):
+                    _unsupported(where, "ambiguous goto_page_id and exit page")
+                if ep_id is not None and has_inline:
+                    _unsupported(where, "ambiguous exit_page_id and inline content")
+                if ep_id is not None:
+                    if ep_id not in exit_pages:
+                        _unsupported(where, f"unknown exit_page_id {ep_id!r}")
+                    used_exits.add(ep_id)
+                    heading = exit_pages[ep_id].get("heading")
+                    markdown = exit_pages[ep_id].get("markdown")
                 else:
-                    target = condition.get("goto_page_id")
-                    if condition.get("skip_to_end"):
-                        if target is not None:
-                            _unsupported(question.id, "ambiguous skip_to_end and goto_page_id")
-                        target = "end_form"
-                    if target is None or (target != "end_form" and target not in ids and target not in states):
-                        _unsupported(question.id, f"invalid routing target {target!r}")
-
-                # --- Build the predicate ---
-                check_id = condition.get("check_page_id") or question.id
+                    heading, markdown = inline_heading, inline_markdown
+                if ep_id is not None or has_inline:
+                    if ((heading is not None and not isinstance(heading, str))
+                            or (markdown is not None and not isinstance(markdown, str))):
+                        _unsupported(where, "exit page heading and markdown must be strings")
+                    message = "\n\n".join(part.strip() for part in (heading, markdown)
+                                          if isinstance(part, str) and part.strip())
+                    if not message:
+                        _unsupported(where, "exit page is missing content")
+                    exit_counter += 1
+                    target = f"{question.id}__exit_{exit_counter}"
+                    end_id = f"{target}__end"
+                    states[target] = {"type": "output", "channel": "transcript",
+                                      "message": message, "next": end_id}
+                    states[end_id] = {"type": "end", "status": "offramp", "outcome": "exit_page"}
+                elif skip:
+                    target = "end_form"
+                elif goto is not None:
+                    if goto not in ids:
+                        _unsupported(where, f"invalid routing target {goto!r}")
+                    target = goto
+                else:
+                    _unsupported(where, "routing condition has no destination")
+                answer = condition.get("answer_value")
+                if answer is None:
+                    if unconditional is not None:
+                        _unsupported(where, "multiple unconditional routing conditions")
+                    unconditional = target
+                    continue
+                if not isinstance(answer, str):
+                    _unsupported(where, "routing requires a string answer_value")
                 kind = states[check_id]["schema"]["kind"]
                 path = f"answers.{check_id}"
                 if kind == "boolean":
                     normalised = answer.strip().lower()
                     if normalised not in ("yes", "no", "true", "false"):
-                        _unsupported(question.id, f"invalid boolean routing answer {answer!r}")
+                        _unsupported(where, f"invalid boolean routing answer {answer!r}")
                     predicate = {"op": "is_true" if normalised in ("yes", "true") else "is_false", "path": path}
                 elif kind in ("select_one", "select_many"):
                     values = {o["value"] for o in states[check_id]["schema"]["options"]}
                     if answer not in values:
-                        _unsupported(question.id, f"routing answer_value {answer!r} missing from selection")
+                        _unsupported(where, f"routing answer_value {answer!r} missing from selection")
                     predicate = {"op": "contains" if kind == "select_many" else "eq",
                                  "path": path, "value": answer}
                 elif kind == "string":
                     predicate = {"op": "eq", "path": path, "value": answer}
                 else:
-                    _unsupported(question.id, f"cannot route on {kind} input")
+                    _unsupported(where, f"cannot route on {kind} input")
                 rules.append({"when": predicate, "next": target})
-
+            if set(exit_pages) != used_exits:
+                _unsupported(where, "unreferenced exit_pages; routing semantics are unknown")
             if rules:
-                default_target = unconditional_goto or question.next_id or "end_form"
-                states[f"{question.id}__route"] = {"type": "choice", "rules": rules,
-                                                   "default": default_target}
+                states[f"{question.id}__route"] = {
+                    "type": "choice", "rules": rules,
+                    "default": unconditional or question.next_id or "end_form"}
             else:
-                # All conditions were unconditional gotos or skipped — no choice state needed.
-                states[question.id]["next"] = unconditional_goto or question.next_id or "end_form"
+                states[question.id]["next"] = unconditional or question.next_id or "end_form"
+        elif exit_pages:
+            _unsupported(where, "exit_pages are present without routing_conditions")
         already_asked.add(question.id)
     if "end_form" in states or any(q.id == "end_form" for q in questions):
         _unsupported("form", "reserved end_form state ID")
     states["end_form"] = {"type": "end", "status": "success", "outcome": "form_answers_collected"}
     for sid, state in states.items():
-        for target in ([state["next"]] if state["type"] == "input" else
+        for target in ([state["next"]] if state["type"] in ("input", "output") else
                        [r["next"] for r in state["rules"]] + [state["default"]] if state["type"] == "choice" else []):
             if target not in states:
                 _unsupported(sid, f"generated transition to missing state {target!r}")
