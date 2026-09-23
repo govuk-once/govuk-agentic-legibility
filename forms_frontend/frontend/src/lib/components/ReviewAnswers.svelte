@@ -165,12 +165,12 @@
           </form>
         {:else}
           {formatReviewValue(answer)}
-          {#if answer.source === "auto"}
-            <span class="govuk-hint govuk-!-margin-bottom-0">Answered automatically</span>
-          {/if}
         {/if}
       </dd>
       <dd class="govuk-summary-list__actions">
+          {#if answer.source === "auto"}
+            <span class="govuk-tag--blue govuk-!-margin-right-2">Auto-filled</span>
+          {/if}
         {#if editing !== i && answer.schema.kind !== "file_ref"}
           <button type="button" class="govuk-link review-change"
             disabled={busy || editing !== -1} onclick={() => startEdit(i)}>
