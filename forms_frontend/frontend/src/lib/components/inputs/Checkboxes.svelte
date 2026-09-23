@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toggleSelectedValues } from "../../selectionOptions.js";
   interface CheckboxOption {
     value: string;
     label: string;
@@ -10,6 +11,7 @@
     hint?: string | null;
     isOptional?: boolean;
     options: CheckboxOption[];
+    exclusiveOptions?: string[];
     value: string[];
     error?: string;
   }
@@ -20,17 +22,13 @@
     hint = null,
     isOptional = false,
     options,
+    exclusiveOptions = [],
     value = $bindable([]),
     error = "",
   }: Props = $props();
 
   function toggle(optionValue: string, checked: boolean) {
-    const selected = Array.isArray(value) ? value : [];
-    // Create a fresh array: accepted answers and proposal values may be reused
-    // elsewhere in the session, and checkbox interaction must not mutate them.
-    value = checked
-      ? (selected.includes(optionValue) ? selected : [...selected, optionValue])
-      : selected.filter((item) => item !== optionValue);
+    value = toggleSelectedValues(value, optionValue, checked, exclusiveOptions);
   }
 </script>
 

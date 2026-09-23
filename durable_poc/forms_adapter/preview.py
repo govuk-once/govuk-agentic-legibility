@@ -146,6 +146,10 @@ class PreviewRun:
                     raise ValueError("Select an available option")
             elif not isinstance(value, list) or any(v not in options for v in value) or (required and not value):
                 raise ValueError("Select one or more available options")
+            else:
+                exclusive = (schema.model_extra or {}).get("exclusive_options", [])
+                if any(item in value for item in exclusive) and len(value) != 1:
+                    raise ValueError("None of the above cannot be combined with other options")
         else:
             raise ValueError(f"unsupported preview schema kind {schema.kind}")
         set_path({"answers": self.answers, "repeat": self.repeat}, state.assign, value)

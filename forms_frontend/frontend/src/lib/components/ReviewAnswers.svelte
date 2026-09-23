@@ -1,6 +1,7 @@
 <script lang="ts">
   import { amendReview, confirmReview, type AcceptedAnswer, type SessionState } from "../api";
   import { submissionValue } from "../submissionValue.js";
+  import { toggleSelectedValues, visibleSelectionOptions } from "../selectionOptions.js";
   import { formatReviewValue, initialReviewDraft } from "../reviewValues.js";
 
   interface Props {
@@ -102,7 +103,7 @@
                   <div class="govuk-radios govuk-radios--small">
                     {#each (answer.schema.kind === "boolean"
                       ? [{ value: "true", label: "Yes" }, { value: "false", label: "No" }]
-                      : (answer.schema.options ?? []).filter((o) => o.value !== "__forms_skip__")) as option}
+                      : visibleSelectionOptions(answer.schema.options ?? [])) as option}
                       <div class="govuk-radios__item">
                         <input type="radio" class="govuk-radios__input"
                           id={`review-${i}-${option.value}`} name={`review-${i}`}
@@ -124,9 +125,8 @@
                         <input type="checkbox" class="govuk-checkboxes__input"
                           id={`review-${i}-${option.value}`} checked={Array.isArray(draft) && draft.includes(option.value)}
                           onchange={(e) => {
-                            const values = Array.isArray(draft) ? draft : [];
-                            draft = e.currentTarget.checked ? [...values, option.value]
-                              : values.filter((v: string) => v !== option.value);
+                            draft = toggleSelectedValues(draft, option.value,
+                              e.currentTarget.checked, answer.schema.exclusive_options ?? []);
                           }} />
                         <label class="govuk-label govuk-checkboxes__label" for={`review-${i}-${option.value}`}>
                           {option.label}

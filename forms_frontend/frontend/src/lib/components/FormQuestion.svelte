@@ -24,6 +24,7 @@
   import ProposalBanner from "./ProposalBanner.svelte";
   import { createProposalAttemptGate } from "../proposalAttemptGate.js";
   import { submissionValue } from "../submissionValue.js";
+  import { visibleSelectionOptions } from "../selectionOptions.js";
   import { cumulativeAnsweredCount } from "../autoProgressCount.js";
   import { onDestroy } from "svelte";
 
@@ -375,7 +376,7 @@
           label={questionText}
           hint={hintText}
           {isOptional}
-          options={options.filter((o) => o.value !== "__forms_skip__").map((o) => ({
+          options={visibleSelectionOptions(options).map((o) => ({
             value: o.value,
             label: o.label,
           }))}
@@ -388,7 +389,8 @@
           label={questionText}
           hint={hintText}
           {isOptional}
-          options={options.map((o) => ({ value: o.value, label: o.label }))}
+          options={visibleSelectionOptions(options).map((o) => ({ value: o.value, label: o.label }))}
+          exclusiveOptions={awaiting.schema?.exclusive_options ?? []}
           bind:value
           error={validationError}
         />

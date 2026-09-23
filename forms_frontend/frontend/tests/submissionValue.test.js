@@ -45,3 +45,14 @@ test('optional select_many explicitly preserves an empty array for a skipped que
   assert.deepEqual(submissionValue([], schema, true), { value: [] });
   assert.deepEqual(submissionValue(null, schema, true), { value: [] });
 });
+
+
+test('implicit None of the above is a real radio answer, not an optional skip', () => {
+  const schema = {kind:'select_one',allow_skip:true,options:[
+    {value:'resignation',label:'Resignation'},
+    {value:'none_of_the_above',label:'None of the above'},
+    {value:'__forms_skip__',label:'Skip this question'},
+  ]};
+  assert.deepEqual(submissionValue('none_of_the_above', schema, true), {value:'none_of_the_above'});
+  assert.deepEqual(submissionValue('', schema, true), {value:'__forms_skip__'});
+});

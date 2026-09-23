@@ -44,3 +44,14 @@ test('review drafts do not mutate accepted array values', () => {
   draft.push('b');
   assert.deepEqual(saved.value, ['a']);
 });
+
+
+test('review displays the genuine None of the above option, distinct from skip', () => {
+  const options = [
+    { value: 'resignation', label: 'Resignation' },
+    { value: 'none_of_the_above', label: 'None of the above' },
+    { value: '__forms_skip__', label: 'Skip this question' },
+  ];
+  assert.equal(formatReviewValue(answer('none_of_the_above', 'select_one', options)), 'None of the above');
+  assert.equal(formatReviewValue(answer('__forms_skip__', 'select_one', options)), 'Not answered');
+});

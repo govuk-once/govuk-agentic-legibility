@@ -721,3 +721,145 @@ def test_routing_on_or_from_repeatable_answer_is_rejected_conservatively(fixture
     ]
     with pytest.raises(UnsupportedForm, match="depend on repeatable"):
         compile_form(fixture)
+
+
+def none_of_above_fixture(*, only_one=True, optional=True):
+    """Small export matching the implicit choice in Form 264390 (no private fixture)."""
+    fixture = export("optional_repeatable")
+    question = fixture["content"]["steps"][0]
+    question["data"].update(
+        answer_type="selection", is_optional=optional, is_repeatable=False,
+        question_text="Which terms did you leave under?",
+        answer_settings={
+            "only_one_option": "true" if only_one else "false",
+            "selection_options": [
+                {"name": "Resignation with pension", "value": "Resignation with pension"},
+                {"name": "Ill health retirement", "value": "Ill health retirement"},
+            ],
+        },
+    )
+    question["routing_conditions"] = [{
+        "routing_page_id": "site", "check_page_id": "site",
+        "answer_value": "none_of_the_above", "skip_to_end": False,
+        "exit_page_heading": "You cannot use this service",
+        "exit_page_markdown": "You must have left under a qualifying term.",
+    }]
+    return fixture
+
+
+def test_implicit_none_of_above_compiles_and_frontend_receives_select_one_option():
+    fixture = none_of_above_fixture()
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    states = definition.processes["main"].states
+    schema = states["site"].schema_
+    assert schema.kind == "select_one"  # not an inferred boolean
+    assert [(o.value, o.label) for o in schema.options] == [
+        ("Resignation with pension", "Resignation with pension"),
+        ("Ill health retirement", "Ill health retirement"),
+        ("none_of_the_above", "None of the above"),
+        ("__forms_skip__", "Skip this question"),
+    ]
+    assert schema.model_extra["presentation"]["answer_settings"] == fixture["content"]["steps"][0]["data"]["answer_settings"]
+    assert states["site__route"].rules[0].when == {
+        "op": "eq", "path": "answers.site", "value": "none_of_the_above"
+    }
+    run = PreviewRun(definition, "site")
+    result = answer(run, "site", "none_of_the_above")
+    assert result["terminal"] and result["status"] == "offramp"
+    assert result["answers"]["site"] == "none_of_the_above"
+    assert "You cannot use this service" in result["transcript"][0]
+
+    run = PreviewRun(definition, "site")
+    assert answer(run, "site", "Resignation with pension")["interaction"]["id"] == "count"
+    run = PreviewRun(definition, "site")
+    assert answer(run, "site", "__forms_skip__")["interaction"]["id"] == "count"
+
+
+def test_none_of_above_is_added_once_and_only_when_explicitly_referenced():
+    fixture = none_of_above_fixture(optional=False)
+    question = fixture["content"]["steps"][0]
+    question["data"]["answer_settings"]["selection_options"].append(
+        {"name": "None apply", "value": "none_of_the_above"}
+    )
+    states = SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states
+    assert [o.label for o in states["site"].schema_.options if o.value == "none_of_the_above"] == ["None apply"]
+
+    question["routing_conditions"] = []
+    question["data"]["answer_settings"]["selection_options"].pop()
+    states = SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states
+    assert all(o.value != "none_of_the_above" for o in states["site"].schema_.options)
+
+
+def test_missing_other_routing_values_are_still_unsupported():
+    fixture = none_of_above_fixture()
+    fixture["content"]["steps"][0]["routing_conditions"][0]["answer_value"] = "missing_value"
+    with pytest.raises(UnsupportedForm, match="missing from selection"):
+        compile_form(fixture)
+
+
+def test_none_of_above_yes_no_selection_is_not_compiled_as_boolean():
+    fixture = none_of_above_fixture(optional=False)
+    question = fixture["content"]["steps"][0]
+    question["data"]["answer_settings"]["selection_options"] = [
+        {"name": "Yes", "value": "Yes"}, {"name": "No", "value": "No"}
+    ]
+    schema = SFSMDefinition.model_validate(compile_form(fixture)).processes["main"].states["site"].schema_
+    assert schema.kind == "select_one" and any(o.value == "none_of_the_above" for o in schema.options)
+
+
+def test_implicit_none_of_above_is_available_to_cross_page_routing():
+    fixture = none_of_above_fixture(optional=False)
+    first, second = fixture["content"]["steps"]
+    first["routing_conditions"] = []
+    second["routing_conditions"] = [{
+        "routing_page_id": "count", "check_page_id": "site",
+        "answer_value": "none_of_the_above", "skip_to_end": True,
+    }]
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    states = definition.processes["main"].states
+    assert any(o.value == "none_of_the_above" for o in states["site"].schema_.options)
+    assert states["count__route"].rules[0].when == {
+        "op": "eq", "path": "answers.site", "value": "none_of_the_above"
+    }
+    run = PreviewRun(definition, "site")
+    answer(run, "site", "none_of_the_above")
+    assert answer(run, "count", "1")["terminal"]
+
+
+def test_implicit_none_of_above_checkbox_is_exclusive_in_preview():
+    fixture = none_of_above_fixture(only_one=False, optional=False)
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    states = definition.processes["main"].states
+    schema = states["site"].schema_
+    assert schema.kind == "select_many"
+    assert schema.model_extra["exclusive_options"] == ["none_of_the_above"]
+    assert states["site__route"].rules[0].when == {
+        "op": "contains", "path": "answers.site", "value": "none_of_the_above"
+    }
+    run = PreviewRun(definition, "site")
+    with pytest.raises(ValueError, match="cannot be combined"):
+        answer(run, "site", ["Resignation with pension", "none_of_the_above"])
+    assert "site" not in run.answers and run.state_id == "site"
+    assert answer(run, "site", ["none_of_the_above"])["status"] == "offramp"
+    run = PreviewRun(definition, "site")
+    assert answer(run, "site", ["Resignation with pension"])["interaction"]["id"] == "count"
+
+
+def test_implicit_none_of_above_with_followup_text_remains_unsupported():
+    fixture = none_of_above_fixture()
+    fixture["content"]["steps"][0]["data"]["answer_settings"]["none_of_the_above_question"] = {
+        "question_text": "Tell us more", "is_optional": "false"
+    }
+    with pytest.raises(UnsupportedForm, match="additional free-text"):
+        compile_form(fixture)
+
+
+def test_optional_none_of_above_checkbox_remains_distinct_from_skipping():
+    fixture = none_of_above_fixture(only_one=False, optional=True)
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    schema = definition.processes["main"].states["site"].schema_
+    assert schema.allow_skip is True
+    run = PreviewRun(definition, "site")
+    assert answer(run, "site", [])["interaction"]["id"] == "count"
+    run = PreviewRun(definition, "site")
+    assert answer(run, "site", ["none_of_the_above"])["status"] == "offramp"

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { FormMetadata, AutoAnswered } from "../api";
   import AutoProgressLog from "./AutoProgressLog.svelte";
-  import { marked } from "marked"; // 1. Import marked
+  import { marked } from "marked";
 
   interface Props {
     metadata: FormMetadata | null;
@@ -13,11 +13,15 @@
 
   let { metadata, transcript = [], result = null, autoAnswered = [], onBack }: Props = $props();
   
-  const exitMessage = $derived(result?.outcome === "exit_page"
+
+  const rawExitMessage = $derived(result?.outcome === "exit_page"
     ? [...transcript].reverse().find(entry => entry.message && !entry.message.startsWith("[ENGINE LOG]"))?.message
     : null);
 
-  // 2. Derive the parsed HTML string
+  const exitMessageHtml = $derived(rawExitMessage 
+    ? marked.parse(rawExitMessage) 
+    : null);
+
   const whatHappensNextHtml = $derived(
     metadata?.what_happens_next_markdown 
       ? marked.parse(metadata.what_happens_next_markdown) 
@@ -26,7 +30,7 @@
 </script>
 
 <div class="govuk-panel govuk-panel--confirmation">
-  <h1 class="govuk-panel__title">{exitMessage ? "Journey ended" : "Answers collected"}</h1>
+  <h1 class="govuk-panel__title">{rawExitMessage ? "Journey ended" : "Answers collected"}</h1>
   <div class="govuk-panel__body">
     This prototype does not submit answers to a department.
   </div>
@@ -36,8 +40,8 @@
   <AutoProgressLog items={autoAnswered} />
 {/if}
 
-{#if exitMessage}
-  <div class="govuk-inset-text" style="white-space: pre-wrap;">{exitMessage}</div>
+{#if rawExitMessage}
+  <div class="govuk-inset-text" style="white-space: pre-wrap;">{@html exitMessageHtml}</div>
 {:else if metadata?.what_happens_next_markdown}
   <h2 class="govuk-heading-m">What happens next</h2>
   <!-- 3. Render using {@html}. Use a <div> instead of <p> because marked outputs <p> tags by default -->

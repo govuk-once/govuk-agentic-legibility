@@ -68,6 +68,7 @@ export interface AwaitingInput {
 export interface InputSchema {
   kind: "string" | "boolean" | "select_one" | "select_many" | "file_ref";
   options?: Option[];
+  exclusive_options?: string[];
   allow_skip?: boolean;
   default?: any;
   presentation?: Presentation;

@@ -157,7 +157,7 @@ def _presentation(question: Question) -> dict[str, Any]:
     }
 
 
-def _schema(question: Question) -> dict[str, Any]:
+def _schema(question: Question, *, implicit_none_of_above: bool = False) -> dict[str, Any]:
     answer_type = question.data.get("answer_type")
     required = not question.data["is_optional"]
     schema: dict[str, Any] = {"kind": "string"}
@@ -177,10 +177,24 @@ def _schema(question: Question) -> dict[str, Any]:
         only_one, options = _selection_options(question)
         if only_one is None or not options:
             _unsupported(question.id, "selection needs valid options and only_one_option")
-        elif _boolean_choices(question, required=required):
+        if implicit_none_of_above:
+            # Forms may render this built-in choice without including it in
+            # selection_options. Infer it only from an explicit routing value;
+            # do not mutate the original export/presentation settings.
+            settings = question.data.get("answer_settings") or {}
+            if settings.get("none_of_the_above_question"):
+                _unsupported(question.id, "implicit none_of_the_above with additional free-text question")
+            if not any(option["value"] == "none_of_the_above" for option in options):
+                options = [*options, {"value": "none_of_the_above", "label": "None of the above"}]
+        if _boolean_choices(question, required=required) and not implicit_none_of_above:
             schema = {"kind": "boolean"}
         else:
             schema = {"kind": "select_one" if only_one else "select_many", "options": options}
+            if implicit_none_of_above and not only_one:
+                # A checkbox 'None of the above' must be the *only* selection.
+                # The preview, Temporal validator and both Svelte answer views
+                # all honour this ordinary schema metadata.
+                schema["exclusive_options"] = ["none_of_the_above"]
             if not required and only_one:
                 if any(opt["value"] == "__forms_skip__" for opt in options):
                     _unsupported(question.id, "reserved optional selection value")
@@ -227,6 +241,14 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
     """Compile only routes and inputs whose semantics can be preserved."""
     content, questions = normalise_form(export)
     ids = {question.id for question in questions}
+    # A route may check an *earlier* question. Discover implicit selection
+    # options before emitting any state, not only when compiling that page's
+    # own routing conditions.
+    implicit_none_of_above_ids = {
+        condition.get("check_page_id") or question.id
+        for question in questions for condition in question.routing
+        if isinstance(condition, dict) and condition.get("answer_value") == "none_of_the_above"
+    }
     states: dict[str, dict[str, Any]] = {}
     already_asked: set[str] = set()
     repeatable_ids = {question.id for question in questions if question.data.get("is_repeatable")}
@@ -251,7 +273,7 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
         if is_repeatable:
             current_path = f"repeat.{question.id}.current"
             more_path = f"repeat.{question.id}.more"
-            schema = _schema(question)
+            schema = _schema(question, implicit_none_of_above=question.id in implicit_none_of_above_ids)
             is_optional = question.data["is_optional"]
             if is_optional:
                 skip_rule = _optional_repeatable_skip(question, schema, current_path)
@@ -311,7 +333,8 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
         else:
             states[question.id] = {
                 "type": "input", "prompt": question.data["question_text"],
-                "schema": _schema(question), "assign": f"answers.{question.id}",
+                "schema": _schema(question, implicit_none_of_above=question.id in implicit_none_of_above_ids),
+                "assign": f"answers.{question.id}",
                 "next": after,
             }
         if question.routing:

@@ -75,8 +75,20 @@ an isolated preview API; the existing DVLA/Flex API on port 8001 is unchanged.
   inputs, so an agent submits `true`/`false` and routing uses `is_true`/`is_false`.
   A plain, unrouted Yes/No *text* question remains a string. An optional
   `select_one` includes an explicit `__forms_skip__` option because the current
-  interpreter otherwise rejects skipped selections. An ambiguous **unrouted**
-  selection (routed or not) is rejected rather than flattened into a string.
+  interpreter otherwise rejects skipped selections. If routing refers to the
+  built-in `none_of_the_above` value but Forms omits it from
+  `selection_options`, the compiler adds the real choice labelled
+  "None of the above" to the compiled schema. This is distinct from the
+  `__forms_skip__` sentinel for optional questions. It also works when a
+  later routing condition checks an earlier selection. An explicit option
+  with the same value retains its supplied label and is never duplicated.
+  For checkbox selections, `none_of_the_above` is exclusive: the Forms
+  frontend deselects other choices, and the Temporal and preview validators
+  reject contradictory submissions from any client. An accompanying
+  `none_of_the_above_question` requiring extra text remains unsupported for
+  this implicit-option case. Other unknown routing values still reject
+  compilation. An ambiguous **unrouted** selection is rejected rather than
+  flattened into a string.
 * Deterministic `choice` states handle `answer_value` → `goto_page_id` and
   `skip_to_end`, defaulting to `next_step_id`. A string is compared with `eq`,
   multiple selections with `contains`, and boolean Yes/No with the native boolean
