@@ -121,8 +121,10 @@ class PreviewRun:
         presentation = (schema.model_extra or {}).get("presentation", {})
         required = bool(presentation.get("required", not schema.allow_skip))
         if schema.kind == "string":
-            if value is None and not required:
-                value = ""
+            # Match the Temporal interpreter: whitespace-only optional input
+            # resolves to the schema default (the Forms empty-string skip).
+            if not required and (value is None or (isinstance(value, str) and not value.strip())):
+                value = schema.default if schema.default is not None else ""
             if not isinstance(value, str) or (required and not value.strip()):
                 raise ValueError("Enter a value")
         elif schema.kind == "boolean":

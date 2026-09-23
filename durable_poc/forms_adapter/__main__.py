@@ -6,15 +6,11 @@ import argparse
 import json
 from pathlib import Path
 
-from .compiler import UnsupportedForm, compile_form
+from .compiler import ORDINARY_SCALARS, UnsupportedForm, compile_form
 
 
-# Diagnostic only. This is NOT an allow-list: unfamiliar answer types compile
-# as strings and are reported so a new structural Forms type is not overlooked.
-ORDINARY_SCALARS = {
-    "text", "name", "address", "national_insurance_number", "email",
-    "date", "number", "organisation_name", "phone_number",
-}
+# For non-repeatable questions this is diagnostic, not an allow-list:
+# unfamiliar answer types still compile as preview-only strings.
 
 
 def _warnings(export: dict, definition: dict) -> list[str]:

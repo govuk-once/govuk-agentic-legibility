@@ -97,22 +97,35 @@ an isolated preview API; the existing DVLA/Flex API on port 8001 is unchanged.
   has an opt-in local synthetic-file uploader; the compiler itself stores no
   bytes. Multiple-file inputs are still unsupported.
 * Omitted/null `is_optional` and `is_repeatable` are interpreted as `false`.
-  Required repeatable questions without routing compile to ordinary SFSM input,
-  assign and choice states. The original input is revisited for each answer;
-  a generic `append` assignment stores all answers, in order, at
-  `answers.<step_id>`, and a synthetic boolean "Do you want to add another
-  answer?" input controls the loop. Temporal still issues a fresh token for
-  every revisit. Selections retain their type, including list-valued
-  `select_many` answers. Addresses retain the adapter's *existing* one-string
-  representation and source presentation settings, rather than gaining new
-  structured address fields in this increment. Optional repeatables and any
-  routing from or referring to repeatable answers remain unsupported and fail
-  compilation. The export does not specify repetition limits, so the generated
-  loop has no maximum. Automatic proposals hand repeat-loop control to a user
-  rather than guessing when all answers have been supplied. Payments are flagged
-  `preview_only`; malformed routing remains unsupported. Declarations
-  and `what_happens_next` are metadata only; `end_form` means **answers collected**,
-  not submitted or paid for.
+  Required and optional repeatable questions without routing compile to native
+  SFSM input, assign and choice states. The original input is revisited for
+  each answer; the existing generic `append` operation stores each typed answer
+  in order at `answers.<step_id>`, and a synthetic boolean "Do you want to add
+  another answer?" input controls the loop. Optional repeatables additionally
+  use an SFSM `choice` immediately after the question. **Skipping on the first
+  or a later visit goes straight to the original next step**, without appending
+  a skip marker or asking whether to add another answer. A zero-answer skip
+  leaves `answers.<step_id>` absent (rather than storing an empty list); a skip
+  after genuine answers retains their existing list unchanged. Clients send the
+  existing skip representations: `""` for optional strings, `__forms_skip__`
+  for `select_one`, `[]` for `select_many`, and `null` for `file_ref`. The
+  `select_many` answer itself is appended as **one nested list**, never flattened.
+  Temporal issues a fresh input token on every revisit. Addresses retain the
+  adapter's existing one-string representation and source presentation metadata.
+  An unfamiliar answer type, an optional repeatable selection with an additional
+  `none_of_the_above_question`, an optional `select_one` with a genuinely empty
+  option value, or an optional repeatable schema without a known skip
+  representation is rejected rather than guessing its semantics. The
+  existing restrictions on selection validity, multiple file uploads, routing
+  on a repeatable question, and routing depending on a repeatable answer remain.
+  Optional native booleans are not produced: the boolean mapping requires a
+  required, routed Yes/No selection, and routing on repeatables is unsupported.
+  The exports do not specify repetition limits; no min/max count is imposed.
+  Automatic proposals hand repeat-loop control to a user rather than guessing
+  when all answers have been supplied. Payments are flagged `preview_only`;
+  malformed routing remains unsupported. Declarations and `what_happens_next`
+  are metadata only; `end_form` means **answers collected**, not submitted or
+  paid for.
 * The preview runner is deliberately not a Temporal implementation: it supports the
   adapter's input/assign/choice/output/end subset using the **real SFSM model and predicates**.
   Running the full Temporal workflow requires the project's Temporal environment.

@@ -16,6 +16,15 @@ class UnsupportedForm(ValueError):
     """The export uses a feature this vertical slice cannot preserve safely."""
 
 
+# Non-selection/file Forms types for which the current adapter exposes one
+# scalar string. Keep optional repeatables conservative: a new compound type
+# must not silently inherit the empty-string skip convention.
+ORDINARY_SCALARS = {
+    "text", "name", "address", "national_insurance_number", "email",
+    "date", "number", "organisation_name", "phone_number",
+}
+
+
 @dataclass(frozen=True)
 class Question:
     id: str
@@ -90,9 +99,9 @@ def _selection_options(question: Question) -> tuple[bool | None, list[dict[str, 
     if not isinstance(settings, dict):
         return None, []
     raw_only_one = settings.get("only_one_option")
-    if raw_only_one in (True, "true"):
+    if raw_only_one in (True, "true", "1", 1):
         only_one = True
-    elif raw_only_one in (False, "false"):
+    elif raw_only_one in (False, "false", "0", 0):
         only_one = False
     else:
         only_one = None
@@ -186,6 +195,34 @@ def _schema(question: Question) -> dict[str, Any]:
     return schema
 
 
+def _optional_repeatable_skip(question: Question, schema: dict[str, Any], path: str) -> dict[str, Any]:
+    """Match the *typed* skip value submitted by existing Forms clients.
+
+    The native ``eq`` predicate compares same-type arrays and null correctly;
+    ``not_empty`` would incorrectly treat the select_one sentinel as an answer.
+    Unrecognised source types may have compound skip semantics, so only the
+    established scalar/selection/single-file mappings are safe here.
+    """
+    answer_type = question.data.get("answer_type")
+    if answer_type not in ORDINARY_SCALARS | {"selection", "file"}:
+        _unsupported(question.id, f"unknown optional repeatable answer_type {answer_type!r}")
+    settings = question.data.get("answer_settings") or {}
+    if (answer_type == "selection" and isinstance(settings, dict)
+            and settings.get("none_of_the_above_question")):
+        _unsupported(question.id, "optional repeatable selection with additional free-text question")
+    if (schema["kind"] == "select_one"
+            and any(opt["value"] == "" for opt in schema["options"])):
+        _unsupported(question.id, "optional repeatable select_one with an empty option value")
+
+    skip_values: dict[str, Any] = {
+        "string": "", "select_one": "__forms_skip__", "select_many": [], "file_ref": None,
+    }
+    kind = schema["kind"]
+    if kind not in skip_values:
+        _unsupported(question.id, f"optional repeatable {kind!r} has no known skip value")
+    return {"op": "eq", "path": path, "value": skip_values[kind]}
+
+
 def compile_form(export: dict[str, Any]) -> dict[str, Any]:
     """Compile only routes and inputs whose semantics can be preserved."""
     content, questions = normalise_form(export)
@@ -207,8 +244,6 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
             exit_pages[page_id] = page
         used_exits: set[Any] = set()
         is_repeatable = bool(question.data.get("is_repeatable"))
-        if is_repeatable and question.data.get("is_optional"):
-            _unsupported(where, "optional repeatable questions are not yet supported")
         if is_repeatable and question.routing:
             _unsupported(where, "routing on a repeatable question is not yet supported")
 
@@ -216,11 +251,21 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
         if is_repeatable:
             current_path = f"repeat.{question.id}.current"
             more_path = f"repeat.{question.id}.more"
+            schema = _schema(question)
+            is_optional = question.data["is_optional"]
+            if is_optional:
+                skip_rule = _optional_repeatable_skip(question, schema, current_path)
             states[question.id] = {
                 "type": "input", "prompt": question.data["question_text"],
-                "schema": _schema(question), "assign": current_path,
-                "next": f"{question.id}__append",
+                "schema": schema, "assign": current_path,
+                "next": f"{question.id}__skip_route" if is_optional else f"{question.id}__append",
             }
+            if is_optional:
+                states[f"{question.id}__skip_route"] = {
+                    "type": "choice",
+                    "rules": [{"when": skip_rule, "next": after}],
+                    "default": f"{question.id}__append",
+                }
             states[f"{question.id}__append"] = {
                 "type": "assign",
                 "set": {f"answers.{question.id}": {"op": "append", "value_path": current_path}},

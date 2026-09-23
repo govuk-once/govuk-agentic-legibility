@@ -454,6 +454,7 @@ def test_repeatable_question_compiles_to_native_sfsm_loop_and_validates():
     original = states["site"]
     assert original.assign == "repeat.site.current"
     assert original.next == "site__append"
+    assert "site__skip_route" not in states  # required repeatables are unchanged
     assert states["site__append"].set == {
         "answers.site": {"op": "append", "value_path": "repeat.site.current"}
     }
@@ -516,22 +517,205 @@ def test_repeatable_selection_preserves_each_typed_answer():
     assert run.answers["site"] == ["london", "leeds"]
 
 
-def test_optional_repeatable_is_rejected_conservatively():
-    fixture = export("repeatable")
-    fixture["content"]["steps"][0]["data"]["is_optional"] = True
-    with pytest.raises(UnsupportedForm, match="optional repeatable"):
+def optional_fixture(answer_type="text", *, only_one=None):
+    """Use the checked-in repeatable export; no private Forms data required."""
+    fixture = export("optional_repeatable")
+    question = fixture["content"]["steps"][0]
+    question["data"]["answer_type"] = answer_type
+    if answer_type == "selection":
+        question["data"]["answer_settings"] = {
+            "only_one_option": "true" if only_one else "false",
+            "selection_options": [
+                {"name": "London", "value": "london"},
+                {"name": "Leeds", "value": "leeds"},
+            ],
+        }
+    elif answer_type == "file":
+        question["data"]["answer_settings"] = {"max_files": 1}
+    return fixture
+
+
+def optional_run(fixture=None):
+    definition = SFSMDefinition.model_validate(compile_form(fixture or export("optional_repeatable")))
+    return PreviewRun(definition, definition.processes[definition.entry].start)
+
+
+def test_optional_repeatable_compiles_to_native_skip_choice_and_retains_presentation():
+    definition = compiled("optional_repeatable")  # validates against real Pydantic model
+    states = definition.processes["main"].states
+    original = states["site"]
+    assert original.assign == "repeat.site.current"
+    assert original.next == "site__skip_route"
+    assert original.schema_.allow_skip is True
+    assert original.schema_.default == ""
+    assert original.schema_.model_extra["presentation"]["is_repeatable"] is True
+    assert original.schema_.model_extra["presentation"]["is_optional"] is True
+    assert original.schema_.model_extra["presentation"]["hint_text"] == "Enter one site"
+    skip = states["site__skip_route"]
+    assert skip.rules[0].when == {"op": "eq", "path": "repeat.site.current", "value": ""}
+    assert skip.rules[0].next == "count"  # original next_step_id
+    assert skip.default == "site__append"
+    assert states["site__append"].set == {
+        "answers.site": {"op": "append", "value_path": "repeat.site.current"}
+    }
+    assert states["site__more"].schema_.kind == "boolean"
+    assert states["site__repeat_route"].rules[0].next == "site"
+    assert states["site__repeat_route"].default == "count"
+
+
+def test_optional_repeatable_skipped_initially_never_appends_or_asks_more():
+    for skipped in ("", None, "   "):  # Preview matches Temporal's blank normalisation.
+        run = optional_run()
+        result = answer(run, "site", skipped)
+        assert result["interaction"]["id"] == "count"
+        assert "site" not in run.answers  # zero answers use the absent-key convention
+        assert answer(run, "count", "42")["terminal"]
+
+
+@pytest.mark.parametrize("values", [
+    ["Acme Ltd"],
+    ["Acme Ltd", "Beta Ltd"],
+    ["Acme Ltd", "Beta Ltd", "Gamma Ltd"],
+])
+def test_optional_repeatable_collects_one_two_or_three_in_order(values):
+    run = optional_run()
+    for i, value in enumerate(values):
+        assert answer(run, "site", value)["interaction"]["id"] == "site__more"
+        result = answer(run, "site__more", i != len(values) - 1)
+        assert result["interaction"]["id"] == ("site" if i != len(values) - 1 else "count")
+    assert run.answers["site"] == values
+    assert answer(run, "count", "42")["terminal"]
+
+
+def test_optional_repeatable_multi_select_retains_nested_lists_in_order():
+    run = optional_run(optional_fixture("selection", only_one=False))
+    assert answer(run, "site", ["london", "leeds"])["interaction"]["id"] == "site__more"
+    assert answer(run, "site__more", True)["interaction"]["id"] == "site"
+    assert answer(run, "site", ["leeds"])["interaction"]["id"] == "site__more"
+    assert answer(run, "site__more", False)["interaction"]["id"] == "count"
+    assert run.answers["site"] == [["london", "leeds"], ["leeds"]]
+
+
+def test_optional_repeatable_skip_after_yes_preserves_previous_values():
+    run = optional_run()
+    answer(run, "site", "Acme Ltd")
+    assert answer(run, "site__more", True)["interaction"]["id"] == "site"
+    assert answer(run, "site", "")["interaction"]["id"] == "count"
+    assert run.answers["site"] == ["Acme Ltd"]
+    assert answer(run, "count", "42")["terminal"]
+
+
+@pytest.mark.parametrize("answer_type,only_one,kind,skipped,real", [
+    ("text", None, "string", "", "0"),  # Preserve the valid numeric-looking string.
+    ("selection", True, "select_one", "__forms_skip__", "london"),
+    ("selection", False, "select_many", [], ["london", "leeds"]),
+    ("file", None, "file_ref", None,
+     {"ref": "synthetic-1", "bytes": 128, "content_type": "application/pdf"}),
+])
+def test_optional_repeatable_typed_skips_and_genuine_answers(answer_type, only_one, kind, skipped, real):
+    fixture = optional_fixture(answer_type, only_one=only_one)
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    states = definition.processes["main"].states
+    assert states["site"].schema_.kind == kind
+    assert states["site__skip_route"].rules[0].when == {
+        "op": "eq", "path": "repeat.site.current", "value": skipped
+    }
+
+    first_skip = PreviewRun(definition, "site")
+    assert answer(first_skip, "site", skipped)["interaction"]["id"] == "count"
+    assert "site" not in first_skip.answers
+
+    run = PreviewRun(definition, "site")
+    assert answer(run, "site", real)["interaction"]["id"] == "site__more"
+    assert answer(run, "site__more", True)["interaction"]["id"] == "site"
+    assert answer(run, "site", skipped)["interaction"]["id"] == "count"
+    # select_many is ONE typed list per visit, never flattened into the accumulator.
+    assert run.answers["site"] == [real]
+
+
+@pytest.mark.parametrize("value", [None, "", "__forms_skip__"])
+def test_optional_repeatable_select_one_preview_normalises_or_accepts_skip(value):
+    run = optional_run(optional_fixture("selection", only_one=True))
+    assert answer(run, "site", value)["interaction"]["id"] == "count"
+    assert "site" not in run.answers
+
+
+@pytest.mark.parametrize("answer_type,only_one,invalid,error", [
+    ("text", None, {"not": "a string"}, "Enter a value"),
+    ("selection", True, "unknown", "available option"),
+    ("selection", False, ["unknown"], "available options"),
+    ("selection", False, "london", "available options"),
+    ("file", None, {"ref": "synthetic", "bytes": 0}, "positive byte"),
+])
+def test_invalid_optional_repeatable_input_does_not_advance_or_append(answer_type, only_one, invalid, error):
+    run = optional_run(optional_fixture(answer_type, only_one=only_one))
+    with pytest.raises(ValueError, match=error):
+        answer(run, "site", invalid)
+    assert run.state_id == "site"
+    assert "site" not in run.answers
+
+
+def test_invalid_second_visit_preserves_previously_collected_answers():
+    run = optional_run()
+    answer(run, "site", "Acme Ltd")
+    answer(run, "site__more", True)
+    with pytest.raises(ValueError, match="Enter a value"):
+        answer(run, "site", ["incorrect type"])
+    assert run.state_id == "site" and run.answers["site"] == ["Acme Ltd"]
+    assert answer(run, "site", "Beta Ltd")["interaction"]["id"] == "site__more"
+    with pytest.raises(ValueError, match="Yes or No"):
+        answer(run, "site__more", None)
+    assert run.state_id == "site__more"
+    assert run.answers["site"] == ["Acme Ltd", "Beta Ltd"]
+
+
+def test_optional_repeatable_name_as_last_question_reaches_end_form():
+    # Mirrors the optional repeatable 'name' question at the end of Form 5169.
+    fixture = optional_fixture("name")
+    question = fixture["content"]["steps"][0]
+    question["type"] = "question"
+    question["data"]["answer_settings"] = {"input_type": "full_name", "title_needed": "false"}
+    question["next_step_id"] = None
+    fixture["content"]["steps"] = [question]
+    definition = SFSMDefinition.model_validate(compile_form(fixture))
+    assert definition.processes["main"].states["site__skip_route"].rules[0].next == "end_form"
+    run = PreviewRun(definition, "site")
+    result = answer(run, "site", "")
+    assert result["terminal"] and "site" not in result["answers"]
+    run = PreviewRun(definition, "site")
+    answer(run, "site", "School One")
+    assert answer(run, "site__more", False)["terminal"]
+    assert run.answers["site"] == ["School One"]
+
+
+def test_optional_repeatable_unknown_or_compound_answer_type_stays_unsupported():
+    fixture = optional_fixture("new_compound_answer_type")
+    with pytest.raises(UnsupportedForm, match="unknown optional repeatable"):
+        compile_form(fixture)
+    fixture = optional_fixture("selection", only_one=True)
+    fixture["content"]["steps"][0]["data"]["answer_settings"]["none_of_the_above_question"] = {
+        "question_text": "Other details", "is_optional": True
+    }
+    with pytest.raises(UnsupportedForm, match="additional free-text"):
+        compile_form(fixture)
+    fixture = optional_fixture("selection", only_one=True)
+    fixture["content"]["steps"][0]["data"]["answer_settings"]["selection_options"].append(
+        {"name": "Ambiguous empty choice", "value": ""}
+    )
+    with pytest.raises(UnsupportedForm, match="empty option value"):
         compile_form(fixture)
 
 
-def test_routing_on_or_from_repeatable_answer_is_rejected_conservatively():
-    fixture = export("repeatable")
+@pytest.mark.parametrize("fixture_name", ["repeatable", "optional_repeatable"])
+def test_routing_on_or_from_repeatable_answer_is_rejected_conservatively(fixture_name):
+    fixture = export(fixture_name)
     fixture["content"]["steps"][0]["routing_conditions"] = [
         {"answer_value": "x", "goto_page_id": "count", "skip_to_end": False}
     ]
     with pytest.raises(UnsupportedForm, match="routing on a repeatable"):
         compile_form(fixture)
 
-    fixture = export("repeatable")
+    fixture = export(fixture_name)
     fixture["content"]["steps"][1]["routing_conditions"] = [
         {"check_page_id": "site", "routing_page_id": "count", "answer_value": "x", "skip_to_end": True}
     ]
