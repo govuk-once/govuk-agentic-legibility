@@ -342,8 +342,16 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                     _unsupported(where, "ambiguous skip_to_end and another destination")
                 if goto is not None and (ep_id is not None or has_inline):
                     _unsupported(where, "ambiguous goto_page_id and exit page")
-                if ep_id is not None and has_inline:
-                    _unsupported(where, "ambiguous exit_page_id and inline content")
+                if ep_id is not None and has_inline and ep_id in exit_pages:
+                    page = exit_pages[ep_id]
+                    if (
+                        (inline_heading is not None
+                        and inline_heading != page.get("heading"))
+                        or
+                        (inline_markdown is not None
+                        and inline_markdown != page.get("markdown"))
+                    ):
+                        _unsupported(where, "exit page content conflicts with referenced exit_page_id")
                 if ep_id is not None:
                     if ep_id not in exit_pages:
                         _unsupported(where, f"unknown exit_page_id {ep_id!r}")
