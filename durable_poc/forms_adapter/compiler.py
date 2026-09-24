@@ -266,8 +266,6 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
             exit_pages[page_id] = page
         used_exits: set[Any] = set()
         is_repeatable = bool(question.data.get("is_repeatable"))
-        if is_repeatable and question.routing:
-            _unsupported(where, "routing on a repeatable question is not yet supported")
 
         after = f"{question.id}__route" if question.routing else (question.next_id or "end_form")
         if is_repeatable:
@@ -407,8 +405,11 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                     _unsupported(where, "routing condition has no destination")
                 answer = condition.get("answer_value")
                 if answer is None:
-                    if unconditional is not None:
-                        _unsupported(where, "multiple unconditional routing conditions")
+                    if unconditional is not None and unconditional != target:
+                        _unsupported(
+                            where,
+                            "conflicting unconditional routing destinations"
+                        )
                     unconditional = target
                     continue
                 if not isinstance(answer, str):
@@ -438,7 +439,13 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
                     "type": "choice", "rules": rules,
                     "default": unconditional or question.next_id or "end_form"}
             else:
-                states[question.id]["next"] = unconditional or question.next_id or "end_form"
+                target = unconditional or question.next_id or "end_form"
+                if is_repeatable:
+                    states[f"{question.id}__repeat_route"]["default"] = target
+                    if question.data["is_optional"]:
+                        states[f"{question.id}__skip_route"]["rules"][0]["next"] = target
+                else:
+                    states[question.id]["next"] = target
         elif exit_pages:
             _unsupported(where, "exit_pages are present without routing_conditions")
         already_asked.add(question.id)
