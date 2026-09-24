@@ -16,7 +16,12 @@ import copy
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+from forms_frontend.api.tracing import session_span, fields, error
+
+if TYPE_CHECKING:
+    from forms_frontend.api.sessions import FormSession
 
 from strands import Agent
 from strands.models import BedrockModel
@@ -84,50 +89,85 @@ async def propose_answer(
     *,
     conversation_history: list[dict[str, Any]],
     awaiting: dict[str, Any],
+    session: FormSession | None = None,
 ) -> dict[str, Any]:
-    """Ask a tool-less LLM to propose a typed answer for the current question.
+    """Trace the tool-less proposal agent without changing its submission authority.
 
-    Uses a separate Agent instance with NO tools — it can only respond with
-    text, never submit answers or query workflows.
-
-    Args:
-        conversation_history: The conversation so far (user/assistant messages).
-        awaiting: The current AwaitingInput dict from Temporal.
-
-    Returns:
-        A dict with keys: has_answer (bool), value (Any|None), explanation (str).
+    A fresh Strands agent is created on each call. Its input, messages, raw
+    output and post-parse value are all kept for evaluation. Model-internal
+    reasoning and any provider-hidden request fields are not available here.
     """
     prompt_text = awaiting.get("prompt", "")
-    schema = awaiting.get("schema", {})
+    schema = awaiting.get("schema") or {}
     presentation = schema.get("presentation") or {}
-    if presentation.get("repeat_control") is True:
-        return {"has_answer": False, "value": None,
-                "explanation": "Confirm whether another repeated answer is needed."}
-    if schema.get("kind") == "file_ref":
-        return {"has_answer": False, "value": None,
-                "explanation": "Upload the file, or skip this optional question."}
-
     user_prompt = PROPOSAL_USER_TEMPLATE.format(
-        prompt=prompt_text,
-        schema=json.dumps(schema, indent=2),
+        prompt=prompt_text, schema=json.dumps(schema, indent=2),
     )
+    strands_messages = _to_strands_messages(conversation_history)
+    with session_span(
+        "forms.proposal.invoke", session,
+        current_question=awaiting, state_id=awaiting.get("state_id"),
+        process_id=awaiting.get("process_id"), token=awaiting.get("token"),
+        schema=schema, options=awaiting.get("options") or schema.get("options"),
+        conversation=conversation_history, strands_messages=strands_messages,
+        system_prompt=PROPOSAL_SYSTEM_PROMPT, user_prompt=user_prompt,
+        model_id=os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-6"),
+    ) as span:
+        if presentation.get("repeat_control") is True:
+            result = {"has_answer": False, "value": None,
+                      "explanation": "Confirm whether another repeated answer is needed."}
+            fields(span, outcome="skipped_repeat_control", proposal=result)
+            return result
+        if schema.get("kind") == "file_ref":
+            result = {"has_answer": False, "value": None,
+                      "explanation": "Upload the file, or skip this optional question."}
+            fields(span, outcome="skipped_file_ref", proposal=result)
+            return result
 
-    try:
-        model = _get_model()
-        strands_messages = _to_strands_messages(conversation_history)
-        proposal_agent = Agent(
-            model=model,
-            system_prompt=PROPOSAL_SYSTEM_PROMPT,
-            tools=[],
-            messages=strands_messages,
-        )
-        result = await proposal_agent.invoke_async(user_prompt)
-        response = str(result)
-        logger.info("Proposal response for %r: %s", prompt_text[:50], response[:200])
-        return _parse_proposal_response(response, schema)
-    except Exception:
-        logger.exception("Failed to get answer proposal from LLM")
-        return {"has_answer": False, "value": None, "explanation": "Agent unavailable"}
+        try:
+            model = _get_model()
+            proposal_agent = Agent(
+                model=model, system_prompt=PROPOSAL_SYSTEM_PROMPT,
+                tools=[], messages=strands_messages,
+            )
+            # Parent context stays active across the async Strands invocation.
+            # Do not enable duplicate instrumentation on the shared WorkflowAgent.
+            result = await proposal_agent.invoke_async(user_prompt)
+            response = str(result)
+            fields(span, model_response=response,
+                   strands_messages_after=proposal_agent.messages)
+            parsed = _parse_proposal_response(response, schema)
+            fields(span, parsed_proposal=parsed, normalised_value=parsed.get("value"),
+                   usable=bool(parsed.get("has_answer") and parsed.get("value") is not None),
+                   schema_valid=_trace_schema_valid(parsed, schema),
+                   outcome="proposed" if parsed.get("has_answer") else "no_answer")
+            return parsed
+        except Exception as exc:
+            error(span, exc)
+            logger.exception("Failed to get answer proposal from LLM")
+            fallback = {"has_answer": False, "value": None,
+                        "explanation": "Agent unavailable"}
+            fields(span, outcome="error", proposal=fallback)
+            return fallback
+
+
+def _trace_schema_valid(proposal: dict[str, Any], schema: dict[str, Any]) -> bool:
+    """Observation only: do not change the existing proposal/submission policy."""
+    if not proposal.get("has_answer") or proposal.get("value") is None:
+        return False
+    value = proposal["value"]
+    kind = schema.get("kind")
+    if kind == "boolean":
+        return type(value) is bool
+    if kind in ("select_one", "select_many"):
+        options = schema.get("options") or []
+        allowed = [o.get("value") if isinstance(o, dict) else o for o in options]
+        if kind == "select_one":
+            return value in allowed
+        return isinstance(value, list) and all(v in allowed for v in value)
+    if kind == "string":
+        return isinstance(value, str)
+    return True
 
 
 def _parse_proposal_response(

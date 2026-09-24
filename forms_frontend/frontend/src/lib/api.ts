@@ -320,3 +320,14 @@ export function streamAutoProgress(
     close: () => source.close(),
   };
 }
+
+/** Evaluation events for review actions which do not otherwise hit the API. */
+export async function recordReviewEvent(
+  sessionId: string,
+  action: "review.enter" | "review.edit_start" | "review.edit_cancel" | "review.return",
+  details: Record<string, unknown> = {},
+): Promise<void> {
+  await request(`/api/sessions/${sessionId}/events`, {
+    method: "POST", body: JSON.stringify({ action, details }),
+  });
+}

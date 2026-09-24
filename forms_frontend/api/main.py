@@ -40,12 +40,30 @@ from forms_frontend.api.sessions import (
 )
 from forms_frontend.api.proposals import propose_answer
 from forms_frontend.api.uploads import InvalidUpload, save_local_upload
+from forms_frontend.api.tracing import (
+    configure_telemetry, shutdown_telemetry, session_span, session_endpoint, fields, as_json,
+)
+from agent.agent import build_contextual_prompt
 
 logger = logging.getLogger(__name__)
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
 app = FastAPI(title="GOV.UK Forms Frontend API")
+
+
+@app.on_event("startup")
+async def _start_tracing() -> None:
+    configure_telemetry()
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    for agent in list(_agents.values()):
+        await agent.close()
+    if _http_client is not None:
+        await _http_client.aclose()
+    shutdown_telemetry()
 
 app.add_middleware(
     CORSMiddleware,
@@ -177,54 +195,72 @@ async def _submit_once(
     still returns the previous input. The lock also serialises SSE and HTTP
     submissions for this (single-process POC) session.
     """
-    async with session.submission_lock:
-        state = await _current_state(session, temporal)
-        if token in session.accepted_tokens:
-            return state, False
-        awaiting = state.get("awaiting") or {}
-        if awaiting.get("token") != token:
-            raise HTTPException(409, "This question is no longer awaiting an answer")
-        if (awaiting.get("schema") or {}).get("kind") == "file_ref":
-            _check_file_submission(session, token, value)
+    actual_source = "auto" if auto_record is not None else source
+    with session_span("forms.interpreter.submit", session, token=token,
+                      requested_value=value, submission_source=actual_source,
+                      proposal_explanation=auto_record.explanation if auto_record else None) as span:
+        async with session.submission_lock:
+            state = await _current_state(session, temporal)
+            fields(span, state_before=state)
+            if token in session.accepted_tokens:
+                fields(span, outcome="duplicate", state_after=state)
+                return state, False
+            awaiting = state.get("awaiting") or {}
+            fields(span, state_id=awaiting.get("state_id"), process_id=awaiting.get("process_id"),
+                   question=awaiting.get("prompt"), schema=awaiting.get("schema"),
+                   expected_token=awaiting.get("token"))
+            if awaiting.get("token") != token:
+                fields(span, outcome="stale_token")
+                raise HTTPException(409, "This question is no longer awaiting an answer")
+            if (awaiting.get("schema") or {}).get("kind") == "file_ref":
+                _check_file_submission(session, token, value)
 
-        # The Temporal update validator rejects invalid values and stale tokens;
-        # record acceptance *only after* the update returns successfully.
-        initial = await tool_functions.submit_input(
-            workflow_id=session.temporal_workflow_id,
-            token=token, value=value, temporal_client=temporal,
-        )
-        session.accepted_tokens.add(token)
-        # Record accepted automatic answers immediately, not after polling.
-        # A browser closing the SSE stream during the next-state wait must
-        # not silently lose a submission from the cumulative summary.
-        if auto_record is not None:
-            session.auto_answered.append(auto_record)
-        # Capture the *actual accepted* value and the question it belongs to.
-        # This history is read-only until a review edit has been validated by
-        # replaying it through a fresh instance of the SAME Temporal interpreter.
-        session.answer_history.append(AcceptedAnswer(
-            token=token,
-            state_id=awaiting.get("state_id") or "",
-            question_text=awaiting.get("prompt", ""),
-            schema=awaiting.get("schema") or {},
-            presentation=_lookup_state_presentation(
-                session.definition, awaiting.get("state_id")
-            ) or (awaiting.get("schema") or {}).get("presentation"),
-            value=value,
-            source="auto" if auto_record is not None else source,
-            explanation=auto_record.explanation if auto_record else "",
-        ))
-        session.review_replay_needs_input = False
-        session.pending_submission_token = token
-        state = await _wait_for_workflow_progress(
-            temporal=temporal,
-            workflow_id=session.temporal_workflow_id,
-            previous_token=token, initial_state=initial,
-        )
-        state = _remember_completion(session, state)
-        if state["status"] != "ADVANCING":
-            session.pending_submission_token = None
-        return state, True
+            # The Temporal update validator rejects invalid values and stale tokens;
+            # record acceptance *only after* the update returns successfully.
+            with session_span("forms.temporal.update", session, token=token,
+                              submitted_value=value, state_id=awaiting.get("state_id")) as update_span:
+                initial = await tool_functions.submit_input(
+                    workflow_id=session.temporal_workflow_id,
+                    token=token, value=value, temporal_client=temporal,
+                )
+                fields(update_span, accepted=True, temporal_response=initial)
+            session.accepted_tokens.add(token)
+            # Record accepted automatic answers immediately, not after polling.
+            # A browser closing the SSE stream during the next-state wait must
+            # not silently lose a submission from the cumulative summary.
+            if auto_record is not None:
+                session.auto_answered.append(auto_record)
+            # Capture the *actual accepted* value and the question it belongs to.
+            # This history is read-only until a review edit has been validated by
+            # replaying it through a fresh instance of the SAME Temporal interpreter.
+            session.answer_history.append(AcceptedAnswer(
+                token=token,
+                state_id=awaiting.get("state_id") or "",
+                question_text=awaiting.get("prompt", ""),
+                schema=awaiting.get("schema") or {},
+                presentation=_lookup_state_presentation(
+                    session.definition, awaiting.get("state_id")
+                ) or (awaiting.get("schema") or {}).get("presentation"),
+                value=value,
+                source="auto" if auto_record is not None else source,
+                explanation=auto_record.explanation if auto_record else "",
+            ))
+            session.review_replay_needs_input = False
+            session.pending_submission_token = token
+            with session_span("forms.temporal.progress", session, previous_token=token) as progress_span:
+                state = await _wait_for_workflow_progress(
+                    temporal=temporal,
+                    workflow_id=session.temporal_workflow_id,
+                    previous_token=token, initial_state=initial,
+                )
+                fields(progress_span, returned_state=state)
+            state = _remember_completion(session, state)
+            if state["status"] != "ADVANCING":
+                session.pending_submission_token = None
+            fields(span, outcome="accepted", submitted=True, state_after=state,
+                   next_state_id=(state.get("awaiting") or {}).get("state_id"),
+                   next_token=(state.get("awaiting") or {}).get("token"))
+            return state, True
 
 
 def _workflow_server_url() -> str:
@@ -327,6 +363,9 @@ async def _refresh_review_readiness(
     if outcome == "exit_page":
         return False
     session.review_ready = True
+    with session_span("forms.review.ready", session, terminal_info=info,
+                      answer_history=[_answer_data(item) for item in session.answer_history]):
+        pass
     return True
 
 
@@ -504,63 +543,72 @@ async def get_form(form_id: str) -> dict[str, Any]:
 @app.post("/api/sessions", response_model=StartSessionResponse)
 async def start_session(req: StartSessionRequest) -> StartSessionResponse:
     """Start a new form session: fetches definition, starts Temporal workflow."""
-    http = await get_http_client()
-    temporal = await get_temporal_client()
+    with session_span("forms.session.start", form_id=str(req.form_id), request=req.model_dump()) as span:
+        http = await get_http_client()
+        temporal = await get_temporal_client()
 
-    definition = await tool_functions.get_workflow_definition(
-        workflow_id=req.form_id, http_client=http, base_url=_workflow_server_url()
-    )
+        definition = await tool_functions.get_workflow_definition(
+            workflow_id=req.form_id, http_client=http, base_url=_workflow_server_url()
+        )
 
-    if req.review_before_submit and not _review_is_safe(definition):
-        raise HTTPException(422, "Final review is not yet supported for forms with service actions")
+        if req.review_before_submit and not _review_is_safe(definition):
+            raise HTTPException(422, "Final review is not yet supported for forms with service actions")
 
-    temporal_workflow_id = await tool_functions.start_workflow(
-        workflow_id=req.form_id,
-        http_client=http,
-        base_url=_workflow_server_url(),
-        temporal_client=temporal,
-        task_queue=_task_queue(),
-    )
+        temporal_workflow_id = await tool_functions.start_workflow(
+            workflow_id=req.form_id,
+            http_client=http,
+            base_url=_workflow_server_url(),
+            temporal_client=temporal,
+            task_queue=_task_queue(),
+        )
 
-    form_metadata = definition.get("defaults", {}).get("forms", {})
-    policy = InteractionPolicy(req.policy) if req.policy in InteractionPolicy.__members__.values() else InteractionPolicy.MANUAL
+        form_metadata = definition.get("defaults", {}).get("forms", {})
+        policy = InteractionPolicy(req.policy) if req.policy in InteractionPolicy.__members__.values() else InteractionPolicy.MANUAL
 
-    conversation_history: list[dict[str, Any]] = []
-    if req.fixture_id:
-        fixture = _load_fixture(req.fixture_id)
-        if fixture:
-            conversation_history = fixture.get("conversation", [])
-            logger.info(
-                "Loaded fixture %r with %d messages",
-                req.fixture_id,
-                len(conversation_history),
-            )
-        else:
-            logger.warning("Fixture %r not found, starting with empty history", req.fixture_id)
+        conversation_history: list[dict[str, Any]] = []
+        if req.fixture_id:
+            fixture = _load_fixture(req.fixture_id)
+            if fixture:
+                conversation_history = fixture.get("conversation", [])
+                logger.info(
+                    "Loaded fixture %r with %d messages",
+                    req.fixture_id,
+                    len(conversation_history),
+                )
+            else:
+                logger.warning("Fixture %r not found, starting with empty history", req.fixture_id)
 
-    session = store.create(
-        form_id=str(req.form_id),
-        temporal_workflow_id=temporal_workflow_id,
-        form_metadata=form_metadata,
-        definition=definition,
-        policy=policy,
-        review_before_submit=req.review_before_submit,
-        conversation_history=conversation_history,
-    )
+        session = store.create(
+            form_id=str(req.form_id),
+            temporal_workflow_id=temporal_workflow_id,
+            form_metadata=form_metadata,
+            definition=definition,
+            policy=policy,
+            review_before_submit=req.review_before_submit,
+            conversation_history=conversation_history,
+        )
 
-    return StartSessionResponse(
-        session_id=session.session_id,
-        form_id=session.form_id,
-        form_name=form_metadata.get("name", f"Form {req.form_id}"),
-        temporal_workflow_id=temporal_workflow_id,
-        policy=session.policy.value,
-        review_before_submit=session.review_before_submit,
-        fixture_id=req.fixture_id,
-        conversation_messages=len(conversation_history),
-    )
+        fields(span, event_seq=next(session.trace_sequence),
+               session_id=session.session_id, workflow_id=temporal_workflow_id,
+               policy=session.policy.value, form_metadata=form_metadata,
+               definition=definition, initial_conversation=conversation_history,
+               review_before_submit=session.review_before_submit)
+        span.set_attribute("session_id", session.session_id)
+        span.set_attribute("temporalWorkflowID", temporal_workflow_id)
+        return StartSessionResponse(
+            session_id=session.session_id,
+            form_id=session.form_id,
+            form_name=form_metadata.get("name", f"Form {req.form_id}"),
+            temporal_workflow_id=temporal_workflow_id,
+            policy=session.policy.value,
+            review_before_submit=session.review_before_submit,
+            fixture_id=req.fixture_id,
+            conversation_messages=len(conversation_history),
+        )
 
 
 @app.get("/api/sessions/{session_id}/state")
+@session_endpoint("forms.state.read")
 async def get_session_state(session_id: str) -> dict[str, Any]:
     """Get the current workflow state including awaiting input and presentation metadata."""
     session = store.get(session_id)
@@ -659,6 +707,7 @@ def _check_file_submission(session: FormSession, token: str, value: Any) -> None
 
 
 @app.post("/api/sessions/{session_id}/files/mock")
+@session_endpoint("forms.file.mock")
 async def mock_file(session_id: str, request: MockFileRequest, token: str) -> dict[str, object]:
     """Create a token-bound preview reference without receiving or storing bytes.
 
@@ -683,6 +732,7 @@ async def mock_file(session_id: str, request: MockFileRequest, token: str) -> di
 
 
 @app.post("/api/sessions/{session_id}/files")
+@session_endpoint("forms.file.upload")
 async def upload_file(session_id: str, request: Request, token: str) -> dict[str, object]:
     """Store real synthetic bytes locally and return a file_ref for Temporal."""
     if os.getenv("FORMS_ENABLE_DEV_UPLOADS") != "1":
@@ -715,6 +765,7 @@ async def upload_file(session_id: str, request: Request, token: str) -> dict[str
 
 
 @app.post("/api/sessions/{session_id}/submit")
+@session_endpoint("forms.user_turn")
 async def submit_answer(session_id: str, req: SubmitAnswerRequest) -> dict[str, Any]:
     """Submit a manual answer to the current question via Temporal."""
     session = store.get(session_id)
@@ -729,6 +780,11 @@ async def submit_answer(session_id: str, req: SubmitAnswerRequest) -> dict[str, 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    if session.pending_proposal is not None:
+        with session_span("forms.proposal.decision", session,
+                          proposal=session.pending_proposal, submitted_value=req.value,
+                          action="manual_override", accepted=True):
+            pass
     session.pending_proposal = None
 
     awaiting = new_state.get("awaiting")
@@ -749,6 +805,7 @@ async def submit_answer(session_id: str, req: SubmitAnswerRequest) -> dict[str, 
 
 
 @app.post("/api/sessions/{session_id}/chat")
+@session_endpoint("forms.user_turn")
 async def chat(session_id: str, req: ChatRequest) -> dict[str, Any]:
     """Send a conversational message to the agent."""
     session = store.get(session_id)
@@ -762,19 +819,29 @@ async def chat(session_id: str, req: ChatRequest) -> dict[str, Any]:
         workflow_id=session.temporal_workflow_id, temporal_client=temporal
     )
 
-    session.conversation_history.append({"role": "user", "content": req.message})
+    # WorkflowAgent already emits agent.respond and tool.* spans. Record the
+    # exact material passed into it and its full result at this API boundary.
+    with session_span("forms.agent.exchange", session, user_message=req.message,
+                      workflow_context=state, context_prompt=build_contextual_prompt(req.message, context=state),
+                      system_prompt=agent._system_prompt,
+                      conversation_before=session.conversation_history,
+                      strands_messages_before=agent._agent.messages) as agent_span:
+        session.conversation_history.append({"role": "user", "content": req.message})
+        try:
+            response = await agent.respond(req.message, context=state)
+        except Exception as e:
+            logger.exception("Agent respond failed for session %s", session_id)
+            raise HTTPException(status_code=502, detail=f"Agent error: {e}") from e
+        session.conversation_history.append({"role": "assistant", "content": response})
+        fields(agent_span, response=response, conversation_after=session.conversation_history,
+               strands_messages_after=agent._agent.messages,
+               agent_session_state=agent.session_state)
 
-    try:
-        response = await agent.respond(req.message, context=state)
-    except Exception as e:
-        logger.exception("Agent respond failed for session %s", session_id)
-        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
-
-    session.conversation_history.append({"role": "assistant", "content": response})
-
-    updated_state = await tool_functions.get_workflow_state(
-        workflow_id=session.temporal_workflow_id, temporal_client=temporal
-    )
+        updated_state = await tool_functions.get_workflow_state(
+            workflow_id=session.temporal_workflow_id, temporal_client=temporal
+        )
+        # A free-form chat can answer a question without submitting to Temporal.
+        fields(agent_span, workflow_state_after=updated_state)
 
     return {
         "response": response,
@@ -783,6 +850,7 @@ async def chat(session_id: str, req: ChatRequest) -> dict[str, Any]:
 
 
 @app.post("/api/sessions/{session_id}/propose")
+@session_endpoint("forms.proposal.request")
 async def propose(session_id: str) -> dict[str, Any]:
     """Ask the agent to propose an answer for the current question.
 
@@ -808,15 +876,20 @@ async def propose(session_id: str) -> dict[str, Any]:
 
     proposal = await propose_answer(
         conversation_history=session.conversation_history,
-        awaiting=awaiting,
+        awaiting=awaiting, session=session,
     )
     logger.info("Proposal result for session %s: %s", session_id, proposal)
 
     if not proposal.get("has_answer"):
-        session.pending_proposal = None
+        with session_span("forms.proposal.decision", session, proposal=proposal,
+                          state_id=awaiting.get("state_id"), action="not_usable"):
+            session.pending_proposal = None
         return proposal
 
     if session.policy == InteractionPolicy.CONFIRM:
+        with session_span("forms.proposal.decision", session, proposal=proposal,
+                          state_id=awaiting.get("state_id"), action="presented_for_confirmation"):
+            pass
         session.pending_proposal = {
             "token": awaiting["token"],
             "state_id": awaiting.get("state_id"),
@@ -867,9 +940,18 @@ async def _auto_progress(
                     explanation=proposal.get("explanation", ""),
                 ),
             )
-        except Exception:
+        except Exception as exc:
+            with session_span("forms.proposal.decision", session, proposal=proposal,
+                              state_id=awaiting.get("state_id"), action="submission_failed",
+                              error=str(exc)):
+                pass
             logger.exception("Auto-progress submission failed")
             break
+        with session_span("forms.proposal.decision", session, proposal=proposal,
+                          state_id=awaiting.get("state_id"), token=token,
+                          action="auto_submitted" if submitted else "duplicate_not_submitted",
+                          returned_state=state):
+            pass
 
         if submitted:
             steps_taken += 1
@@ -883,8 +965,12 @@ async def _auto_progress(
 
         proposal = await propose_answer(
             conversation_history=session.conversation_history,
-            awaiting=awaiting,
+            awaiting=awaiting, session=session,
         )
+        if not proposal.get("has_answer"):
+            with session_span("forms.proposal.decision", session, proposal=proposal,
+                              state_id=awaiting.get("state_id"), action="not_usable"):
+                pass
 
     session.pending_proposal = None
 
@@ -919,6 +1005,7 @@ async def _auto_progress(
 
 
 @app.get("/api/sessions/{session_id}/auto-progress")
+@session_endpoint("forms.auto.request")
 async def auto_progress_stream(session_id: str, request: Request) -> EventSourceResponse:
     """Stream auto-progress events as the agent steps through questions.
 
@@ -930,7 +1017,7 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
     if session.policy != InteractionPolicy.AUTO:
         raise HTTPException(status_code=409, detail="Automatic mode is not enabled")
 
-    async def event_generator():
+    async def _event_generator_impl():
         temporal = await get_temporal_client()
         state = await _current_state(session, temporal)
 
@@ -949,6 +1036,10 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
             if await request.is_disconnected():
                 break
             if session.policy != InteractionPolicy.AUTO:
+                with session_span("forms.proposal.decision", session,
+                                  proposal=proposal, current_question=awaiting,
+                                  action="policy_changed_not_submitted"):
+                    pass
                 yield {
                     "event": "done",
                     "data": json.dumps({
@@ -988,10 +1079,14 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
 
             proposal = await propose_answer(
                 conversation_history=session.conversation_history,
-                awaiting=awaiting,
+                awaiting=awaiting, session=session,
             )
 
             if not proposal.get("has_answer"):
+                with session_span("forms.proposal.decision", session,
+                                  proposal=proposal, current_question=awaiting,
+                                  action="needs_input"):
+                    pass
                 yield {
                     "event": "done",
                     "data": json.dumps({
@@ -1035,7 +1130,11 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                         explanation=proposal.get("explanation", ""),
                     ),
                 )
-            except Exception:
+            except Exception as exc:
+                with session_span("forms.proposal.decision", session,
+                                  proposal=proposal, current_question=awaiting,
+                                  action="submission_failed", error_message=str(exc)):
+                    pass
                 logger.exception("Auto-progress submission failed at step %d", steps_taken)
                 yield {
                     "event": "done",
@@ -1048,6 +1147,11 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 }
                 return
 
+            with session_span("forms.proposal.decision", session,
+                              proposal=proposal, current_question=awaiting,
+                              action="auto_submitted" if submitted else "duplicate",
+                              submitted_value=value, returned_state=state):
+                pass
             if submitted:
                 steps_taken += 1
                 steps_this_run += 1
@@ -1085,10 +1189,17 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
             }),
         }
 
+    async def event_generator():
+        with session_span("forms.auto.stream", session,
+                          conversation=session.conversation_history):
+            async for event in _event_generator_impl():
+                yield event
+
     return EventSourceResponse(event_generator())
 
 
 @app.post("/api/sessions/{session_id}/confirm-proposal")
+@session_endpoint("forms.proposal.accept")
 async def confirm_proposal(session_id: str) -> dict[str, Any]:
     """Confirm and submit the pending answer proposal."""
     session = store.get(session_id)
@@ -1114,6 +1225,10 @@ async def confirm_proposal(session_id: str) -> dict[str, Any]:
 
     # Confirmed proposals require user authorisation and are not *automatic*
     # answers. They do contribute to accepted journey progress, via the token.
+    with session_span("forms.proposal.decision", session, proposal=proposal,
+                      action="confirmed" if submitted else "duplicate_confirmation",
+                      submitted_value=value, returned_state=new_state):
+        pass
     session.pending_proposal = None
 
     awaiting = new_state.get("awaiting")
@@ -1133,17 +1248,21 @@ async def confirm_proposal(session_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/sessions/{session_id}/reject-proposal")
+@session_endpoint("forms.proposal.reject")
 async def reject_proposal(session_id: str) -> dict[str, Any]:
     """Reject the pending proposal — user will answer manually."""
     session = store.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    session.pending_proposal = None
+    with session_span("forms.proposal.decision", session,
+                      proposal=session.pending_proposal, action="rejected"):
+        session.pending_proposal = None
     return {"status": "rejected"}
 
 
 @app.put("/api/sessions/{session_id}/policy")
+@session_endpoint("forms.policy.change")
 async def set_policy(session_id: str, req: PolicyRequest) -> dict[str, Any]:
     """Change answer policy and optional pre-submission review independently."""
     session = store.get(session_id)
@@ -1159,7 +1278,12 @@ async def set_policy(session_id: str, req: PolicyRequest) -> dict[str, Any]:
         if req.review_before_submit and not _review_is_safe(session.definition):
             raise HTTPException(422, "Final review is not yet supported for forms with service actions")
         session.review_before_submit = req.review_before_submit
+    old_policy = session.policy.value
     session.policy = new_policy
+    with session_span("forms.policy.changed", session, previous_policy=old_policy,
+                      new_policy=new_policy.value,
+                      review_before_submit=session.review_before_submit):
+        pass
     return {"session_id": session_id, "policy": session.policy.value,
             "review_before_submit": session.review_before_submit}
 
@@ -1186,6 +1310,7 @@ async def _assert_review_ready(session: FormSession, temporal: TemporalClient) -
 
 
 @app.post("/api/sessions/{session_id}/review/confirm")
+@session_endpoint("forms.review.confirm")
 async def confirm_review(session_id: str) -> dict[str, Any]:
     """Explicit final approval after Temporal has collected the form answers.
 
@@ -1201,6 +1326,9 @@ async def confirm_review(session_id: str) -> dict[str, Any]:
         temporal = await get_temporal_client()
         await _assert_review_ready(session, temporal)
         session.review_confirmed = True
+        with session_span("forms.review.finalised", session,
+                          answers=[_answer_data(item) for item in session.answer_history]):
+            pass
     return {"review_confirmed": True}
 
 
@@ -1213,6 +1341,7 @@ async def _discard_replay(temporal: TemporalClient, workflow_id: str) -> None:
 
 
 @app.post("/api/sessions/{session_id}/review/amend")
+@session_endpoint("forms.review.amend")
 async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, Any]:
     """Revalidate a review edit through a new Temporal interpreter execution.
 
@@ -1248,6 +1377,11 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
             logger.exception("Unable to start replacement Temporal workflow")
             raise HTTPException(503, "Could not start review validation") from exc
 
+        with session_span("forms.review.replay_start", session, original_workflow_id=session.temporal_workflow_id,
+                          replacement_workflow_id=new_id, edited_index=req.index,
+                          old_value=original[req.index].value, new_value=req.value,
+                          old_answers=[_answer_data(item) for item in original]):
+            pass
         rebuilt: list[AcceptedAnswer] = []
         try:
             state = await tool_functions.get_workflow_state(
@@ -1279,10 +1413,15 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
                     if value.get("ref") not in references:
                         raise HTTPException(409, "A previous file reference is no longer available")
                 try:
-                    initial = await tool_functions.submit_input(
-                        workflow_id=new_id, token=awaiting["token"], value=value,
-                        temporal_client=temporal,
-                    )
+                    with session_span("forms.review.replay_input", session,
+                                      replacement_workflow_id=new_id, original_index=index,
+                                      state_id=awaiting.get("state_id"), token=awaiting["token"],
+                                      schema=awaiting.get("schema"), submitted_value=value) as replay_span:
+                        initial = await tool_functions.submit_input(
+                            workflow_id=new_id, token=awaiting["token"], value=value,
+                            temporal_client=temporal,
+                        )
+                        fields(replay_span, temporal_response=initial)
                 except Exception as exc:
                     if index <= req.index:
                         # Invalid edited answer: original completed run is unaffected.
@@ -1321,6 +1460,7 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
 
         # Only NOW swap to the new authoritative Temporal run and its exact
         # accepted-answer path. The original completed run remains untouched.
+        old_workflow_id = session.temporal_workflow_id
         session.temporal_workflow_id = new_id
         session.terminal_state = None  # A review edit has started a NEW execution.
         session.terminal_result = None
@@ -1337,11 +1477,36 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
         session.pending_proposal = None
         session.review_revision += 1
         session.review_replay_needs_input = state.get("status") != "COMPLETED"
+        with session_span("forms.review.replay_result", session, previous_workflow_id=old_workflow_id,
+                          replacement_workflow_id=new_id, new_state=state,
+                          rebuilt_answers=[_answer_data(item) for item in rebuilt]):
+            pass
         # A chat agent created before the amendment may hold the old run ID.
         _agents.pop(session.session_id, None)
         # Do NOT call get_session_state while holding submission_lock: it only
         # queries Temporal, but a future version may need the same lock.
     return await get_session_state(session_id)
+
+
+class UIEventRequest(BaseModel):
+    action: str
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post("/api/sessions/{session_id}/events")
+@session_endpoint("forms.ui.event")
+async def ui_event(session_id: str, req: UIEventRequest) -> dict[str, str]:
+    """Small allowlisted UI event bridge for review actions invisible to the API."""
+    allowed = {"review.enter", "review.edit_start", "review.edit_cancel", "review.return"}
+    if req.action not in allowed:
+        raise HTTPException(422, "Unsupported UI event")
+    session = store.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    with session_span("forms.review.ui", session, action=req.action, details=req.details,
+                      answers=[_answer_data(item) for item in session.answer_history]):
+        pass
+    return {"status": "recorded"}
 
 
 # --- Serve the built frontend ---

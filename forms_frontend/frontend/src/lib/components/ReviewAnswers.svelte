@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { amendReview, confirmReview, type AcceptedAnswer, type SessionState } from "../api";
+  import { amendReview, confirmReview, recordReviewEvent, type AcceptedAnswer, type SessionState } from "../api";
+  import { onMount } from "svelte";
   import { submissionValue } from "../submissionValue.js";
   import { toggleSelectedValues, visibleSelectionOptions } from "../selectionOptions.js";
   import { formatReviewValue, initialReviewDraft } from "../reviewValues.js";
@@ -16,11 +17,17 @@
   let busy = $state(false);
   let error = $state("");
   const answers = $derived(sessionState.answer_history ?? []);
+  onMount(() => {
+    void recordReviewEvent(sessionId, "review.enter",
+      { revision: sessionState.review_revision, answer_count: answers.length }).catch(() => {});
+  });
   const autoCount = $derived(answers.filter((a) => a.source === "auto").length);
 
   function startEdit(index: number) {
     const answer = answers[index];
     editing = index;
+    void recordReviewEvent(sessionId, "review.edit_start",
+      { index, state_id: answer.state_id, original_value: answer.value }).catch(() => {});
     error = "";
     draft = initialReviewDraft(answer);
   }
@@ -162,7 +169,11 @@
               {busy ? "Checking change..." : "Save change"}
             </button>
             <button type="button" class="govuk-button govuk-button--secondary"
-              disabled={busy} onclick={() => { editing = -1; error = ""; }}>Cancel</button>
+              disabled={busy} onclick={() => {
+                void recordReviewEvent(sessionId, "review.edit_cancel",
+                  { index: i, state_id: answer.state_id, draft }).catch(() => {});
+                editing = -1; error = "";
+              }}>Cancel</button>
           </form>
         {:else}
           {formatReviewValue(answer)}
