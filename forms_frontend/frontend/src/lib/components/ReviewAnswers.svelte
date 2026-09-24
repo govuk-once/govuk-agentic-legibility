@@ -71,12 +71,13 @@
 
 <h2 class="govuk-heading-l">Check your answers</h2>
 <p class="govuk-body">
-  The assistant has helped complete this form. Check all your answers and change anything
-  that is incorrect before you accept them.
+  Check all your answers and change anything that is incorrect before you accept them.
 </p>
 <p class="govuk-body-s" role="status">
-  <strong>{answers.length} questions answered:</strong>
-  {autoCount} automatically, {answers.length - autoCount} by you.
+  <strong>{answers.length} questions answered</strong>
+  {#if autoCount > 0}
+    ({autoCount} auto-filled, {answers.length - autoCount} entered or confirmed by you)
+  {/if}
 </p>
 
 {#if error && editing === -1}

@@ -88,7 +88,7 @@
     loading = true;
     error = "";
     try {
-      const requestedReview = policy === "auto" && reviewBeforeSubmit;
+      const requestedReview = reviewBeforeSubmit;
       const session = await startSession(formId, policy, selectedFixtureId || null, requestedReview);
       if (!reviewAcknowledged(requestedReview, session.review_before_submit)) {
         throw new Error("The Forms API did not enable final review. Restart the Forms API after applying the patch, then start a new form.");
@@ -161,7 +161,7 @@
       return;
     }
     try {
-      const requestedReview = newPolicy === "auto" && reviewBeforeSubmit;
+      const requestedReview = reviewBeforeSubmit;
       const updated = await setPolicy(sessionId, newPolicy, requestedReview);
       if (!reviewAcknowledged(requestedReview, updated.review_before_submit)) {
         throw new Error("The Forms API did not acknowledge the review setting. Restart the API.");
@@ -314,19 +314,17 @@
                   The assistant fills in answers it knows and asks you for any missing details.
                 {/if}
               </div>
-              {#if policy === "auto"}
-                <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-top-3">
-                  <div class="govuk-checkboxes__item">
-                    <input class="govuk-checkboxes__input" id="initial-final-review" type="checkbox"
-                      checked={reviewBeforeSubmit}
-                      onchange={(e) => (reviewBeforeSubmit = e.currentTarget.checked)} />
-                    <label class="govuk-label govuk-checkboxes__label" for="initial-final-review">
-                      Let me check all answers before submitting
-                    </label>
-                  </div>
+              <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-top-3">
+                <div class="govuk-checkboxes__item">
+                  <input class="govuk-checkboxes__input" id="initial-final-review" type="checkbox"
+                    checked={reviewBeforeSubmit}
+                    onchange={(e) => (reviewBeforeSubmit = e.currentTarget.checked)} />
+                  <label class="govuk-label govuk-checkboxes__label" for="initial-final-review">
+                    Let me check all answers before submitting
+                  </label>
                 </div>
-                <p class="govuk-hint govuk-!-margin-top-2">Review and change any answers when the assistant has finished.</p>
-              {/if}
+              </div>
+              <p class="govuk-hint govuk-!-margin-top-2">Review and change your answers after completing the form.</p>
             </fieldset>
           </div>
 
@@ -425,8 +423,11 @@
             </p>
             <p class="govuk-body-s">
               <strong>Automatic:</strong> The assistant fills in answers
-              it knows and asks for missing information. You can choose
-              to review all answers at the end.
+              it knows and asks for missing information.
+            </p>
+            <p class="govuk-body-s">
+              <strong>All three:</strong> You can review and change your answers
+              before accepting the completed form.
             </p>
           </div>
         </div>
@@ -462,18 +463,16 @@
               onclick={() => handlePolicyChange("auto")}
             >Auto</button>
           </div>
-          {#if policy === "auto"}
-            <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-bottom-4">
-              <div class="govuk-checkboxes__item">
-                <input class="govuk-checkboxes__input" id="active-final-review" type="checkbox"
-                  checked={reviewBeforeSubmit}
-                  onchange={(e) => void handleReviewToggle(e.currentTarget.checked)} />
-                <label class="govuk-label govuk-checkboxes__label" for="active-final-review">
-                  Let me check all answers before submitting
-                </label>
-              </div>
+          <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-bottom-4">
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="active-final-review" type="checkbox"
+                checked={reviewBeforeSubmit}
+                onchange={(e) => void handleReviewToggle(e.currentTarget.checked)} />
+              <label class="govuk-label govuk-checkboxes__label" for="active-final-review">
+                Let me check all answers before submitting
+              </label>
             </div>
-          {/if}
+          </div>
 
           {#if sessionState?.auto_answered && sessionState.auto_answered.length > 0 && !sessionState.review_required}
             <AutoProgressLog items={sessionState.auto_answered} />
