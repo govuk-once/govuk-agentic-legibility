@@ -185,6 +185,16 @@ async def _current_state(session: FormSession, temporal: TemporalClient) -> dict
     return state
 
 
+def _is_mock_payment_input(awaiting: dict[str, Any] | None) -> bool:
+    """Identify the compiler's ordinary Boolean input reserved for simulated payment."""
+    return bool(
+        awaiting
+        and (awaiting.get("schema") or {}).get("kind") == "boolean"
+        and ((awaiting.get("schema") or {}).get("presentation") or {}).get("answer_type")
+        == "mock_payment"
+    )
+
+
 async def _submit_once(
     session: FormSession, temporal: TemporalClient, token: str, value: Any,
     *, auto_record: AutoAnsweredQuestion | None = None, source: str = "manual",
@@ -212,6 +222,11 @@ async def _submit_once(
             if awaiting.get("token") != token:
                 fields(span, outcome="stale_token")
                 raise HTTPException(409, "This question is no longer awaiting an answer")
+            if _is_mock_payment_input(awaiting):
+                if auto_record is not None:
+                    raise HTTPException(409, "Simulated payment requires an explicit user action")
+                if session.review_before_submit and not session.review_confirmed:
+                    raise HTTPException(409, "Confirm your answer review before simulated payment")
             if (awaiting.get("schema") or {}).get("kind") == "file_ref":
                 _check_file_submission(session, token, value)
 
@@ -233,18 +248,21 @@ async def _submit_once(
             # Capture the *actual accepted* value and the question it belongs to.
             # This history is read-only until a review edit has been validated by
             # replaying it through a fresh instance of the SAME Temporal interpreter.
-            session.answer_history.append(AcceptedAnswer(
-                token=token,
-                state_id=awaiting.get("state_id") or "",
-                question_text=awaiting.get("prompt", ""),
-                schema=awaiting.get("schema") or {},
-                presentation=_lookup_state_presentation(
-                    session.definition, awaiting.get("state_id")
-                ) or (awaiting.get("schema") or {}).get("presentation"),
-                value=value,
-                source="auto" if auto_record is not None else source,
-                explanation=auto_record.explanation if auto_record else "",
-            ))
+            if not _is_mock_payment_input(awaiting):
+                session.answer_history.append(AcceptedAnswer(
+                    token=token,
+                    state_id=awaiting.get("state_id") or "",
+                    question_text=awaiting.get("prompt", ""),
+                    schema=awaiting.get("schema") or {},
+                    presentation=_lookup_state_presentation(
+                        session.definition, awaiting.get("state_id")
+                    ) or (awaiting.get("schema") or {}).get("presentation"),
+                    value=value,
+                    source="auto" if auto_record is not None else source,
+                    explanation=auto_record.explanation if auto_record else "",
+                ))
+            # Store the mock outcome in Temporal, but do not include this step
+            # as a reviewable question or replay it during final review.
             session.review_replay_needs_input = False
             session.pending_submission_token = token
             with session_span("forms.temporal.progress", session, previous_token=token) as progress_span:
@@ -322,7 +340,7 @@ def _lookup_definition_state(
 async def _refresh_review_readiness(
     session: FormSession, temporal: TemporalClient, state: dict[str, Any]
 ) -> bool:
-    """Latch review readiness when the interpreter itself reaches EndState.
+    """Latch review at the payment input or a terminal EndState.
 
     There is a small but observable gap after the final input update: the
     interpreter has consumed the answer and reached its terminal EndState while
@@ -330,13 +348,21 @@ async def _refresh_review_readiness(
     transport status caused the review UI to sit forever on an ``ADVANCING``
     placeholder in live runs.
 
-    This does *not* infer completion from question counts.  We query the same
-    authoritative SFSM interpreter for its current state and only enable review
-    when that state is an actual EndState.
+    This does *not* infer completion from question counts. Review begins at
+    the generated payment input (before any payment simulation), or when the
+    authoritative SFSM interpreter reaches an actual EndState.
     """
     if not session.review_before_submit or session.review_confirmed:
         return False
     if session.review_ready:
+        return True
+    if _is_mock_payment_input(state.get("awaiting")):
+        # Payment is deliberately *after* answer review. The authoritative
+        # Temporal input marks the boundary; no payment has occurred yet.
+        session.review_ready = True
+        with session_span("forms.review.ready", session, state_id="end_form",
+                          answer_history=[_answer_data(item) for item in session.answer_history]):
+            pass
         return True
     if state.get("awaiting"):
         return False
@@ -630,8 +656,8 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
     # interpreter can be sitting on its terminal EndState for a short period
     # before Temporal reports the execution as CLOSED.  Detect that state
     # directly so the browser can render Check your answers immediately.
-    if not state.get("awaiting"):
-        await _refresh_review_readiness(session, temporal, state)
+    # A simulated payment InputState is also an explicit pre-payment review gate.
+    await _refresh_review_readiness(session, temporal, state)
 
     if state.get("status") == "COMPLETED" and session.terminal_result is None:
         session.terminal_result = await _terminal_result(
@@ -648,7 +674,7 @@ async def get_session_state(session_id: str) -> dict[str, Any]:
         if isinstance((result or {}).get("outcome"), str):
             session.review_terminal_outcome = result["outcome"]
     review_required = (session.review_before_submit and not session.review_confirmed
-                       and session.review_ready)
+                       and session.review_ready and (result or {}).get("outcome") != "exit_page")
 
     return {
         "session_id": session_id,
@@ -812,13 +838,18 @@ async def chat(session_id: str, req: ChatRequest) -> dict[str, Any]:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    agent = _get_or_create_agent(session)
     temporal = await get_temporal_client()
-
     state = await tool_functions.get_workflow_state(
         workflow_id=session.temporal_workflow_id, temporal_client=temporal
     )
+    if _is_mock_payment_input(state.get("awaiting")):
+        # The chat agent has direct Temporal tools: do not let conversation
+        # bypass the user's explicit choice on the simulated payment page.
+        return {"response": "This payment page is only a simulation. No money will be taken. "
+                            "Choose a button on the simulated payment page to continue or cancel.",
+                "state": state}
 
+    agent = _get_or_create_agent(session)
     # WorkflowAgent already emits agent.respond and tool.* spans. Record the
     # exact material passed into it and its full result at this API boundary.
     with session_span("forms.agent.exchange", session, user_message=req.message,
@@ -873,6 +904,9 @@ async def propose(session_id: str) -> dict[str, Any]:
     awaiting = state.get("awaiting")
     if not awaiting:
         return {"has_answer": False, "value": None, "explanation": "No question pending"}
+    if _is_mock_payment_input(awaiting):
+        return {"has_answer": False, "value": None,
+                "explanation": "Simulated payment must be chosen by the user"}
 
     proposal = await propose_answer(
         conversation_history=session.conversation_history,
@@ -922,7 +956,7 @@ async def _auto_progress(
 
     while proposal.get("has_answer") and steps_taken < max_steps:
         awaiting = state.get("awaiting")
-        if not awaiting:
+        if not awaiting or _is_mock_payment_input(awaiting):
             break
 
         token = awaiting["token"]
@@ -960,7 +994,7 @@ async def _auto_progress(
             break
 
         awaiting = state.get("awaiting")
-        if not awaiting:
+        if not awaiting or _is_mock_payment_input(awaiting):
             break
 
         proposal = await propose_answer(
@@ -1025,7 +1059,8 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
         total_questions = 0
         for proc in session.definition.get("processes", {}).values():
             for s in proc.get("states", {}).values():
-                if s.get("type") == "input":
+                if (s.get("type") == "input" and
+                        (s.get("schema", {}).get("presentation") or {}).get("answer_type") != "mock_payment"):
                     total_questions += 1
 
         steps_taken = len(session.auto_answered)
@@ -1064,6 +1099,13 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                         "total_questions": total_questions,
                     }),
                 }
+                return
+
+            if _is_mock_payment_input(awaiting):
+                yield {"event": "done", "data": json.dumps({
+                    "type": "done", "reason": "needs_input", "steps_taken": steps_taken,
+                    "answered_count": len(session.accepted_tokens),
+                    "total_questions": total_questions})}
                 return
 
             yield {
@@ -1292,8 +1334,7 @@ async def _assert_review_ready(session: FormSession, temporal: TemporalClient) -
     if not session.review_before_submit or session.review_confirmed:
         raise HTTPException(409, "There is no form awaiting final review")
     state = await _current_state(session, temporal)
-    if not state.get("awaiting"):
-        await _refresh_review_readiness(session, temporal, state)
+    await _refresh_review_readiness(session, temporal, state)
     if state.get("status") == "COMPLETED":
         # Closed workflows are necessarily past the final EndState; keep the
         # compatibility path used by mocks and older workers.
@@ -1464,7 +1505,8 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
         session.temporal_workflow_id = new_id
         session.terminal_state = None  # A review edit has started a NEW execution.
         session.terminal_result = None
-        session.review_ready = state.get("status") == "COMPLETED"
+        session.review_ready = (state.get("status") == "COMPLETED"
+                                or _is_mock_payment_input(state.get("awaiting")))
         session.review_terminal_outcome = None
         _remember_completion(session, state)
         session.accepted_tokens = {item.token for item in rebuilt}
@@ -1476,7 +1518,8 @@ async def amend_review(session_id: str, req: ReviewAmendRequest) -> dict[str, An
         session.pending_submission_token = None
         session.pending_proposal = None
         session.review_revision += 1
-        session.review_replay_needs_input = state.get("status") != "COMPLETED"
+        session.review_replay_needs_input = (state.get("status") != "COMPLETED"
+                                             and not _is_mock_payment_input(state.get("awaiting")))
         with session_span("forms.review.replay_result", session, previous_workflow_id=old_workflow_id,
                           replacement_workflow_id=new_id, new_state=state,
                           rebuilt_answers=[_answer_data(item) for item in rebuilt]):

@@ -12,6 +12,7 @@
     type ConversationFixtureDetail,
   } from "./lib/api";
   import FormQuestion from "./lib/components/FormQuestion.svelte";
+  import MockPayment from "./lib/components/MockPayment.svelte";
   import ChatPanel from "./lib/components/ChatPanel.svelte";
   import FormComplete from "./lib/components/FormComplete.svelte";
   import AutoProgressLog from "./lib/components/AutoProgressLog.svelte";
@@ -492,6 +493,14 @@
           {#if sessionState?.review_required}
             <ReviewAnswers {sessionId} state={sessionState}
               onStateChange={handleReviewChange} onComplete={handleComplete} />
+          {:else if sessionState?.awaiting && sessionState.presentation?.answer_type === "mock_payment"}
+            <MockPayment
+              {sessionId}
+              awaiting={sessionState.awaiting}
+              pendingTransition={transitionPending}
+              onSubmitted={refreshState}
+              onComplete={handleComplete}
+            />
           {:else if sessionState?.awaiting}
             <FormQuestion
               {sessionId}

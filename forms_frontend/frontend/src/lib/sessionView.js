@@ -2,7 +2,7 @@
 export function sessionView(selectedView, state) {
   if (selectedView === "list") return "list";
   if (state?.review_required) return "review";
-  if (state?.status === "COMPLETED" || (state?.review_confirmed && state?.review_ready)) return "complete";
+  if (state?.status === "COMPLETED" || (state?.review_confirmed && state?.review_ready && !state?.awaiting)) return "complete";
   return "form";
 }
 

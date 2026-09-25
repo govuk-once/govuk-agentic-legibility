@@ -14,6 +14,9 @@
   let { metadata, transcript = [], result = null, autoAnswered = [], onBack }: Props = $props();
   
 
+  const mockPaymentCompleted = $derived(result?.outcome === "mock_payment_completed");
+  const mockPaymentCancelled = $derived(result?.outcome === "mock_payment_cancelled");
+
   const rawExitMessage = $derived(result?.outcome === "exit_page"
     ? [...transcript].reverse().find(entry => entry.message && !entry.message.startsWith("[ENGINE LOG]"))?.message
     : null);
@@ -29,10 +32,20 @@
   );
 </script>
 
-<div class="govuk-panel govuk-panel--confirmation">
-  <h1 class="govuk-panel__title">{rawExitMessage ? "Journey ended" : "Answers collected"}</h1>
+<div class="govuk-panel" class:govuk-panel--confirmation={!mockPaymentCancelled}>
+  <h1 class="govuk-panel__title">
+    {mockPaymentCompleted ? "Simulated payment completed"
+      : mockPaymentCancelled ? "Simulated payment cancelled"
+      : rawExitMessage ? "Journey ended" : "Answers collected"}
+  </h1>
   <div class="govuk-panel__body">
-    This prototype does not submit answers to a department.
+    {#if mockPaymentCompleted}
+      No real payment was taken. Your application has not been submitted.
+    {:else if mockPaymentCancelled}
+      No payment was taken. Your application has not been submitted.
+    {:else}
+      This prototype does not submit answers to a department.
+    {/if}
   </div>
 </div>
 
@@ -42,7 +55,7 @@
 
 {#if rawExitMessage}
   <div class="govuk-inset-text" style="white-space: pre-wrap;">{@html exitMessageHtml}</div>
-{:else if metadata?.what_happens_next_markdown}
+{:else if !mockPaymentCompleted && !mockPaymentCancelled && metadata?.what_happens_next_markdown}
   <h2 class="govuk-heading-m">What happens next</h2>
   <!-- 3. Render using {@html}. Use a <div> instead of <p> because marked outputs <p> tags by default -->
   <div class="govuk-body">

@@ -27,7 +27,7 @@ def _warnings(export: dict, definition: dict) -> list[str]:
         elif answer_type not in ORDINARY_SCALARS | {"selection", "file"}:
             warnings.append(f"{sid}: unrecognised answer_type {answer_type!r} compiled as a string (preview only)")
     if export["content"].get("payment_url"):
-        warnings.append("payment integration omitted: preview-only; not a paid submission")
+        warnings.append("payment is simulated only: preview-only; no real payment or submission")
     return warnings
 
 
@@ -61,7 +61,7 @@ def main() -> int:
             definition = compile_form(export)
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(json.dumps(definition, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            print(f"OK          {path.name} -> {dest}")
+            #print(f"OK          {path.name} -> {dest}")
             warnings = _warnings(export, definition)
             partial = bool(export["content"].get("payment_url")) or any(
                 "unrecognised answer_type" in w for w in warnings)

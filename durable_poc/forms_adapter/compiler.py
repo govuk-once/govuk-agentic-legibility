@@ -46,7 +46,7 @@ def normalise_form(export: dict[str, Any]) -> tuple[dict[str, Any], list[Questio
         _unsupported("form", "expected content.steps array")
     if not str(content.get("form_id") or export.get("form_id") or "").isdigit():
         _unsupported("form", "missing or non-numeric form_id")
-    # payment_url is preserved in form metadata but payment is not functional.
+    # Payment URLs are metadata only. The generated payment step never calls them.
     steps: list[Question] = []
     seen: set[str] = set()
     for item in content["steps"]:
@@ -451,7 +451,50 @@ def compile_form(export: dict[str, Any]) -> dict[str, Any]:
         already_asked.add(question.id)
     if "end_form" in states or any(q.id == "end_form" for q in questions):
         _unsupported("form", "reserved end_form state ID")
-    states["end_form"] = {"type": "end", "status": "success", "outcome": "form_answers_collected"}
+    if content.get("payment_url"):
+        # All successful paths already converge on end_form, including
+        # skip_to_end. Exit pages have their own EndStates and bypass payment.
+        # The Boolean input is an explicit prototype action, not a transaction.
+        states["end_form"] = {
+            "type": "input",
+            "prompt": "Simulated payment: choose whether to simulate a successful payment or cancel.",
+            "schema": {
+                "kind": "boolean",
+                "presentation": {
+                    "source": "govuk_forms_adapter",
+                    "step_id": "end_form",
+                    "position": len(questions) + 1,
+                    "question_text": "Simulated payment",
+                    "page_heading": "Simulated payment",
+                    "hint_text": "This is a prototype. No money will be taken and no application will be submitted.",
+                    "guidance_markdown": None,
+                    "answer_type": "mock_payment",
+                    "answer_settings": {},
+                    "is_optional": False,
+                    "is_repeatable": False,
+                    "field": None,
+                    "field_label": None,
+                    "required": True,
+                    "is_first_field": True,
+                },
+            },
+            "assign": "answers.__mock_payment_success",
+            "next": "mock_payment__route",
+        }
+        states["mock_payment__route"] = {
+            "type": "choice",
+            "rules": [{"when": {"op": "is_true", "path": "answers.__mock_payment_success"},
+                       "next": "mock_payment__completed"}],
+            "default": "mock_payment__cancelled",
+        }
+        states["mock_payment__completed"] = {
+            "type": "end", "status": "success", "outcome": "mock_payment_completed",
+        }
+        states["mock_payment__cancelled"] = {
+            "type": "end", "status": "offramp", "outcome": "mock_payment_cancelled",
+        }
+    else:
+        states["end_form"] = {"type": "end", "status": "success", "outcome": "form_answers_collected"}
     for sid, state in states.items():
         for target in ([state["next"]] if state["type"] in ("input", "output", "assign") else
                        [r["next"] for r in state["rules"]] + [state["default"]] if state["type"] == "choice" else []):
