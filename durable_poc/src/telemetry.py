@@ -97,6 +97,7 @@ class FileSpanExporter(SpanExporter):
                             "name": span.name,
                             "trace_id": format(span.context.trace_id, "032x"),
                             "span_id": format(span.context.span_id, "016x"),
+                            "parent_span_id": format(span.parent.span_id, "016x") if span.parent else None,
                             "start_time": span.start_time,
                             "end_time": span.end_time,
                             "attributes": dict(span.attributes.items() if span.attributes else {}),

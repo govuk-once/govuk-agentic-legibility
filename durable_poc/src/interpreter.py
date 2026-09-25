@@ -35,6 +35,7 @@ with workflow.unsafe.imports_passed_through():
         WaitState,
     )
     from src.paths import (
+        append_path,
         interpolate,
         parse_duration,
         resolve_dict,
@@ -517,6 +518,17 @@ class SFSMInterpreter:
                             if val1 is not None and val2 is not None:
                                 set_path(frame.vars, k, val1 + val2)
 
+                        elif op == "append":
+                            value = (
+                                resolve_path(context, v.get("value_path", ""))
+                                if "value_path" in v
+                                else v.get("value")
+                            )
+                            try:
+                                append_path(frame.vars, k, value)
+                            except ValueError as exc:
+                                raise DefinitionError(str(exc)) from exc
+
                         elif op == "now_plus":
                             dur_path = v.get("value_path")
                             if dur_path:
@@ -790,6 +802,10 @@ class SFSMInterpreter:
                         )
 
         if kind == "file_ref":
+            # A supplied optional file is still a native file reference; only
+            # the explicit optional skip is represented by null.
+            if val is None and schema.get("allow_skip") is True:
+                return
             if not isinstance(val, dict) or "error" in val:
                 self._raise_input_validation_error(
                     msg,
