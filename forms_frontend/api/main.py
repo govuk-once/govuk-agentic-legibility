@@ -289,6 +289,63 @@ def _task_queue() -> str:
     return _env("TEMPORAL_TASK_QUEUE", "sfsm-queue")
 
 
+def _fixture_to_history(
+    fixture: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Combine imported context and genuine conversation."""
+
+    history = [
+        dict(msg) for msg in fixture.get("conversation", [])
+    ]
+
+    facts = fixture.get("known_facts") or {}
+    if not facts:
+        return history  # Existing fixtures still work.
+
+    sections = [
+        "IMPORTED CONTEXT\n"
+        "The following information was available before "
+        "this conversation. It was not necessarily typed "
+        "by the user in this chat."
+    ]
+
+    structured = facts.get("structured_data")
+    if structured:
+        sections.append(
+            "RETRIEVED STRUCTURED DATA\n"
+            + json.dumps(structured, indent=2)
+        )
+
+    previous = facts.get("previous_conversation")
+    if previous:
+        sections.append(
+            "RELEVANT PREVIOUS CONVERSATION\n"
+            + previous
+        )
+
+    sections.append(
+        "Use these facts when answering form questions. "
+        "Prefer any subsequent corrections from the user. "
+        "Ask for information that is missing or ambiguous."
+    )
+
+    context = "\n\n".join(sections)
+
+    # Prepend context to the first genuine user turn.
+    # Avoid creating consecutive user messages.
+    if history and history[0]["role"] == "user":
+        history[0]["content"] = (
+            context
+            + "\n\nCURRENT USER MESSAGE\n"
+            + history[0]["content"]
+        )
+    else:
+        history.insert(
+            0, {"role": "user", "content": context}
+        )
+
+    return history
+
 def _to_strands_messages(conversation: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert simple {role, content} messages to Strands Message format.
 
@@ -595,7 +652,7 @@ async def start_session(req: StartSessionRequest) -> StartSessionResponse:
         if req.fixture_id:
             fixture = _load_fixture(req.fixture_id)
             if fixture:
-                conversation_history = fixture.get("conversation", [])
+                conversation_history = _fixture_to_history(fixture)
                 logger.info(
                     "Loaded fixture %r with %d messages",
                     req.fixture_id,

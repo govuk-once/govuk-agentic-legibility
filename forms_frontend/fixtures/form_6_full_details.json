@@ -1,7 +1,7 @@
 {
   "id": "form-6-full-details",
   "version": "1",
-  "title": "Holiday pay claim amendment — full details provided",
+  "title": "Holiday pay claim amendment — full details in chat history",
   "description": "The user has provided all required personal details and wants to amend their holiday entitlement. The agent should be able to answer the security questions (name, reference, NI, email, DOB, address, company) and the amendment questions (holiday year start, days entitled, days taken). The user has not mentioned days carried over.",
   "form_id": "6",
   "conversation": [

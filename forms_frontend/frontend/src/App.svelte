@@ -21,6 +21,39 @@
 
   type View = "list" | "form" | "review" | "complete";
 
+  // The fixture API returns the full JSON; keep these prototype-only fields
+  // local rather than requiring a change to the shared API types.
+  type FixtureWithContext = ConversationFixtureDetail & {
+    known_facts?: {
+      structured_data?: Record<string, unknown>;
+      previous_conversation?: string;
+    };
+  };
+
+  function factLabel(key: string): string {
+    const labels: Record<string, string> = {
+      name: "Name",
+      claim_reference: "Claim reference",
+      national_insurance_number: "National Insurance number",
+      email: "Email address",
+      date_of_birth: "Date of birth",
+      address: "Address",
+    };
+    return labels[key] ?? key.replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase());
+  }
+
+  function factValue(value: unknown): string {
+    if (value == null) return "";
+    if (Array.isArray(value)) return value.map(String).join(", ");
+    if (typeof value === "object") {
+      return Object.values(value as Record<string, unknown>)
+        .filter((part) => part != null && part !== "")
+        .map(String)
+        .join(", ");
+    }
+    return String(value);
+  }
+
   let view: View = $state("list");
   let forms: FormSummary[] = $state([]);
   let fixtures: ConversationFixture[] = $state([]);
@@ -32,7 +65,7 @@
   let policy: string = $state("manual");
   let reviewBeforeSubmit = $state(true);
   let selectedFixtureId: string = $state("");
-  let fixturePreview: ConversationFixtureDetail | null = $state(null);
+  let fixturePreview: FixtureWithContext | null = $state(null);
   let preloadedConversation: Array<{ role: string; content: string }> = $state([]);
   let transitionPending = $state(false);
   let pendingPreviousToken: string | undefined = $state(undefined);
@@ -349,19 +382,19 @@
                   {#if formFixtures.length > 0}
                     <div class="govuk-form-group" style="margin-bottom: 15px;">
                       <label class="govuk-label govuk-label--s" for="fixture-{form.id}">
-                        Conversation history
+                        Available context
                       </label>
                       <div class="govuk-hint">
-                        Pre-load a conversation so the agent already knows the user's details.
+                        Pre-load known facts and any previous conversation for the agent.
                       </div>
                       <select
                         class="govuk-select"
                         id="fixture-{form.id}"
                         onchange={(e) => handleFixtureSelect((e.target as HTMLSelectElement).value)}
                       >
-                        <option value="">No conversation history</option>
+                        <option value="">No pre-loaded context</option>
                         {#each formFixtures as fx}
-                          <option value={fx.id}>{fx.title} ({fx.message_count} messages)</option>
+                          <option value={fx.id}>{fx.title}</option>
                         {/each}
                       </select>
                     </div>
@@ -369,18 +402,41 @@
                     {#if fixturePreview && selectedFixtureId && formFixtures.some(f => f.id === selectedFixtureId)}
                       <details class="govuk-details" style="margin-bottom: 15px;">
                         <summary class="govuk-details__summary">
-                          <span class="govuk-details__summary-text">Preview conversation</span>
+                          <span class="govuk-details__summary-text">Preview information available to the agent</span>
                         </summary>
                         <div class="govuk-details__text">
                           <p class="govuk-body-s" style="color: #505a5f; margin-bottom: 10px;">
                             {fixturePreview.description}
                           </p>
-                          {#each fixturePreview.conversation as msg}
-                            <div class="chat-message chat-message--{msg.role}" style="margin-bottom: 8px; padding: 8px; font-size: 14px;">
-                              <strong>{msg.role === "user" ? "User" : "Assistant"}:</strong>
-                              {msg.content}
-                            </div>
-                          {/each}
+
+                          {#if fixturePreview.known_facts?.structured_data}
+                            <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Retrieved from structured data</h3>
+                            <dl class="govuk-summary-list govuk-summary-list--no-border">
+                              {#each Object.entries(fixturePreview.known_facts?.structured_data ?? {}) as [key, value]}
+                                <div class="govuk-summary-list__row">
+                                  <dt class="govuk-summary-list__key">{factLabel(key)}</dt>
+                                  <dd class="govuk-summary-list__value">{factValue(value)}</dd>
+                                </div>
+                              {/each}
+                            </dl>
+                          {/if}
+
+                          {#if fixturePreview.known_facts?.previous_conversation}
+                            <h3 class="govuk-heading-s govuk-!-margin-bottom-2">From a previous conversation</h3>
+                            <p class="govuk-body-s" style="white-space: pre-wrap;">
+                              {fixturePreview.known_facts?.previous_conversation}
+                            </p>
+                          {/if}
+
+                          {#if fixturePreview.conversation?.length}
+                            <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Current conversation</h3>
+                            {#each fixturePreview.conversation as msg}
+                              <div class="chat-message chat-message--{msg.role}" style="margin-bottom: 8px; padding: 8px; font-size: 14px;">
+                                <strong>{msg.role === "user" ? "User" : "Assistant"}:</strong>
+                                {msg.content}
+                              </div>
+                            {/each}
+                          {/if}
                         </div>
                       </details>
                     {/if}
@@ -398,7 +454,7 @@
                   >
                     Start form
                     {#if selectedFixtureId && formFixtures.some(f => f.id === selectedFixtureId)}
-                      with conversation
+                      with context
                     {/if}
                   </button>
                 </div>
