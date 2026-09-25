@@ -177,6 +177,9 @@ temporal server start-dev
 ```
 
 ### Terminal 2 — Workflow definition server (separate repo)
+
+Either from a local file:
+
 ```bash
 cd spike-legibility-workflow-server
 WORKFLOW_SOURCE=filesystem \
@@ -184,20 +187,30 @@ WORKFLOW_DIR=/absolute/path/to/compiled_forms \
 just run
 ```
 
+Or assuming the forms are in an S3 bucket as set out in the [`spike-legibility-workflow-server`](https://github.com/govuk-once/spike-legibility-workflow-server/) repo:
+
+```bash
+WORKFLOW_S3_BUCKET=<WorkflowS3BucketName> \
+    gds-cli aws <profile> \
+    just run-s3
+```
+
 ### Terminal 3 — Temporal worker
+
+The `OTEL_EXPORT_FILE` is optional but may be useful to locally monitor traces quickly during development.
+
 ```bash
 cd durable_poc
 PYTHONPATH=. \
-DWP_BASE=http://127.0.0.1:8000 \
-HMRC_BASE=http://127.0.0.1:8000 \
 OTEL_EXPORT_FILE="$PWD/.traces/durable-otel.jsonl" \
 uv run python -m src.worker
 ```
 
 ### Terminal 4 — Forms frontend API
+
 ```bash
 # From repository root
-gds-cli aws <account-name> \
+gds-cli aws <profile> \
   env \
     PYTHONPATH=durable_poc:. \
     AWS_REGION=eu-west-2 \
@@ -208,6 +221,7 @@ gds-cli aws <account-name> \
 ```
 
 ### Terminal 5 — Frontend dev server (development only)
+
 ```bash
 cd forms_frontend/frontend
 npm run dev
@@ -280,12 +294,5 @@ name, text, NI number, email, date, address, organisation, numbers.
 - Production session persistence (currently in-memory)
 - WebSocket for real-time agent updates (currently uses HTTP polling via
   refresh-after-submit)
+- Lots more... this is a PoC.
 
-## Existing System Unchanged
-
-- `durable_poc/src/interpreter.py` — not modified
-- `durable_poc/src/worker.py` — not modified
-- `durable_poc/agent/` — not modified (imported directly)
-- `durable_poc/agent/chat.py` — still works on port 7860
-- OpenTelemetry tracing — preserved
-- Compiled forms — not modified
