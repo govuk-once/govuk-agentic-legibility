@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    id="Definitions_1"
+    targetNamespace="http://example.com">
+
+  <bpmn:process id="change_address" isExecutable="true">
+
+    <bpmn:startEvent id="start" />
+
+    <bpmn:userTask
+        id="provide_details"
+        name="Provide Personal Details" />
+
+    <bpmn:userTask
+        id="upload_id"
+        name="Upload Identity Evidence" />
+
+    <bpmn:userTask
+        id="review"
+        name="Review Application" />
+
+    <bpmn:exclusiveGateway
+        id="approved_gateway"
+        name="Approved?" />
+
+    <bpmn:serviceTask
+        id="update_address"
+        name="Update Driving Licence Address" />
+
+    <bpmn:serviceTask
+        id="reject"
+        name="Reject Application" />
+
+    <bpmn:endEvent
+        id="approved_end"
+        name="Approved End" />
+
+    <bpmn:endEvent
+        id="rejected_end"
+        name="Rejected End" />
+
+    <bpmn:sequenceFlow
+        id="f1"
+        sourceRef="start"
+        targetRef="provide_details"/>
+
+    <bpmn:sequenceFlow
+        id="f2"
+        sourceRef="provide_details"
+        targetRef="upload_id"/>
+
+    <bpmn:sequenceFlow
+        id="f3"
+        sourceRef="upload_id"
+        targetRef="review"/>
+
+    <bpmn:sequenceFlow
+        id="f4"
+        sourceRef="review"
+        targetRef="approved_gateway"/>
+
+    <bpmn:sequenceFlow
+        id="f5"
+        sourceRef="approved_gateway"
+        targetRef="update_address">
+
+      <bpmn:conditionExpression
+          xsi:type="bpmn:tFormalExpression">approved</bpmn:conditionExpression>
+
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow
+        id="f6"
+        sourceRef="approved_gateway"
+        targetRef="reject">
+
+      <bpmn:conditionExpression
+          xsi:type="bpmn:tFormalExpression">not approved</bpmn:conditionExpression>
+
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow
+        id="f7"
+        sourceRef="update_address"
+        targetRef="approved_end"/>
+
+    <bpmn:sequenceFlow
+        id="f8"
+        sourceRef="reject"
+        targetRef="rejected_end"/>
+
+  </bpmn:process>
+
+    <bpmndi:BPMNDiagram id="BPMNDiagram_change_address">
+
+    <bpmndi:BPMNPlane
+        id="BPMNPlane_change_address"
+        bpmnElement="change_address">
+
+      <!-- Start Event -->
+      <bpmndi:BPMNShape
+          id="Shape_start"
+          bpmnElement="start">
+        <dc:Bounds x="100" y="160" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Provide Personal Details -->
+      <bpmndi:BPMNShape
+          id="Shape_provide_details"
+          bpmnElement="provide_details">
+        <dc:Bounds x="180" y="140" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Upload Identity Evidence -->
+      <bpmndi:BPMNShape
+          id="Shape_upload_id"
+          bpmnElement="upload_id">
+        <dc:Bounds x="350" y="140" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Review -->
+      <bpmndi:BPMNShape
+          id="Shape_review"
+          bpmnElement="review">
+        <dc:Bounds x="520" y="140" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Gateway -->
+      <bpmndi:BPMNShape
+          id="Shape_gateway"
+          bpmnElement="approved_gateway"
+          isMarkerVisible="true">
+        <dc:Bounds x="700" y="155" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Update Address -->
+      <bpmndi:BPMNShape
+          id="Shape_update_address"
+          bpmnElement="update_address">
+        <dc:Bounds x="830" y="60" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Reject -->
+      <bpmndi:BPMNShape
+          id="Shape_reject"
+          bpmnElement="reject">
+        <dc:Bounds x="830" y="250" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Approved End -->
+      <bpmndi:BPMNShape
+          id="Shape_approved_end"
+          bpmnElement="approved_end">
+        <dc:Bounds x="1040" y="82" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Rejected End -->
+      <bpmndi:BPMNShape
+          id="Shape_rejected_end"
+          bpmnElement="rejected_end">
+        <dc:Bounds x="1040" y="272" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Flow: Start -> Provide Details -->
+      <bpmndi:BPMNEdge
+          id="Edge_f1"
+          bpmnElement="f1">
+        <di:waypoint x="136" y="178"/>
+        <di:waypoint x="180" y="178"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Flow: Provide Details -> Upload ID -->
+      <bpmndi:BPMNEdge
+          id="Edge_f2"
+          bpmnElement="f2">
+        <di:waypoint x="300" y="178"/>
+        <di:waypoint x="350" y="178"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Flow: Upload ID -> Review -->
+      <bpmndi:BPMNEdge
+          id="Edge_f3"
+          bpmnElement="f3">
+        <di:waypoint x="470" y="178"/>
+        <di:waypoint x="520" y="178"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Flow: Review -> Gateway -->
+      <bpmndi:BPMNEdge
+          id="Edge_f4"
+          bpmnElement="f4">
+        <di:waypoint x="640" y="178"/>
+        <di:waypoint x="700" y="180"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Approved Path -->
+      <bpmndi:BPMNEdge
+          id="Edge_f5"
+          bpmnElement="f5">
+        <di:waypoint x="750" y="180"/>
+        <di:waypoint x="790" y="180"/>
+        <di:waypoint x="790" y="100"/>
+        <di:waypoint x="830" y="100"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Rejected Path -->
+      <bpmndi:BPMNEdge
+          id="Edge_f6"
+          bpmnElement="f6">
+        <di:waypoint x="750" y="180"/>
+        <di:waypoint x="790" y="180"/>
+        <di:waypoint x="790" y="290"/>
+        <di:waypoint x="830" y="290"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Update Address -> Approved End -->
+      <bpmndi:BPMNEdge
+          id="Edge_f7"
+          bpmnElement="f7">
+        <di:waypoint x="970" y="100"/>
+        <di:waypoint x="1040" y="100"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Reject -> Rejected End -->
+      <bpmndi:BPMNEdge
+          id="Edge_f8"
+          bpmnElement="f8">
+        <di:waypoint x="970" y="290"/>
+        <di:waypoint x="1040" y="290"/>
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>
