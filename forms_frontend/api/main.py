@@ -41,7 +41,7 @@ from forms_frontend.api.sessions import (
 from forms_frontend.api.proposals import propose_answer
 from forms_frontend.api.uploads import InvalidUpload, save_local_upload
 from forms_frontend.api.tracing import (
-    configure_telemetry, shutdown_telemetry, session_span, session_endpoint, fields, as_json,
+    configure_telemetry, shutdown_telemetry, session_span, session_endpoint, fields,
 )
 from agent.agent import build_contextual_prompt
 
@@ -1116,8 +1116,12 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
         total_questions = 0
         for proc in session.definition.get("processes", {}).values():
             for s in proc.get("states", {}).values():
-                if (s.get("type") == "input" and
-                        (s.get("schema", {}).get("presentation") or {}).get("answer_type") != "mock_payment"):
+                if (
+                    s.get("type") == "input"
+                    and (s.get("schema", {}).get("presentation") or {}).get(
+                        "answer_type"
+                    ) != "mock_payment"
+                ):
                     total_questions += 1
 
         steps_taken = len(session.auto_answered)
@@ -1127,15 +1131,23 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
         while steps_this_run < max_steps:
             if await request.is_disconnected():
                 break
+
+            # Policy changed before starting another proposal.
+            # There is no proposal available at this point.
             if session.policy != InteractionPolicy.AUTO:
-                with session_span("forms.proposal.decision", session,
-                                  proposal=proposal, current_question=awaiting,
-                                  action="policy_changed_not_submitted"):
+                with session_span(
+                    "forms.proposal.decision",
+                    session,
+                    current_question=state.get("awaiting"),
+                    action="policy_changed_before_proposal",
+                ):
                     pass
+
                 yield {
                     "event": "done",
                     "data": json.dumps({
-                        "type": "done", "reason": "policy_changed",
+                        "type": "done",
+                        "reason": "policy_changed",
                         "steps_taken": steps_taken,
                         "total_questions": total_questions,
                     }),
@@ -1146,7 +1158,11 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
             if not awaiting:
                 # RUNNING without an input is *not* completion. It is the
                 # transition between a consumed input and the next state.
-                reason = "complete" if state.get("status") == "COMPLETED" else "pending"
+                reason = (
+                    "complete"
+                    if state.get("status") == "COMPLETED"
+                    else "pending"
+                )
                 yield {
                     "event": "done",
                     "data": json.dumps({
@@ -1159,10 +1175,16 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 return
 
             if _is_mock_payment_input(awaiting):
-                yield {"event": "done", "data": json.dumps({
-                    "type": "done", "reason": "needs_input", "steps_taken": steps_taken,
-                    "answered_count": len(session.accepted_tokens),
-                    "total_questions": total_questions})}
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done",
+                        "reason": "needs_input",
+                        "steps_taken": steps_taken,
+                        "answered_count": len(session.accepted_tokens),
+                        "total_questions": total_questions,
+                    }),
+                }
                 return
 
             yield {
@@ -1178,14 +1200,20 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
 
             proposal = await propose_answer(
                 conversation_history=session.conversation_history,
-                awaiting=awaiting, session=session,
+                awaiting=awaiting,
+                session=session,
             )
 
             if not proposal.get("has_answer"):
-                with session_span("forms.proposal.decision", session,
-                                  proposal=proposal, current_question=awaiting,
-                                  action="needs_input"):
+                with session_span(
+                    "forms.proposal.decision",
+                    session,
+                    proposal=proposal,
+                    current_question=awaiting,
+                    action="needs_input",
+                ):
                     pass
+
                 yield {
                     "event": "done",
                     "data": json.dumps({
@@ -1200,11 +1228,22 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 return
 
             # A policy switch during the LLM call must not submit its result.
+            # Both proposal and awaiting are now available for tracing.
             if session.policy != InteractionPolicy.AUTO:
+                with session_span(
+                    "forms.proposal.decision",
+                    session,
+                    proposal=proposal,
+                    current_question=awaiting,
+                    action="policy_changed_not_submitted",
+                ):
+                    pass
+
                 yield {
                     "event": "done",
                     "data": json.dumps({
-                        "type": "done", "reason": "policy_changed",
+                        "type": "done",
+                        "reason": "policy_changed",
                         "steps_taken": steps_taken,
                         "total_questions": total_questions,
                     }),
@@ -1213,15 +1252,25 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
 
             token = awaiting["token"]
             value = proposal["value"]
+
             if (awaiting.get("schema") or {}).get("kind") == "file_ref":
-                yield {"event": "done", "data": json.dumps({
-                    "type": "done", "reason": "needs_upload", "steps_taken": steps_taken,
-                    "total_questions": total_questions})}
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done",
+                        "reason": "needs_upload",
+                        "steps_taken": steps_taken,
+                        "total_questions": total_questions,
+                    }),
+                }
                 return
 
             try:
                 state, submitted = await _submit_once(
-                    session, temporal, token, value,
+                    session,
+                    temporal,
+                    token,
+                    value,
                     auto_record=AutoAnsweredQuestion(
                         state_id=awaiting.get("state_id", ""),
                         question_text=awaiting.get("prompt", ""),
@@ -1230,11 +1279,21 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                     ),
                 )
             except Exception as exc:
-                with session_span("forms.proposal.decision", session,
-                                  proposal=proposal, current_question=awaiting,
-                                  action="submission_failed", error_message=str(exc)):
+                with session_span(
+                    "forms.proposal.decision",
+                    session,
+                    proposal=proposal,
+                    current_question=awaiting,
+                    action="submission_failed",
+                    error_message=str(exc),
+                ):
                     pass
-                logger.exception("Auto-progress submission failed at step %d", steps_taken)
+
+                logger.exception(
+                    "Auto-progress submission failed at step %d",
+                    steps_taken,
+                )
+
                 yield {
                     "event": "done",
                     "data": json.dumps({
@@ -1246,11 +1305,17 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
                 }
                 return
 
-            with session_span("forms.proposal.decision", session,
-                              proposal=proposal, current_question=awaiting,
-                              action="auto_submitted" if submitted else "duplicate",
-                              submitted_value=value, returned_state=state):
+            with session_span(
+                "forms.proposal.decision",
+                session,
+                proposal=proposal,
+                current_question=awaiting,
+                action="auto_submitted" if submitted else "duplicate",
+                submitted_value=value,
+                returned_state=state,
+            ):
                 pass
+
             if submitted:
                 steps_taken += 1
                 steps_this_run += 1
@@ -1272,10 +1337,16 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
             # empty or old awaiting state. The browser polls the accepted
             # submission and starts a new pass when the next token is ready.
             if state.get("status") == "ADVANCING":
-                yield {"event": "done", "data": json.dumps({
-                    "type": "done", "reason": "pending", "steps_taken": steps_taken,
-                    "answered_count": len(session.accepted_tokens),
-                    "total_questions": total_questions})}
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "type": "done",
+                        "reason": "pending",
+                        "steps_taken": steps_taken,
+                        "answered_count": len(session.accepted_tokens),
+                        "total_questions": total_questions,
+                    }),
+                }
                 return
 
         yield {
@@ -1289,13 +1360,15 @@ async def auto_progress_stream(session_id: str, request: Request) -> EventSource
         }
 
     async def event_generator():
-        with session_span("forms.auto.stream", session,
-                          conversation=session.conversation_history):
+        with session_span(
+            "forms.auto.stream",
+            session,
+            conversation=session.conversation_history,
+        ):
             async for event in _event_generator_impl():
                 yield event
 
     return EventSourceResponse(event_generator())
-
 
 @app.post("/api/sessions/{session_id}/confirm-proposal")
 @session_endpoint("forms.proposal.accept")

@@ -6,7 +6,6 @@ is for synthetic prototype journeys, NOT a production telemetry/privacy policy.
 from __future__ import annotations
 
 import functools
-import itertools
 import json
 import logging
 import os
@@ -137,7 +136,8 @@ def session_endpoint(name: str) -> Callable:
         async def traced(*args: Any, **kwargs: Any) -> Any:
             # Import only at call time to avoid a main.py import cycle.
             from forms_frontend.api.main import store
-            session = store.get(kwargs["session_id"])
+            session_id = kwargs.get("session_id", args[0] if args else None)
+            session = store.get(session_id)
             if session is None:
                 return await fn(*args, **kwargs)  # original 404 handling
             request_data = {k: (v.model_dump() if hasattr(v, "model_dump") else v)

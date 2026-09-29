@@ -47,7 +47,8 @@ async def test_repeatable_inputs_have_new_tokens_and_accumulate_on_real_temporal
             assert token2 != token1
             await submit("site__more", False)
             snapshot = await handle.query("evaluation_checkpoint")
-            assert snapshot["frames"][0]["vars"]["answers"]["site"] == [
+            print(snapshot)
+            assert snapshot["interpreter_state"]["frames"][0]["vars"]["answers"]["site"] == [
                 "1 Alpha Road, London", "2 Beta Road, Leeds"
             ]
             await submit("count", "42")
@@ -93,8 +94,8 @@ async def test_optional_repeatable_skip_after_revisit_keeps_answers_and_refreshe
             else:
                 pytest.fail("Skipped repeat did not reach the original next question")
             snapshot = await handle.query("evaluation_checkpoint")
-            assert snapshot["frames"][0]["state_id"] == "count"
-            assert snapshot["frames"][0]["vars"]["answers"]["site"] == ["Acme Ltd"]
+            assert snapshot["interpreter_state"]["frames"][0]["state_id"] == "count"
+            assert snapshot["interpreter_state"]["frames"][0]["vars"]["answers"]["site"] == ["Acme Ltd"]
             await submit("count", "42")
             result = await handle.result()
             assert result["return"]["site"] == ["Acme Ltd"]

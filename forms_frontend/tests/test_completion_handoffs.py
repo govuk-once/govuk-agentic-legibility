@@ -100,8 +100,9 @@ def journey(monkeypatch, form_6_definition):
     async def get_temporal():
         return fake
 
-    async def proposal(*, awaiting, conversation_history):
+    async def proposal(*, awaiting, conversation_history, session):
         assert conversation_history == conversation_fixture["conversation"]
+        assert session.conversation_history == conversation_history
         position = next(i for i, (name, _) in enumerate(fake.questions)
                         if name == awaiting["state_id"])
         if position in (7, 10):

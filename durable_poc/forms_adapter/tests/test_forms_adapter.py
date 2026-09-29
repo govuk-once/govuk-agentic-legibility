@@ -320,8 +320,10 @@ def test_batch_compilation_continues_past_unsupported(tmp_path):
     for form_id in ("6", "2130"):
         (source / f"{form_id}.json").write_text((FIXTURES / f"{form_id}.json").read_text())
     bad = export("6")
-    bad["content"]["steps"][0]["data"]["is_repeatable"] = True
-    bad["content"]["steps"][0]["data"]["is_optional"] = True
+    bad["content"]["steps"][1]["data"].update(
+        answer_type="file",
+        answer_settings={"max_files": 3},
+    )
     (source / "bad.json").write_text(json.dumps(bad))
     output.mkdir()
     (output / "bad.json").write_text("STALE UNSUPPORTED DEFINITION")
@@ -712,7 +714,7 @@ def test_routing_on_or_from_repeatable_answer_is_rejected_conservatively(fixture
     fixture["content"]["steps"][0]["routing_conditions"] = [
         {"answer_value": "x", "goto_page_id": "count", "skip_to_end": False}
     ]
-    with pytest.raises(UnsupportedForm, match="routing on a repeatable"):
+    with pytest.raises(UnsupportedForm, match="depend on repeatable"):
         compile_form(fixture)
 
     fixture = export(fixture_name)

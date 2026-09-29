@@ -66,7 +66,7 @@ def review_journey(monkeypatch, form_6_definition):
     async def get_temporal():
         return transport
 
-    async def propose(*, awaiting, conversation_history):
+    async def propose(*, awaiting, conversation_history, session):
         assert conversation_history == fixture["conversation"]
         index = next(i for i, (state_id, _) in enumerate(
             transport.executions["initial-run"].questions)
@@ -404,7 +404,7 @@ def test_fully_automatic_form6_displays_final_review_not_first_question(review_j
     """Regression: all 11 auto answers end on the summary, never a new form."""
     client, sid, transport = review_journey
 
-    async def all_answers(*, awaiting, conversation_history):
+    async def all_answers(*, awaiting, conversation_history, session):
         return {"has_answer": True, "value": "0" if awaiting["state_id"] == "hY9HnrAz"
                 else "synthetic answer", "explanation": "Fixture"}
 
