@@ -1,112 +1,134 @@
+"""
+Entry point for executing BPMN workflows using SpiffWorkflow.
+
+This module is responsible for:
+
+* Loading BPMN process definitions.
+* Creating workflow instances.
+* Driving workflow execution.
+* Identifying executable tasks.
+* Dispatching task execution.
+* Monitoring workflow completion.
+
+Execution follows a simple loop:
+
+1. Let the workflow engine perform automatic work.
+2. Identify executable tasks.
+3. Execute each task.
+4. Repeat until the workflow completes.
+
+The runner is intentionally process-agnostic to execute any BPMN process using the generic task handlers.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Final
+
 from SpiffWorkflow.bpmn.parser.BpmnParser import BpmnParser
 from SpiffWorkflow.bpmn.workflow import BpmnWorkflow
 
+from bpmn.helper import (
+    dump_tasks,
+    get_executable_tasks,
+)
+from bpmn.task_handlers import (
+    execute_task,
+)
 
-BPMN_FILE = "change_of_address.bpmn"
-PROCESS_ID = "change_address"
-USER_TASK = 16
-SERVICE_TASK = 32
+logger = logging.getLogger(__name__)
 
-def main():
-    # Load BPMN
-    parser = BpmnParser()
-    parser.add_bpmn_files([BPMN_FILE])
+BPMN_FILE: Final[str] = "change_of_address.bpmn"
+PROCESS_ID: Final[str] = "change_address"
 
-    spec = parser.get_spec(PROCESS_ID)
+MAX_ITERATIONS: Final[int] = 1000
 
-    # Create workflow instance
-    workflow = BpmnWorkflow(spec)
 
-    # Execute automatic engine work
-    workflow.do_engine_steps()
+def main() -> None:
+    """
+    Execute a BPMN workflow.
 
-    print("\nStarting Change of Address workflow")
+    The workflow definition is loaded from the configured BPMN
+    file and process identifier. The engine performs automatic
+    workflow progression while executable tasks are delegated to
+    task handlers.
 
-    while not workflow.is_completed():
+    Raises:
+        RuntimeError:
+            Raised when the workflow exceeds the maximum iteration
+            limit or encounters an unrecoverable execution error.
+    """
+    try:
+        logger.info(
+            "Loading BPMN process '%s' from '%s'",
+            PROCESS_ID,
+            BPMN_FILE,
+        )
 
-        ready_tasks = [
-            t for t in workflow.get_tasks()
-            if t.state in (USER_TASK, SERVICE_TASK)
-        ]
+        parser = BpmnParser()
 
-        task = ready_tasks[0] if ready_tasks else None
+        parser.add_bpmn_files([BPMN_FILE])
 
-        if task is None:
-            print("\nNo ready task found.")
-            print("\nCurrent task states:")
+        spec = parser.get_spec(PROCESS_ID)
 
-            for t in workflow.get_tasks():
-                print(
-                    t.task_spec.name,
-                    t.task_spec.__class__.__name__,
-                    t.state,
+        workflow = BpmnWorkflow(spec)
+
+        logger.info("Starting workflow execution")
+
+        iteration = 0
+
+        while not workflow.is_completed():
+            iteration += 1
+
+            logger.debug(
+                "Workflow iteration %d",
+                iteration,
+            )
+
+            if iteration > MAX_ITERATIONS:
+                logger.error(
+                    "Maximum iteration limit (%d) reached",
+                    MAX_ITERATIONS,
                 )
 
-            break
+                raise RuntimeError("Maximum iteration limit reached")
 
-        task_name = task.task_spec.name
+            workflow.do_engine_steps()
 
-        print(f"\n=== {task_name} ===")
-        print("Task ID:", task.id)
-        print("Task Name:", task.task_spec.name)
-        print("Task Type:", task.task_spec.__class__.__name__)
-        print("Task State:", task.state)
-        print()
+            tasks = get_executable_tasks(workflow)
 
-        # User task handlers
-        if task_name == "provide_details":
+            if not tasks:
+                logger.warning("No executable tasks found")
 
-            name = input("Name: ")
-            postcode = input("Postcode: ")
+                dump_tasks(workflow)
 
-            task.set_data(
-                name=name,
-                postcode=postcode,
+                break
+
+            logger.debug(
+                "Found %d executable task(s)",
+                len(tasks),
             )
 
-        elif task_name == "upload_id":
+            for task in tasks:
+                execute_task(
+                    task,
+                )
 
-            print("Identity evidence uploaded")
+        if workflow.is_completed():
+            logger.info("Workflow completed successfully")
 
-            task.set_data(
-                identity_verified=True
-            )
+        else:
+            logger.warning("Workflow terminated before completion")
 
-        elif task_name == "review":
-
-            approved = (
-                input("Approve application? (y/n): ")
-                .strip()
-                .lower() == "y"
-            )
-
-            task.set_data(
-                approved=approved
-            )
-
-        elif task_name == "update_address":
-
-            print(
-                "Updating driving licence address..."
-            )
-
-        elif task_name == "reject":
-
-            print(
-                "Rejecting application..."
-            )
-
-        # Complete current task
-        print()
-        print("Task data:", task.data)
-        
-        task.complete()
-
-        # Move workflow forward
-        workflow.do_engine_steps()
-
-    print("\nWorkflow completed successfully")
+    except Exception:
+        logger.exception("Workflow execution failed")
+        raise
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format=("%(asctime)s %(levelname)s %(name)s %(message)s"),
+    )
+
     main()
