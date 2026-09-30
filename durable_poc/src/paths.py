@@ -57,6 +57,22 @@ def set_path(context: dict[str, Any], path: str, value: Any) -> None:
         current[idx] = value
 
 
+def append_path(context: dict[str, Any], path: str, value: Any) -> None:
+    """Append one typed value without mutating an existing accumulator list.
+
+    An absent or null target starts an empty list.  Rejecting a missing value
+    avoids accidentally recording an answer that was never submitted.
+    """
+    if not path or any(not part for part in path.split(".")):
+        raise ValueError("Append target must be a non-empty dotted path")
+    existing = resolve_path(context, path)
+    if existing is not None and not isinstance(existing, list):
+        raise ValueError(f"Append target '{path}' must be a list or unset, got {type(existing).__name__}")
+    if value is None:
+        raise ValueError(f"Append operation for '{path}' resolved no value")
+    set_path(context, path, [*(existing or []), value])
+
+
 def interpolate(template: str, context: dict[str, Any]) -> str:
     """Replace {{path.to.var}} in strings with resolved context values."""
 

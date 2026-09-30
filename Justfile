@@ -31,7 +31,10 @@ types:
 docs:
     uvx --from pydoclint==0.9.1 pydoclint agents
 
-check: build test test-poc lint docs audit scan types
+test-forms:
+    uv run pytest -vrrP --testdox durable_poc/forms_adapter/tests forms_frontend/tests
+
+check: build test test-poc test-forms lint docs audit scan types
 
 frontend-install:
     npm --prefix frontend install

@@ -1,0 +1,44 @@
+{
+  "form_id": 691,
+  "content": {
+    "form_id": "691",
+    "name": "Repeatable fixture",
+    "start_page": "site",
+    "steps": [
+      {
+        "id": "site",
+        "type": "question_page",
+        "position": 1,
+        "next_step_id": "count",
+        "routing_conditions": [],
+        "data": {
+          "question_text": "Where will the redundancies occur?",
+          "page_heading": "Establishment",
+          "hint_text": "Enter one site",
+          "guidance_markdown": null,
+          "answer_type": "address",
+          "answer_settings": {"input_type": {"uk_address": "true", "international_address": "false"}},
+          "is_optional": false,
+          "is_repeatable": true
+        }
+      },
+      {
+        "id": "count",
+        "type": "question_page",
+        "position": 2,
+        "next_step_id": null,
+        "routing_conditions": [],
+        "data": {
+          "question_text": "How many redundancies?",
+          "page_heading": null,
+          "hint_text": null,
+          "guidance_markdown": null,
+          "answer_type": "number",
+          "answer_settings": null,
+          "is_optional": false,
+          "is_repeatable": false
+        }
+      }
+    ]
+  }
+}

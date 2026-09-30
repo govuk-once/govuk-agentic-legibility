@@ -1,0 +1,36 @@
+{
+  "id": "form-89-volunteer-coastguard-full-details",
+  "version": "1",
+  "title": "Volunteer coastguard application — known facts",
+  "description": "Synthetic applicant profile plus previous conversation, covering every question for a Helensburgh volunteer coastguard application.",
+  "form_id": "89",
+  "known_facts": {
+    "structured_data": {
+      "name": "Emma Fraser",
+      "date_of_birth": "1990-06-18",
+      "mobile_telephone_number": "07700 900321",
+      "email": "emma.fraser@example.com",
+      "address": {
+        "line_1": "12 Example Street",
+        "town": "Helensburgh",
+        "county": "Argyll and Bute",
+        "postcode": "G84 8AA"
+      },
+      "employment": {
+        "employer": "Clyde Engineering Ltd (fictional)",
+        "role": "Maintenance coordinator",
+        "usual_working_hours": "Monday to Friday, 9am to 5pm"
+      },
+      "training": {
+        "first_aid": "Emergency first aid at work, renewed in 2025"
+      }
+    },
+    "previous_conversation": "I want to apply to volunteer with the Coastguard Rescue Service at Helensburgh station, in Area 04: Inner Clyde to River Tay and east Scottish border. I live about eight minutes from the station by car. I have checked the membership information and believe I meet the eligibility criteria. I can attend the medical in November and all three advertised training blocks at Greenock Coastguard Station: 22–26 March 2027, 10–11 April 2027 and 1–2 May 2027.\n\nI would like to volunteer because I have lived by the Clyde for years, enjoy sailing and walking along the coast, and want to help keep people safe in my local community. I work in maintenance coordination, where I follow safety procedures, organise equipment, communicate with different teams and stay calm when plans change. I have current first-aid training and would welcome the chance to develop specialist coastal rescue skills.\n\nI have never volunteered with the Coastguard Rescue Service or worked for the Maritime and Coastguard Agency. I did volunteer with an RNLI shore team from 2021 to 2023. I helped with equipment checks and community water-safety events, rather than operational rescues. I stopped when I moved to Helensburgh and I am no longer involved with the RNLI.\n\nI work Monday to Friday, 9am to 5pm. I have discussed volunteering with my employer. They cannot routinely release me for call-outs during working hours, but have agreed that I can take leave for the scheduled Coastguard training. I am available on weekday evenings after work, at weekends during the day, and on weekend evenings. I do not normally work shifts and have no further recurring restrictions on those times."
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": "Yes, I would like to go ahead with my volunteer coastguard application. Please use my details and what we discussed earlier."
+    }
+  ]
+}
