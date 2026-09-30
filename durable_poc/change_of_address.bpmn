@@ -8,152 +8,216 @@
     id="Definitions_1"
     targetNamespace="http://example.com">
   <bpmn:process id="change_address" isExecutable="true">
-    <bpmn:startEvent id="start" name="Start" />
-    <bpmn:userTask id="provide_details" name="Provide Personal Details">
+
+    <bpmn:startEvent
+        id="start"
+        name="Start" />
+
+    <bpmn:userTask
+        id="provide_details"
+        name="Provide Personal Details">
       <bpmn:documentation>
-    {
-      "form": {
-        "title": "Provide Personal Details",
-        "fields": [
-          {
-            "id": "first_name",
-            "label": "First Name",
-            "type": "string",
-            "required": true
-          },
-          {
-            "id": "last_name",
-            "label": "Last Name",
-            "type": "string",
-            "required": true
-          },
-          {
-            "id": "date_of_birth",
-            "label": "Date of Birth",
-            "type": "date",
-            "required": true
-          },
-          {
-            "id": "driving_licence_number",
-            "label": "Driving Licence Number",
-            "type": "string",
-            "required": true
-          }
-        ]
-      }
-    }
-      </bpmn:documentation>
-    </bpmn:userTask>
-    <bpmn:serviceTask id="check_photo_validity" name="Check Existing Photo">
-      <bpmn:documentation>
-    {
-      "service": {
-        "type": "http",
-        "method": "GET",
-        "endpoint": "/app/dvla/v1/photo_expiry/${driving_licence_number}",
-        "result_variable": "photo_validation"
-      }
-    }
-      </bpmn:documentation>
-    </bpmn:serviceTask>
-    <bpmn:exclusiveGateway id="photo_valid_gateway" name="Photo Expired?" />
-    <bpmn:userTask id="upload_photo" name="Upload New Photo">
-      <bpmn:documentation>
-    {
-      "form": {
-        "title": "Upload New Photo",
-        "fields": [
-          {
-            "id": "photo",
-            "label": "Driver Photo",
-            "type": "file",
-            "required": true
-          }
-        ]
-      }
-    }
-      </bpmn:documentation>
-    </bpmn:userTask>
-    <bpmn:serviceTask id="validate_photo" name="Validate Uploaded Photo">
-      <bpmn:documentation>
-    {
-      "service": {
-        "type": "http",
-        "method": "POST",
-        "endpoint": "/app/dvla/v1/photo_validity",
-        "request_body": {
-          "photo_data": {
-            "content": "${photo}"
-          }
+  {
+    "form": {
+      "title": "Provide Personal Details",
+      "fields": [
+        {
+          "id": "first_name",
+          "label": "First Name",
+          "type": "string",
+          "required": true
         },
-        "result_variable": "uploaded_photo"
-      }
+        {
+          "id": "last_name",
+          "label": "Last Name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "id": "date_of_birth",
+          "label": "Date of Birth",
+          "type": "date",
+          "required": true
+        },
+        {
+          "id": "driving_licence_number",
+          "label": "Driving Licence Number",
+          "type": "string",
+          "required": true
+        }
+      ]
     }
-      </bpmn:documentation>
-    </bpmn:serviceTask>
-    <bpmn:userTask id="provide_address" name="Provide New Address">
-      <bpmn:documentation>
-    {
-      "form": {
-        "title": "New Address",
-        "fields": [
-          {
-            "id": "address_line_1",
-            "label": "Address Line 1",
-            "type": "string",
-            "required": true
-          },
-          {
-            "id": "town",
-            "label": "Town",
-            "type": "string",
-            "required": true
-          },
-          {
-            "id": "postcode",
-            "label": "Postcode",
-            "type": "string",
-            "required": true
-          }
-        ]
-      }
-    }
+  }
       </bpmn:documentation>
     </bpmn:userTask>
-    <bpmn:serviceTask id="update_address" name="Update Driving Licence Address">
+
+    <bpmn:serviceTask
+        id="check_photo_validity"
+        name="Check Existing Photo">
       <bpmn:documentation>
-    {
-      "service": {
-        "type": "http",
-        "method": "POST",
-        "endpoint": "/app/dvla/v1/licence/address",
-        "request_body": {
-          "address": {
-            "line1": "${address_line_1}",
-            "town": "${town}",
-            "postcode": "${postcode}"
-          },
-          "photo_id": "${uploaded_photo.photo_id}"
-        },
-        "result_variable": "address_update"
-      }
+  {
+    "service": {
+      "type": "http",
+      "method": "GET",
+      "endpoint": "/app/dvla/v1/photo_expiry/${driving_licence_number}",
+      "result_variable": "selected_photo"
     }
+  }
       </bpmn:documentation>
     </bpmn:serviceTask>
-    <bpmn:endEvent id="end" name="Address Updated" />
-    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="provide_details" />
-    <bpmn:sequenceFlow id="f2" sourceRef="provide_details" targetRef="check_photo_validity" />
-    <bpmn:sequenceFlow id="f3" sourceRef="check_photo_validity" targetRef="photo_valid_gateway" />
-    <bpmn:sequenceFlow id="f4" sourceRef="photo_valid_gateway" targetRef="provide_address">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">photo_validation["expired"] == False</bpmn:conditionExpression>
+
+    <bpmn:exclusiveGateway
+        id="photo_valid_gateway"
+        name="Photo Expired?" />
+
+    <bpmn:userTask
+        id="upload_photo"
+        name="Upload New Photo">
+      <bpmn:documentation>
+  {
+    "form": {
+      "title": "Upload New Photo",
+      "fields": [
+        {
+          "id": "photo",
+          "label": "Driver Photo",
+          "type": "file",
+          "required": true
+        }
+      ]
+    }
+  }
+      </bpmn:documentation>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask
+        id="validate_photo"
+        name="Validate Uploaded Photo">
+      <bpmn:documentation>
+  {
+    "service": {
+      "type": "http",
+      "method": "POST",
+      "endpoint": "/app/dvla/v1/photo_validity",
+      "request_body": {
+        "photo_data": {
+          "content": "${photo}"
+        }
+      },
+      "result_variable": "selected_photo"
+    }
+  }
+      </bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask
+        id="provide_address"
+        name="Provide New Address">
+      <bpmn:documentation>
+  {
+    "form": {
+      "title": "New Address",
+      "fields": [
+        {
+          "id": "address_line_1",
+          "label": "Address Line 1",
+          "type": "string",
+          "required": true
+        },
+        {
+          "id": "town",
+          "label": "Town",
+          "type": "string",
+          "required": true
+        },
+        {
+          "id": "postcode",
+          "label": "Postcode",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  }
+      </bpmn:documentation>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask
+        id="update_address"
+        name="Update Driving Licence Address">
+      <bpmn:documentation>
+  {
+    "service": {
+      "type": "http",
+      "method": "POST",
+      "endpoint": "/app/dvla/v1/licence/address",
+      "request_body": {
+        "address": {
+          "line1": "${address_line_1}",
+          "town": "${town}",
+          "postcode": "${postcode}"
+        },
+        "photo_id": "${selected_photo.photo_id}"
+      },
+      "result_variable": "address_update"
+    }
+  }
+      </bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent
+        id="end"
+        name="Address Updated" />
+
+    <bpmn:sequenceFlow
+        id="f1"
+        sourceRef="start"
+        targetRef="provide_details" />
+
+    <bpmn:sequenceFlow
+        id="f2"
+        sourceRef="provide_details"
+        targetRef="check_photo_validity" />
+
+    <bpmn:sequenceFlow
+        id="f3"
+        sourceRef="check_photo_validity"
+        targetRef="photo_valid_gateway" />
+
+    <bpmn:sequenceFlow
+        id="f4"
+        sourceRef="photo_valid_gateway"
+        targetRef="provide_address">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">selected_photo["expired"] == False</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="f5" sourceRef="photo_valid_gateway" targetRef="upload_photo">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">photo_validation["expired"] == True</bpmn:conditionExpression>
+
+    <bpmn:sequenceFlow
+        id="f5"
+        sourceRef="photo_valid_gateway"
+        targetRef="upload_photo">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">selected_photo["expired"] == True</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="f6" sourceRef="upload_photo" targetRef="validate_photo" />
-    <bpmn:sequenceFlow id="f7" sourceRef="validate_photo" targetRef="provide_address" />
-    <bpmn:sequenceFlow id="f8" sourceRef="provide_address" targetRef="update_address" />
-    <bpmn:sequenceFlow id="f9" sourceRef="update_address" targetRef="end" />
+
+    <bpmn:sequenceFlow
+        id="f6"
+        sourceRef="upload_photo"
+        targetRef="validate_photo" />
+
+    <bpmn:sequenceFlow
+        id="f7"
+        sourceRef="validate_photo"
+        targetRef="provide_address" />
+
+    <bpmn:sequenceFlow
+        id="f8"
+        sourceRef="provide_address"
+        targetRef="update_address" />
+
+    <bpmn:sequenceFlow
+        id="f9"
+        sourceRef="update_address"
+        targetRef="end" />
+
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_change_address">
     <bpmndi:BPMNPlane id="BPMNPlane_change_address" bpmnElement="change_address">
