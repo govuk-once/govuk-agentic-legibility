@@ -17,6 +17,7 @@ dependencies = [
     "pytest-asyncio>=1.4.0",
     "requests>=2.34.2",
     "strands-agents>=1.50.2",
+    "openai>=1.60.0",
     "uvicorn>=0.48.0",
     "httpx>=0.28.1",
     "pydantic>=2.13.4",
