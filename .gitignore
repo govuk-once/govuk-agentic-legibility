@@ -112,3 +112,6 @@ coverage/
 .svelte-kit/
 
 *.jpeg
+
+# Serena
+.serena/
