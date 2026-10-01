@@ -12,6 +12,7 @@ from typing import Any, Awaitable, Callable
 import httpx
 from strands import Agent, tool
 from strands.models import BedrockModel
+from strands.models.model import Model
 from temporalio.client import Client as TemporalClient
 from temporalio.contrib.opentelemetry import TracingInterceptor
 from opentelemetry import trace
@@ -96,7 +97,7 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
         if isinstance(value, str) and value.strip().startswith("{"):
             try:
                 return json.loads(value)
-            except json.JSONDecodeError, TypeError:
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         raw_options = awaiting.get("options") or schema.get("options") or []
@@ -121,7 +122,7 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
             if value.startswith("[") and value.endswith("]"):
                 try:
                     return json.loads(value)
-                except json.JSONDecodeError, TypeError:
+                except (json.JSONDecodeError, TypeError):
                     pass
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
@@ -132,7 +133,7 @@ def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
         if isinstance(value, str) and value.strip().startswith("{"):
             try:
                 value = json.loads(value)
-            except json.JSONDecodeError, TypeError:
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         if isinstance(value, str) and value.startswith("[Uploaded File:"):
@@ -167,12 +168,24 @@ class WorkflowAgent:
 
     Args:
         workflow_server_url: Base URL of the workflow definition server.
-        model_id: Bedrock model or inference-profile identifier.
-        region_name: AWS region for the Bedrock model.
+        model_id: Bedrock model or inference-profile identifier. Ignored if
+            `model` is provided.
+        region_name: AWS region for the Bedrock model. Ignored if `model` is
+            provided.
         temporal_address: Temporal server address (connected lazily).
         task_queue: Temporal task queue for workflow executions.
         conversation_history: Optional Strands-format conversation history used to
             initialise the agent before its first invocation.
+        model: Pre-built Strands model, overriding the default Bedrock model.
+            Local/dev escape hatch (e.g. an OpenAI-compatible provider) for
+            environments without Bedrock access — production deployments should
+            leave this unset so the Bedrock path above is used.
+        enable_escalation: Registers the `escalate_to_human` tool alongside the
+            usual Temporal-contract tools. Used only by the `/agentic`
+            autonomous answerer (`agent/api/routes/agentic.py`) — the sole,
+            explicitly scoped exception to `ARCHITECTURE.md`'s Dual-Path
+            guarantee that the agent never decides a value. Leave `False` for
+            chat/voice, where the agent only ever translates user text.
     """
 
     def __init__(
@@ -184,10 +197,13 @@ class WorkflowAgent:
         temporal_address: str = "localhost:7233",
         task_queue: str = "sfsm-queue",
         conversation_history: list[dict[str, Any]] | None = None,
+        model: Model | None = None,
+        enable_escalation: bool = False,
     ) -> None:
         self._workflow_server_url = workflow_server_url
         self._temporal_address = temporal_address
         self._task_queue = task_queue
+        self._enable_escalation = enable_escalation
         self._temporal_client: TemporalClient | None = None
         self._http_client: httpx.AsyncClient | None = None
         self._agent_lock = asyncio.Lock()
@@ -201,7 +217,7 @@ class WorkflowAgent:
                 "You are an agent interacting with a state machine workflow engine."
             )
 
-        self._model = BedrockModel(
+        self._model = model or BedrockModel(
             model_id=model_id,
             region_name=region_name,
             temperature=0.0,
@@ -576,7 +592,26 @@ class WorkflowAgent:
                 )
                 return result
 
-        return [
+        @tool
+        async def escalate_to_human(reason: str) -> dict[str, Any]:
+            """Flag the field currently awaiting input for a human to answer,
+            instead of guessing or submitting an unconfident value.
+
+            Call this when the seeded profile has no confident answer for the
+            current question, or when the field is sensitive enough (identity,
+            payment, an irreversible action) that policy requires a human
+            decision. Prefer this over a low-confidence `submit_input` call.
+
+            Args:
+                reason: Brief explanation of why this needs a human.
+            """
+            logger.info("Tool escalate_to_human called: reason=%r", reason)
+            await owner._trace(
+                "AGENT", "Selected Tool: escalate_to_human", {"reason": reason}
+            )
+            return {"escalated": True, "reason": reason}
+
+        tools: list[Any] = [
             list_available_workflows,
             find_workflow_by_intent,
             get_workflow_definition,
@@ -585,3 +620,6 @@ class WorkflowAgent:
             submit_input,
             list_active_workflows,
         ]
+        if owner._enable_escalation:
+            tools.append(escalate_to_human)
+        return tools
