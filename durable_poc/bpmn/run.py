@@ -28,11 +28,14 @@ from typing import Final
 from SpiffWorkflow.bpmn.parser.BpmnParser import BpmnParser
 from SpiffWorkflow.bpmn.workflow import BpmnWorkflow
 
+from bpmn.metadata import (
+    load_bpmn_metadata,
+)
 from bpmn.helper import (
-    dump_tasks,
-    get_executable_tasks,
+    register_workflow_metadata,
 )
 from bpmn.task_handlers import (
+    get_executable_tasks,
     execute_task,
 )
 
@@ -59,19 +62,15 @@ def main() -> None:
             limit or encounters an unrecoverable execution error.
     """
     try:
-        logger.info(
-            "Loading BPMN process '%s' from '%s'",
-            PROCESS_ID,
-            BPMN_FILE,
-        )
+        logger.info("Loading BPMN process '%s' from '%s'", PROCESS_ID, BPMN_FILE)
 
         parser = BpmnParser()
-
         parser.add_bpmn_files([BPMN_FILE])
-
         spec = parser.get_spec(PROCESS_ID)
-
         workflow = BpmnWorkflow(spec)
+        workflow_metadata = load_bpmn_metadata(BPMN_FILE)
+        register_workflow_metadata(workflow_metadata)
+        logger.info("Loaded metadata for %d BPMN elements", len(workflow_metadata))
 
         logger.info("Starting workflow execution")
 
@@ -79,18 +78,10 @@ def main() -> None:
 
         while not workflow.is_completed():
             iteration += 1
-
-            logger.debug(
-                "Workflow iteration %d",
-                iteration,
-            )
+            logger.debug("Workflow iteration %d", iteration)
 
             if iteration > MAX_ITERATIONS:
-                logger.error(
-                    "Maximum iteration limit (%d) reached",
-                    MAX_ITERATIONS,
-                )
-
+                logger.error( "Maximum iteration limit (%d) reached", MAX_ITERATIONS)
                 raise RuntimeError("Maximum iteration limit reached")
 
             workflow.do_engine_steps()
@@ -98,16 +89,17 @@ def main() -> None:
             tasks = get_executable_tasks(workflow)
 
             if not tasks:
-                logger.warning("No executable tasks found")
 
-                dump_tasks(workflow)
+                if workflow.is_completed():
+                    break
+
+                logger.warning(
+                    "Workflow stalled: no executable BPMN tasks found"
+                )
 
                 break
 
-            logger.debug(
-                "Found %d executable task(s)",
-                len(tasks),
-            )
+            logger.debug("Found %d executable task(s)", len(tasks))
 
             for task in tasks:
                 execute_task(

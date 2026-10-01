@@ -1,300 +1,464 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
     xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
     xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
     xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    id="Definitions_1"
-    targetNamespace="http://example.com">
-  <bpmn:process id="change_address" isExecutable="true">
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="dvla_change_address">
+
+    <bpmn:error
+        id="ServiceError"
+        name="ServiceError"/>
+
+    <bpmn:process
+        id="change_address"
+        name="Driving Licence Change Of Address"
+        isExecutable="true">
+
+    <bpmn:extensionElements>
+
+        <meta:workflowMetadata
+            name="Driving Licence Change Of Address"
+            version="1.0.0"/>
+
+    </bpmn:extensionElements>
+
+    <bpmn:laneSet id="laneSet_1">
+
+        <bpmn:lane
+            id="applicant_lane"
+            name="Applicant">
+
+        <bpmn:flowNodeRef>provide_details</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>upload_photo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>provide_address</bpmn:flowNodeRef>
+
+        </bpmn:lane>
+
+        <bpmn:lane
+            id="system_lane"
+            name="Workflow Engine">
+
+        <bpmn:flowNodeRef>check_photo_validity</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>photo_valid_gateway</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>map_existing_photo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>validate_photo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>map_uploaded_photo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>photo_selected_gateway</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>update_address</bpmn:flowNodeRef>
+
+        </bpmn:lane>
+
+        <bpmn:lane
+            id="caseworker_lane"
+            name="Caseworker">
+
+        <bpmn:flowNodeRef>manual_review</bpmn:flowNodeRef>
+
+        </bpmn:lane>
+
+    </bpmn:laneSet>
 
     <bpmn:startEvent
         id="start"
-        name="Start" />
+        name="Start"/>
 
     <bpmn:userTask
         id="provide_details"
         name="Provide Personal Details">
-      <bpmn:documentation>
-  {
-    "form": {
-      "title": "Provide Personal Details",
-      "fields": [
-        {
-          "id": "first_name",
-          "label": "First Name",
-          "type": "string",
-          "required": true
-        },
-        {
-          "id": "last_name",
-          "label": "Last Name",
-          "type": "string",
-          "required": true
-        },
-        {
-          "id": "date_of_birth",
-          "label": "Date of Birth",
-          "type": "date",
-          "required": true
-        },
-        {
-          "id": "driving_licence_number",
-          "label": "Driving Licence Number",
-          "type": "string",
-          "required": true
-        }
-      ]
-    }
-  }
-      </bpmn:documentation>
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="form"/>
+
+        <meta:form title="Provide Personal Details">
+
+            <meta:field
+                id="first_name"
+                variable="applicant.first_name"
+                label="First Name"
+                type="string"
+                required="true"/>
+
+            <meta:field
+                id="last_name"
+                variable="applicant.last_name"
+                label="Last Name"
+                type="string"
+                required="true"/>
+
+            <meta:field
+                id="date_of_birth"
+                variable="applicant.date_of_birth"
+                label="Date Of Birth"
+                type="date"
+                required="true"/>
+
+            <meta:field
+                id="driving_licence_number"
+                variable="applicant.driving_licence_number"
+                label="Driving Licence Number"
+                type="string"
+                required="true"/>
+
+        </meta:form>
+
+        </bpmn:extensionElements>
+
     </bpmn:userTask>
 
     <bpmn:serviceTask
         id="check_photo_validity"
         name="Check Existing Photo">
-      <bpmn:documentation>
-  {
-    "service": {
-      "type": "http",
-      "method": "GET",
-      "endpoint": "/app/dvla/v1/photo_expiry/${driving_licence_number}",
-      "result_variable": "selected_photo"
-    }
-  }
-      </bpmn:documentation>
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="http"/>
+
+        <meta:httpService
+            method="GET"
+            endpoint="/app/dvla/v1/photo_expiry/${applicant.driving_licence_number}">
+
+            <meta:retry
+                attempts="3"
+                backoffSeconds="10"/>
+
+            <meta:timeout
+                duration="PT30S"/>
+
+            <meta:output
+                source="response.expired"
+                target="photo_validation.expired"/>
+
+            <meta:output
+                source="response.photo_id"
+                target="photo_validation.photo_id"/>
+
+        </meta:httpService>
+
+        </bpmn:extensionElements>
+
     </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent
+        id="check_photo_error"
+        name="Photo Check Failed"
+        attachedToRef="check_photo_validity">
+
+        <bpmn:errorEventDefinition
+            errorRef="ServiceError"/>
+
+    </bpmn:boundaryEvent>
 
     <bpmn:exclusiveGateway
         id="photo_valid_gateway"
-        name="Photo Expired?" />
+        name="Existing Photo Valid?"
+        default="f5"/>
+
+    <bpmn:serviceTask
+        id="map_existing_photo"
+        name="Use Existing Photo">
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="mapping"/>
+
+        <meta:mapping>
+
+            <meta:output
+                source="photo_validation.photo_id"
+                target="selected_photo_id"/>
+
+        </meta:mapping>
+
+        </bpmn:extensionElements>
+
+    </bpmn:serviceTask>
 
     <bpmn:userTask
         id="upload_photo"
         name="Upload New Photo">
-      <bpmn:documentation>
-  {
-    "form": {
-      "title": "Upload New Photo",
-      "fields": [
-        {
-          "id": "photo",
-          "label": "Driver Photo",
-          "type": "file",
-          "required": true
-        }
-      ]
-    }
-  }
-      </bpmn:documentation>
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="form"/>
+
+        <meta:form title="Upload New Photo">
+
+            <meta:field
+                id="photo"
+                variable="uploaded_file"
+                label="Driver Photo"
+                type="file"
+                required="true">
+
+            <meta:fileConstraints
+                maxSize="5242880"
+                allowedTypes="image/jpeg,image/png"/>
+
+            </meta:field>
+
+        </meta:form>
+
+        </bpmn:extensionElements>
+
     </bpmn:userTask>
 
     <bpmn:serviceTask
         id="validate_photo"
         name="Validate Uploaded Photo">
-      <bpmn:documentation>
-  {
-    "service": {
-      "type": "http",
-      "method": "POST",
-      "endpoint": "/app/dvla/v1/photo_validity",
-      "request_body": {
-        "photo_data": {
-          "content": "${photo}"
-        }
-      },
-      "result_variable": "selected_photo"
-    }
-  }
-      </bpmn:documentation>
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="http"/>
+
+        <meta:httpService
+            method="POST"
+            endpoint="/app/dvla/v1/photo_validity">
+
+            <meta:input
+                source="uploaded_file"
+                target="photo_data.content"/>
+
+            <meta:output
+                source="response.photo_id"
+                target="uploaded_photo.photo_id"/>
+
+            <meta:output
+                source="response.valid"
+                target="uploaded_photo.valid"/>
+
+        </meta:httpService>
+
+        </bpmn:extensionElements>
+
     </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent
+        id="validate_photo_error"
+        name="Photo Validation Failed"
+        attachedToRef="validate_photo">
+
+        <bpmn:errorEventDefinition
+            errorRef="ServiceError"/>
+
+    </bpmn:boundaryEvent>
+
+    <bpmn:serviceTask
+        id="map_uploaded_photo"
+        name="Use Uploaded Photo">
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="mapping"/>
+
+        <meta:mapping>
+
+            <meta:output
+                source="uploaded_photo.photo_id"
+                target="selected_photo_id"/>
+
+        </meta:mapping>
+
+        </bpmn:extensionElements>
+
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway
+        id="photo_selected_gateway"
+        name="Photo Selected"/>
 
     <bpmn:userTask
         id="provide_address"
         name="Provide New Address">
-      <bpmn:documentation>
-  {
-    "form": {
-      "title": "New Address",
-      "fields": [
-        {
-          "id": "address_line_1",
-          "label": "Address Line 1",
-          "type": "string",
-          "required": true
-        },
-        {
-          "id": "town",
-          "label": "Town",
-          "type": "string",
-          "required": true
-        },
-        {
-          "id": "postcode",
-          "label": "Postcode",
-          "type": "string",
-          "required": true
-        }
-      ]
-    }
-  }
-      </bpmn:documentation>
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="form"/>
+
+        <meta:form title="Provide New Address">
+
+            <meta:field
+                id="line1"
+                variable="address.line1"
+                label="Address Line 1"
+                type="string"
+                required="true"/>
+
+            <meta:field
+                id="town"
+                variable="address.town"
+                label="Town"
+                type="string"
+                required="true"/>
+
+            <meta:field
+                id="postcode"
+                variable="address.postcode"
+                label="Postcode"
+                type="string"
+                required="true"/>
+
+        </meta:form>
+
+        </bpmn:extensionElements>
+
     </bpmn:userTask>
 
     <bpmn:serviceTask
         id="update_address"
         name="Update Driving Licence Address">
-      <bpmn:documentation>
-  {
-    "service": {
-      "type": "http",
-      "method": "POST",
-      "endpoint": "/app/dvla/v1/licence/address",
-      "request_body": {
-        "address": {
-          "line1": "${address_line_1}",
-          "town": "${town}",
-          "postcode": "${postcode}"
-        },
-        "photo_id": "${selected_photo.photo_id}"
-      },
-      "result_variable": "address_update"
-    }
-  }
-      </bpmn:documentation>
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="http"/>
+
+        <meta:httpService
+            method="POST"
+            endpoint="/app/dvla/v1/licence/address">
+
+            <meta:input
+                source="address.line1"
+                target="address.line1"/>
+
+            <meta:input
+                source="address.town"
+                target="address.town"/>
+
+            <meta:input
+                source="address.postcode"
+                target="address.postcode"/>
+
+            <meta:input
+                source="selected_photo_id"
+                target="photo_id"/>
+
+            <meta:output
+                source="response.job_id"
+                target="address_update.job_id"/>
+
+            <meta:output
+                source="response.status"
+                target="address_update.status"/>
+
+        </meta:httpService>
+
+        </bpmn:extensionElements>
+
     </bpmn:serviceTask>
 
+    <bpmn:boundaryEvent
+        id="update_address_error"
+        name="Address Update Failed"
+        attachedToRef="update_address">
+
+        <bpmn:errorEventDefinition
+            errorRef="ServiceError"/>
+
+    </bpmn:boundaryEvent>
+
+    <bpmn:manualTask
+        id="manual_review"
+        name="Manual Review">
+
+        <bpmn:extensionElements>
+
+        <meta:taskHandler type="manual"/>
+
+        <meta:manualReview
+            queue="dvla-review"
+            priority="high"
+            category="address-change"/>
+
+        </bpmn:extensionElements>
+
+    </bpmn:manualTask>
+
     <bpmn:endEvent
-        id="end"
-        name="Address Updated" />
+        id="end_success"
+        name="Address Updated"/>
 
-    <bpmn:sequenceFlow
-        id="f1"
-        sourceRef="start"
-        targetRef="provide_details" />
+    <bpmn:endEvent
+        id="end_manual_review"
+        name="Transferred To Manual Processing"/>
 
-    <bpmn:sequenceFlow
-        id="f2"
-        sourceRef="provide_details"
-        targetRef="check_photo_validity" />
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="provide_details"/>
 
-    <bpmn:sequenceFlow
-        id="f3"
-        sourceRef="check_photo_validity"
-        targetRef="photo_valid_gateway" />
+    <bpmn:sequenceFlow id="f2" sourceRef="provide_details" targetRef="check_photo_validity"/>
+
+    <bpmn:sequenceFlow id="f3" sourceRef="check_photo_validity" targetRef="photo_valid_gateway"/>
 
     <bpmn:sequenceFlow
         id="f4"
         sourceRef="photo_valid_gateway"
-        targetRef="provide_address">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">selected_photo["expired"] == False</bpmn:conditionExpression>
+        targetRef="map_existing_photo">
+
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">not photo_validation["expired"]</bpmn:conditionExpression>
+
     </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow
+        id="f4a"
+        sourceRef="map_existing_photo"
+        targetRef="photo_selected_gateway"/>
 
     <bpmn:sequenceFlow
         id="f5"
         sourceRef="photo_valid_gateway"
         targetRef="upload_photo">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">selected_photo["expired"] == True</bpmn:conditionExpression>
+
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">photo_validation["expired"]</bpmn:conditionExpression>
+
     </bpmn:sequenceFlow>
 
-    <bpmn:sequenceFlow
-        id="f6"
-        sourceRef="upload_photo"
-        targetRef="validate_photo" />
+    <bpmn:sequenceFlow id="f6" sourceRef="upload_photo" targetRef="validate_photo"/>
+
+    <bpmn:sequenceFlow id="f7" sourceRef="validate_photo" targetRef="map_uploaded_photo"/>
 
     <bpmn:sequenceFlow
-        id="f7"
-        sourceRef="validate_photo"
-        targetRef="provide_address" />
+        id="f7a"
+        sourceRef="map_uploaded_photo"
+        targetRef="photo_selected_gateway"/>
 
     <bpmn:sequenceFlow
         id="f8"
+        sourceRef="photo_selected_gateway"
+        targetRef="provide_address"/>
+
+    <bpmn:sequenceFlow
+        id="f8a"
         sourceRef="provide_address"
-        targetRef="update_address" />
+        targetRef="update_address"/>
 
     <bpmn:sequenceFlow
         id="f9"
         sourceRef="update_address"
-        targetRef="end" />
+        targetRef="end_success"/>
 
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_change_address">
-    <bpmndi:BPMNPlane id="BPMNPlane_change_address" bpmnElement="change_address">
-      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start">
-        <dc:Bounds x="150" y="110" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="156" y="146" width="24" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_provide_details" bpmnElement="provide_details">
-        <dc:Bounds x="250" y="85" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_check_photo_validity" bpmnElement="check_photo_validity">
-        <dc:Bounds x="470" y="85" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_photo_valid_gateway" bpmnElement="photo_valid_gateway" isMarkerVisible="true">
-        <dc:Bounds x="710" y="100" width="50" height="50" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="697" y="150" width="76" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_upload_photo" bpmnElement="upload_photo">
-        <dc:Bounds x="890" y="250" width="160" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_validate_photo" bpmnElement="validate_photo">
-        <dc:Bounds x="1130" y="250" width="180" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_provide_address" bpmnElement="provide_address">
-        <dc:Bounds x="1130" y="77" width="180" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_update_address" bpmnElement="update_address">
-        <dc:Bounds x="1390" y="77" width="180" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_end" bpmnElement="end">
-        <dc:Bounds x="1662" y="99" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1638" y="135" width="85" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Edge_f1" bpmnElement="f1">
-        <di:waypoint x="186" y="128" />
-        <di:waypoint x="250" y="125" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f2" bpmnElement="f2">
-        <di:waypoint x="390" y="125" />
-        <di:waypoint x="470" y="125" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f3" bpmnElement="f3">
-        <di:waypoint x="630" y="125" />
-        <di:waypoint x="710" y="125" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f4" bpmnElement="f4">
-        <di:waypoint x="758" y="123" />
-        <di:waypoint x="1130" y="123" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f5" bpmnElement="f5">
-        <di:waypoint x="760" y="125" />
-        <di:waypoint x="830" y="125" />
-        <di:waypoint x="830" y="290" />
-        <di:waypoint x="890" y="290" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f6" bpmnElement="f6">
-        <di:waypoint x="1050" y="290" />
-        <di:waypoint x="1130" y="290" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f7" bpmnElement="f7">
-        <di:waypoint x="1220" y="250" />
-        <di:waypoint x="1220" y="157" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f8" bpmnElement="f8">
-        <di:waypoint x="1310" y="117" />
-        <di:waypoint x="1390" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_f9" bpmnElement="f9">
-        <di:waypoint x="1570" y="117" />
-        <di:waypoint x="1662" y="117" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
+    <bpmn:sequenceFlow
+        id="err1"
+        sourceRef="check_photo_error"
+        targetRef="manual_review"/>
+
+    <bpmn:sequenceFlow
+        id="err2"
+        sourceRef="validate_photo_error"
+        targetRef="manual_review"/>
+
+    <bpmn:sequenceFlow
+        id="err3"
+        sourceRef="update_address_error"
+        targetRef="manual_review"/>
+
+    <bpmn:sequenceFlow
+        id="err4"
+        sourceRef="manual_review"
+        targetRef="end_manual_review"/>
+
+    </bpmn:process>
+
 </bpmn:definitions>

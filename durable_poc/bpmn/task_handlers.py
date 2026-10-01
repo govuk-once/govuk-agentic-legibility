@@ -1,39 +1,121 @@
 """
 Task execution handlers for the generic BPMN workflow runner.
 
-This module provides implementations for executing BPMN task types
-encountered during workflow execution.
-
-The BPMN definition controls workflow progression and determines
-which task should execute next. These handlers provide the runtime
-implementation for specific task types:
-
-* User Tasks
-    - Collect data from a user.
-    - Validate and transform inputs.
-    - Store results in workflow data.
-
-* Service Tasks
-    - Invoke external HTTP services.
-    - Build request payloads from workflow data.
-    - Persist service responses back into workflow state.
+The BPMN definition controls workflow progression while these
+handlers provide runtime implementations for executable tasks.
 """
+
+from __future__ import annotations
+
+from SpiffWorkflow.task import TaskState
 
 import json
 import logging
 import os
+import time
+from copy import deepcopy
 from typing import Any
 
 import requests
 
 from bpmn.helper import (
+    apply_mappings,
+    apply_output_mappings,
+    build_request_payload,
     get_metadata,
-    interpolate_object,
     interpolate_string,
     process_file_field,
+    set_nested_value,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_executable_tasks(
+    workflow: Any,
+) -> list[Any]:
+    """
+    Return BPMN tasks ready for execution.
+
+    Internal Spiff-generated tasks are excluded.
+    """
+
+    executable: list[Any] = []
+
+    for task in workflow.get_tasks():
+
+        if task.task_spec.bpmn_id is None:
+            continue
+
+        if task.has_state(TaskState.READY) or task.has_state(TaskState.STARTED):
+            executable.append(task)
+
+    return executable
+
+
+def execute_mapping_task(
+    task: Any,
+) -> None:
+    """
+    Execute a BPMN mapping task.
+    """
+
+    metadata = get_metadata(task)
+
+    mapping = metadata.get(
+        "mapping",
+        {},
+    )
+
+    outputs = mapping.get(
+        "outputs",
+        [],
+    )
+
+    workflow_updates = deepcopy(
+        task.data,
+    )
+
+    apply_mappings(
+        workflow_updates,
+        outputs,
+    )
+
+    task.set_data(
+        **workflow_updates,
+    )
+
+    task.complete()
+
+    logger.info(
+        "Completed mapping task: %s",
+        task.task_spec.name,
+    )
+
+
+def execute_manual_task(
+    task: Any,
+) -> None:
+    """
+    Execute a BPMN Manual Task.
+    """
+
+    logger.warning(
+        "Manual processing required: %s",
+        task.task_spec.name,
+    )
+
+    input(
+        "\nManual processing required."
+        "\nPress Enter when complete..."
+    )
+
+    task.complete()
+
+    logger.info(
+        "Manual task completed: %s",
+        task.task_spec.name,
+    )
 
 
 def execute_user_task(
@@ -41,80 +123,93 @@ def execute_user_task(
 ) -> None:
     """
     Execute a BPMN User Task.
-
-    The task definition is expected to contain metadata describing
-    the form fields that should be presented to the user.
-
-    User input is collected, optionally transformed, and stored
-    within task data before the task is completed.
-
-    Supported field types include:
-
-    * text
-    * number
-    * boolean
-    * file
-
-    Args:
-        task:
-            User task being executed.
-
-    Raises:
-        Exception:
-            Any unexpected errors encountered while collecting
-            or processing user input.
     """
+
     try:
+
         metadata = get_metadata(task)
+
+        form = metadata.get(
+            "form",
+            {},
+        )
+
+        fields = form.get(
+            "fields",
+            [],
+        )
 
         logger.info(
             "Executing user task: %s",
             task.task_spec.name,
         )
 
-        form = metadata.get("form", {})
-        fields = form.get("fields", [])
-
-        values: dict[str, Any] = {}
-
         if not fields:
-            input("Press Enter to complete task...")
+
+            input(
+                "Press Enter to complete task..."
+            )
 
             task.complete()
 
-            logger.info(
-                "Completed user task: %s",
-                task.task_spec.name,
-            )
-
             return
 
+        workflow_updates: dict[str, Any] = {}
+
         for field in fields:
-            field_id = field.get("id")
+
+            field_id = field.get(
+                "id",
+            )
+
+            variable = field.get(
+                "variable",
+                field_id,
+            )
 
             label = field.get(
                 "label",
                 field_id,
             )
 
-            required = field.get(
-                "required",
-                False,
+            required = (
+                str(
+                    field.get(
+                        "required",
+                        False,
+                    )
+                ).lower()
+                == "true"
+            )
+
+            field_type = field.get(
+                "type",
+                "string",
             )
 
             while True:
-                value = input(f"{label}: ").strip()
 
-                if field.get("type") == "file":
+                value = input(
+                    f"{label}: "
+                ).strip()
+
+                if field_type == "file":
+
                     try:
-                        value = process_file_field(value)
+
+                        value = process_file_field(
+                            value,
+                        )
+
                         break
 
                     except Exception:
+
                         logger.exception(
-                            "Failed to process file field '%s'",
+                            "Failed processing file '%s'",
                             field_id,
                         )
+
                         continue
 
                 if value or not required:
@@ -125,14 +220,21 @@ def execute_user_task(
                     field_id,
                 )
 
-            values[field_id] = value
+            set_nested_value(
+                workflow_updates,
+                variable,
+                value,
+            )
 
-        if values:
-            task.set_data(**values)
+        if workflow_updates:
 
             logger.debug(
-                "Stored user task data: %s",
-                values,
+                "Workflow updates: %s",
+                workflow_updates,
+            )
+
+            task.set_data(
+                **workflow_updates,
             )
 
         task.complete()
@@ -143,10 +245,12 @@ def execute_user_task(
         )
 
     except Exception:
+
         logger.exception(
-            "Failed to execute user task: %s",
+            "Failed user task: %s",
             task.task_spec.name,
         )
+
         raise
 
 
@@ -154,134 +258,179 @@ def execute_service_task(
     task: Any,
 ) -> None:
     """
-    Execute a BPMN Service Task.
-
-    Service task configuration is loaded from task metadata and
-    used to construct an HTTP request.
-
-    Request payloads may contain workflow variables which are
-    dynamically interpolated before the request is sent.
-
-    Supported HTTP methods:
-
-    * GET
-    * POST
-
-    The response is optionally stored in workflow data using
-    the configured result variable.
-
-    Args:
-        task:
-            Service task being executed.
-
-    Raises:
-        RuntimeError:
-            Raised when:
-
-            * No endpoint is configured.
-            * An unsupported HTTP method is specified.
-            * The request fails.
-            * A non-success response is returned.
+    Execute a BPMN HTTP service task.
     """
+
     try:
+
         metadata = get_metadata(task)
+
+        service = metadata.get(
+            "httpService",
+            {},
+        )
 
         logger.info(
             "Executing service task: %s",
             task.task_spec.name,
         )
 
-        service = metadata.get(
-            "service",
-            {},
+        endpoint = service.get(
+            "endpoint",
         )
 
-        method = service.get(
-            "method",
-            "GET",
-        )
+        if not endpoint:
 
-        endpoint = service.get("endpoint")
-
-        if endpoint:
-            endpoint = interpolate_string(
-                endpoint,
-                task.data,
+            raise RuntimeError(
+                f"No endpoint configured for "
+                f"{task.task_spec.name}"
             )
 
-        result_variable = service.get("result_variable")
+        endpoint = interpolate_string(
+            endpoint,
+            task.data,
+        )
 
         base_url = os.environ.get(
             "API_BASE_URL",
             "http://DvlaMo-MockS-FSSFl9ywaoQu-392957609.eu-west-2.elb.amazonaws.com",
         )
 
-        if not endpoint:
-            raise RuntimeError(
-                f"Service task {task.task_spec.name} does not define an endpoint"
-            )
-
-        url = f"{base_url.rstrip('/')}/{endpoint.lstrip('/')}"
-
-        logger.info(
-            "HTTP %s %s",
-            method,
-            url,
+        url = (
+            f"{base_url.rstrip('/')}"
+            f"/{endpoint.lstrip('/')}"
         )
 
-        payload: dict[str, Any] = {}
+        method = service.get(
+            "method",
+            "GET",
+        ).upper()
 
-        try:
-            payload = task.data
+        timeout_cfg = service.get(
+            "timeout",
+            {},
+        )
 
-        except Exception:
-            logger.exception("Failed to retrieve workflow data")
+        timeout = 30
 
-        request_body = service.get("request_body")
+        duration = timeout_cfg.get(
+            "duration",
+        )
 
-        if request_body:
-            payload = interpolate_object(
-                request_body,
-                task.data,
+        if (
+            isinstance(duration, str)
+            and duration.startswith("PT")
+            and duration.endswith("S")
+        ):
+            timeout = int(
+                duration[2:-1]
             )
 
+        retry = service.get(
+            "retry",
+            {},
+        )
+
+        attempts = int(
+            retry.get(
+                "attempts",
+                1,
+            )
+        )
+
+        backoff = int(
+            retry.get(
+                "backoffSeconds",
+                0,
+            )
+        )
+
+        payload = build_request_payload(
+            service.get(
+                "inputs",
+                [],
+            ),
+            task.data,
+        )
+
         try:
+
             logger.debug(
-                "Request payload:\n%s",
+                "Payload:\n%s",
                 json.dumps(
                     payload,
                     indent=2,
                     default=str,
                 ),
             )
+
         except Exception:
+
             logger.debug(
-                "Request payload: %s",
+                "Payload: %s",
                 payload,
             )
 
-        try:
-            if method.upper() == "GET":
-                response = requests.get(
+        response = None
+
+        for attempt in range(
+            attempts,
+        ):
+
+            try:
+
+                logger.info(
+                    "HTTP %s %s "
+                    "(attempt %s/%s)",
+                    method,
                     url,
-                    params=payload,
-                    timeout=30,
+                    attempt + 1,
+                    attempts,
                 )
 
-            elif method.upper() == "POST":
-                response = requests.post(
-                    url,
-                    json=payload,
-                    timeout=30,
+                if method == "GET":
+
+                    response = requests.get(
+                        url,
+                        params=payload,
+                        timeout=timeout,
+                    )
+
+                elif method == "POST":
+
+                    response = requests.post(
+                        url,
+                        json=payload,
+                        timeout=timeout,
+                    )
+
+                else:
+
+                    raise RuntimeError(
+                        f"Unsupported method: "
+                        f"{method}"
+                    )
+
+                break
+
+            except requests.RequestException:
+
+                logger.exception(
+                    "HTTP request failed"
                 )
 
-            else:
-                raise RuntimeError(f"Unsupported method: {method}")
+                if attempt >= attempts - 1:
+                    raise
 
-        except requests.RequestException as ex:
-            logger.exception("HTTP request failed")
+                time.sleep(
+                    backoff,
+                )
 
-            raise RuntimeError(f"HTTP request failed: {ex}") from ex
+        if response is None:
+
+            raise RuntimeError(
+                "No response received"
+            )
 
         logger.info(
             "Response: %s %s",
@@ -289,39 +438,27 @@ def execute_service_task(
             response.reason,
         )
 
-        logger.debug(
-            "Raw response:\n%s",
-            response.text,
-        )
-
         if not response.ok:
+
             raise RuntimeError(
-                f"""
-                Service task failed
-
-                Task:
-                {task.task_spec.name}
-
-                Status:
-                {response.status_code}
-
-                Request Payload:
-                {json.dumps(payload, indent=2, default=str)}
-
-                Response:
-                {response.text}
-                """
+                f"Service task failed "
+                f"({response.status_code})"
             )
 
         try:
+
             result = response.json()
 
         except Exception:
-            result = response.text
+
+            result = {
+                "value": response.text,
+            }
 
         try:
+
             logger.debug(
-                "Parsed response:\n%s",
+                "Response payload:\n%s",
                 json.dumps(
                     result,
                     indent=2,
@@ -330,34 +467,28 @@ def execute_service_task(
             )
 
         except Exception:
+
             logger.debug(
-                "Parsed response: %s",
+                "Response payload: %s",
                 result,
             )
 
-        if result_variable:
-            logger.info(
-                "Updating workflow variable '%s'",
-                result_variable,
-            )
+        workflow_updates = deepcopy(
+            task.data,
+        )
 
-            task.set_data(**{result_variable: result})
+        apply_output_mappings(
+            workflow_updates,
+            result,
+            service.get(
+                "outputs",
+                [],
+            ),
+        )
 
-        try:
-            logger.debug(
-                "Task data after update:\n%s",
-                json.dumps(
-                    task.data,
-                    indent=2,
-                    default=str,
-                ),
-            )
-
-        except Exception:
-            logger.debug(
-                "Task data after update: %s",
-                task.data,
-            )
+        task.set_data(
+            **workflow_updates,
+        )
 
         task.complete()
 
@@ -367,10 +498,12 @@ def execute_service_task(
         )
 
     except Exception:
+
         logger.exception(
-            "Failed to execute service task: %s",
+            "Failed service task: %s",
             task.task_spec.name,
         )
+
         raise
 
 
@@ -379,45 +512,56 @@ def execute_task(
 ) -> None:
     """
     Execute a workflow task.
-
-    This dispatcher determines the task type and routes execution
-    to the appropriate handler implementation.
-
-    Currently supported task types are:
-
-    * UserTask
-    * ServiceTask
-
-    Any other task types are delegated back to the workflow engine
-    via the task's native run() implementation.
-
-    Args:
-        task:
-            Task selected for execution.
-
-    Raises:
-        Exception:
-            Any exception raised by the underlying handler is
-            propagated to the caller.
     """
-    try:
-        spec_name = task.task_spec.__class__.__name__
 
-        logger.info(
-            "Executing task '%s' (%s)",
-            task.task_spec.name,
-            spec_name,
+    try:
+
+        metadata = get_metadata(
+            task,
         )
 
-        if "UserTask" in spec_name:
+        handler_type = (
+            metadata.get(
+                "taskHandler",
+                {},
+            )
+            .get("type")
+        )
+
+        logger.info(
+            "Executing task '%s' "
+            "(handler=%s)",
+            task.task_spec.name,
+            handler_type,
+        )
+
+        if handler_type == "manual":
+
+            execute_manual_task(
+                task,
+            )
+
+            return
+
+        if handler_type == "form":
+
             execute_user_task(
                 task,
             )
 
             return
 
-        if "ServiceTask" in spec_name:
+        if handler_type == "http":
+
             execute_service_task(
+                task,
+            )
+
+            return
+
+        if handler_type == "mapping":
+
+            execute_mapping_task(
                 task,
             )
 
@@ -431,8 +575,10 @@ def execute_task(
         task.run()
 
     except Exception:
+
         logger.exception(
             "Task execution failed: %s",
             task.task_spec.name,
         )
+
         raise
