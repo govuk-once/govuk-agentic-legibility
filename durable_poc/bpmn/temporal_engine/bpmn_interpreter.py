@@ -1,0 +1,782 @@
+"""
+Temporal BPMN workflow interpreter.
+
+Supported BPMN elements:
+
+- StartEvent
+- UserTask
+- ServiceTask
+- ExclusiveGateway
+- TimerEvent
+- CallActivity
+- ManualTask
+- EndEvent
+
+Supported metadata:
+
+- meta:form
+- meta:httpService
+- meta:mapping
+- meta:manualReview
+- meta:taskHandler
+
+TODO:
+- BoundaryEvent support
+- Continue-As-New
+- Input validation
+- OpenTelemetry spans
+- Retry config from BPMN
+- CallActivity input mappings
+- CallActivity output mappings
+- ParallelGateway
+- Transcript support
+"""
+
+import asyncio
+from copy import deepcopy
+from datetime import timedelta
+from typing import Any
+
+from temporalio import workflow
+from temporalio.common import RetryPolicy
+
+from bpmn.temporal_engine.bpmn_model import (
+    BPMNDefinition,
+    BPMNProcess,
+    CallActivity,
+    EndEvent,
+    ExclusiveGateway,
+    ManualTask,
+    ServiceTask,
+    StartEvent,
+    TimerEvent,
+    UserTask,
+    HttpRequest,
+)
+
+from bpmn.temporal_engine.context import (
+    AwaitingInput,
+    InputSubmission,
+    InterpreterState,
+    StackFrame,
+)
+
+from bpmn.temporal_engine.paths import (
+    interpolate,
+    parse_duration,
+    resolve_path,
+    set_path,
+)
+
+
+@workflow.defn
+class BPMNInterpreter:
+    def __init__(self) -> None:
+
+        self.definition: BPMNDefinition | None = None
+
+        self.state = InterpreterState()
+
+        self._awaiting_input: AwaitingInput | None = None
+
+        self._received_input: Any = None
+
+        self._input_ready_event = asyncio.Event()
+
+    #
+    # Helpers
+    #
+
+    def _handle_boundary_error(
+        self,
+        process: BPMNProcess,
+        task_id: str,
+        frame: StackFrame,
+        exc: Exception,
+    ) -> bool:
+        """
+        Route execution via an attached boundary event.
+
+        Returns True if handled.
+        """
+
+        for node in process.nodes.values():
+            if (
+                getattr(node, "type", None) == "boundaryEvent"
+                and getattr(node, "attached_to_ref", None) == task_id
+            ):
+                outgoing = process.outgoing_flows(
+                    node.id,
+                )
+
+                if outgoing:
+                    workflow.logger.warning(
+                        f"Boundary event triggered for '{task_id}': {exc}"
+                    )
+
+                    frame.state_id = outgoing[0].target_ref
+
+                    return True
+
+        return False
+
+    def _evaluate_expression(
+        self,
+        expression: str,
+        variables: dict[str, Any],
+    ) -> bool:
+
+        try:
+            context = deepcopy(
+                variables,
+            )
+
+            return bool(
+                eval(
+                    expression,
+                    {},
+                    context,
+                )
+            )
+
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed evaluating BPMN expression '{expression}'"
+            ) from exc
+
+    def _apply_output_mappings(
+        self,
+        variables: dict[str, Any],
+        outputs: list[dict[str, Any]],
+    ) -> None:
+
+        for mapping in outputs:
+            source = mapping["source"]
+
+            target = mapping["target"]
+
+            value = resolve_path(
+                variables,
+                source,
+            )
+
+            set_path(
+                variables,
+                target,
+                value,
+            )
+
+    def _move_to_next_node(
+        self,
+        process: BPMNProcess,
+        node_id: str,
+        frame: StackFrame,
+    ) -> None:
+
+        next_node = process.get_single_next_node_id(
+            node_id,
+        )
+
+        workflow.logger.info(f"Transition {process.id}:{node_id} -> {next_node}")
+
+        frame.state_id = next_node
+
+    def _record_activity(
+        self,
+        process_id: str,
+        node: Any,
+    ) -> None:
+
+        self.state.activity_history.append(
+            {
+                "step": self.state.step_counter,
+                "process_id": process_id,
+                "id": node.id,
+                "name": node.name,
+                "type": node.__class__.__name__,
+            }
+        )
+
+    #
+    # Workflow Entry
+    #
+
+    @workflow.run
+    async def run(
+        self,
+        definition_dict: dict[str, Any],
+        initial_state: (InterpreterState | None) = None,
+    ) -> dict[str, Any]:
+
+        self.definition = BPMNDefinition.model_validate(
+            definition_dict,
+        )
+
+        workflow.logger.info(
+            f"Loaded BPMN definition {self.definition.id} v{self.definition.version}"
+        )
+
+        if initial_state:
+            self.state = initial_state
+            workflow.logger.info(
+                f"Resuming workflow with {len(initial_state.frames)} frame(s)"
+            )
+
+        else:
+            process = self.definition.processes[self.definition.entry]
+
+            workflow.logger.info(f"Starting process {process.id}")
+
+            self.state.frames.append(
+                StackFrame(
+                    process_id=process.id,
+                    state_id=process.start_event,
+                    vars=deepcopy(process.variables),
+                )
+            )
+
+        while self.state.frames:
+            await asyncio.sleep(0)
+
+            self.state.step_counter += 1
+
+            workflow.logger.info(f"Frame depth={len(self.state.frames)}")
+
+            frame = self.state.frames[-1]
+
+            process = self.definition.processes[frame.process_id]
+
+            current_node = process.get_node(
+                frame.state_id,
+            )
+
+            self._record_activity(
+                process.id,
+                current_node,
+            )
+
+            workflow.logger.info(
+                f"[Step {self.state.step_counter}] "
+                f"[{process.id}:{current_node.id}] "
+                f"({type(current_node).__name__})"
+            )
+
+            #
+            # StartEvent
+            #
+
+            if isinstance(
+                current_node,
+                StartEvent,
+            ):
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                continue
+
+            #
+            # UserTask
+            #
+
+            if isinstance(
+                current_node,
+                UserTask,
+            ):
+                workflow.logger.info(f"Waiting for user input at {current_node.id}")
+
+                token = f"tkn_{self.state.step_counter}"
+
+                form = current_node.metadata.get(
+                    "form",
+                    {},
+                )
+
+                self._awaiting_input = AwaitingInput(
+                    token=token,
+                    prompt=form.get(
+                        "title",
+                        current_node.name or current_node.id,
+                    ),
+                    schema=form,
+                    options=None,
+                    timeout_seconds=None,
+                    state_id=current_node.id,
+                    state_type="UserTask",
+                )
+
+                self._received_input = None
+
+                self._input_ready_event.clear()
+
+                await workflow.wait_condition(lambda: self._input_ready_event.is_set())
+
+                workflow.logger.info(f"Received user input for {current_node.id}")
+
+                if not isinstance(
+                    self._received_input,
+                    dict,
+                ):
+                    raise RuntimeError(
+                        f"UserTask '{current_node.id}' requires object input"
+                    )
+
+                for field in form.get(
+                    "fields",
+                    [],
+                ):
+                    variable = field.get(
+                        "variable",
+                    )
+
+                    field_id = field.get(
+                        "id",
+                    )
+
+                    workflow.logger.info(f"Field mapping {field_id} -> {variable}")
+
+                    if variable and field_id and field_id in self._received_input:
+                        workflow.logger.info(f"Setting variable {variable}")
+
+                        set_path(
+                            frame.vars,
+                            variable,
+                            self._received_input[field_id],
+                        )
+
+                self._awaiting_input = None
+
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                continue
+
+            #
+            # ManualTask
+            #
+
+            if isinstance(
+                current_node,
+                ManualTask,
+            ):
+                token = f"manual_{self.state.step_counter}"
+
+                review_config = current_node.metadata.get(
+                    "manualReview",
+                    {},
+                )
+
+                self._awaiting_input = AwaitingInput(
+                    token=token,
+                    prompt=current_node.name or "Manual Review",
+                    schema={
+                        "kind": "manual_review",
+                        "review": review_config,
+                    },
+                    options=None,
+                    timeout_seconds=None,
+                    state_id=current_node.id,
+                    state_type="ManualTask",
+                )
+
+                self._received_input = None
+
+                self._input_ready_event.clear()
+
+                await workflow.wait_condition(lambda: self._input_ready_event.is_set())
+
+                self._awaiting_input = None
+
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                continue
+
+            #
+            # ServiceTask
+            #
+
+            if isinstance(
+                current_node,
+                ServiceTask,
+            ):
+                workflow.logger.info(f"Executing ServiceTask {current_node.id}")
+
+                handler = current_node.metadata.get(
+                    "taskHandler",
+                    {},
+                ).get(
+                    "type",
+                )
+
+                workflow.logger.info(f"Handler type: {handler}")
+
+                if handler == "http":
+                    service = current_node.metadata["httpService"]
+
+                    endpoint = interpolate(
+                        service["endpoint"],
+                        frame.vars,
+                    )
+
+                    request_payload = {}
+
+                    for mapping in service.get(
+                        "inputs",
+                        [],
+                    ):
+                        workflow.logger.info(
+                            f"Input mapping {mapping['source']} -> {mapping['target']}"
+                        )
+
+                        value = resolve_path(
+                            frame.vars,
+                            mapping["source"],
+                        )
+
+                        set_path(
+                            request_payload,
+                            mapping["target"],
+                            value,
+                        )
+
+                    workflow.logger.info(f"HTTP {service['method']} {endpoint}")
+
+                    workflow.logger.info(f"Request payload: {request_payload}")
+
+                    try:
+                        result = await workflow.execute_activity(
+                            "http_call",
+                            HttpRequest(
+                                service=service["service"],
+                                method=service["method"],
+                                endpoint=endpoint,
+                                body=request_payload,
+                            ),
+                            start_to_close_timeout=(
+                                timedelta(
+                                    seconds=30,
+                                )
+                            ),
+                            retry_policy=RetryPolicy(
+                                maximum_attempts=3,
+                            ),
+                        )
+
+                    except Exception as exc:
+                        handled = self._handle_boundary_error(
+                            process,
+                            current_node.id,
+                            frame,
+                            exc,
+                        )
+
+                        if handled:
+                            continue
+
+                        raise
+
+                    workflow.logger.info(
+                        f"HTTP activity completed for {current_node.id}"
+                    )
+
+                    temp_context = deepcopy(
+                        frame.vars,
+                    )
+
+                    temp_context["response"] = result
+
+                    for mapping in service.get(
+                        "outputs",
+                        [],
+                    ):
+                        workflow.logger.info(
+                            f"Output mapping {mapping['source']} -> {mapping['target']}"
+                        )
+
+                        value = resolve_path(
+                            temp_context,
+                            mapping["source"],
+                        )
+
+                        set_path(
+                            frame.vars,
+                            mapping["target"],
+                            value,
+                        )
+
+                elif handler == "mapping":
+                    workflow.logger.info(f"Executing mapping task {current_node.id}")
+
+                    mapping = current_node.metadata["mapping"]
+
+                    self._apply_output_mappings(
+                        frame.vars,
+                        mapping.get(
+                            "outputs",
+                            [],
+                        ),
+                    )
+
+                else:
+                    raise RuntimeError(f"Unsupported task handler: {handler}")
+
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                continue
+
+            #
+            # TimerEvent
+            #
+
+            if isinstance(
+                current_node,
+                TimerEvent,
+            ):
+                workflow.logger.info(f"Waiting on timer {current_node.duration}")
+
+                await workflow.sleep(
+                    parse_duration(
+                        current_node.duration,
+                    )
+                )
+
+                workflow.logger.info(f"Timer completed {current_node.id}")
+
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                continue
+
+            #
+            # ExclusiveGateway
+            #
+
+            if isinstance(
+                current_node,
+                ExclusiveGateway,
+            ):
+                workflow.logger.info(f"Evaluating gateway {current_node.id}")
+
+                outgoing = process.outgoing_flows(
+                    current_node.id,
+                )
+
+                #
+                # Gateway merge
+                #
+                if len(outgoing) == 1:
+                    workflow.logger.info(f"Gateway merge {current_node.id}")
+
+                    frame.state_id = outgoing[0].target_ref
+
+                    continue
+
+                matched = False
+
+                for flow in outgoing:
+                    if flow.condition is None:
+                        continue
+
+                    if self._evaluate_expression(
+                        flow.condition,
+                        frame.vars,
+                    ):
+                        workflow.logger.info(f"Gateway matched flow {flow.id}")
+
+                        frame.state_id = flow.target_ref
+
+                        matched = True
+
+                        break
+
+                if matched:
+                    continue
+
+                default_flow = next(
+                    (f for f in outgoing if f.is_default),
+                    None,
+                )
+
+                if default_flow:
+                    workflow.logger.info(
+                        f"Gateway taking default flow {default_flow.id}"
+                    )
+
+                    frame.state_id = default_flow.target_ref
+
+                    continue
+
+                raise RuntimeError(f"No matching path for gateway {current_node.id}")
+
+            #
+            # CallActivity
+            #
+
+            if isinstance(
+                current_node,
+                CallActivity,
+            ):
+                workflow.logger.info(
+                    f"Invoking subprocess {current_node.called_element}"
+                )
+
+                child_process = self.definition.processes.get(
+                    current_node.called_element
+                )
+
+                if child_process is None:
+                    raise RuntimeError(
+                        f"Process '{current_node.called_element}' not found"
+                    )
+
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                child_frame = StackFrame(
+                    process_id=child_process.id,
+                    state_id=child_process.start_event,
+                    vars=deepcopy(child_process.variables),
+                    invoker_state=current_node.id,
+                )
+
+                #
+                # TODO:
+                # CallActivity input mappings
+                #
+
+                self.state.frames.append(
+                    child_frame,
+                )
+
+                workflow.logger.info(f"Pushed subprocess frame {child_process.id}")
+
+                continue
+
+            #
+            # EndEvent
+            #
+
+            if isinstance(
+                current_node,
+                EndEvent,
+            ):
+                workflow.logger.info(f"Reached end event {current_node.id}")
+
+                completed = self.state.frames.pop()
+
+                workflow.logger.info(f"Process completed {completed.process_id}")
+
+                #
+                # TODO:
+                # CallActivity output mappings
+                #
+
+                if self.state.frames:
+                    workflow.logger.info("Returning to parent process")
+
+                    continue
+
+                workflow.logger.info("Workflow completed")
+
+                return {
+                    "status": current_node.status,
+                    "outcome": current_node.outcome,
+                    "variables": completed.vars,
+                }
+
+            raise RuntimeError(
+                f"Unsupported BPMN node type {type(current_node).__name__}"
+            )
+
+    @workflow.update
+    async def submit_input(
+        self,
+        msg: InputSubmission,
+    ) -> None:
+
+        workflow.logger.info(f"Input update received token={msg.token}")
+
+        #
+        # TODO:
+        # Port validation logic from
+        # SFSMInterpreter
+        #
+
+        if self._awaiting_input is None:
+            raise ValueError("Workflow is not awaiting input")
+
+        if msg.token != self._awaiting_input.token:
+            raise ValueError("Invalid input token")
+
+        workflow.logger.info(f"Input received token={msg.token}")
+
+        self._received_input = msg.value
+
+        self._input_ready_event.set()
+
+    @workflow.query
+    def awaiting(
+        self,
+    ) -> AwaitingInput | None:
+
+        return self._awaiting_input
+
+    @workflow.query
+    def current_state_info(
+        self,
+    ) -> dict[str, Any] | None:
+
+        if not self.state.frames:
+            return None
+
+        frame = self.state.frames[-1]
+
+        return {
+            "process_id": frame.process_id,
+            "state_id": frame.state_id,
+            "step": self.state.step_counter,
+        }
+
+    @workflow.query
+    def evaluation_checkpoint(
+        self,
+    ) -> dict[str, Any]:
+
+        return {
+            "current_state": self.current_state_info(),
+            "step_counter": self.state.step_counter,
+            "frames": [
+                {
+                    "process_id": frame.process_id,
+                    "state_id": frame.state_id,
+                    "vars": frame.vars,
+                }
+                for frame in self.state.frames
+            ],
+        }
+
+    @workflow.query
+    def get_activity_history(
+        self,
+    ) -> list[dict[str, Any]]:
+
+        return self.state.activity_history

@@ -121,6 +121,7 @@
 
         <meta:httpService
             method="GET"
+            service="dvla"
             endpoint="/app/dvla/v1/photo_expiry/${applicant.driving_licence_number}">
 
             <meta:retry
@@ -131,11 +132,11 @@
                 duration="PT30S"/>
 
             <meta:output
-                source="response.expired"
+                source="response.body.expired"
                 target="photo_validation.expired"/>
 
             <meta:output
-                source="response.photo_id"
+                source="response.body.photo_id"
                 target="photo_validation.photo_id"/>
 
         </meta:httpService>
@@ -218,18 +219,27 @@
 
         <meta:httpService
             method="POST"
+            service="dvla"
             endpoint="/app/dvla/v1/photo_validity">
 
             <meta:input
-                source="uploaded_file"
-                target="photo_data.content"/>
+                source="uploaded_file.name"
+                target="photo_data.name"/>
+
+            <meta:input
+                source="uploaded_file.bytes"
+                target="photo_data.bytes"/>
+
+            <meta:input
+                source="uploaded_file.content_type"
+                target="photo_data.content_type"/>
 
             <meta:output
-                source="response.photo_id"
+                source="response.body.photo_id"
                 target="uploaded_photo.photo_id"/>
 
             <meta:output
-                source="response.valid"
+                source="response.body.valid"
                 target="uploaded_photo.valid"/>
 
         </meta:httpService>
@@ -319,6 +329,7 @@
 
         <meta:httpService
             method="POST"
+            service="dvla"
             endpoint="/app/dvla/v1/licence/address">
 
             <meta:input
@@ -338,11 +349,11 @@
                 target="photo_id"/>
 
             <meta:output
-                source="response.job_id"
+                source="response.body.job_id"
                 target="address_update.job_id"/>
 
             <meta:output
-                source="response.status"
+                source="response.body.status"
                 target="address_update.status"/>
 
         </meta:httpService>
