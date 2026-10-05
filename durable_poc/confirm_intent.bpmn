@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="confirm_intent_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                 -->
+    <!-- ===================================================== -->
+
+    <bpmn:error
+        id="UserCancelled"
+        name="UserCancelled" />
+
+    <!-- ===================================================== -->
+    <!-- Process                                                -->
+    <!-- ===================================================== -->
+
+    <bpmn:process
+        id="confirm_intent"
+        name="Confirm Intent"
+        isExecutable="true">
+
+        <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Confirm Intent"
+                version="1.0.0"/>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================= -->
+        <!-- Start                                              -->
+        <!-- ================================================= -->
+
+        <bpmn:startEvent
+            id="start"
+            name="Start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
+
+        <!-- ================================================= -->
+        <!-- Confirm Intent                                     -->
+        <!-- ================================================= -->
+
+        <bpmn:userTask
+            id="confirm_intent_task"
+            name="Confirm Intent">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Driving Licence Change Of Address">
+
+                    <meta:field
+                        id="confirmed"
+                        variable="confirmed"
+                        label="Would you like to proceed with changing the address on your driving licence?"
+                        type="boolean"
+                        required="true"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
+
+        </bpmn:userTask>
+
+        <!-- ================================================= -->
+        <!-- Decision                                           -->
+        <!-- ================================================= -->
+
+        <bpmn:exclusiveGateway
+            id="intent_decision"
+            name="Intent Decision"
+            default="f_cancel">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+
+            <bpmn:outgoing>f_confirm</bpmn:outgoing>
+            <bpmn:outgoing>f_cancel</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================= -->
+        <!-- Success                                            -->
+        <!-- ================================================= -->
+
+        <bpmn:endEvent
+            id="end_confirmed"
+            name="Confirmed">
+
+            <bpmn:incoming>f_confirm</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================= -->
+        <!-- Cancelled                                          -->
+        <!-- ================================================= -->
+
+        <bpmn:endEvent
+            id="end_cancelled"
+            name="Cancelled">
+
+            <bpmn:errorEventDefinition
+                errorRef="UserCancelled"/>
+
+            <bpmn:incoming>f_cancel</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================= -->
+        <!-- Flows                                              -->
+        <!-- ================================================= -->
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="confirm_intent_task"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="confirm_intent_task"
+            targetRef="intent_decision"/>
+
+        <bpmn:sequenceFlow
+            id="f_confirm"
+            sourceRef="intent_decision"
+            targetRef="end_confirmed">
+
+            <bpmn:conditionExpression
+                xsi:type="bpmn:tFormalExpression">
+                confirmed == true
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_cancel"
+            sourceRef="intent_decision"
+            targetRef="end_cancelled"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

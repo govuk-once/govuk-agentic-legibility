@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="signature_update_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                 -->
+    <!-- ===================================================== -->
+
+    <bpmn:error
+        id="ApiFailure"
+        name="ApiFailure"/>
+
+    <!-- ===================================================== -->
+    <!-- Process                                                -->
+    <!-- ===================================================== -->
+
+    <bpmn:process
+        id="signature_update"
+        name="Signature Update"
+        isExecutable="true">
+
+        <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Signature Update"
+                version="1.0.0"/>
+
+            <meta:processContract>
+
+                <meta:input
+                    name="driver_id"
+                    type="string"
+                    required="true"/>
+
+                <meta:output
+                    name="signature_id"
+                    type="string"
+                    required="true"/>
+
+            </meta:processContract>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================== -->
+        <!-- Start                                               -->
+        <!-- ================================================== -->
+
+        <bpmn:startEvent
+            id="start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
+
+        <!-- ================================================== -->
+        <!-- Upload Signature                                    -->
+        <!-- ================================================== -->
+
+        <bpmn:userTask
+            id="upload_signature"
+            name="Upload Signature">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Upload Signature">
+
+                    <meta:field
+                        id="signature"
+                        variable="uploaded_signature"
+                        type="file"
+                        required="true"
+                        label="Upload your signature">
+
+                        <meta:fileConstraints
+                            maxSize="2097152"
+                            allowedTypes="image/png,image/jpeg"/>
+
+                    </meta:field>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <!-- ================================================== -->
+        <!-- Submit Signature                                    -->
+        <!-- ================================================== -->
+
+        <bpmn:serviceTask
+            id="submit_signature"
+            name="Submit Signature">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="POST"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/signature">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:input
+                        source="uploaded_signature"
+                        target="signature_content"/>
+
+                    <meta:output
+                        source="response.body.signature_id"
+                        target="signature_id"/>
+
+                    <meta:output
+                        source="response.body.code"
+                        target="response_code"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <!-- ================================================== -->
+        <!-- API Failure                                         -->
+        <!-- ================================================== -->
+
+        <bpmn:boundaryEvent
+            id="submit_signature_error"
+            attachedToRef="submit_signature"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Success                                             -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="success"
+            name="Signature Accepted">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- API Failure End                                     -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="api_failure_end"
+            name="API Failure">
+
+            <bpmn:incoming>f_error</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Sequence Flows                                      -->
+        <!-- ================================================== -->
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="upload_signature"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="upload_signature"
+            targetRef="submit_signature"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
+            sourceRef="submit_signature"
+            targetRef="success"/>
+
+        <bpmn:sequenceFlow
+            id="f_error"
+            sourceRef="submit_signature_error"
+            targetRef="api_failure_end"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

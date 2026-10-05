@@ -14,11 +14,15 @@
         name="ApiFailure"/>
 
     <bpmn:process
-        id="photo_capture"
-        name="Photo Capture"
+        id="photo_update"
+        name="Photo Update"
         isExecutable="true">
 
         <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Photo Update"
+                version="1.0.0"/>
 
             <meta:processContract>
 
@@ -37,7 +41,7 @@
         </bpmn:extensionElements>
 
         <!-- ================================================== -->
-        <!-- Start -->
+        <!-- Start                                              -->
         <!-- ================================================== -->
 
         <bpmn:startEvent id="start">
@@ -45,7 +49,7 @@
         </bpmn:startEvent>
 
         <!-- ================================================== -->
-        <!-- Check Existing Photo -->
+        <!-- Check Existing Photo                               -->
         <!-- ================================================== -->
 
         <bpmn:serviceTask
@@ -86,7 +90,7 @@
         </bpmn:serviceTask>
 
         <!-- ================================================== -->
-        <!-- API Failure -->
+        <!-- API Failure                                        -->
         <!-- ================================================== -->
 
         <bpmn:boundaryEvent
@@ -102,7 +106,7 @@
         </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
-        <!-- Existing Photo Valid? -->
+        <!-- Existing Photo Valid?                              -->
         <!-- ================================================== -->
 
         <bpmn:exclusiveGateway
@@ -110,13 +114,14 @@
             default="upload_flow">
 
             <bpmn:incoming>f2</bpmn:incoming>
+
             <bpmn:outgoing>existing_valid</bpmn:outgoing>
             <bpmn:outgoing>upload_flow</bpmn:outgoing>
 
         </bpmn:exclusiveGateway>
 
         <!-- ================================================== -->
-        <!-- Use Existing Photo -->
+        <!-- Use Existing Photo                                 -->
         <!-- ================================================== -->
 
         <bpmn:scriptTask
@@ -143,7 +148,7 @@
         </bpmn:scriptTask>
 
         <!-- ================================================== -->
-        <!-- Upload Photo -->
+        <!-- Upload Photo                                       -->
         <!-- ================================================== -->
 
         <bpmn:userTask
@@ -178,7 +183,7 @@
         </bpmn:userTask>
 
         <!-- ================================================== -->
-        <!-- Validate Photo -->
+        <!-- Validate Photo                                     -->
         <!-- ================================================== -->
 
         <bpmn:serviceTask
@@ -206,11 +211,15 @@
 
                     <meta:input
                         source="uploaded_photo"
-                        target="file"/>
+                        target="photo_data"/>
 
                     <meta:output
                         source="response.body.photo_id"
                         target="photo_id"/>
+
+                    <meta:output
+                        source="response.body.photo.icaoCompliant"
+                        target="icao_compliant"/>
 
                 </meta:httpService>
 
@@ -219,23 +228,7 @@
         </bpmn:serviceTask>
 
         <!-- ================================================== -->
-        <!-- Invalid Photo -->
-        <!-- ================================================== -->
-
-        <bpmn:boundaryEvent
-            id="invalid_photo"
-            attachedToRef="validate_photo"
-            cancelActivity="true">
-
-            <bpmn:errorEventDefinition
-                errorRef="InvalidPhoto"/>
-
-            <bpmn:outgoing>f_invalid</bpmn:outgoing>
-
-        </bpmn:boundaryEvent>
-
-        <!-- ================================================== -->
-        <!-- API Failure -->
+        <!-- Invalid Photo                                      -->
         <!-- ================================================== -->
 
         <bpmn:boundaryEvent
@@ -251,23 +244,37 @@
         </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
-        <!-- Success -->
+        <!-- ICAO Decision                                      -->
         <!-- ================================================== -->
 
-        <bpmn:endEvent
-            id="success">
+        <bpmn:exclusiveGateway
+            id="icao_gateway"
+            name="ICAO Compliant?"
+            default="f_invalid">
+
+            <bpmn:incoming>f4</bpmn:incoming>
+
+            <bpmn:outgoing>f_compliant</bpmn:outgoing>
+            <bpmn:outgoing>f_invalid</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================== -->
+        <!-- Success                                            -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent id="success">
 
             <bpmn:incoming>f_complete_existing</bpmn:incoming>
-            <bpmn:incoming>f4</bpmn:incoming>
+            <bpmn:incoming>f_compliant</bpmn:incoming>
 
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- Invalid Photo End -->
+        <!-- Invalid Photo End                                  -->
         <!-- ================================================== -->
 
-        <bpmn:endEvent
-            id="invalid_photo_end">
+        <bpmn:endEvent id="invalid_photo_end">
 
             <bpmn:incoming>f_invalid</bpmn:incoming>
 
@@ -277,11 +284,10 @@
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- API Failure End -->
+        <!-- API Failure End                                    -->
         <!-- ================================================== -->
 
-        <bpmn:endEvent
-            id="api_failure_end">
+        <bpmn:endEvent id="api_failure_end">
 
             <bpmn:incoming>f_error_1</bpmn:incoming>
             <bpmn:incoming>f_error_2</bpmn:incoming>
@@ -292,7 +298,7 @@
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- Sequence Flows -->
+        <!-- Sequence Flows                                     -->
         <!-- ================================================== -->
 
         <bpmn:sequenceFlow
@@ -329,17 +335,28 @@
         <bpmn:sequenceFlow
             id="f4"
             sourceRef="validate_photo"
-            targetRef="success"/>
+            targetRef="icao_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="f_compliant"
+            sourceRef="icao_gateway"
+            targetRef="success">
+
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+                icao_compliant == true
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_invalid"
+            sourceRef="icao_gateway"
+            targetRef="invalid_photo_end"/>
 
         <bpmn:sequenceFlow
             id="f_complete_existing"
             sourceRef="use_existing_photo"
             targetRef="success"/>
-
-        <bpmn:sequenceFlow
-            id="f_invalid"
-            sourceRef="invalid_photo"
-            targetRef="invalid_photo_end"/>
 
         <bpmn:sequenceFlow
             id="f_error_1"

@@ -3,11 +3,21 @@
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
     xmlns:meta="urn:durable-workflow:metadata:v1"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="address_selection_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                -->
+    <!-- ===================================================== -->
 
     <bpmn:error
         id="ApiFailure"
         name="ApiFailure"/>
+
+    <!-- ===================================================== -->
+    <!-- Process                                               -->
+    <!-- ===================================================== -->
 
     <bpmn:process
         id="address_selection"
@@ -15,6 +25,10 @@
         isExecutable="true">
 
         <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Address Selection"
+                version="1.0.0"/>
 
             <meta:processContract>
 
@@ -27,9 +41,9 @@
 
         </bpmn:extensionElements>
 
-        <!-- ================================================== -->
-        <!-- Start -->
-        <!-- ================================================== -->
+        <!-- ================================================= -->
+        <!-- Start                                             -->
+        <!-- ================================================= -->
 
         <bpmn:startEvent id="start">
 
@@ -37,13 +51,13 @@
 
         </bpmn:startEvent>
 
-        <!-- ================================================== -->
-        <!-- Enter Postcode -->
-        <!-- ================================================== -->
+        <!-- ================================================= -->
+        <!-- Choose Method                                     -->
+        <!-- ================================================= -->
 
         <bpmn:userTask
-            id="enter_postcode"
-            name="Enter Postcode">
+            id="choose_address_method"
+            name="Choose Address Method">
 
             <bpmn:incoming>f1</bpmn:incoming>
             <bpmn:outgoing>f2</bpmn:outgoing>
@@ -52,18 +66,23 @@
 
                 <meta:taskHandler type="form"/>
 
-                <meta:form title="Find Address">
+                <meta:form
+                    title="Find Address">
 
                     <meta:field
-                        id="postcode"
-                        variable="postcode"
-                        label="Postcode"
-                        type="string"
-                        required="true">
+                        id="address_method"
+                        variable="address_method"
+                        type="choice"
+                        required="true"
+                        label="How would you like to provide your address?">
 
-                        <meta:validation
-                            pattern="^[A-Z]{1,2}[0-9][0-9A-Z]? ?[0-9][A-Z]{2}$"
-                            message="Enter a valid postcode"/>
+                        <meta:option value="search">
+                            Search using postcode
+                        </meta:option>
+
+                        <meta:option value="manual">
+                            Enter address manually
+                        </meta:option>
 
                     </meta:field>
 
@@ -73,25 +92,67 @@
 
         </bpmn:userTask>
 
-        <!-- ================================================== -->
-        <!-- Lookup Addresses -->
-        <!-- ================================================== -->
+        <!-- ================================================= -->
+        <!-- Method Gateway                                    -->
+        <!-- ================================================= -->
+
+        <bpmn:exclusiveGateway
+            id="address_method_gateway"
+            default="f_manual">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+
+            <bpmn:outgoing>f_search</bpmn:outgoing>
+            <bpmn:outgoing>f_manual</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================= -->
+        <!-- Search Path                                       -->
+        <!-- ================================================= -->
+
+        <bpmn:userTask
+            id="enter_postcode"
+            name="Enter Postcode">
+
+            <bpmn:incoming>f_search</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Find Address">
+
+                    <meta:field
+                        id="postcode"
+                        variable="postcode"
+                        type="string"
+                        required="true"
+                        label="Postcode"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
 
         <bpmn:serviceTask
             id="lookup_addresses"
             name="Lookup Addresses">
 
-            <bpmn:incoming>f2</bpmn:incoming>
-            <bpmn:outgoing>f3</bpmn:outgoing>
+            <bpmn:incoming>f3</bpmn:incoming>
+            <bpmn:outgoing>f4</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
                 <meta:taskHandler type="http"/>
 
                 <meta:httpService
-                    method="GET"
-                    service="address"
-                    endpoint="/app/address/v1/postcode/${postcode}">
+                    method="POST"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/address_from_postcode">
 
                     <meta:retry
                         attempts="3"
@@ -100,19 +161,19 @@
                     <meta:timeout
                         duration="PT30S"/>
 
+                    <meta:input
+                        source="postcode"
+                        target="postcode"/>
+
                     <meta:output
                         source="response.body.addresses"
-                        target="available_addresses"/>
+                        target="addresses"/>
 
                 </meta:httpService>
 
             </bpmn:extensionElements>
 
         </bpmn:serviceTask>
-
-        <!-- ================================================== -->
-        <!-- Address Lookup Failure -->
-        <!-- ================================================== -->
 
         <bpmn:boundaryEvent
             id="lookup_addresses_error"
@@ -126,30 +187,27 @@
 
         </bpmn:boundaryEvent>
 
-        <!-- ================================================== -->
-        <!-- Select Address -->
-        <!-- ================================================== -->
-
         <bpmn:userTask
             id="select_address"
             name="Select Address">
 
-            <bpmn:incoming>f3</bpmn:incoming>
-            <bpmn:outgoing>f4</bpmn:outgoing>
+            <bpmn:incoming>f4</bpmn:incoming>
+            <bpmn:outgoing>f_lookup_complete</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
                 <meta:taskHandler type="form"/>
 
-                <meta:form title="Select Address">
+                <meta:form
+                    title="Select Address">
 
                     <meta:field
-                        id="address"
+                        id="selected_address"
                         variable="address"
-                        label="Select Address"
-                        type="select"
-                        source="available_addresses"
-                        required="true"/>
+                        type="choice"
+                        sourceVariable="addresses"
+                        required="true"
+                        label="Choose your address"/>
 
                 </meta:form>
 
@@ -157,21 +215,78 @@
 
         </bpmn:userTask>
 
-        <!-- ================================================== -->
-        <!-- Success -->
-        <!-- ================================================== -->
+        <!-- ================================================= -->
+        <!-- Manual Entry                                      -->
+        <!-- ================================================= -->
 
-        <bpmn:endEvent id="complete">
+        <bpmn:userTask
+            id="manual_address"
+            name="Enter Address Manually">
 
-            <bpmn:incoming>f4</bpmn:incoming>
+            <bpmn:incoming>f_manual</bpmn:incoming>
+            <bpmn:outgoing>f_manual_complete</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Manual Address Entry">
+
+                    <meta:field
+                        id="line1"
+                        variable="address.line1"
+                        type="string"
+                        required="true"
+                        label="Address Line 1"/>
+
+                    <meta:field
+                        id="line2"
+                        variable="address.line2"
+                        type="string"
+                        required="false"
+                        label="Address Line 2"/>
+
+                    <meta:field
+                        id="post_town"
+                        variable="address.post_town"
+                        type="string"
+                        required="true"
+                        label="Town or City"/>
+
+                    <meta:field
+                        id="postcode"
+                        variable="address.postcode"
+                        type="string"
+                        required="true"
+                        label="Postcode"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <!-- ================================================= -->
+        <!-- Success                                           -->
+        <!-- ================================================= -->
+
+        <bpmn:endEvent
+            id="success"
+            name="Address Selected">
+
+            <bpmn:incoming>f_lookup_complete</bpmn:incoming>
+            <bpmn:incoming>f_manual_complete</bpmn:incoming>
 
         </bpmn:endEvent>
 
-        <!-- ================================================== -->
-        <!-- Error -->
-        <!-- ================================================== -->
+        <!-- ================================================= -->
+        <!-- API Failure End                                   -->
+        <!-- ================================================= -->
 
-        <bpmn:endEvent id="error">
+        <bpmn:endEvent
+            id="api_failure_end"
+            name="API Failure">
 
             <bpmn:incoming>f_error</bpmn:incoming>
 
@@ -180,34 +295,63 @@
 
         </bpmn:endEvent>
 
-        <!-- ================================================== -->
-        <!-- Sequence Flows -->
-        <!-- ================================================== -->
+        <!-- ================================================= -->
+        <!-- Sequence Flows                                    -->
+        <!-- ================================================= -->
 
         <bpmn:sequenceFlow
             id="f1"
             sourceRef="start"
-            targetRef="enter_postcode"/>
+            targetRef="choose_address_method"/>
 
         <bpmn:sequenceFlow
             id="f2"
+            sourceRef="choose_address_method"
+            targetRef="address_method_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="f_search"
+            sourceRef="address_method_gateway"
+            targetRef="enter_postcode">
+
+            <bpmn:conditionExpression
+                xsi:type="bpmn:tFormalExpression">
+
+                address_method == 'search'
+
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_manual"
+            sourceRef="address_method_gateway"
+            targetRef="manual_address"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
             sourceRef="enter_postcode"
             targetRef="lookup_addresses"/>
 
         <bpmn:sequenceFlow
-            id="f3"
+            id="f4"
             sourceRef="lookup_addresses"
             targetRef="select_address"/>
 
         <bpmn:sequenceFlow
-            id="f4"
+            id="f_lookup_complete"
             sourceRef="select_address"
-            targetRef="complete"/>
+            targetRef="success"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_complete"
+            sourceRef="manual_address"
+            targetRef="success"/>
 
         <bpmn:sequenceFlow
             id="f_error"
             sourceRef="lookup_addresses_error"
-            targetRef="error"/>
+            targetRef="api_failure_end"/>
 
     </bpmn:process>
 

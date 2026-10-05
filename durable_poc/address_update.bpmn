@@ -2,15 +2,26 @@
 
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-    xmlns:meta="urn:durable-workflow:metadata:v1">
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="address_update_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                -->
+    <!-- ===================================================== -->
+
+    <bpmn:error
+        id="ApiFailure"
+        name="ApiFailure"/>
 
     <bpmn:error
         id="InvalidAddress"
         name="InvalidAddress"/>
 
-    <bpmn:error
-        id="ApiFailure"
-        name="ApiFailure"/>
+    <!-- ===================================================== -->
+    <!-- Process                                               -->
+    <!-- ===================================================== -->
 
     <bpmn:process
         id="address_update"
@@ -18,6 +29,10 @@
         isExecutable="true">
 
         <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Address Update"
+                version="1.0.0"/>
 
             <meta:processContract>
 
@@ -36,6 +51,11 @@
                     type="string"
                     required="true"/>
 
+                <meta:input
+                    name="signature_id"
+                    type="string"
+                    required="true"/>
+
                 <meta:output
                     name="job_id"
                     type="string"
@@ -51,22 +71,20 @@
         </bpmn:extensionElements>
 
         <!-- ================================================== -->
-        <!-- Start -->
+        <!-- Start                                              -->
         <!-- ================================================== -->
 
         <bpmn:startEvent id="start">
-
             <bpmn:outgoing>f1</bpmn:outgoing>
-
         </bpmn:startEvent>
 
         <!-- ================================================== -->
-        <!-- Submit Address Change -->
+        <!-- Submit Address Update                              -->
         <!-- ================================================== -->
 
         <bpmn:serviceTask
-            id="submit_update"
-            name="Submit Address Change">
+            id="submit_address_update"
+            name="Submit Address Update">
 
             <bpmn:incoming>f1</bpmn:incoming>
             <bpmn:outgoing>f2</bpmn:outgoing>
@@ -99,13 +117,17 @@
                         source="photo_id"
                         target="photo_id"/>
 
+                    <meta:input
+                        source="signature_id"
+                        target="signature_id"/>
+
                     <meta:output
                         source="response.body.job_id"
                         target="job_id"/>
 
                     <meta:output
-                        source="response.body.status"
-                        target="status"/>
+                        source="response.body.code"
+                        target="submission_code"/>
 
                 </meta:httpService>
 
@@ -114,28 +136,12 @@
         </bpmn:serviceTask>
 
         <!-- ================================================== -->
-        <!-- Invalid Address -->
+        <!-- Submission Error                                   -->
         <!-- ================================================== -->
 
         <bpmn:boundaryEvent
-            id="invalid_address"
-            attachedToRef="submit_update"
-            cancelActivity="true">
-
-            <bpmn:errorEventDefinition
-                errorRef="InvalidAddress"/>
-
-            <bpmn:outgoing>f_invalid</bpmn:outgoing>
-
-        </bpmn:boundaryEvent>
-
-        <!-- ================================================== -->
-        <!-- API Failure -->
-        <!-- ================================================== -->
-
-        <bpmn:boundaryEvent
-            id="address_update_error"
-            attachedToRef="submit_update"
+            id="submit_error"
+            attachedToRef="submit_address_update"
             cancelActivity="true">
 
             <bpmn:errorEventDefinition
@@ -146,36 +152,114 @@
         </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
-        <!-- Success -->
+        <!-- Poll Job Status                                    -->
         <!-- ================================================== -->
 
-        <bpmn:endEvent
-            id="complete">
+        <bpmn:serviceTask
+            id="poll_job_status"
+            name="Poll Job Status">
 
             <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:incoming>f_retry_poll</bpmn:incoming>
 
-        </bpmn:endEvent>
+            <bpmn:outgoing>f3</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="GET"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/jobs/${job_id}">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:output
+                        source="response.body.state"
+                        target="status"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
 
         <!-- ================================================== -->
-        <!-- Invalid Address End -->
+        <!-- Poll Error                                         -->
         <!-- ================================================== -->
 
-        <bpmn:endEvent
-            id="invalid_address_end">
-
-            <bpmn:incoming>f_invalid</bpmn:incoming>
+        <bpmn:boundaryEvent
+            id="poll_error"
+            attachedToRef="poll_job_status"
+            cancelActivity="true">
 
             <bpmn:errorEventDefinition
-                errorRef="InvalidAddress"/>
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Completed?                                         -->
+        <!-- ================================================== -->
+
+        <bpmn:exclusiveGateway
+            id="status_gateway"
+            default="f_pending">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+
+            <bpmn:outgoing>f_completed</bpmn:outgoing>
+            <bpmn:outgoing>f_pending</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================== -->
+        <!-- Wait Before Retry                                  -->
+        <!-- ================================================== -->
+
+        <bpmn:intermediateCatchEvent
+            id="wait_before_retry">
+
+            <bpmn:incoming>f_pending</bpmn:incoming>
+            <bpmn:outgoing>f_retry_poll</bpmn:outgoing>
+
+            <bpmn:timerEventDefinition>
+
+                <bpmn:timeDuration>
+                    PT5S
+                </bpmn:timeDuration>
+
+            </bpmn:timerEventDefinition>
+
+        </bpmn:intermediateCatchEvent>
+
+        <!-- ================================================== -->
+        <!-- Success                                            -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="success"
+            name="Address Updated">
+
+            <bpmn:incoming>f_completed</bpmn:incoming>
 
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- API Failure End -->
+        <!-- Api Failure                                        -->
         <!-- ================================================== -->
 
         <bpmn:endEvent
-            id="api_failure_end">
+            id="api_failure_end"
+            name="API Failure">
 
             <bpmn:incoming>f_error</bpmn:incoming>
 
@@ -185,27 +269,51 @@
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- Sequence Flows -->
+        <!-- Sequence Flows                                     -->
         <!-- ================================================== -->
 
         <bpmn:sequenceFlow
             id="f1"
             sourceRef="start"
-            targetRef="submit_update"/>
+            targetRef="submit_address_update"/>
 
         <bpmn:sequenceFlow
             id="f2"
-            sourceRef="submit_update"
-            targetRef="complete"/>
+            sourceRef="submit_address_update"
+            targetRef="poll_job_status"/>
 
         <bpmn:sequenceFlow
-            id="f_invalid"
-            sourceRef="invalid_address"
-            targetRef="invalid_address_end"/>
+            id="f3"
+            sourceRef="poll_job_status"
+            targetRef="status_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="f_completed"
+            sourceRef="status_gateway"
+            targetRef="success">
+
+            <bpmn:conditionExpression
+                xsi:type="bpmn:tFormalExpression">
+
+                status == 'COMPLETED'
+
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_pending"
+            sourceRef="status_gateway"
+            targetRef="wait_before_retry"/>
+
+        <bpmn:sequenceFlow
+            id="f_retry_poll"
+            sourceRef="wait_before_retry"
+            targetRef="poll_job_status"/>
 
         <bpmn:sequenceFlow
             id="f_error"
-            sourceRef="address_update_error"
+            sourceRef="submit_error"
             targetRef="api_failure_end"/>
 
     </bpmn:process>

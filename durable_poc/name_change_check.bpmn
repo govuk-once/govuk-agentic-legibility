@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="name_change_check_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                 -->
+    <!-- ===================================================== -->
+
+    <bpmn:error
+        id="PostalApplicationRequired"
+        name="PostalApplicationRequired"/>
+
+    <!-- ===================================================== -->
+    <!-- Process                                                -->
+    <!-- ===================================================== -->
+
+    <bpmn:process
+        id="name_change_check"
+        name="Name Change Check"
+        isExecutable="true">
+
+        <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Name Change Check"
+                version="1.0.0"/>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================= -->
+        <!-- Start                                              -->
+        <!-- ================================================= -->
+
+        <bpmn:startEvent
+            id="start"
+            name="Start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
+
+        <!-- ================================================= -->
+        <!-- User Question                                      -->
+        <!-- ================================================= -->
+
+        <bpmn:userTask
+            id="ask_name_change"
+            name="Legal Name Change Required">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Legal Name Change">
+
+                    <meta:field
+                        id="name_change_needed"
+                        variable="name_change_needed"
+                        label="Do you also need to change your legal name on your driving licence?"
+                        type="boolean"
+                        required="true"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
+
+        </bpmn:userTask>
+
+        <!-- ================================================= -->
+        <!-- Decision                                           -->
+        <!-- ================================================= -->
+
+        <bpmn:exclusiveGateway
+            id="name_change_gateway"
+            name="Name Change Decision"
+            default="f_continue">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+
+            <bpmn:outgoing>f_postal</bpmn:outgoing>
+            <bpmn:outgoing>f_continue</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================= -->
+        <!-- Continue Journey                                   -->
+        <!-- ================================================= -->
+
+        <bpmn:endEvent
+            id="end_continue"
+            name="Continue Journey">
+
+            <bpmn:incoming>f_continue</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================= -->
+        <!-- Postal Required                                    -->
+        <!-- ================================================= -->
+
+        <bpmn:endEvent
+            id="end_postal_required"
+            name="Postal Application Required">
+
+            <bpmn:errorEventDefinition
+                errorRef="PostalApplicationRequired"/>
+
+            <bpmn:incoming>f_postal</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================= -->
+        <!-- Sequence Flows                                     -->
+        <!-- ================================================= -->
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="ask_name_change"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="ask_name_change"
+            targetRef="name_change_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="f_postal"
+            sourceRef="name_change_gateway"
+            targetRef="end_postal_required">
+
+            <bpmn:conditionExpression
+                xsi:type="bpmn:tFormalExpression">
+                name_change_needed == true
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_continue"
+            sourceRef="name_change_gateway"
+            targetRef="end_continue"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

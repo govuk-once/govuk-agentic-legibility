@@ -13,9 +13,11 @@
 
     <bpmn:error id="ApiFailure" name="ApiFailure"/>
     <bpmn:error id="InvalidPhoto" name="InvalidPhoto"/>
+    <bpmn:error id="InvalidSignature" name="InvalidSignature"/>
     <bpmn:error id="InvalidAddress" name="InvalidAddress"/>
-    <bpmn:error id="Ineligible" name="Ineligible"/>
     <bpmn:error id="DeliveryFailure" name="DeliveryFailure"/>
+    <bpmn:error id="UserCancelled" name="UserCancelled"/>
+    <bpmn:error id="PostalApplicationRequired" name="PostalApplicationRequired"/>
 
     <!-- ====================================================== -->
     <!-- Main Process                                             -->
@@ -31,14 +33,6 @@
             <meta:workflowMetadata
                 name="Driving Licence Change Of Address"
                 version="1.0.0"/>
-
-            <meta:validationRules>
-
-                <meta:rule
-                    expression="confirmed is not None"
-                    message="Confirmation is required"/>
-
-            </meta:validationRules>
 
         </bpmn:extensionElements>
 
@@ -56,77 +50,65 @@
         <!-- Confirm Intent                                      -->
         <!-- ================================================== -->
 
-        <bpmn:userTask
-            id="confirm_intent"
-            name="Confirm Intent">
+        <bpmn:callActivity
+            id="run_confirm_intent"
+            name="Confirm Intent"
+            calledElement="confirm_intent">
 
             <bpmn:extensionElements>
 
-                <meta:taskHandler type="form"/>
-
-                <meta:form title="Change Address Confirmation">
-
-                    <meta:field
-                        id="confirmed"
-                        variable="confirmed"
-                        label="Would you like to update the address on your driving licence?"
-                        type="boolean"
-                        required="true"/>
-
-                </meta:form>
+                <meta:validateOutputs enabled="true"/>
 
             </bpmn:extensionElements>
 
             <bpmn:incoming>f1</bpmn:incoming>
             <bpmn:outgoing>f2</bpmn:outgoing>
 
-        </bpmn:userTask>
+        </bpmn:callActivity>
 
-        <bpmn:exclusiveGateway
-            id="intent_gateway"
-            name="Continue Journey?"
-            default="f_cancel">
+        <bpmn:boundaryEvent
+            id="confirm_cancelled"
+            attachedToRef="run_confirm_intent"
+            cancelActivity="true">
 
-            <bpmn:incoming>f2</bpmn:incoming>
-            <bpmn:outgoing>f_continue</bpmn:outgoing>
+            <bpmn:errorEventDefinition
+                errorRef="UserCancelled"/>
+
             <bpmn:outgoing>f_cancel</bpmn:outgoing>
 
-        </bpmn:exclusiveGateway>
+        </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
-        <!-- Eligibility Check                                   -->
+        <!-- Name Check                                   -->
         <!-- ================================================== -->
 
         <bpmn:callActivity
-            id="run_eligibility"
-            name="Eligibility Check"
-            calledElement="eligibility_check">
+            id="run_name_change_check"
+            name="Name Change Check"
+            calledElement="name_change_check">
 
             <bpmn:extensionElements>
 
-                <meta:validateInputs enabled="true"/>
                 <meta:validateOutputs enabled="true"/>
-
-                <meta:output
-                    source="eligible"
-                    target="eligible"/>
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f_continue</bpmn:incoming>
+            <bpmn:incoming>f2</bpmn:incoming>
             <bpmn:outgoing>f3</bpmn:outgoing>
 
         </bpmn:callActivity>
 
         <bpmn:boundaryEvent
-            id="eligibility_failed"
-            attachedToRef="run_eligibility"
+            id="postal_required"
+            attachedToRef="run_name_change_check"
             cancelActivity="true">
 
             <bpmn:errorEventDefinition
-                errorRef="Ineligible"/>
+                errorRef="PostalApplicationRequired"/>
 
-            <bpmn:outgoing>f_ineligible</bpmn:outgoing>
+            <bpmn:outgoing>
+                f_postal_required
+            </bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -180,9 +162,9 @@
         <!-- ================================================== -->
 
         <bpmn:callActivity
-            id="run_photo_capture"
+            id="run_photo_update"
             name="Photo Journey"
-            calledElement="photo_capture">
+            calledElement="photo_update">
 
             <bpmn:extensionElements>
 
@@ -206,19 +188,19 @@
 
         <bpmn:boundaryEvent
             id="photo_invalid"
-            attachedToRef="run_photo_capture"
+            attachedToRef="run_photo_update"
             cancelActivity="true">
 
             <bpmn:errorEventDefinition
                 errorRef="InvalidPhoto"/>
 
-            <bpmn:outgoing>f_rejected_1</bpmn:outgoing>
+            <bpmn:outgoing>f_rejected_2</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
         <bpmn:boundaryEvent
             id="photo_api_error"
-            attachedToRef="run_photo_capture"
+            attachedToRef="run_photo_update"
             cancelActivity="true">
 
             <bpmn:errorEventDefinition
@@ -227,6 +209,92 @@
             <bpmn:outgoing>f_exception_2</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Signature Journey                                       -->
+        <!-- ================================================== -->
+
+        <bpmn:callActivity
+            id="run_signature_update"
+            name="Signature Update"
+            calledElement="signature_update">
+
+            <bpmn:extensionElements>
+
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
+                <meta:input
+                    source="driver_id"
+                    target="driver_id"/>
+
+                <meta:output
+                    source="signature_id"
+                    target="signature_id"/>
+
+            </bpmn:extensionElements>
+
+            <bpmn:incoming>f5</bpmn:incoming>
+            <bpmn:outgoing>f6</bpmn:outgoing>
+
+        </bpmn:callActivity>
+
+        <bpmn:boundaryEvent
+            id="signature_invalid"
+            attachedToRef="run_signature_update"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="InvalidSignature"/>
+
+            <bpmn:outgoing>
+                f_rejected_1
+            </bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <bpmn:boundaryEvent
+            id="signature_api_error"
+            attachedToRef="run_signature_update"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>
+                f_exception_3
+            </bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Organ Journey                                       -->
+        <!-- ================================================== -->
+
+        <bpmn:callActivity
+            id="run_organ_donation"
+            name="Organ Donation"
+            calledElement="organ_donation">
+
+            <bpmn:extensionElements>
+
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
+                <meta:input
+                    source="driver_id"
+                    target="driver_id"/>
+
+                <meta:output
+                    source="organ_consent"
+                    target="organ_consent"/>
+
+            </bpmn:extensionElements>
+            
+            <bpmn:incoming>f6</bpmn:incoming>
+            <bpmn:outgoing>f7</bpmn:outgoing>
+
+        </bpmn:callActivity>
 
         <!-- ================================================== -->
         <!-- Address Selection                                   -->
@@ -248,8 +316,8 @@
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f5</bpmn:incoming>
-            <bpmn:outgoing>f6</bpmn:outgoing>
+            <bpmn:incoming>f7</bpmn:incoming>
+            <bpmn:outgoing>f8</bpmn:outgoing>
 
         </bpmn:callActivity>
 
@@ -273,8 +341,8 @@
             id="validate_submission"
             name="Validate Submission">
 
-            <bpmn:incoming>f6</bpmn:incoming>
-            <bpmn:outgoing>f_validation</bpmn:outgoing>
+            <bpmn:incoming>f8</bpmn:incoming>
+            <bpmn:outgoing>f9</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -293,6 +361,10 @@
                     <meta:rule
                         expression="address is not None"
                         message="Address missing"/>
+
+                    <meta:rule
+                        expression="signature_id is not None and signature_id != ''"
+                        message="Signature ID missing"/>
 
                 </meta:validationRules>
 
@@ -322,6 +394,10 @@
                     source="photo_id"
                     target="photo_id"/>
 
+                <meta:input
+                    source="signature_id"
+                    target="signature_id"/>
+
                 <meta:output
                     source="job_id"
                     target="job_id"/>
@@ -332,8 +408,8 @@
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f_validation</bpmn:incoming>
-            <bpmn:outgoing>f7</bpmn:outgoing>
+            <bpmn:incoming>f9</bpmn:incoming>
+            <bpmn:outgoing>f10</bpmn:outgoing>
 
         </bpmn:callActivity>
 
@@ -345,7 +421,7 @@
             <bpmn:errorEventDefinition
                 errorRef="InvalidAddress"/>
 
-            <bpmn:outgoing>f_rejected_2</bpmn:outgoing>
+            <bpmn:outgoing>f_rejected_3</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -391,14 +467,18 @@
                     source="job_id"
                     target="job_id"/>
 
+                <meta:input
+                    source="organ_consent"
+                    target="organ_consent"/>
+
                 <meta:output
                     source="confirmation_sent"
                     target="confirmation_sent"/>
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f7</bpmn:incoming>
-            <bpmn:outgoing>f8</bpmn:outgoing>
+            <bpmn:incoming>f10</bpmn:incoming>
+            <bpmn:outgoing>f11</bpmn:outgoing>
 
         </bpmn:callActivity>
 
@@ -421,7 +501,7 @@
         <bpmn:endEvent
             id="end_success"
             name="Address Updated">
-            <bpmn:incoming>f8</bpmn:incoming>
+            <bpmn:incoming>f11</bpmn:incoming>
         </bpmn:endEvent>
 
         <bpmn:endEvent
@@ -431,16 +511,21 @@
         </bpmn:endEvent>
 
         <bpmn:endEvent
-            id="end_ineligible"
-            name="Not Eligible">
-            <bpmn:incoming>f_ineligible</bpmn:incoming>
-        </bpmn:endEvent>
-
-        <bpmn:endEvent
             id="end_rejected"
             name="Request Rejected">
             <bpmn:incoming>f_rejected_1</bpmn:incoming>
             <bpmn:incoming>f_rejected_2</bpmn:incoming>
+            <bpmn:incoming>f_rejected_3</bpmn:incoming>
+        </bpmn:endEvent>
+
+        <bpmn:endEvent
+            id="end_postal_required"
+            name="Postal Application Required">
+
+            <bpmn:incoming>
+                f_postal_required
+            </bpmn:incoming>
+
         </bpmn:endEvent>
 
         <bpmn:endEvent
@@ -452,6 +537,7 @@
             <bpmn:incoming>f_exception_3</bpmn:incoming>
             <bpmn:incoming>f_exception_4</bpmn:incoming>
             <bpmn:incoming>f_exception_5</bpmn:incoming>
+            <bpmn:incoming>f_exception_6</bpmn:incoming>
 
         </bpmn:endEvent>
 
@@ -462,76 +548,70 @@
         <bpmn:sequenceFlow
             id="f1"
             sourceRef="start"
-            targetRef="confirm_intent"/>
+            targetRef="run_confirm_intent"/>
 
         <bpmn:sequenceFlow
             id="f2"
-            sourceRef="confirm_intent"
-            targetRef="intent_gateway"/>
-
-        <bpmn:sequenceFlow
-            id="f_continue"
-            sourceRef="intent_gateway"
-            targetRef="run_eligibility">
-
-            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
-                bool(confirmed)
-            </bpmn:conditionExpression>
-
-        </bpmn:sequenceFlow>
-
-        <bpmn:sequenceFlow
-            id="f_cancel"
-            sourceRef="intent_gateway"
-            targetRef="end_cancelled"/>
+            sourceRef="run_confirm_intent"
+            targetRef="run_name_change_check"/>
 
         <bpmn:sequenceFlow
             id="f3"
-            sourceRef="run_eligibility"
+            sourceRef="run_name_change_check"
             targetRef="run_driver_lookup"/>
 
         <bpmn:sequenceFlow
             id="f4"
             sourceRef="run_driver_lookup"
-            targetRef="run_photo_capture"/>
+            targetRef="run_photo_update"/>
 
         <bpmn:sequenceFlow
             id="f5"
-            sourceRef="run_photo_capture"
-            targetRef="run_address_selection"/>
+            sourceRef="run_photo_update"
+            targetRef="run_signature_update"/>
 
         <bpmn:sequenceFlow
             id="f6"
+            sourceRef="run_signature_update"
+            targetRef="run_organ_donation"/>
+        
+        <bpmn:sequenceFlow
+            id="f7"
+            sourceRef="run_organ_donation"
+            targetRef="run_address_selection"/>
+
+        <bpmn:sequenceFlow
+            id="f8"
             sourceRef="run_address_selection"
             targetRef="validate_submission"/>
 
         <bpmn:sequenceFlow
-            id="f_validation"
+            id="f9"
             sourceRef="validate_submission"
             targetRef="run_address_update"/>
 
         <bpmn:sequenceFlow
-            id="f7"
+            id="f10"
             sourceRef="run_address_update"
             targetRef="run_finalisation"/>
 
         <bpmn:sequenceFlow
-            id="f8"
+            id="f11"
             sourceRef="run_finalisation"
             targetRef="end_success"/>
 
         <bpmn:sequenceFlow
-            id="f_ineligible"
-            sourceRef="eligibility_failed"
-            targetRef="end_ineligible"/>
-
-        <bpmn:sequenceFlow
             id="f_rejected_1"
-            sourceRef="photo_invalid"
+            sourceRef="signature_invalid"
             targetRef="end_rejected"/>
 
         <bpmn:sequenceFlow
             id="f_rejected_2"
+            sourceRef="photo_invalid"
+            targetRef="end_rejected"/>
+
+        <bpmn:sequenceFlow
+            id="f_rejected_3"
             sourceRef="address_invalid"
             targetRef="end_rejected"/>
 
@@ -544,19 +624,24 @@
             id="f_exception_2"
             sourceRef="photo_api_error"
             targetRef="end_exception"/>
-
+        
         <bpmn:sequenceFlow
             id="f_exception_3"
-            sourceRef="address_selection_error"
+            sourceRef="signature_api_error"
             targetRef="end_exception"/>
 
         <bpmn:sequenceFlow
             id="f_exception_4"
-            sourceRef="address_update_error"
+            sourceRef="address_selection_error"
             targetRef="end_exception"/>
 
         <bpmn:sequenceFlow
             id="f_exception_5"
+            sourceRef="address_update_error"
+            targetRef="end_exception"/>
+
+        <bpmn:sequenceFlow
+            id="f_exception_6"
             sourceRef="finalisation_error"
             targetRef="end_exception"/>
         

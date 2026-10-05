@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="organ_donation_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                 -->
+    <!-- ===================================================== -->
+
+    <bpmn:error
+        id="ApiFailure"
+        name="ApiFailure"/>
+
+    <!-- ===================================================== -->
+    <!-- Process                                                -->
+    <!-- ===================================================== -->
+
+    <bpmn:process
+        id="organ_donation"
+        name="Organ Donation"
+        isExecutable="true">
+
+        <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Organ Donation"
+                version="1.0.0"/>
+
+            <meta:processContract>
+
+                <meta:input
+                    name="driver_id"
+                    type="string"
+                    required="true"/>
+
+                <meta:output
+                    name="organ_consent"
+                    type="boolean"
+                    required="true"/>
+
+            </meta:processContract>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================== -->
+        <!-- Start                                              -->
+        <!-- ================================================== -->
+
+        <bpmn:startEvent id="start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
+
+        <!-- ================================================== -->
+        <!-- Retrieve Organ Preferences                         -->
+        <!-- ================================================== -->
+
+        <bpmn:serviceTask
+            id="retrieve_organ_preferences"
+            name="Retrieve Organ Preferences">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="GET"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/organs/${driver_id}">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:output
+                        source="response.body.organDonor.anyOrgans"
+                        target="organ_consent"/>
+
+                    <meta:output
+                        source="response.body.organDonor.kidneys"
+                        target="kidneys"/>
+
+                    <meta:output
+                        source="response.body.organDonor.liver"
+                        target="liver"/>
+
+                    <meta:output
+                        source="response.body.organDonor.heart"
+                        target="heart"/>
+
+                    <meta:output
+                        source="response.body.organDonor.cornea"
+                        target="cornea"/>
+
+                    <meta:output
+                        source="response.body.organDonor.pancreas"
+                        target="pancreas"/>
+
+                    <meta:output
+                        source="response.body.organDonor.lungs"
+                        target="lungs"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <!-- ================================================== -->
+        <!-- API Failure                                        -->
+        <!-- ================================================== -->
+
+        <bpmn:boundaryEvent
+            id="retrieve_organ_preferences_error"
+            attachedToRef="retrieve_organ_preferences"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Review Preferences                                 -->
+        <!-- ================================================== -->
+
+        <bpmn:userTask
+            id="review_organ_preferences"
+            name="Review Organ Donation Preferences">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Organ Donation Preferences">
+
+                    <meta:field
+                        id="organ_consent"
+                        variable="organ_consent"
+                        type="boolean"
+                        required="true"
+                        label="Would you like to remain registered as an organ donor?"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <!-- ================================================== -->
+        <!-- Success                                            -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="success"
+            name="Organ Preferences Confirmed">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- API Failure End                                    -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="api_failure_end"
+            name="API Failure">
+
+            <bpmn:incoming>f_error</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Sequence Flows                                     -->
+        <!-- ================================================== -->
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="retrieve_organ_preferences"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="retrieve_organ_preferences"
+            targetRef="review_organ_preferences"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
+            sourceRef="review_organ_preferences"
+            targetRef="success"/>
+
+        <bpmn:sequenceFlow
+            id="f_error"
+            sourceRef="retrieve_organ_preferences_error"
+            targetRef="api_failure_end"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

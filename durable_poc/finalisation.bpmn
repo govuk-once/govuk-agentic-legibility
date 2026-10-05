@@ -2,11 +2,22 @@
 
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-    xmlns:meta="urn:durable-workflow:metadata:v1">
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    targetNamespace="urn:durable-workflow:processes:v1"
+    id="finalisation_definition">
+
+    <!-- ===================================================== -->
+    <!-- Errors                                                -->
+    <!-- ===================================================== -->
 
     <bpmn:error
         id="DeliveryFailure"
         name="DeliveryFailure"/>
+
+    <!-- ===================================================== -->
+    <!-- Process                                               -->
+    <!-- ===================================================== -->
 
     <bpmn:process
         id="finalisation"
@@ -14,6 +25,10 @@
         isExecutable="true">
 
         <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Finalisation"
+                version="1.0.0"/>
 
             <meta:processContract>
 
@@ -37,6 +52,11 @@
                     type="string"
                     required="true"/>
 
+                <meta:input
+                    name="organ_consent"
+                    type="boolean"
+                    required="false"/>
+
                 <meta:output
                     name="confirmation_sent"
                     type="boolean"
@@ -46,133 +66,162 @@
 
         </bpmn:extensionElements>
 
+        <!-- ================================================== -->
+        <!-- Start                                              -->
+        <!-- ================================================== -->
+
         <bpmn:startEvent id="start">
 
             <bpmn:outgoing>f1</bpmn:outgoing>
 
         </bpmn:startEvent>
 
-        <bpmn:serviceTask
+        <!-- ================================================== -->
+        <!-- Send Confirmation                                  -->
+        <!-- ================================================== -->
+
+        <bpmn:scriptTask
             id="send_confirmation"
-            name="Send Confirmation Email">
+            name="Send Confirmation">
 
             <bpmn:incoming>f1</bpmn:incoming>
             <bpmn:outgoing>f2</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
-                <meta:taskHandler type="http"/>
+                <meta:taskHandler type="notification"/>
 
-                <meta:httpService
-                    method="POST"
-                    service="notifications"
-                    endpoint="/app/notifications/v1/email">
-
-                    <meta:retry
-                        attempts="3"
-                        backoffSeconds="5"/>
-
-                    <meta:timeout
-                        duration="PT30S"/>
-
-                    <meta:input
-                        source="email"
-                        target="email"/>
-
-                    <meta:input
-                        source="job_id"
-                        target="job_id"/>
-
-                    <meta:input
-                        source="address"
-                        target="address"/>
+                <meta:notification
+                    channel="email">
 
                     <meta:output
-                        source="response.body.sent"
+                        source="true"
                         target="confirmation_sent"/>
 
-                </meta:httpService>
+                </meta:notification>
 
             </bpmn:extensionElements>
 
-        </bpmn:serviceTask>
+        </bpmn:scriptTask>
 
-        <bpmn:boundaryEvent
-            id="send_confirmation_error"
-            attachedToRef="send_confirmation"
-            cancelActivity="true">
+        <!-- ================================================== -->
+        <!-- Notify Delivery                                    -->
+        <!-- ================================================== -->
 
-            <bpmn:errorEventDefinition
-                errorRef="DeliveryFailure"/>
-
-            <bpmn:outgoing>f_error_1</bpmn:outgoing>
-
-        </bpmn:boundaryEvent>
-
-        <bpmn:serviceTask
-            id="trigger_reissue"
-            name="Trigger Licence Reissue">
+        <bpmn:scriptTask
+            id="notify_delivery"
+            name="Notify Licence Delivery">
 
             <bpmn:incoming>f2</bpmn:incoming>
             <bpmn:outgoing>f3</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
-                <meta:taskHandler type="http"/>
+                <meta:taskHandler type="notification"/>
 
-                <meta:httpService
-                    method="POST"
-                    service="dvla"
-                    endpoint="/app/dvla/v1/licence/reissue">
-
-                    <meta:retry
-                        attempts="3"
-                        backoffSeconds="5"/>
-
-                    <meta:timeout
-                        duration="PT30S"/>
-
-                    <meta:input
-                        source="driver_id"
-                        target="driver_id"/>
-
-                    <meta:input
-                        source="job_id"
-                        target="job_id"/>
-
-                </meta:httpService>
+                <meta:notification
+                    channel="email"/>
 
             </bpmn:extensionElements>
 
-        </bpmn:serviceTask>
+        </bpmn:scriptTask>
 
-        <bpmn:boundaryEvent
-            id="trigger_reissue_error"
-            attachedToRef="trigger_reissue"
-            cancelActivity="true">
+        <!-- ================================================== -->
+        <!-- Wait For Delivery                                  -->
+        <!-- ================================================== -->
 
-            <bpmn:errorEventDefinition
-                errorRef="DeliveryFailure"/>
-
-            <bpmn:outgoing>f_error_2</bpmn:outgoing>
-
-        </bpmn:boundaryEvent>
-
-        <bpmn:endEvent id="complete">
+        <bpmn:intermediateCatchEvent
+            id="wait_for_delivery"
+            name="Delivery Wait">
 
             <bpmn:incoming>f3</bpmn:incoming>
+            <bpmn:outgoing>f4</bpmn:outgoing>
+
+            <bpmn:timerEventDefinition>
+
+                <bpmn:timeDuration>
+                    P7D
+                </bpmn:timeDuration>
+
+            </bpmn:timerEventDefinition>
+
+        </bpmn:intermediateCatchEvent>
+
+        <!-- ================================================== -->
+        <!-- Confirm Receipt                                    -->
+        <!-- ================================================== -->
+
+        <bpmn:userTask
+            id="confirm_receipt"
+            name="Confirm Licence Receipt">
+
+            <bpmn:incoming>f4</bpmn:incoming>
+            <bpmn:outgoing>f5</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Licence Delivery Confirmation">
+
+                    <meta:field
+                        id="received"
+                        variable="received"
+                        type="boolean"
+                        required="true"
+                        label="Have you received your updated driving licence?"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <!-- ================================================== -->
+        <!-- Receipt Gateway                                    -->
+        <!-- ================================================== -->
+
+        <bpmn:exclusiveGateway
+            id="receipt_gateway"
+            default="f_not_received">
+
+            <bpmn:incoming>f5</bpmn:incoming>
+
+            <bpmn:outgoing>f_received</bpmn:outgoing>
+            <bpmn:outgoing>f_not_received</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================== -->
+        <!-- Success                                            -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="success"
+            name="Journey Complete">
+
+            <bpmn:incoming>f_received</bpmn:incoming>
 
         </bpmn:endEvent>
 
-        <bpmn:endEvent id="delivery_failure_end">
+        <!-- ================================================== -->
+        <!-- Delivery Failure                                   -->
+        <!-- ================================================== -->
 
-            <bpmn:incoming>f_error_1</bpmn:incoming>
-            <bpmn:incoming>f_error_2</bpmn:incoming>
+        <bpmn:endEvent
+            id="delivery_failure">
+
+            <bpmn:incoming>f_not_received</bpmn:incoming>
 
             <bpmn:errorEventDefinition
                 errorRef="DeliveryFailure"/>
 
         </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Sequence Flows                                     -->
+        <!-- ================================================== -->
 
         <bpmn:sequenceFlow
             id="f1"
@@ -182,22 +231,41 @@
         <bpmn:sequenceFlow
             id="f2"
             sourceRef="send_confirmation"
-            targetRef="trigger_reissue"/>
+            targetRef="notify_delivery"/>
 
         <bpmn:sequenceFlow
             id="f3"
-            sourceRef="trigger_reissue"
-            targetRef="complete"/>
+            sourceRef="notify_delivery"
+            targetRef="wait_for_delivery"/>
 
         <bpmn:sequenceFlow
-            id="f_error_1"
-            sourceRef="send_confirmation_error"
-            targetRef="delivery_failure_end"/>
+            id="f4"
+            sourceRef="wait_for_delivery"
+            targetRef="confirm_receipt"/>
 
         <bpmn:sequenceFlow
-            id="f_error_2"
-            sourceRef="trigger_reissue_error"
-            targetRef="delivery_failure_end"/>
+            id="f5"
+            sourceRef="confirm_receipt"
+            targetRef="receipt_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="f_received"
+            sourceRef="receipt_gateway"
+            targetRef="success">
+
+            <bpmn:conditionExpression
+                xsi:type="bpmn:tFormalExpression">
+
+                received == true
+
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_not_received"
+            sourceRef="receipt_gateway"
+            targetRef="delivery_failure"/>
 
     </bpmn:process>
 

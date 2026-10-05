@@ -2,7 +2,8 @@
 
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-    xmlns:meta="urn:durable-workflow:metadata:v1">
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <bpmn:error
         id="ApiFailure"
@@ -14,6 +15,10 @@
         isExecutable="true">
 
         <bpmn:extensionElements>
+
+            <meta:workflowMetadata
+                name="Driver Lookup"
+                version="1.0.0"/>
 
             <meta:processContract>
 
@@ -37,7 +42,7 @@
         </bpmn:extensionElements>
 
         <!-- ================================================== -->
-        <!-- Start -->
+        <!-- Start                                              -->
         <!-- ================================================== -->
 
         <bpmn:startEvent id="start">
@@ -45,64 +50,15 @@
         </bpmn:startEvent>
 
         <!-- ================================================== -->
-        <!-- Capture Driver Details -->
-        <!-- ================================================== -->
-
-        <bpmn:userTask
-            id="capture_driver_details"
-            name="Provide Driver Details">
-
-            <bpmn:incoming>f1</bpmn:incoming>
-            <bpmn:outgoing>f2</bpmn:outgoing>
-
-            <bpmn:extensionElements>
-
-                <meta:taskHandler type="form"/>
-
-                <meta:form title="Find Driving Licence">
-
-                    <meta:field
-                        id="licence_number"
-                        variable="licence_number"
-                        label="Driving Licence Number"
-                        type="string"
-                        required="true">
-
-                        <meta:validation
-                            pattern="^[A-Z0-9]+$"
-                            message="Enter a valid driving licence number"/>
-
-                    </meta:field>
-
-                    <meta:field
-                        id="date_of_birth"
-                        variable="date_of_birth"
-                        label="Date Of Birth"
-                        type="date"
-                        required="true">
-
-                        <meta:validation
-                            rule="date_of_birth is not None"
-                            message="Date of birth is required"/>
-
-                    </meta:field>
-
-                </meta:form>
-
-            </bpmn:extensionElements>
-
-        </bpmn:userTask>
-
-        <!-- ================================================== -->
-        <!-- Lookup Driver -->
+        <!-- Lookup Driver                                      -->
         <!-- ================================================== -->
 
         <bpmn:serviceTask
             id="lookup_driver"
             name="Lookup Driver">
 
-            <bpmn:incoming>f2</bpmn:incoming>
-            <bpmn:outgoing>f3</bpmn:outgoing>
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -111,7 +67,7 @@
                 <meta:httpService
                     method="GET"
                     service="dvla"
-                    endpoint="/app/dvla/v1/driver/${licence_number}">
+                    endpoint="/app/dvla/v1/driver-summary">
 
                     <meta:retry
                         attempts="3"
@@ -120,20 +76,28 @@
                     <meta:timeout
                         duration="PT30S"/>
 
-                    <meta:input
-                        source="date_of_birth"
-                        target="date_of_birth"/>
-
                     <meta:output
-                        source="response.body.driver_id"
+                        source="response.body.driverViewResponse.driver.drivingLicenceNumber"
                         target="driver_id"/>
 
                     <meta:output
-                        source="response.body.email"
+                        source="response.body.driverViewResponse.driver.firstNames"
+                        target="first_names"/>
+
+                    <meta:output
+                        source="response.body.driverViewResponse.driver.lastName"
+                        target="last_name"/>
+
+                    <meta:output
+                        source="response.body.driverViewResponse.driver.dateOfBirth"
+                        target="dob"/>
+
+                    <meta:output
+                        source="response.body.driverViewResponse.driver.email"
                         target="email"/>
 
                     <meta:output
-                        source="response.body.current_address"
+                        source="response.body.driverViewResponse.driver.address.unstructuredAddress"
                         target="current_address"/>
 
                 </meta:httpService>
@@ -143,75 +107,146 @@
         </bpmn:serviceTask>
 
         <!-- ================================================== -->
-        <!-- Api Failure -->
+        <!-- API Failure                                        -->
         <!-- ================================================== -->
 
         <bpmn:boundaryEvent
-            id="lookup_driver_error"
+            id="driver_lookup_error"
             attachedToRef="lookup_driver"
             cancelActivity="true">
 
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_error</bpmn:outgoing>
+            <bpmn:outgoing>f_api_error</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
-        <!-- Return Outputs -->
+        <!-- Confirm Details                                    -->
         <!-- ================================================== -->
 
-        <bpmn:scriptTask
-            id="return_driver"
-            name="Return Driver">
+        <bpmn:userTask
+            id="confirm_details"
+            name="Confirm Driver Details">
 
-            <bpmn:incoming>f3</bpmn:incoming>
-            <bpmn:outgoing>f4</bpmn:outgoing>
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
-                <meta:taskHandler type="return"/>
+                <meta:taskHandler type="form"/>
 
-                <meta:return>
+                <meta:form
+                    title="Confirm Driver Details">
 
-                    <meta:output
-                        source="driver_id"
-                        target="driver_id"/>
+                    <meta:field
+                        id="details_confirmed"
+                        variable="details_confirmed"
+                        type="boolean"
+                        required="true"
+                        label="Are these details correct?"/>
 
-                    <meta:output
-                        source="email"
-                        target="email"/>
-
-                    <meta:output
-                        source="current_address"
-                        target="current_address"/>
-
-                </meta:return>
+                </meta:form>
 
             </bpmn:extensionElements>
 
-        </bpmn:scriptTask>
+        </bpmn:userTask>
 
         <!-- ================================================== -->
-        <!-- Success -->
+        <!-- Confirmation Gateway                              -->
+        <!-- ================================================== -->
+
+        <bpmn:exclusiveGateway
+            id="confirmation_gateway"
+            default="f_manual">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+
+            <bpmn:outgoing>f_confirmed</bpmn:outgoing>
+            <bpmn:outgoing>f_manual</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================== -->
+        <!-- Manual Correction                                  -->
+        <!-- ================================================== -->
+
+        <bpmn:userTask
+            id="correct_details"
+            name="Correct Driver Details">
+
+            <bpmn:incoming>f_manual</bpmn:incoming>
+            <bpmn:outgoing>f_manual_complete</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form
+                    title="Correct Driver Details">
+
+                    <meta:field
+                        id="first_names"
+                        variable="first_names"
+                        type="string"
+                        required="true"
+                        label="First Names"/>
+
+                    <meta:field
+                        id="last_name"
+                        variable="last_name"
+                        type="string"
+                        required="true"
+                        label="Last Name"/>
+
+                    <meta:field
+                        id="dob"
+                        variable="dob"
+                        type="date"
+                        required="true"
+                        label="Date of Birth"/>
+
+                    <meta:field
+                        id="email"
+                        variable="email"
+                        type="string"
+                        required="true"
+                        label="Email"/>
+
+                    <meta:field
+                        id="driver_id"
+                        variable="driver_id"
+                        type="string"
+                        required="true"
+                        label="Driving Licence Number"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <!-- ================================================== -->
+        <!-- Success                                            -->
         <!-- ================================================== -->
 
         <bpmn:endEvent
             id="success">
 
-            <bpmn:incoming>f4</bpmn:incoming>
+            <bpmn:incoming>f_confirmed</bpmn:incoming>
+            <bpmn:incoming>f_manual_complete</bpmn:incoming>
 
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- Error -->
+        <!-- API Failure End                                    -->
         <!-- ================================================== -->
 
         <bpmn:endEvent
-            id="error">
+            id="api_failure_end">
 
-            <bpmn:incoming>f_error</bpmn:incoming>
+            <bpmn:incoming>f_api_error</bpmn:incoming>
 
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
@@ -219,33 +254,38 @@
         </bpmn:endEvent>
 
         <!-- ================================================== -->
-        <!-- Sequence Flows -->
+        <!-- Sequence Flows                                     -->
         <!-- ================================================== -->
 
-        <bpmn:sequenceFlow
-            id="f1"
-            sourceRef="start"
-            targetRef="capture_driver_details"/>
+        <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="lookup_driver"/>
+        <bpmn:sequenceFlow id="f2" sourceRef="lookup_driver" targetRef="confirm_details"/>
+        <bpmn:sequenceFlow id="f3" sourceRef="confirm_details" targetRef="confirmation_gateway"/>
 
         <bpmn:sequenceFlow
-            id="f2"
-            sourceRef="capture_driver_details"
-            targetRef="lookup_driver"/>
+            id="f_confirmed"
+            sourceRef="confirmation_gateway"
+            targetRef="success">
+
+            <bpmn:conditionExpression
+                xsi:type="bpmn:tFormalExpression">
+
+                details_confirmed == true
+
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow id="f_manual" sourceRef="confirmation_gateway" targetRef="correct_details"/>
 
         <bpmn:sequenceFlow
-            id="f3"
-            sourceRef="lookup_driver"
-            targetRef="return_driver"/>
-
-        <bpmn:sequenceFlow
-            id="f4"
-            sourceRef="return_driver"
+            id="f_manual_complete"
+            sourceRef="correct_details"
             targetRef="success"/>
 
         <bpmn:sequenceFlow
-            id="f_error"
-            sourceRef="lookup_driver_error"
-            targetRef="error"/>
+            id="f_api_error"
+            sourceRef="driver_lookup_error"
+            targetRef="api_failure_end"/>
 
     </bpmn:process>
 
