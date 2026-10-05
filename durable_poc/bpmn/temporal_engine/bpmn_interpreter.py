@@ -21,13 +21,8 @@ Supported metadata:
 - meta:taskHandler
 
 TODO:
-- BoundaryEvent support
 - Continue-As-New
-- Input validation
 - OpenTelemetry spans
-- Retry config from BPMN
-- CallActivity input mappings
-- CallActivity output mappings
 - ParallelGateway
 - Transcript support
 """
@@ -52,6 +47,7 @@ from bpmn.temporal_engine.bpmn_model import (
     TimerEvent,
     UserTask,
     HttpRequest,
+    MappingItem,
 )
 
 from bpmn.temporal_engine.context import (
@@ -68,6 +64,24 @@ from bpmn.temporal_engine.paths import (
     set_path,
 )
 
+class BPMNRuntimeError(Exception):
+    """
+    BPMN business error.
+
+    Used to route execution through BPMN
+    boundary events.
+    """
+
+    def __init__(
+        self,
+        error_ref: str,
+    ) -> None:
+        super().__init__(
+            error_ref,
+        )
+
+        self.error_ref = error_ref
+
 
 @workflow.defn
 class BPMNInterpreter:
@@ -82,7 +96,6 @@ class BPMNInterpreter:
         self._received_input: Any = None
 
         self._input_ready_event = asyncio.Event()
-
     #
     # Helpers
     #
@@ -92,33 +105,63 @@ class BPMNInterpreter:
         process: BPMNProcess,
         task_id: str,
         frame: StackFrame,
-        exc: Exception,
+        error_ref: str,
     ) -> bool:
         """
-        Route execution via an attached boundary event.
+        Route execution via a BPMN boundary event.
 
         Returns True if handled.
         """
 
-        for node in process.nodes.values():
-            if (
-                getattr(node, "type", None) == "boundaryEvent"
-                and getattr(node, "attached_to_ref", None) == task_id
-            ):
-                outgoing = process.outgoing_flows(
-                    node.id,
+        target = process.boundary_target(
+            task_id,
+            error_ref,
+        )
+
+        if target is None:
+            return False
+
+        workflow.logger.warning(
+            f"Boundary event triggered for "
+            f"'{task_id}' "
+            f"(error={error_ref})"
+        )
+
+        frame.state_id = target
+
+        return True
+
+    def _validate_contract(
+        self,
+        contract,
+        variables,
+        mode: str,
+    ) -> None:
+
+        if contract is None:
+            return
+
+        fields = (
+            contract.inputs
+            if mode == "inputs"
+            else contract.outputs
+        )
+
+        for field in fields:
+
+            if not field.required:
+                continue
+
+            value = resolve_path(
+                variables,
+                field.name,
+            )
+
+            if value is None:
+                raise RuntimeError(
+                    f"Contract validation failed: "
+                    f"{field.name}"
                 )
-
-                if outgoing:
-                    workflow.logger.warning(
-                        f"Boundary event triggered for '{task_id}': {exc}"
-                    )
-
-                    frame.state_id = outgoing[0].target_ref
-
-                    return True
-
-        return False
 
     def _evaluate_expression(
         self,
@@ -147,13 +190,13 @@ class BPMNInterpreter:
     def _apply_output_mappings(
         self,
         variables: dict[str, Any],
-        outputs: list[dict[str, Any]],
+        outputs: list[MappingItem],
     ) -> None:
 
         for mapping in outputs:
-            source = mapping["source"]
+            source = mapping.source
 
-            target = mapping["target"]
+            target = mapping.target
 
             value = resolve_path(
                 variables,
@@ -289,17 +332,16 @@ class BPMNInterpreter:
 
                 token = f"tkn_{self.state.step_counter}"
 
-                form = current_node.metadata.get(
-                    "form",
-                    {},
-                )
+                if current_node.form is None:
+                    raise RuntimeError(
+                        f"UserTask '{current_node.id}' has no form definition"
+                    )
+
+                form = current_node.form
 
                 self._awaiting_input = AwaitingInput(
                     token=token,
-                    prompt=form.get(
-                        "title",
-                        current_node.name or current_node.id,
-                    ),
+                    prompt=(form.title or current_node.name or current_node.id),
                     schema=form,
                     options=None,
                     timeout_seconds=None,
@@ -323,17 +365,10 @@ class BPMNInterpreter:
                         f"UserTask '{current_node.id}' requires object input"
                     )
 
-                for field in form.get(
-                    "fields",
-                    [],
-                ):
-                    variable = field.get(
-                        "variable",
-                    )
+                for field in form.fields:
+                    variable = field.variable
 
-                    field_id = field.get(
-                        "id",
-                    )
+                    field_id = field.id
 
                     workflow.logger.info(f"Field mapping {field_id} -> {variable}")
 
@@ -420,63 +455,77 @@ class BPMNInterpreter:
                 workflow.logger.info(f"Handler type: {handler}")
 
                 if handler == "http":
-                    service = current_node.metadata["httpService"]
+                    service = current_node.http_service
+
+                    if service is None:
+                        raise RuntimeError(
+                            f"ServiceTask '{current_node.id}' has no http_service"
+                        )
 
                     endpoint = interpolate(
-                        service["endpoint"],
+                        service.endpoint,
                         frame.vars,
                     )
 
                     request_payload = {}
 
-                    for mapping in service.get(
-                        "inputs",
-                        [],
-                    ):
+                    for mapping in service.inputs:
                         workflow.logger.info(
-                            f"Input mapping {mapping['source']} -> {mapping['target']}"
+                            f"Input mapping {mapping.source} -> {mapping.target}"
                         )
 
                         value = resolve_path(
                             frame.vars,
-                            mapping["source"],
+                            mapping.source,
                         )
 
                         set_path(
                             request_payload,
-                            mapping["target"],
+                            mapping.target,
                             value,
                         )
 
-                    workflow.logger.info(f"HTTP {service['method']} {endpoint}")
+                    workflow.logger.info(f"HTTP {service.method} {endpoint}")
 
                     workflow.logger.info(f"Request payload: {request_payload}")
+
+                    timeout_seconds = 30
+                    if service.timeout:
+                        timeout_seconds = int(
+                            parse_duration(
+                                service.timeout.duration,
+                            ).total_seconds()
+                        )
+
+                    retry_policy = None
+                    if service.retry is not None:
+                        retry_policy = RetryPolicy(
+                            maximum_attempts=service.retry.attempts,
+                        )
 
                     try:
                         result = await workflow.execute_activity(
                             "http_call",
                             HttpRequest(
-                                service=service["service"],
-                                method=service["method"],
+                                service=service.service,
+                                method=service.method,
                                 endpoint=endpoint,
                                 body=request_payload,
                             ),
                             start_to_close_timeout=(
                                 timedelta(
-                                    seconds=30,
+                                    seconds=timeout_seconds,
                                 )
                             ),
-                            retry_policy=RetryPolicy(
-                                maximum_attempts=3,
-                            ),
+                            retry_policy=retry_policy,
                         )
 
-                    except Exception as exc:
+                    except Exception:
                         handled = self._handle_boundary_error(
                             process,
                             current_node.id,
                             frame,
-                            exc,
+                            "ApiFailure",
                         )
 
                         if handled:
@@ -494,22 +543,19 @@ class BPMNInterpreter:
 
                     temp_context["response"] = result
 
-                    for mapping in service.get(
-                        "outputs",
-                        [],
-                    ):
+                    for mapping in service.outputs:
                         workflow.logger.info(
-                            f"Output mapping {mapping['source']} -> {mapping['target']}"
+                            f"Output mapping {mapping.source} -> {mapping.target}"
                         )
 
                         value = resolve_path(
                             temp_context,
-                            mapping["source"],
+                            mapping.source,
                         )
 
                         set_path(
                             frame.vars,
-                            mapping["target"],
+                            mapping.target,
                             value,
                         )
 
@@ -520,10 +566,13 @@ class BPMNInterpreter:
 
                     self._apply_output_mappings(
                         frame.vars,
-                        mapping.get(
-                            "outputs",
-                            [],
-                        ),
+                        [
+                            MappingItem(**m)
+                            for m in mapping.get(
+                                "outputs",
+                                [],
+                            )
+                        ],
                     )
 
                 else:
@@ -651,17 +700,36 @@ class BPMNInterpreter:
                     frame,
                 )
 
+                child_vars = deepcopy(
+                    child_process.variables,
+                )
+
+                for mapping in current_node.mappings.inputs:
+
+                    value = resolve_path(
+                        frame.vars,
+                        mapping.source,
+                    )
+
+                    set_path(
+                        child_vars,
+                        mapping.target,
+                        value,
+                    )
+
+                if current_node.mappings.validate_inputs:
+                    self._validate_contract(
+                        child_process.process_contract,
+                        child_vars,
+                        "inputs",
+                    )
+
                 child_frame = StackFrame(
                     process_id=child_process.id,
                     state_id=child_process.start_event,
-                    vars=deepcopy(child_process.variables),
+                    vars=child_vars,
                     invoker_state=current_node.id,
                 )
-
-                #
-                # TODO:
-                # CallActivity input mappings
-                #
 
                 self.state.frames.append(
                     child_frame,
@@ -679,23 +747,106 @@ class BPMNInterpreter:
                 current_node,
                 EndEvent,
             ):
-                workflow.logger.info(f"Reached end event {current_node.id}")
+                workflow.logger.info(
+                    f"Reached end event {current_node.id}"
+                )
 
                 completed = self.state.frames.pop()
 
-                workflow.logger.info(f"Process completed {completed.process_id}")
+                if current_node.error_ref:
+
+                    if not self.state.frames:
+                        raise BPMNRuntimeError(
+                            current_node.error_ref,
+                        )
+
+                    parent_frame = self.state.frames[-1]
+
+                    parent_process = self.definition.processes[
+                        parent_frame.process_id
+                    ]
+
+                    call_activity = parent_process.get_node(
+                        completed.invoker_state,
+                    )
+
+                    if isinstance(
+                        call_activity,
+                        CallActivity,
+                    ):
+                        handled = self._handle_boundary_error(
+                            parent_process,
+                            call_activity.id,
+                            parent_frame,
+                            current_node.error_ref,
+                        )
+
+                        if handled:
+                            continue
+
+                    raise BPMNRuntimeError(
+                        current_node.error_ref,
+                    )
+
+                workflow.logger.info(
+                    f"Process completed {completed.process_id}"
+                )
 
                 #
-                # TODO:
-                # CallActivity output mappings
+                # Returning from subprocess
                 #
 
                 if self.state.frames:
-                    workflow.logger.info("Returning to parent process")
+
+                    parent_frame = self.state.frames[-1]
+
+                    parent_process = self.definition.processes[
+                        parent_frame.process_id
+                    ]
+
+                    call_activity = parent_process.get_node(
+                        completed.invoker_state,
+                    )
+
+                    if isinstance(
+                        call_activity,
+                        CallActivity,
+                    ):
+
+                        if call_activity.mappings.validate_outputs:
+
+                            child_process = self.definition.processes[
+                                completed.process_id
+                            ]
+
+                            self._validate_contract(
+                                child_process.process_contract,
+                                completed.vars,
+                                "outputs",
+                            )
+
+                        for mapping in call_activity.mappings.outputs:
+
+                            value = resolve_path(
+                                completed.vars,
+                                mapping.source,
+                            )
+
+                            set_path(
+                                parent_frame.vars,
+                                mapping.target,
+                                value,
+                            )
+
+                    workflow.logger.info(
+                        "Returning to parent process"
+                    )
 
                     continue
 
-                workflow.logger.info("Workflow completed")
+                workflow.logger.info(
+                    "Workflow completed"
+                )
 
                 return {
                     "status": current_node.status,
@@ -704,7 +855,8 @@ class BPMNInterpreter:
                 }
 
             raise RuntimeError(
-                f"Unsupported BPMN node type {type(current_node).__name__}"
+                f"Unsupported BPMN node type "
+                f"{type(current_node).__name__}"
             )
 
     @workflow.update
