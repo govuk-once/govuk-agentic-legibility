@@ -11,16 +11,28 @@ from xml.etree import ElementTree as ET
 from bpmn.temporal_engine.bpmn_model import (
     BPMNDefinition,
     BPMNProcess,
+    BPMNError,
     BoundaryEvent,
     CallActivity,
+    CallActivityMappings,
+    ContractField,
     EndEvent,
     ExclusiveGateway,
+    FormDefinition,
+    FormField,
+    HttpServiceDefinition,
     ManualTask,
+    MappingItem,
     ParallelGateway,
+    ProcessContract,
+    RetryPolicy,
+    ScriptTask,
     SequenceFlow,
     ServiceTask,
     StartEvent,
+    TimeoutPolicy,
     UserTask,
+    ValidationRule,
     WorkflowExecutorConfig,
     WorkflowMetadata,
     TimerEvent,
@@ -34,6 +46,62 @@ META_NS = {
     "meta": "urn:durable-workflow:metadata:v1",
 }
 
+def parse_process_contract(
+    process_el: ET.Element,
+) -> ProcessContract | None:
+
+    extensions = process_el.find(
+        "bpmn:extensionElements",
+        BPMN_NS,
+    )
+
+    if extensions is None:
+        return None
+
+    contract = extensions.find(
+        "meta:processContract",
+        META_NS,
+    )
+
+    if contract is None:
+        return None
+
+    return ProcessContract(
+        inputs=[
+            ContractField(
+                name=x.attrib["name"],
+                type=x.attrib.get("type"),
+                required=(
+                    x.attrib.get(
+                        "required",
+                        "false",
+                    ).lower()
+                    == "true"
+                ),
+            )
+            for x in contract.findall(
+                "meta:input",
+                META_NS,
+            )
+        ],
+        outputs=[
+            ContractField(
+                name=x.attrib["name"],
+                type=x.attrib.get("type"),
+                required=(
+                    x.attrib.get(
+                        "required",
+                        "false",
+                    ).lower()
+                    == "true"
+                ),
+            )
+            for x in contract.findall(
+                "meta:output",
+                META_NS,
+            )
+        ],
+    )
 
 def parse_bpmn_file(
     path: str | Path,
@@ -67,6 +135,8 @@ def parse_bpmn_file(
     if first_process.workflow_metadata:
         version = first_process.workflow_metadata.version
 
+    errors = parse_errors(root)
+
     print(f"Parsed BPMN definition {definition_id}: {len(processes)} process(es)")
 
     return BPMNDefinition(
@@ -76,8 +146,30 @@ def parse_bpmn_file(
         entry=first_process.id,
         executor=WorkflowExecutorConfig(),
         processes=processes,
+        errors=errors,
     )
 
+def parse_errors(
+    root: ET.Element,
+) -> dict[str, BPMNError]:
+
+    errors = {}
+
+    for err in root.findall(
+        "bpmn:error",
+        BPMN_NS,
+    ):
+        error = BPMNError(
+            id=err.attrib["id"],
+            name=err.attrib.get(
+                "name",
+                err.attrib["id"],
+            ),
+        )
+
+        errors[error.id] = error
+
+    return errors
 
 def parse_process(
     process_el: ET.Element,
@@ -120,12 +212,33 @@ def parse_process(
         "bpmn:userTask",
         BPMN_NS,
     ):
+        metadata = parse_extension_elements(
+            el,
+        )
+
+        form = None
+
+        if "form" in metadata:
+            form_data = metadata["form"]
+
+            form = FormDefinition(
+                title=form_data.get(
+                    "title",
+                ),
+                fields=[
+                    FormField(**field)
+                    for field in form_data.get(
+                        "fields",
+                        [],
+                    )
+                ],
+            )
+
         node = UserTask(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
-            metadata=parse_extension_elements(
-                el,
-            ),
+            metadata=metadata,
+            form=form,
         )
 
         nodes[node.id] = node
@@ -142,11 +255,73 @@ def parse_process(
             el,
         )
 
+        http_service = None
+
+        if "httpService" in metadata:
+            service = metadata["httpService"]
+
+            http_service = HttpServiceDefinition(
+                service=service["service"],
+                method=service["method"],
+                endpoint=service["endpoint"],
+                inputs=[
+                    MappingItem(**x)
+                    for x in service.get(
+                        "inputs",
+                        [],
+                    )
+                ],
+                outputs=[
+                    MappingItem(**x)
+                    for x in service.get(
+                        "outputs",
+                        [],
+                    )
+                ],
+                retry=(
+                    RetryPolicy(**service["retry"])
+                    if "retry" in service
+                    else None
+                ),
+                timeout=(
+                    TimeoutPolicy(**service["timeout"])
+                    if "timeout" in service
+                    else None
+                ),
+            )
+
         node = ServiceTask(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
             metadata=metadata,
-            implementation=metadata,
+            http_service=http_service,
+        )
+
+        nodes[node.id] = node
+
+    #
+    # Script Tasks
+    #
+
+    for el in process_el.findall(
+        "bpmn:scriptTask",
+        BPMN_NS,
+    ):
+        metadata = parse_extension_elements(
+            el,
+        )
+
+        node = ScriptTask(
+            id=el.attrib["id"],
+            name=el.attrib.get("name"),
+            metadata=metadata,
+            validation_rules=[
+                ValidationRule(**rule)
+                for rule in metadata.get(
+                    "validationRules",
+                    [],
+                )
+            ],
         )
 
         nodes[node.id] = node
@@ -177,12 +352,36 @@ def parse_process(
         "bpmn:callActivity",
         BPMN_NS,
     ):
+        metadata = parse_extension_elements(el)
+
         node = CallActivity(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
             called_element=el.attrib["calledElement"],
-            metadata=parse_extension_elements(
-                el,
+            metadata=metadata,
+            mappings=CallActivityMappings(
+                inputs=[
+                    MappingItem(**x)
+                    for x in metadata.get(
+                        "inputs",
+                        [],
+                    )
+                ],
+                outputs=[
+                    MappingItem(**x)
+                    for x in metadata.get(
+                        "outputs",
+                        [],
+                    )
+                ],
+                validate_inputs=metadata.get(
+                    "validateInputs",
+                    False,
+                ),
+                validate_outputs=metadata.get(
+                    "validateOutputs",
+                    False,
+                ),
             ),
         )
 
@@ -226,10 +425,24 @@ def parse_process(
         "bpmn:endEvent",
         BPMN_NS,
     ):
+        error_ref = None
+
+        error_def = el.find(
+            "bpmn:errorEventDefinition",
+            BPMN_NS,
+        )
+
+        if error_def is not None:
+            error_ref = error_def.attrib.get(
+                "errorRef",
+            )
+
         node = EndEvent(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
+            error_ref=error_ref,
         )
+
 
         nodes[node.id] = node
 
@@ -332,6 +545,33 @@ def parse_process(
         if default_flow and default_flow in flows:
             flows[default_flow].is_default = True
 
+    process_validation_rules = []
+
+    extensions = process_el.find(
+        "bpmn:extensionElements",
+        BPMN_NS,
+    )
+
+    if extensions is not None:
+
+        rules = extensions.find(
+            "meta:validationRules",
+            META_NS,
+        )
+
+        if rules is not None:
+            process_validation_rules = [
+                ValidationRule(**rule.attrib)
+                for rule in rules.findall(
+                    "meta:rule",
+                    META_NS,
+                )
+            ]
+
+    process_contract = parse_process_contract(
+        process_el,
+    )
+
     if start_event is None:
         raise ValueError(f"Process '{process_id}' contains no start event")
 
@@ -341,6 +581,8 @@ def parse_process(
         id=process_id,
         start_event=start_event,
         workflow_metadata=workflow_metadata,
+        process_contract=process_contract,
+        validation_rules=process_validation_rules,
         variables={},
         nodes=nodes,
         flows=flows,
@@ -419,18 +661,67 @@ def parse_extension_elements(
     )
 
     if form is not None:
+
+        fields = []
+
+        for field in form.findall(
+            "meta:field",
+            META_NS,
+        ):
+            field_data = dict(
+                field.attrib,
+            )
+
+            validation = field.find(
+                "meta:validation",
+                META_NS,
+            )
+
+            if validation is not None:
+                field_data["validation"] = dict(
+                    validation.attrib,
+                )
+
+            constraints = field.find(
+                "meta:fileConstraints",
+                META_NS,
+            )
+
+            if constraints is not None:
+                field_data["fileConstraints"] = dict(
+                    constraints.attrib,
+                )
+
+            fields.append(
+                field_data,
+            )
+
         metadata["form"] = {
             "title": form.attrib.get(
                 "title",
             ),
-            "fields": [
-                dict(field.attrib)
-                for field in form.findall(
-                    "meta:field",
-                    META_NS,
-                )
-            ],
+            "fields": fields,
         }
+
+    #
+    # mappings
+    #
+
+    metadata["inputs"] = [
+        dict(x.attrib)
+        for x in extensions.findall(
+            "meta:input",
+            META_NS,
+        )
+    ]
+
+    metadata["outputs"] = [
+        dict(x.attrib)
+        for x in extensions.findall(
+            "meta:output",
+            META_NS,
+        )
+]
 
     #
     # httpService
@@ -516,5 +807,51 @@ def parse_extension_elements(
 
     if review is not None:
         metadata["manualReview"] = dict(review.attrib)
+
+    #
+    # validation
+    #
+
+    validate_inputs = extensions.find(
+    "meta:validateInputs",
+    META_NS,
+    )
+
+    if validate_inputs is not None:
+        metadata["validateInputs"] = (
+            validate_inputs.attrib.get(
+                "enabled",
+                "false",
+            ).lower()
+            == "true"
+        )
+
+    validate_outputs = extensions.find(
+        "meta:validateOutputs",
+        META_NS,
+    )
+
+    if validate_outputs is not None:
+        metadata["validateOutputs"] = (
+            validate_outputs.attrib.get(
+                "enabled",
+                "false",
+            ).lower()
+            == "true"
+        )
+
+    rules = extensions.find(
+        "meta:validationRules",
+        META_NS,
+    )
+
+    if rules is not None:
+        metadata["validationRules"] = [
+            dict(rule.attrib)
+            for rule in rules.findall(
+                "meta:rule",
+                META_NS,
+            )
+        ]
 
     return metadata

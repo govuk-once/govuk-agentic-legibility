@@ -26,6 +26,173 @@ class WorkflowMetadata(BaseModel):
 
 
 #
+# Process Contracts
+#
+
+
+class ContractField(BaseModel):
+    """
+    Process input/output definition.
+    """
+
+    name: str
+
+    type: str | None = None
+
+    required: bool = False
+
+
+class ProcessContract(BaseModel):
+    """
+    BPMN process contract.
+    """
+
+    inputs: list[ContractField] = Field(
+        default_factory=list,
+    )
+
+    outputs: list[ContractField] = Field(
+        default_factory=list,
+    )
+
+
+#
+# Validation
+#
+
+
+class ValidationRule(BaseModel):
+    expression: str
+
+    message: str
+
+
+class FieldValidation(BaseModel):
+    pattern: str | None = None
+
+    validator: str | None = None
+
+    rule: str | None = None
+
+    message: str | None = None
+
+
+class FileConstraints(BaseModel):
+    maxSize: int | None = None
+
+    allowedTypes: str | None = None
+
+    minWidth: int | None = None
+
+    minHeight: int | None = None
+
+
+#
+# Forms
+#
+
+
+class FormField(BaseModel):
+    id: str
+
+    variable: str
+
+    type: str
+
+    label: str | None = None
+
+    required: bool = False
+
+    validation: FieldValidation | None = None
+
+    fileConstraints: FileConstraints | None = None
+
+
+class FormDefinition(BaseModel):
+    title: str | None = None
+
+    fields: list[FormField] = Field(
+        default_factory=list,
+    )
+
+
+#
+# Mappings
+#
+
+
+class MappingItem(BaseModel):
+    source: str
+
+    target: str
+
+
+#
+# HTTP Services
+#
+
+
+class RetryPolicy(BaseModel):
+    attempts: int = 1
+
+    backoffSeconds: int = 0
+
+
+class TimeoutPolicy(BaseModel):
+    duration: str
+
+
+class HttpServiceDefinition(BaseModel):
+    service: str
+
+    method: str
+
+    endpoint: str
+
+    inputs: list[MappingItem] = Field(
+        default_factory=list,
+    )
+
+    outputs: list[MappingItem] = Field(
+        default_factory=list,
+    )
+
+    retry: RetryPolicy | None = None
+
+    timeout: TimeoutPolicy | None = None
+
+
+#
+# Call Activity
+#
+
+
+class CallActivityMappings(BaseModel):
+    inputs: list[MappingItem] = Field(
+        default_factory=list,
+    )
+
+    outputs: list[MappingItem] = Field(
+        default_factory=list,
+    )
+
+    validate_inputs: bool = False
+
+    validate_outputs: bool = False
+
+
+#
+# BPMN Errors
+#
+
+
+class BPMNError(BaseModel):
+    id: str
+
+    name: str
+
+
+#
 # Sequence Flows
 #
 
@@ -93,6 +260,8 @@ class EndEvent(BPMNNode):
 
     outcome: str | None = None
 
+    error_ref: str | None = None
+
 
 class TimerEvent(BPMNNode):
     type: Literal["timerEvent"] = "timerEvent"
@@ -125,19 +294,20 @@ class BoundaryEvent(BPMNNode):
 class UserTask(BPMNNode):
     type: Literal["userTask"] = "userTask"
 
-    form_key: str | None = None
+    form: FormDefinition | None = None
 
 
 class ServiceTask(BPMNNode):
     type: Literal["serviceTask"] = "serviceTask"
 
-    implementation: dict[str, Any] = Field(
-        default_factory=dict,
-    )
-
+    http_service: HttpServiceDefinition | None = None
 
 class ScriptTask(BPMNNode):
     type: Literal["scriptTask"] = "scriptTask"
+
+    validation_rules: list[ValidationRule] = Field(
+        default_factory=list,
+    )
 
     operations: dict[str, Any] = Field(
         default_factory=dict,
@@ -153,6 +323,9 @@ class CallActivity(BPMNNode):
 
     called_element: str
 
+    mappings: CallActivityMappings = Field(
+        default_factory=CallActivityMappings,
+    )
 
 #
 # Gateways
@@ -205,6 +378,12 @@ class BPMNProcess(BaseModel):
     start_event: str
 
     workflow_metadata: WorkflowMetadata | None = None
+
+    process_contract: ProcessContract | None = None
+
+    validation_rules: list[ValidationRule] = Field(
+        default_factory=list,
+    )
 
     variables: dict[str, Any] = Field(
         default_factory=dict,
@@ -354,16 +533,19 @@ class BPMNProcess(BaseModel):
     def boundary_target(
         self,
         node_id: str,
+        error_ref: str,
     ) -> str | None:
         """
-        Find boundary error route.
-
-        Returns target node id.
+        Find boundary route for a specific BPMN error.
         """
 
-        events = self.boundary_events_for(
-            node_id,
-        )
+        events = [
+            e
+            for e in self.boundary_events_for(
+                node_id,
+            )
+            if e.error_ref == error_ref
+        ]
 
         if not events:
             return None
@@ -427,6 +609,10 @@ class BPMNDefinition(BaseModel):
 
     defaults: dict[str, Any] = Field(
         default_factory=dict,
+    )
+
+    errors: dict[str, BPMNError] = Field(
+    default_factory=dict,
     )
 
     processes: dict[str, BPMNProcess]
