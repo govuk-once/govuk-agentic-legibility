@@ -35,7 +35,9 @@ from bpmn.temporal_engine.bpmn_model import (
     ValidationRule,
     WorkflowExecutorConfig,
     WorkflowMetadata,
-    TimerEvent,
+    IntermediateCatchEvent,
+    NotificationDefinition,
+    MappingDefinition,
 )
 
 BPMN_NS = {
@@ -311,10 +313,55 @@ def parse_process(
             el,
         )
 
+        mapping=(
+            MappingDefinition(
+                inputs=[
+                    MappingItem(**x)
+                    for x in metadata["mapping"].get(
+                        "inputs",
+                        [],
+                    )
+                ],
+                outputs=[
+                    MappingItem(**x)
+                    for x in metadata["mapping"].get(
+                        "outputs",
+                        [],
+                    )
+                ],
+            )
+            if "mapping" in metadata
+            else None
+        )
+
+        handler_type = (
+            metadata.get("taskHandler", {})
+            .get("type")
+        )
+
+        if handler_type not in {
+            None,
+            "validation",
+            "mapping",
+            "notification",
+        }:
+            raise ValueError(
+                f"Unsupported task handler type: {handler_type}"
+            )
+
         node = ScriptTask(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
             metadata=metadata,
+            task_handler_type=handler_type,
+            mapping=mapping,
+            notification=(
+                NotificationDefinition(
+                    **metadata["notification"]
+                )
+                if "notification" in metadata
+                else None
+            ),
             validation_rules=[
                 ValidationRule(**rule)
                 for rule in metadata.get(
@@ -398,6 +445,7 @@ def parse_process(
         node = ExclusiveGateway(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
+            default_flow=el.attrib.get("default"),
         )
 
         nodes[node.id] = node
@@ -470,11 +518,12 @@ def parse_process(
         if duration is None or not duration.text:
             continue
 
-        node = TimerEvent(
+        node = IntermediateCatchEvent(
             id=el.attrib["id"],
             name=el.attrib.get("name"),
             duration=duration.text.strip(),
         )
+
 
         nodes[node.id] = node
 
@@ -493,6 +542,14 @@ def parse_process(
             BPMN_NS,
         )
 
+        cancel_activity=(
+            el.attrib.get(
+                "cancelActivity",
+                "true",
+            ).lower()
+            == "true"
+        )
+
         if err is not None:
             error_ref = err.attrib.get("errorRef")
 
@@ -501,6 +558,7 @@ def parse_process(
             name=el.attrib.get("name"),
             attached_to_ref=el.attrib["attachedToRef"],
             error_ref=error_ref,
+            cancel_activity=cancel_activity,
         )
 
         nodes[node.id] = node
@@ -668,9 +726,32 @@ def parse_extension_elements(
             "meta:field",
             META_NS,
         ):
+
             field_data = dict(
                 field.attrib,
             )
+
+            options = []
+
+            for option in field.findall(
+                "meta:option",
+                META_NS,
+            ):
+                options.append(
+                    {
+                        "value": option.attrib["value"],
+                        "label": (option.text or "").strip(),
+                    }
+                )
+
+            field_data["options"] = options
+
+            if "sourceVariable" in field.attrib:
+                field_data["source_variable"] = (
+                    field.attrib["sourceVariable"]
+                )
+
+            field_data.pop("sourceVariable", None)
 
             validation = field.find(
                 "meta:validation",
@@ -787,13 +868,20 @@ def parse_extension_elements(
 
     if mapping is not None:
         metadata["mapping"] = {
+            "inputs": [
+                dict(x.attrib)
+                for x in mapping.findall(
+                    "meta:input",
+                    META_NS,
+                )
+            ],
             "outputs": [
                 dict(x.attrib)
                 for x in mapping.findall(
                     "meta:output",
                     META_NS,
                 )
-            ]
+            ],
         }
 
     #
@@ -853,5 +941,19 @@ def parse_extension_elements(
                 META_NS,
             )
         ]
+
+    #
+    # notification
+    #
+
+    notification = extensions.find(
+        "meta:notification",
+        META_NS,
+    )
+
+    if notification is not None:
+        metadata["notification"] = dict(
+            notification.attrib,
+        )
 
     return metadata

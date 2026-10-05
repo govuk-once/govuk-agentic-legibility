@@ -91,12 +91,13 @@ class FileConstraints(BaseModel):
 # Forms
 #
 
+class FormOption(BaseModel):
+    value: str
+    label: str
 
 class FormField(BaseModel):
     id: str
-
     variable: str
-
     type: str
 
     label: str | None = None
@@ -107,6 +108,11 @@ class FormField(BaseModel):
 
     fileConstraints: FileConstraints | None = None
 
+    source_variable: str | None = None
+
+    options: list[FormOption] = Field(
+        default_factory=list,
+    )
 
 class FormDefinition(BaseModel):
     title: str | None = None
@@ -162,10 +168,22 @@ class HttpServiceDefinition(BaseModel):
     timeout: TimeoutPolicy | None = None
 
 
+class NotificationDefinition(BaseModel):
+    channel: str
+
+
 #
 # Call Activity
 #
 
+class MappingDefinition(BaseModel):
+    inputs: list[MappingItem] = Field(
+        default_factory=list,
+    )
+
+    outputs: list[MappingItem] = Field(
+        default_factory=list,
+    )
 
 class CallActivityMappings(BaseModel):
     inputs: list[MappingItem] = Field(
@@ -269,6 +287,13 @@ class TimerEvent(BPMNNode):
     duration: str
 
 
+class IntermediateCatchEvent(BPMNNode):
+    type: Literal["intermediateCatchEvent"] = (
+        "intermediateCatchEvent"
+    )
+
+    duration: str
+
 class BoundaryEvent(BPMNNode):
     """
     Boundary event attached to a task.
@@ -284,6 +309,8 @@ class BoundaryEvent(BPMNNode):
     attached_to_ref: str
 
     error_ref: str | None = None
+
+    cancel_activity: bool = True
 
 
 #
@@ -305,6 +332,12 @@ class ServiceTask(BPMNNode):
 class ScriptTask(BPMNNode):
     type: Literal["scriptTask"] = "scriptTask"
 
+    task_handler_type: Literal[
+        "validation",
+        "mapping",
+        "notification",
+    ] | None = None
+
     validation_rules: list[ValidationRule] = Field(
         default_factory=list,
     )
@@ -313,6 +346,9 @@ class ScriptTask(BPMNNode):
         default_factory=dict,
     )
 
+    notification: NotificationDefinition | None = None
+
+    mapping: MappingDefinition | None = None
 
 class ManualTask(BPMNNode):
     type: Literal["manualTask"] = "manualTask"
@@ -333,7 +369,11 @@ class CallActivity(BPMNNode):
 
 
 class ExclusiveGateway(BPMNNode):
-    type: Literal["exclusiveGateway"] = "exclusiveGateway"
+    type: Literal["exclusiveGateway"] = (
+        "exclusiveGateway"
+    )
+
+    default_flow: str | None = None
 
 
 class ParallelGateway(BPMNNode):
@@ -358,6 +398,7 @@ Node = Annotated[
         | CallActivity
         | ExclusiveGateway
         | ParallelGateway
+        | IntermediateCatchEvent
     ),
     Field(discriminator="type"),
 ]
@@ -624,10 +665,6 @@ class BPMNDefinition(BaseModel):
 
 
 class HttpRequest(BaseModel):
-    """
-    Workflow-safe HTTP activity request.
-    """
-
     service: str
 
     method: str
@@ -635,5 +672,17 @@ class HttpRequest(BaseModel):
     endpoint: str
 
     body: dict[str, Any] = Field(
+        default_factory=dict,
+    )
+
+    retry: RetryPolicy | None = None
+
+    timeout: TimeoutPolicy | None = None
+
+    output_mappings: list[MappingItem] = Field(
+        default_factory=list,
+    )
+
+    variables: dict[str, Any] = Field(
         default_factory=dict,
     )

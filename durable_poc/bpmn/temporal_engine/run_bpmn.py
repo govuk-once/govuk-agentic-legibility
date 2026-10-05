@@ -13,11 +13,66 @@ from temporalio.client import Client
 from bpmn.temporal_engine.bpmn_interpreter import (
     BPMNInterpreter,
 )
+from bpmn.temporal_engine.context import (
+    InputSubmission,
+)
 from bpmn.temporal_engine.bpmn_parser import (
     parse_bpmn_file,
 )
+from bpmn.temporal_engine.bpmn_model import (
+    BPMNDefinition,
+)
 
 TASK_QUEUE = "bpmn-queue"
+
+def load_process_set(
+    entry_bpmn: str,
+    child_bpmns: list[str],
+) -> BPMNDefinition:
+    """
+    Load a BPMN application consisting of
+    one root process and multiple callable
+    subprocess BPMNs.
+    """
+
+    definition = parse_bpmn_file(
+        entry_bpmn,
+    )
+
+    for bpmn_file in child_bpmns:
+
+        child_definition = parse_bpmn_file(
+            bpmn_file,
+        )
+
+        #
+        # Merge processes.
+        #
+
+        duplicate_processes = (
+            set(definition.processes)
+            & set(child_definition.processes)
+        )
+
+        if duplicate_processes:
+            raise ValueError(
+                f"Duplicate process ids found: "
+                f"{sorted(duplicate_processes)}"
+            )
+
+        definition.processes.update(
+            child_definition.processes,
+        )
+
+        #
+        # Merge BPMN errors.
+        #
+
+        definition.errors.update(
+            child_definition.errors,
+        )
+
+    return definition
 
 
 def collect_file_metadata(
@@ -53,12 +108,48 @@ def collect_file_metadata(
         "content_type": (content_type or "application/octet-stream"),
     }
 
+def resolve_dynamic_options(
+    variables: dict,
+    variable_name: str,
+) -> list:
+
+    value = variables.get(
+        variable_name,
+    )
+
+    if isinstance(
+        value,
+        list,
+    ):
+        return value
+
+    return []
+
 
 async def main() -> None:
 
-    definition = parse_bpmn_file(
-        "change_of_address.bpmn",
+    definition = load_process_set(
+        entry_bpmn="change_of_address.bpmn",
+        child_bpmns=[
+            "confirm_intent.bpmn",
+            "name_change_check.bpmn",
+            "driver_lookup.bpmn",
+            "photo_update.bpmn",
+            "signature_update.bpmn",
+            "organ_donation.bpmn",
+            "address_selection.bpmn",
+            "address_update.bpmn",
+            "finalisation.bpmn",
+        ],
     )
+
+    print()
+    print("Loaded processes:")
+
+    for process_id in definition.processes:
+        print(f" - {process_id}")
+
+    print()
 
     workflow_id = f"{definition.id}_{uuid.uuid4().hex[:8]}"
 
@@ -126,6 +217,9 @@ async def main() -> None:
         awaiting = await handle.query(
             BPMNInterpreter.awaiting,
         )
+        workflow_vars = await handle.query(
+            BPMNInterpreter.current_variables,
+        )
 
         if awaiting:
             #
@@ -154,6 +248,9 @@ async def main() -> None:
 
             payload = {}
 
+            if hasattr(schema, "model_dump"):
+                schema = schema.model_dump()
+
             fields = schema.get(
                 "fields",
                 [],
@@ -180,6 +277,52 @@ async def main() -> None:
                         field["id"],
                     )
 
+                    options = field.get(
+                        "options",
+                        [],
+                    )
+
+                    source_variable = field.get(
+                        "source_variable",
+                    )
+
+                    dynamic_options = []
+
+                    if source_variable:
+                        dynamic_options = resolve_dynamic_options(
+                            workflow_vars,
+                            source_variable,
+                        )
+
+                    #
+                    # Render choices BEFORE prompting
+                    #
+
+                    if options:
+                        print()
+                        print(label)
+
+                        for option in options:
+                            print(
+                                f" - {option['value']}: "
+                                f"{option['label']}"
+                            )
+
+                    if dynamic_options:
+
+                        print()
+
+                        print(label)
+
+                        for idx, option in enumerate(
+                            dynamic_options,
+                            start=1,
+                        ):
+                            print(
+                                f" [{idx}] "
+                                f"{option.get('single_line', option)}"
+                            )
+
                     field_type = field.get(
                         "type",
                         "string",
@@ -188,10 +331,63 @@ async def main() -> None:
                     while True:
                         value = input(f"{label}: ").strip()
 
+                        #
+                        # Dynamic choices
+                        #
+                        if dynamic_options:
+
+                            if value.isdigit():
+
+                                idx = int(value) - 1
+
+                                if 0 <= idx < len(dynamic_options):
+
+                                    payload[field["id"]] = (
+                                        dynamic_options[idx]
+                                    )
+
+                                    break
+
+                            print(
+                                f"Choose a value between "
+                                f"1 and {len(dynamic_options)}"
+                            )
+
+                            continue
+
+                
+
+                        #
+                        # Static choices
+                        #
+                        if options:
+                            valid_values = {
+                                str(o["value"])
+                                for o in options
+                            }
+
+                            if value not in valid_values:
+                                print(
+                                    f"Choose one of: "
+                                    f"{', '.join(sorted(valid_values))}"
+                                )
+                                continue
+
+
                         try:
                             if field_type == "file":
                                 payload[field["id"]] = collect_file_metadata(
                                     value,
+                                )
+
+                            elif field_type == "boolean":
+                                payload[field["id"]] = (
+                                    value.lower() in {
+                                        "true",
+                                        "yes",
+                                        "y",
+                                        "1",
+                                    }
                                 )
 
                             else:
@@ -218,10 +414,10 @@ async def main() -> None:
 
             await handle.execute_update(
                 BPMNInterpreter.submit_input,
-                {
-                    "token": token,
-                    "value": payload,
-                },
+                InputSubmission(
+                    token=token,
+                    value=payload,
+                ),
             )
 
             awaiting_token = None

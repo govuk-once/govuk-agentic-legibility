@@ -7,7 +7,7 @@ Supported BPMN elements:
 - UserTask
 - ServiceTask
 - ExclusiveGateway
-- TimerEvent
+- IntermediateCatchEvent
 - CallActivity
 - ManualTask
 - EndEvent
@@ -33,7 +33,6 @@ from datetime import timedelta
 from typing import Any
 
 from temporalio import workflow
-from temporalio.common import RetryPolicy
 
 from bpmn.temporal_engine.bpmn_model import (
     BPMNDefinition,
@@ -42,9 +41,10 @@ from bpmn.temporal_engine.bpmn_model import (
     EndEvent,
     ExclusiveGateway,
     ManualTask,
+    ScriptTask,
     ServiceTask,
     StartEvent,
-    TimerEvent,
+    IntermediateCatchEvent,
     UserTask,
     HttpRequest,
     MappingItem,
@@ -202,6 +202,14 @@ class BPMNInterpreter:
                 variables,
                 source,
             )
+
+            if value is None:
+
+                if source.lower() == "true":
+                    value = True
+
+                elif source.lower() == "false":
+                    value = False
 
             set_path(
                 variables,
@@ -436,6 +444,90 @@ class BPMNInterpreter:
                 continue
 
             #
+            # ScriptTask
+            #
+
+            if isinstance(
+                current_node,
+                ScriptTask,
+            ):
+                if current_node.task_handler_type == "mapping":
+                    workflow.logger.info(f"Executing mapping task {current_node.id}")
+
+                    if current_node.mapping is None:
+                        raise RuntimeError(
+                            f"Mapping task '{current_node.id}' "
+                            f"has no mapping definition"
+                        )
+
+                    self._apply_output_mappings(
+                        frame.vars,
+                        current_node.mapping.outputs,
+                    )
+
+                    self._move_to_next_node(
+                        process,
+                        current_node.id,
+                        frame,
+                    )
+
+                    continue
+
+                if current_node.task_handler_type == "notification":
+
+                    if current_node.notification is None:
+                        raise RuntimeError(
+                            f"Notification task '{current_node.id}' "
+                            f"has no notification definition"
+                        )
+
+                    await workflow.execute_activity(
+                        "send_notification",
+                        {
+                            "channel": current_node.notification.channel,
+                            "variables": frame.vars,
+                        },
+                        start_to_close_timeout=timedelta(
+                            seconds=30,
+                        ),
+                    )
+
+                    self._move_to_next_node(
+                        process,
+                        current_node.id,
+                        frame,
+                    )
+
+                    continue
+
+                if current_node.task_handler_type == "validation":
+
+                    workflow.logger.info(f"Executing validation task {current_node.id}")
+
+                    for rule in current_node.validation_rules:
+
+                        if not self._evaluate_expression(
+                            rule.expression,
+                            frame.vars,
+                        ):
+                            raise RuntimeError(
+                                rule.message
+                            )
+
+                    self._move_to_next_node(
+                        process,
+                        current_node.id,
+                        frame,
+                    )
+
+                    continue
+
+                raise RuntimeError(
+                    f"Unsupported ScriptTask handler "
+                    f"'{current_node.task_handler_type}'"
+                )
+
+            #
             # ServiceTask
             #
 
@@ -489,20 +581,6 @@ class BPMNInterpreter:
 
                     workflow.logger.info(f"Request payload: {request_payload}")
 
-                    timeout_seconds = 30
-                    if service.timeout:
-                        timeout_seconds = int(
-                            parse_duration(
-                                service.timeout.duration,
-                            ).total_seconds()
-                        )
-
-                    retry_policy = None
-                    if service.retry is not None:
-                        retry_policy = RetryPolicy(
-                            maximum_attempts=service.retry.attempts,
-                        )
-
                     try:
                         result = await workflow.execute_activity(
                             "http_call",
@@ -511,13 +589,12 @@ class BPMNInterpreter:
                                 method=service.method,
                                 endpoint=endpoint,
                                 body=request_payload,
+                                retry=service.retry,
+                                timeout=service.timeout,
+                                output_mappings=service.outputs,
+                                variables=frame.vars,
                             ),
-                            start_to_close_timeout=(
-                                timedelta(
-                                    seconds=timeout_seconds,
-                                )
-                            ),
-                            retry_policy=retry_policy,
+                            start_to_close_timeout=timedelta(minutes=5),
                         )
 
                     except Exception:
@@ -537,43 +614,12 @@ class BPMNInterpreter:
                         f"HTTP activity completed for {current_node.id}"
                     )
 
-                    temp_context = deepcopy(
-                        frame.vars,
-                    )
-
-                    temp_context["response"] = result
-
-                    for mapping in service.outputs:
-                        workflow.logger.info(
-                            f"Output mapping {mapping.source} -> {mapping.target}"
-                        )
-
-                        value = resolve_path(
-                            temp_context,
-                            mapping.source,
-                        )
-
+                    for key, value in result.items():
                         set_path(
                             frame.vars,
-                            mapping.target,
+                            key,
                             value,
                         )
-
-                elif handler == "mapping":
-                    workflow.logger.info(f"Executing mapping task {current_node.id}")
-
-                    mapping = current_node.metadata["mapping"]
-
-                    self._apply_output_mappings(
-                        frame.vars,
-                        [
-                            MappingItem(**m)
-                            for m in mapping.get(
-                                "outputs",
-                                [],
-                            )
-                        ],
-                    )
 
                 else:
                     raise RuntimeError(f"Unsupported task handler: {handler}")
@@ -587,12 +633,12 @@ class BPMNInterpreter:
                 continue
 
             #
-            # TimerEvent
+            # IntermediateCatchEvent
             #
 
             if isinstance(
                 current_node,
-                TimerEvent,
+                IntermediateCatchEvent,
             ):
                 workflow.logger.info(f"Waiting on timer {current_node.duration}")
 
@@ -932,3 +978,14 @@ class BPMNInterpreter:
     ) -> list[dict[str, Any]]:
 
         return self.state.activity_history
+
+    @workflow.query
+    def current_variables(
+        self,
+    ) -> dict[str, Any]:
+
+
+        if not self.state.frames:
+            return {}
+
+        return self.state.frames[-1].vars
