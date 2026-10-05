@@ -4,23 +4,175 @@
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
     xmlns:meta="urn:durable-workflow:metadata:v1">
 
-    <bpmn:error id="DeliveryFailure"/>
+    <bpmn:error
+        id="DeliveryFailure"
+        name="DeliveryFailure"/>
 
     <bpmn:process
         id="finalisation"
+        name="Finalisation"
         isExecutable="true">
 
-        <bpmn:startEvent id="start"/>
+        <bpmn:extensionElements>
+
+            <meta:processContract>
+
+                <meta:input
+                    name="driver_id"
+                    type="string"
+                    required="true"/>
+
+                <meta:input
+                    name="email"
+                    type="string"
+                    required="true"/>
+
+                <meta:input
+                    name="address"
+                    type="object"
+                    required="true"/>
+
+                <meta:input
+                    name="job_id"
+                    type="string"
+                    required="true"/>
+
+                <meta:output
+                    name="confirmation_sent"
+                    type="boolean"
+                    required="true"/>
+
+            </meta:processContract>
+
+        </bpmn:extensionElements>
+
+        <bpmn:startEvent id="start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
 
         <bpmn:serviceTask
             id="send_confirmation"
-            name="Send Confirmation Email"/>
+            name="Send Confirmation Email">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="POST"
+                    service="notifications"
+                    endpoint="/app/notifications/v1/email">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:input
+                        source="email"
+                        target="email"/>
+
+                    <meta:input
+                        source="job_id"
+                        target="job_id"/>
+
+                    <meta:input
+                        source="address"
+                        target="address"/>
+
+                    <meta:output
+                        source="response.body.sent"
+                        target="confirmation_sent"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <bpmn:boundaryEvent
+            id="send_confirmation_error"
+            attachedToRef="send_confirmation"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="DeliveryFailure"/>
+
+            <bpmn:outgoing>f_error_1</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
 
         <bpmn:serviceTask
             id="trigger_reissue"
-            name="Trigger Licence Reissue"/>
+            name="Trigger Licence Reissue">
 
-        <bpmn:endEvent id="complete"/>
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="POST"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/licence/reissue">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:input
+                        source="driver_id"
+                        target="driver_id"/>
+
+                    <meta:input
+                        source="job_id"
+                        target="job_id"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <bpmn:boundaryEvent
+            id="trigger_reissue_error"
+            attachedToRef="trigger_reissue"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="DeliveryFailure"/>
+
+            <bpmn:outgoing>f_error_2</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <bpmn:endEvent id="complete">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <bpmn:endEvent id="delivery_failure_end">
+
+            <bpmn:incoming>f_error_1</bpmn:incoming>
+            <bpmn:incoming>f_error_2</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="DeliveryFailure"/>
+
+        </bpmn:endEvent>
 
         <bpmn:sequenceFlow
             id="f1"
@@ -36,6 +188,16 @@
             id="f3"
             sourceRef="trigger_reissue"
             targetRef="complete"/>
+
+        <bpmn:sequenceFlow
+            id="f_error_1"
+            sourceRef="send_confirmation_error"
+            targetRef="delivery_failure_end"/>
+
+        <bpmn:sequenceFlow
+            id="f_error_2"
+            sourceRef="trigger_reissue_error"
+            targetRef="delivery_failure_end"/>
 
     </bpmn:process>
 

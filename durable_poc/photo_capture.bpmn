@@ -5,26 +5,153 @@
     xmlns:meta="urn:durable-workflow:metadata:v1"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
-    <bpmn:error id="InvalidPhoto"/>
-    <bpmn:error id="ApiFailure"/>
+    <bpmn:error
+        id="InvalidPhoto"
+        name="InvalidPhoto"/>
+
+    <bpmn:error
+        id="ApiFailure"
+        name="ApiFailure"/>
 
     <bpmn:process
         id="photo_capture"
+        name="Photo Capture"
         isExecutable="true">
 
-        <bpmn:startEvent id="start"/>
+        <bpmn:extensionElements>
+
+            <meta:processContract>
+
+                <meta:input
+                    name="driver_id"
+                    type="string"
+                    required="true"/>
+
+                <meta:output
+                    name="photo_id"
+                    type="string"
+                    required="true"/>
+
+            </meta:processContract>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================== -->
+        <!-- Start -->
+        <!-- ================================================== -->
+
+        <bpmn:startEvent id="start">
+            <bpmn:outgoing>f1</bpmn:outgoing>
+        </bpmn:startEvent>
+
+        <!-- ================================================== -->
+        <!-- Check Existing Photo -->
+        <!-- ================================================== -->
 
         <bpmn:serviceTask
             id="check_existing_photo"
-            name="Check Existing Photo"/>
+            name="Check Existing Photo">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="GET"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/photo_expiry/${driver_id}">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:output
+                        source="response.body.expired"
+                        target="photo_expired"/>
+
+                    <meta:output
+                        source="response.body.photo_id"
+                        target="existing_photo_id"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <!-- ================================================== -->
+        <!-- API Failure -->
+        <!-- ================================================== -->
+
+        <bpmn:boundaryEvent
+            id="check_existing_photo_error"
+            attachedToRef="check_existing_photo"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error_1</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Existing Photo Valid? -->
+        <!-- ================================================== -->
 
         <bpmn:exclusiveGateway
             id="photo_gateway"
-            default="upload_flow"/>
+            default="upload_flow">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>existing_valid</bpmn:outgoing>
+            <bpmn:outgoing>upload_flow</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <!-- ================================================== -->
+        <!-- Use Existing Photo -->
+        <!-- ================================================== -->
+
+        <bpmn:scriptTask
+            id="use_existing_photo"
+            name="Use Existing Photo">
+
+            <bpmn:incoming>existing_valid</bpmn:incoming>
+            <bpmn:outgoing>f_complete_existing</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="mapping"/>
+
+                <meta:mapping>
+
+                    <meta:output
+                        source="existing_photo_id"
+                        target="photo_id"/>
+
+                </meta:mapping>
+
+            </bpmn:extensionElements>
+
+        </bpmn:scriptTask>
+
+        <!-- ================================================== -->
+        <!-- Upload Photo -->
+        <!-- ================================================== -->
 
         <bpmn:userTask
             id="upload_photo"
             name="Upload Photo">
+
+            <bpmn:incoming>upload_flow</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -36,7 +163,13 @@
                         id="photo"
                         variable="uploaded_photo"
                         type="file"
-                        required="true"/>
+                        required="true">
+
+                        <meta:fileConstraints
+                            maxSize="5242880"
+                            allowedTypes="image/jpeg,image/png"/>
+
+                    </meta:field>
 
                 </meta:form>
 
@@ -44,11 +177,123 @@
 
         </bpmn:userTask>
 
+        <!-- ================================================== -->
+        <!-- Validate Photo -->
+        <!-- ================================================== -->
+
         <bpmn:serviceTask
             id="validate_photo"
-            name="Validate Photo"/>
+            name="Validate Photo">
 
-        <bpmn:endEvent id="complete"/>
+            <bpmn:incoming>f3</bpmn:incoming>
+            <bpmn:outgoing>f4</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="POST"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/photo_validity">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:input
+                        source="uploaded_photo"
+                        target="file"/>
+
+                    <meta:output
+                        source="response.body.photo_id"
+                        target="photo_id"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <!-- ================================================== -->
+        <!-- Invalid Photo -->
+        <!-- ================================================== -->
+
+        <bpmn:boundaryEvent
+            id="invalid_photo"
+            attachedToRef="validate_photo"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="InvalidPhoto"/>
+
+            <bpmn:outgoing>f_invalid</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- API Failure -->
+        <!-- ================================================== -->
+
+        <bpmn:boundaryEvent
+            id="validate_photo_error"
+            attachedToRef="validate_photo"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error_2</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Success -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="success">
+
+            <bpmn:incoming>f_complete_existing</bpmn:incoming>
+            <bpmn:incoming>f4</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Invalid Photo End -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="invalid_photo_end">
+
+            <bpmn:incoming>f_invalid</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="InvalidPhoto"/>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- API Failure End -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="api_failure_end">
+
+            <bpmn:incoming>f_error_1</bpmn:incoming>
+            <bpmn:incoming>f_error_2</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Sequence Flows -->
+        <!-- ================================================== -->
 
         <bpmn:sequenceFlow
             id="f1"
@@ -63,10 +308,10 @@
         <bpmn:sequenceFlow
             id="existing_valid"
             sourceRef="photo_gateway"
-            targetRef="complete">
+            targetRef="use_existing_photo">
 
             <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
-                not photo_validation["expired"]
+                not photo_expired
             </bpmn:conditionExpression>
 
         </bpmn:sequenceFlow>
@@ -84,7 +329,27 @@
         <bpmn:sequenceFlow
             id="f4"
             sourceRef="validate_photo"
-            targetRef="complete"/>
+            targetRef="success"/>
+
+        <bpmn:sequenceFlow
+            id="f_complete_existing"
+            sourceRef="use_existing_photo"
+            targetRef="success"/>
+
+        <bpmn:sequenceFlow
+            id="f_invalid"
+            sourceRef="invalid_photo"
+            targetRef="invalid_photo_end"/>
+
+        <bpmn:sequenceFlow
+            id="f_error_1"
+            sourceRef="check_existing_photo_error"
+            targetRef="api_failure_end"/>
+
+        <bpmn:sequenceFlow
+            id="f_error_2"
+            sourceRef="validate_photo_error"
+            targetRef="api_failure_end"/>
 
     </bpmn:process>
 

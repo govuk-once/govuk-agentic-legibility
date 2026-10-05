@@ -2,17 +2,51 @@
 
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-    xmlns:meta="urn:durable-workflow:metadata:v1">
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <bpmn:error
+        id="ApiFailure"
+        name="ApiFailure"/>
 
     <bpmn:process
         id="address_selection"
+        name="Address Selection"
         isExecutable="true">
 
-        <bpmn:startEvent id="start"/>
+        <bpmn:extensionElements>
+
+            <meta:processContract>
+
+                <meta:output
+                    name="address"
+                    type="object"
+                    required="true"/>
+
+            </meta:processContract>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================== -->
+        <!-- Start -->
+        <!-- ================================================== -->
+
+        <bpmn:startEvent id="start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
+
+        <!-- ================================================== -->
+        <!-- Enter Postcode -->
+        <!-- ================================================== -->
 
         <bpmn:userTask
             id="enter_postcode"
             name="Enter Postcode">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -25,6 +59,96 @@
                         variable="postcode"
                         label="Postcode"
                         type="string"
+                        required="true">
+
+                        <meta:validation
+                            pattern="^[A-Z]{1,2}[0-9][0-9A-Z]? ?[0-9][A-Z]{2}$"
+                            message="Enter a valid postcode"/>
+
+                    </meta:field>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <!-- ================================================== -->
+        <!-- Lookup Addresses -->
+        <!-- ================================================== -->
+
+        <bpmn:serviceTask
+            id="lookup_addresses"
+            name="Lookup Addresses">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="GET"
+                    service="address"
+                    endpoint="/app/address/v1/postcode/${postcode}">
+
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:output
+                        source="response.body.addresses"
+                        target="available_addresses"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <!-- ================================================== -->
+        <!-- Address Lookup Failure -->
+        <!-- ================================================== -->
+
+        <bpmn:boundaryEvent
+            id="lookup_addresses_error"
+            attachedToRef="lookup_addresses"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Select Address -->
+        <!-- ================================================== -->
+
+        <bpmn:userTask
+            id="select_address"
+            name="Select Address">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+            <bpmn:outgoing>f4</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form title="Select Address">
+
+                    <meta:field
+                        id="address"
+                        variable="address"
+                        label="Select Address"
+                        type="select"
+                        source="available_addresses"
                         required="true"/>
 
                 </meta:form>
@@ -33,15 +157,32 @@
 
         </bpmn:userTask>
 
-        <bpmn:serviceTask
-            id="lookup_addresses"
-            name="Lookup Addresses"/>
+        <!-- ================================================== -->
+        <!-- Success -->
+        <!-- ================================================== -->
 
-        <bpmn:userTask
-            id="select_address"
-            name="Select Address"/>
+        <bpmn:endEvent id="complete">
 
-        <bpmn:endEvent id="complete"/>
+            <bpmn:incoming>f4</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Error -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent id="error">
+
+            <bpmn:incoming>f_error</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Sequence Flows -->
+        <!-- ================================================== -->
 
         <bpmn:sequenceFlow
             id="f1"
@@ -62,6 +203,11 @@
             id="f4"
             sourceRef="select_address"
             targetRef="complete"/>
+
+        <bpmn:sequenceFlow
+            id="f_error"
+            sourceRef="lookup_addresses_error"
+            targetRef="error"/>
 
     </bpmn:process>
 

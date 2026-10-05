@@ -12,11 +12,24 @@
         name="Eligibility Check"
         isExecutable="true">
 
-        <bpmn:startEvent id="start"/>
+        <bpmn:extensionElements>
+
+            <meta:processContract/>
+
+        </bpmn:extensionElements>
+
+        <bpmn:startEvent id="start">
+
+            <bpmn:outgoing>f1</bpmn:outgoing>
+
+        </bpmn:startEvent>
 
         <bpmn:userTask
             id="confirm_uk_resident"
             name="Confirm UK Residency">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -29,7 +42,13 @@
                         variable="uk_resident"
                         label="Do you currently live in Great Britain?"
                         type="boolean"
-                        required="true"/>
+                        required="true">
+
+                        <meta:validation
+                            rule="uk_resident is not None"
+                            message="Please answer the eligibility question"/>
+
+                    </meta:field>
 
                 </meta:form>
 
@@ -39,12 +58,28 @@
 
         <bpmn:exclusiveGateway
             id="eligibility_gateway"
-            default="ineligible_flow"/>
+            default="ineligible_flow">
 
-        <bpmn:endEvent id="eligible"/>
+            <bpmn:incoming>f2</bpmn:incoming>
+
+            <bpmn:outgoing>eligible_flow</bpmn:outgoing>
+            <bpmn:outgoing>ineligible_flow</bpmn:outgoing>
+
+        </bpmn:exclusiveGateway>
+
+        <bpmn:endEvent id="eligible">
+
+            <bpmn:incoming>eligible_flow</bpmn:incoming>
+
+        </bpmn:endEvent>
 
         <bpmn:endEvent id="ineligible">
-            <bpmn:errorEventDefinition errorRef="Ineligible"/>
+
+            <bpmn:incoming>ineligible_flow</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="Ineligible"/>
+
         </bpmn:endEvent>
 
         <bpmn:sequenceFlow

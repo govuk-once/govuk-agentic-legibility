@@ -4,18 +4,56 @@
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
     xmlns:meta="urn:durable-workflow:metadata:v1">
 
-    <bpmn:error id="ApiFailure"/>
+    <bpmn:error
+        id="ApiFailure"
+        name="ApiFailure"/>
 
     <bpmn:process
         id="driver_lookup"
         name="Driver Lookup"
         isExecutable="true">
 
-        <bpmn:startEvent id="start"/>
+        <bpmn:extensionElements>
+
+            <meta:processContract>
+
+                <meta:output
+                    name="driver_id"
+                    type="string"
+                    required="true"/>
+
+                <meta:output
+                    name="email"
+                    type="string"
+                    required="true"/>
+
+                <meta:output
+                    name="current_address"
+                    type="object"
+                    required="true"/>
+
+            </meta:processContract>
+
+        </bpmn:extensionElements>
+
+        <!-- ================================================== -->
+        <!-- Start -->
+        <!-- ================================================== -->
+
+        <bpmn:startEvent id="start">
+            <bpmn:outgoing>f1</bpmn:outgoing>
+        </bpmn:startEvent>
+
+        <!-- ================================================== -->
+        <!-- Capture Driver Details -->
+        <!-- ================================================== -->
 
         <bpmn:userTask
             id="capture_driver_details"
             name="Provide Driver Details">
+
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -28,14 +66,26 @@
                         variable="licence_number"
                         label="Driving Licence Number"
                         type="string"
-                        required="true"/>
+                        required="true">
+
+                        <meta:validation
+                            pattern="^[A-Z0-9]+$"
+                            message="Enter a valid driving licence number"/>
+
+                    </meta:field>
 
                     <meta:field
-                        id="dob"
+                        id="date_of_birth"
                         variable="date_of_birth"
                         label="Date Of Birth"
                         type="date"
-                        required="true"/>
+                        required="true">
+
+                        <meta:validation
+                            rule="date_of_birth is not None"
+                            message="Date of birth is required"/>
+
+                    </meta:field>
 
                 </meta:form>
 
@@ -43,9 +93,16 @@
 
         </bpmn:userTask>
 
+        <!-- ================================================== -->
+        <!-- Lookup Driver -->
+        <!-- ================================================== -->
+
         <bpmn:serviceTask
             id="lookup_driver"
             name="Lookup Driver">
+
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
@@ -56,9 +113,28 @@
                     service="dvla"
                     endpoint="/app/dvla/v1/driver/${licence_number}">
 
+                    <meta:retry
+                        attempts="3"
+                        backoffSeconds="5"/>
+
+                    <meta:timeout
+                        duration="PT30S"/>
+
+                    <meta:input
+                        source="date_of_birth"
+                        target="date_of_birth"/>
+
                     <meta:output
-                        source="response.body"
-                        target="driver_info"/>
+                        source="response.body.driver_id"
+                        target="driver_id"/>
+
+                    <meta:output
+                        source="response.body.email"
+                        target="email"/>
+
+                    <meta:output
+                        source="response.body.current_address"
+                        target="current_address"/>
 
                 </meta:httpService>
 
@@ -66,11 +142,110 @@
 
         </bpmn:serviceTask>
 
-        <bpmn:endEvent id="success"/>
+        <!-- ================================================== -->
+        <!-- Api Failure -->
+        <!-- ================================================== -->
 
-        <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="capture_driver_details"/>
-        <bpmn:sequenceFlow id="f2" sourceRef="capture_driver_details" targetRef="lookup_driver"/>
-        <bpmn:sequenceFlow id="f3" sourceRef="lookup_driver" targetRef="success"/>
+        <bpmn:boundaryEvent
+            id="lookup_driver_error"
+            attachedToRef="lookup_driver"
+            cancelActivity="true">
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+            <bpmn:outgoing>f_error</bpmn:outgoing>
+
+        </bpmn:boundaryEvent>
+
+        <!-- ================================================== -->
+        <!-- Return Outputs -->
+        <!-- ================================================== -->
+
+        <bpmn:scriptTask
+            id="return_driver"
+            name="Return Driver">
+
+            <bpmn:incoming>f3</bpmn:incoming>
+            <bpmn:outgoing>f4</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="return"/>
+
+                <meta:return>
+
+                    <meta:output
+                        source="driver_id"
+                        target="driver_id"/>
+
+                    <meta:output
+                        source="email"
+                        target="email"/>
+
+                    <meta:output
+                        source="current_address"
+                        target="current_address"/>
+
+                </meta:return>
+
+            </bpmn:extensionElements>
+
+        </bpmn:scriptTask>
+
+        <!-- ================================================== -->
+        <!-- Success -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="success">
+
+            <bpmn:incoming>f4</bpmn:incoming>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Error -->
+        <!-- ================================================== -->
+
+        <bpmn:endEvent
+            id="error">
+
+            <bpmn:incoming>f_error</bpmn:incoming>
+
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
+
+        </bpmn:endEvent>
+
+        <!-- ================================================== -->
+        <!-- Sequence Flows -->
+        <!-- ================================================== -->
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="capture_driver_details"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="capture_driver_details"
+            targetRef="lookup_driver"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
+            sourceRef="lookup_driver"
+            targetRef="return_driver"/>
+
+        <bpmn:sequenceFlow
+            id="f4"
+            sourceRef="return_driver"
+            targetRef="success"/>
+
+        <bpmn:sequenceFlow
+            id="f_error"
+            sourceRef="lookup_driver_error"
+            targetRef="error"/>
 
     </bpmn:process>
 

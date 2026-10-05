@@ -30,7 +30,15 @@
 
             <meta:workflowMetadata
                 name="Driving Licence Change Of Address"
-                version="2.0.0"/>
+                version="1.0.0"/>
+
+            <meta:validationRules>
+
+                <meta:rule
+                    expression="confirmed is not None"
+                    message="Confirmation is required"/>
+
+            </meta:validationRules>
 
         </bpmn:extensionElements>
 
@@ -96,7 +104,12 @@
 
             <bpmn:extensionElements>
 
-                <meta:output assign="eligibility"/>
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
+                <meta:output
+                    source="eligible"
+                    target="eligible"/>
 
             </bpmn:extensionElements>
 
@@ -128,7 +141,20 @@
 
             <bpmn:extensionElements>
 
-                <meta:output assign="driver_info"/>
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
+                <meta:output
+                    source="driver_id"
+                    target="driver_id"/>
+
+                <meta:output
+                    source="email"
+                    target="email"/>
+
+                <meta:output
+                    source="current_address"
+                    target="current_address"/>
 
             </bpmn:extensionElements>
 
@@ -145,7 +171,7 @@
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_manual_1</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_1</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -160,12 +186,16 @@
 
             <bpmn:extensionElements>
 
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
                 <meta:input
-                    source="driver_info.driver_id"
+                    source="driver_id"
                     target="driver_id"/>
 
                 <meta:output
-                    assign="photo_id"/>
+                    source="photo_id"
+                    target="photo_id"/>
 
             </bpmn:extensionElements>
 
@@ -194,7 +224,7 @@
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_manual_2</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_2</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -209,7 +239,12 @@
 
             <bpmn:extensionElements>
 
-                <meta:output assign="address"/>
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
+                <meta:output
+                    source="address"
+                    target="address"/>
 
             </bpmn:extensionElements>
 
@@ -226,13 +261,44 @@
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_manual_3</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_3</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
         <!-- Address Update                                      -->
         <!-- ================================================== -->
+
+        <bpmn:scriptTask
+            id="validate_submission"
+            name="Validate Submission">
+
+            <bpmn:incoming>f6</bpmn:incoming>
+            <bpmn:outgoing>f_validation</bpmn:outgoing>
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="validation"/>
+
+                <meta:validationRules>
+
+                    <meta:rule
+                        expression="driver_id is not None and driver_id != ''"
+                        message="Driver ID missing"/>
+
+                    <meta:rule
+                        expression="photo_id is not None and photo_id != ''"
+                        message="Photo ID missing"/>
+
+                    <meta:rule
+                        expression="address is not None"
+                        message="Address missing"/>
+
+                </meta:validationRules>
+
+            </bpmn:extensionElements>
+
+        </bpmn:scriptTask>
 
         <bpmn:callActivity
             id="run_address_update"
@@ -241,8 +307,11 @@
 
             <bpmn:extensionElements>
 
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
                 <meta:input
-                    source="driver_info.driver_id"
+                    source="driver_id"
                     target="driver_id"/>
 
                 <meta:input
@@ -254,11 +323,16 @@
                     target="photo_id"/>
 
                 <meta:output
-                    assign="update_result"/>
+                    source="job_id"
+                    target="job_id"/>
+
+                <meta:output
+                    source="status"
+                    target="status"/>
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f6</bpmn:incoming>
+            <bpmn:incoming>f_validation</bpmn:incoming>
             <bpmn:outgoing>f7</bpmn:outgoing>
 
         </bpmn:callActivity>
@@ -283,7 +357,7 @@
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_manual_4</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_4</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -298,12 +372,15 @@
 
             <bpmn:extensionElements>
 
+                <meta:validateInputs enabled="true"/>
+                <meta:validateOutputs enabled="true"/>
+
                 <meta:input
-                    source="driver_info.driver_id"
+                    source="driver_id"
                     target="driver_id"/>
 
                 <meta:input
-                    source="driver_info.email"
+                    source="email"
                     target="email"/>
 
                 <meta:input
@@ -311,8 +388,12 @@
                     target="address"/>
 
                 <meta:input
-                    source="update_result.job_id"
+                    source="job_id"
                     target="job_id"/>
+
+                <meta:output
+                    source="confirmation_sent"
+                    target="confirmation_sent"/>
 
             </bpmn:extensionElements>
 
@@ -329,38 +410,9 @@
             <bpmn:errorEventDefinition
                 errorRef="DeliveryFailure"/>
 
-            <bpmn:outgoing>f_manual_5</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_5</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
-
-        <!-- ================================================== -->
-        <!-- Manual Review                                       -->
-        <!-- ================================================== -->
-
-        <bpmn:manualTask
-            id="manual_review"
-            name="Manual Review">
-
-            <bpmn:extensionElements>
-
-                <meta:taskHandler type="manual"/>
-
-                <meta:manualReview
-                    queue="dvla-review"
-                    priority="high"
-                    category="address-change"/>
-
-            </bpmn:extensionElements>
-
-            <bpmn:incoming>f_manual_1</bpmn:incoming>
-            <bpmn:incoming>f_manual_2</bpmn:incoming>
-            <bpmn:incoming>f_manual_3</bpmn:incoming>
-            <bpmn:incoming>f_manual_4</bpmn:incoming>
-            <bpmn:incoming>f_manual_5</bpmn:incoming>
-
-            <bpmn:outgoing>f_manual_complete</bpmn:outgoing>
-
-        </bpmn:manualTask>
 
         <!-- ================================================== -->
         <!-- End Events                                          -->
@@ -392,9 +444,15 @@
         </bpmn:endEvent>
 
         <bpmn:endEvent
-            id="end_manual_review"
-            name="Transferred To Manual Processing">
-            <bpmn:incoming>f_manual_complete</bpmn:incoming>
+            id="end_exception"
+            name="Journey Failed">
+
+            <bpmn:incoming>f_exception_1</bpmn:incoming>
+            <bpmn:incoming>f_exception_2</bpmn:incoming>
+            <bpmn:incoming>f_exception_3</bpmn:incoming>
+            <bpmn:incoming>f_exception_4</bpmn:incoming>
+            <bpmn:incoming>f_exception_5</bpmn:incoming>
+
         </bpmn:endEvent>
 
         <!-- ================================================== -->
@@ -445,6 +503,11 @@
         <bpmn:sequenceFlow
             id="f6"
             sourceRef="run_address_selection"
+            targetRef="validate_submission"/>
+
+        <bpmn:sequenceFlow
+            id="f_validation"
+            sourceRef="validate_submission"
             targetRef="run_address_update"/>
 
         <bpmn:sequenceFlow
@@ -473,35 +536,30 @@
             targetRef="end_rejected"/>
 
         <bpmn:sequenceFlow
-            id="f_manual_1"
+            id="f_exception_1"
             sourceRef="driver_lookup_error"
-            targetRef="manual_review"/>
+            targetRef="end_exception"/>
 
         <bpmn:sequenceFlow
-            id="f_manual_2"
+            id="f_exception_2"
             sourceRef="photo_api_error"
-            targetRef="manual_review"/>
+            targetRef="end_exception"/>
 
         <bpmn:sequenceFlow
-            id="f_manual_3"
+            id="f_exception_3"
             sourceRef="address_selection_error"
-            targetRef="manual_review"/>
+            targetRef="end_exception"/>
 
         <bpmn:sequenceFlow
-            id="f_manual_4"
+            id="f_exception_4"
             sourceRef="address_update_error"
-            targetRef="manual_review"/>
+            targetRef="end_exception"/>
 
         <bpmn:sequenceFlow
-            id="f_manual_5"
+            id="f_exception_5"
             sourceRef="finalisation_error"
-            targetRef="manual_review"/>
-
-        <bpmn:sequenceFlow
-            id="f_manual_complete"
-            sourceRef="manual_review"
-            targetRef="end_manual_review"/>
-
+            targetRef="end_exception"/>
+        
     </bpmn:process>
 
 </bpmn:definitions>
