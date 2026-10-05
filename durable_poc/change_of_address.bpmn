@@ -2,473 +2,505 @@
 
 <bpmn:definitions
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:meta="urn:durable-workflow:metadata:v1"
     targetNamespace="urn:durable-workflow:processes:v1"
     id="dvla_change_address">
 
-    <bpmn:error
-        id="ServiceError"
-        name="ServiceError"/>
+    <!-- ====================================================== -->
+    <!-- Errors                                                   -->
+    <!-- ====================================================== -->
+
+    <bpmn:error id="ApiFailure" name="ApiFailure"/>
+    <bpmn:error id="InvalidPhoto" name="InvalidPhoto"/>
+    <bpmn:error id="InvalidAddress" name="InvalidAddress"/>
+    <bpmn:error id="Ineligible" name="Ineligible"/>
+    <bpmn:error id="DeliveryFailure" name="DeliveryFailure"/>
+
+    <!-- ====================================================== -->
+    <!-- Main Process                                             -->
+    <!-- ====================================================== -->
 
     <bpmn:process
         id="change_address"
         name="Driving Licence Change Of Address"
         isExecutable="true">
 
-    <bpmn:extensionElements>
-
-        <meta:workflowMetadata
-            name="Driving Licence Change Of Address"
-            version="1.0.0"/>
-
-    </bpmn:extensionElements>
-
-    <bpmn:laneSet id="laneSet_1">
-
-        <bpmn:lane
-            id="applicant_lane"
-            name="Applicant">
-
-        <bpmn:flowNodeRef>provide_details</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>upload_photo</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>provide_address</bpmn:flowNodeRef>
-
-        </bpmn:lane>
-
-        <bpmn:lane
-            id="system_lane"
-            name="Workflow Engine">
-
-        <bpmn:flowNodeRef>check_photo_validity</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>photo_valid_gateway</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>map_existing_photo</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>validate_photo</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>map_uploaded_photo</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>photo_selected_gateway</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>update_address</bpmn:flowNodeRef>
-
-        </bpmn:lane>
-
-        <bpmn:lane
-            id="caseworker_lane"
-            name="Caseworker">
-
-        <bpmn:flowNodeRef>manual_review</bpmn:flowNodeRef>
-
-        </bpmn:lane>
-
-    </bpmn:laneSet>
-
-    <bpmn:startEvent
-        id="start"
-        name="Start"/>
-
-    <bpmn:userTask
-        id="provide_details"
-        name="Provide Personal Details">
-
         <bpmn:extensionElements>
 
-        <meta:taskHandler type="form"/>
-
-        <meta:form title="Provide Personal Details">
-
-            <meta:field
-                id="first_name"
-                variable="applicant.first_name"
-                label="First Name"
-                type="string"
-                required="true"/>
-
-            <meta:field
-                id="last_name"
-                variable="applicant.last_name"
-                label="Last Name"
-                type="string"
-                required="true"/>
-
-            <meta:field
-                id="date_of_birth"
-                variable="applicant.date_of_birth"
-                label="Date Of Birth"
-                type="date"
-                required="true"/>
-
-            <meta:field
-                id="driving_licence_number"
-                variable="applicant.driving_licence_number"
-                label="Driving Licence Number"
-                type="string"
-                required="true"/>
-
-        </meta:form>
+            <meta:workflowMetadata
+                name="Driving Licence Change Of Address"
+                version="2.0.0"/>
 
         </bpmn:extensionElements>
 
-    </bpmn:userTask>
+        <!-- ================================================== -->
+        <!-- Events                                              -->
+        <!-- ================================================== -->
 
-    <bpmn:serviceTask
-        id="check_photo_validity"
-        name="Check Existing Photo">
+        <bpmn:startEvent
+            id="start"
+            name="Start">
+            <bpmn:outgoing>f1</bpmn:outgoing>
+        </bpmn:startEvent>
 
-        <bpmn:extensionElements>
+        <!-- ================================================== -->
+        <!-- Confirm Intent                                      -->
+        <!-- ================================================== -->
 
-        <meta:taskHandler type="http"/>
+        <bpmn:userTask
+            id="confirm_intent"
+            name="Confirm Intent">
 
-        <meta:httpService
-            method="GET"
-            service="dvla"
-            endpoint="/app/dvla/v1/photo_expiry/${applicant.driving_licence_number}">
+            <bpmn:extensionElements>
 
-            <meta:retry
-                attempts="3"
-                backoffSeconds="10"/>
+                <meta:taskHandler type="form"/>
 
-            <meta:timeout
-                duration="PT30S"/>
+                <meta:form title="Change Address Confirmation">
 
-            <meta:output
-                source="response.body.expired"
-                target="photo_validation.expired"/>
+                    <meta:field
+                        id="confirmed"
+                        variable="confirmed"
+                        label="Would you like to update the address on your driving licence?"
+                        type="boolean"
+                        required="true"/>
 
-            <meta:output
-                source="response.body.photo_id"
-                target="photo_validation.photo_id"/>
+                </meta:form>
 
-        </meta:httpService>
+            </bpmn:extensionElements>
 
-        </bpmn:extensionElements>
+            <bpmn:incoming>f1</bpmn:incoming>
+            <bpmn:outgoing>f2</bpmn:outgoing>
 
-    </bpmn:serviceTask>
+        </bpmn:userTask>
 
-    <bpmn:boundaryEvent
-        id="check_photo_error"
-        name="Photo Check Failed"
-        attachedToRef="check_photo_validity">
+        <bpmn:exclusiveGateway
+            id="intent_gateway"
+            name="Continue Journey?"
+            default="f_cancel">
 
-        <bpmn:errorEventDefinition
-            errorRef="ServiceError"/>
+            <bpmn:incoming>f2</bpmn:incoming>
+            <bpmn:outgoing>f_continue</bpmn:outgoing>
+            <bpmn:outgoing>f_cancel</bpmn:outgoing>
 
-    </bpmn:boundaryEvent>
+        </bpmn:exclusiveGateway>
 
-    <bpmn:exclusiveGateway
-        id="photo_valid_gateway"
-        name="Existing Photo Valid?"
-        default="f5"/>
+        <!-- ================================================== -->
+        <!-- Eligibility Check                                   -->
+        <!-- ================================================== -->
 
-    <bpmn:serviceTask
-        id="map_existing_photo"
-        name="Use Existing Photo">
+        <bpmn:callActivity
+            id="run_eligibility"
+            name="Eligibility Check"
+            calledElement="eligibility_check">
 
-        <bpmn:extensionElements>
+            <bpmn:extensionElements>
 
-        <meta:taskHandler type="mapping"/>
+                <meta:output assign="eligibility"/>
 
-        <meta:mapping>
+            </bpmn:extensionElements>
 
-            <meta:output
-                source="photo_validation.photo_id"
-                target="selected_photo_id"/>
+            <bpmn:incoming>f_continue</bpmn:incoming>
+            <bpmn:outgoing>f3</bpmn:outgoing>
 
-        </meta:mapping>
+        </bpmn:callActivity>
 
-        </bpmn:extensionElements>
+        <bpmn:boundaryEvent
+            id="eligibility_failed"
+            attachedToRef="run_eligibility"
+            cancelActivity="true">
 
-    </bpmn:serviceTask>
+            <bpmn:errorEventDefinition
+                errorRef="Ineligible"/>
 
-    <bpmn:userTask
-        id="upload_photo"
-        name="Upload New Photo">
+            <bpmn:outgoing>f_ineligible</bpmn:outgoing>
 
-        <bpmn:extensionElements>
+        </bpmn:boundaryEvent>
 
-        <meta:taskHandler type="form"/>
+        <!-- ================================================== -->
+        <!-- Driver Lookup                                       -->
+        <!-- ================================================== -->
 
-        <meta:form title="Upload New Photo">
+        <bpmn:callActivity
+            id="run_driver_lookup"
+            name="Verify Driver"
+            calledElement="driver_lookup">
 
-            <meta:field
-                id="photo"
-                variable="uploaded_file"
-                label="Driver Photo"
-                type="file"
-                required="true">
+            <bpmn:extensionElements>
 
-            <meta:fileConstraints
-                maxSize="5242880"
-                allowedTypes="image/jpeg,image/png"/>
+                <meta:output assign="driver_info"/>
 
-            </meta:field>
+            </bpmn:extensionElements>
 
-        </meta:form>
+            <bpmn:incoming>f3</bpmn:incoming>
+            <bpmn:outgoing>f4</bpmn:outgoing>
 
-        </bpmn:extensionElements>
+        </bpmn:callActivity>
 
-    </bpmn:userTask>
+        <bpmn:boundaryEvent
+            id="driver_lookup_error"
+            attachedToRef="run_driver_lookup"
+            cancelActivity="true">
 
-    <bpmn:serviceTask
-        id="validate_photo"
-        name="Validate Uploaded Photo">
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
 
-        <bpmn:extensionElements>
+            <bpmn:outgoing>f_manual_1</bpmn:outgoing>
 
-        <meta:taskHandler type="http"/>
+        </bpmn:boundaryEvent>
 
-        <meta:httpService
-            method="POST"
-            service="dvla"
-            endpoint="/app/dvla/v1/photo_validity">
+        <!-- ================================================== -->
+        <!-- Photo Journey                                       -->
+        <!-- ================================================== -->
 
-            <meta:input
-                source="uploaded_file.name"
-                target="photo_data.name"/>
+        <bpmn:callActivity
+            id="run_photo_capture"
+            name="Photo Journey"
+            calledElement="photo_capture">
 
-            <meta:input
-                source="uploaded_file.bytes"
-                target="photo_data.bytes"/>
+            <bpmn:extensionElements>
 
-            <meta:input
-                source="uploaded_file.content_type"
-                target="photo_data.content_type"/>
+                <meta:input
+                    source="driver_info.driver_id"
+                    target="driver_id"/>
 
-            <meta:output
-                source="response.body.photo_id"
-                target="uploaded_photo.photo_id"/>
+                <meta:output
+                    assign="photo_id"/>
 
-            <meta:output
-                source="response.body.valid"
-                target="uploaded_photo.valid"/>
+            </bpmn:extensionElements>
 
-        </meta:httpService>
+            <bpmn:incoming>f4</bpmn:incoming>
+            <bpmn:outgoing>f5</bpmn:outgoing>
 
-        </bpmn:extensionElements>
+        </bpmn:callActivity>
 
-    </bpmn:serviceTask>
+        <bpmn:boundaryEvent
+            id="photo_invalid"
+            attachedToRef="run_photo_capture"
+            cancelActivity="true">
 
-    <bpmn:boundaryEvent
-        id="validate_photo_error"
-        name="Photo Validation Failed"
-        attachedToRef="validate_photo">
+            <bpmn:errorEventDefinition
+                errorRef="InvalidPhoto"/>
 
-        <bpmn:errorEventDefinition
-            errorRef="ServiceError"/>
+            <bpmn:outgoing>f_rejected_1</bpmn:outgoing>
 
-    </bpmn:boundaryEvent>
+        </bpmn:boundaryEvent>
 
-    <bpmn:serviceTask
-        id="map_uploaded_photo"
-        name="Use Uploaded Photo">
+        <bpmn:boundaryEvent
+            id="photo_api_error"
+            attachedToRef="run_photo_capture"
+            cancelActivity="true">
 
-        <bpmn:extensionElements>
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
 
-        <meta:taskHandler type="mapping"/>
+            <bpmn:outgoing>f_manual_2</bpmn:outgoing>
 
-        <meta:mapping>
+        </bpmn:boundaryEvent>
 
-            <meta:output
-                source="uploaded_photo.photo_id"
-                target="selected_photo_id"/>
+        <!-- ================================================== -->
+        <!-- Address Selection                                   -->
+        <!-- ================================================== -->
 
-        </meta:mapping>
+        <bpmn:callActivity
+            id="run_address_selection"
+            name="Select Address"
+            calledElement="address_selection">
 
-        </bpmn:extensionElements>
+            <bpmn:extensionElements>
 
-    </bpmn:serviceTask>
+                <meta:output assign="address"/>
 
-    <bpmn:exclusiveGateway
-        id="photo_selected_gateway"
-        name="Photo Selected"/>
+            </bpmn:extensionElements>
 
-    <bpmn:userTask
-        id="provide_address"
-        name="Provide New Address">
+            <bpmn:incoming>f5</bpmn:incoming>
+            <bpmn:outgoing>f6</bpmn:outgoing>
 
-        <bpmn:extensionElements>
+        </bpmn:callActivity>
 
-        <meta:taskHandler type="form"/>
+        <bpmn:boundaryEvent
+            id="address_selection_error"
+            attachedToRef="run_address_selection"
+            cancelActivity="true">
 
-        <meta:form title="Provide New Address">
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
 
-            <meta:field
-                id="line1"
-                variable="address.line1"
-                label="Address Line 1"
-                type="string"
-                required="true"/>
+            <bpmn:outgoing>f_manual_3</bpmn:outgoing>
 
-            <meta:field
-                id="town"
-                variable="address.town"
-                label="Town"
-                type="string"
-                required="true"/>
+        </bpmn:boundaryEvent>
 
-            <meta:field
-                id="postcode"
-                variable="address.postcode"
-                label="Postcode"
-                type="string"
-                required="true"/>
+        <!-- ================================================== -->
+        <!-- Address Update                                      -->
+        <!-- ================================================== -->
 
-        </meta:form>
+        <bpmn:callActivity
+            id="run_address_update"
+            name="Submit Address Change"
+            calledElement="address_update">
 
-        </bpmn:extensionElements>
+            <bpmn:extensionElements>
 
-    </bpmn:userTask>
+                <meta:input
+                    source="driver_info.driver_id"
+                    target="driver_id"/>
 
-    <bpmn:serviceTask
-        id="update_address"
-        name="Update Driving Licence Address">
+                <meta:input
+                    source="address"
+                    target="address"/>
 
-        <bpmn:extensionElements>
+                <meta:input
+                    source="photo_id"
+                    target="photo_id"/>
 
-        <meta:taskHandler type="http"/>
+                <meta:output
+                    assign="update_result"/>
 
-        <meta:httpService
-            method="POST"
-            service="dvla"
-            endpoint="/app/dvla/v1/licence/address">
+            </bpmn:extensionElements>
 
-            <meta:input
-                source="address.line1"
-                target="address.line1"/>
+            <bpmn:incoming>f6</bpmn:incoming>
+            <bpmn:outgoing>f7</bpmn:outgoing>
 
-            <meta:input
-                source="address.town"
-                target="address.town"/>
+        </bpmn:callActivity>
 
-            <meta:input
-                source="address.postcode"
-                target="address.postcode"/>
+        <bpmn:boundaryEvent
+            id="address_invalid"
+            attachedToRef="run_address_update"
+            cancelActivity="true">
 
-            <meta:input
-                source="selected_photo_id"
-                target="photo_id"/>
+            <bpmn:errorEventDefinition
+                errorRef="InvalidAddress"/>
 
-            <meta:output
-                source="response.body.job_id"
-                target="address_update.job_id"/>
+            <bpmn:outgoing>f_rejected_2</bpmn:outgoing>
 
-            <meta:output
-                source="response.body.status"
-                target="address_update.status"/>
+        </bpmn:boundaryEvent>
 
-        </meta:httpService>
+        <bpmn:boundaryEvent
+            id="address_update_error"
+            attachedToRef="run_address_update"
+            cancelActivity="true">
 
-        </bpmn:extensionElements>
+            <bpmn:errorEventDefinition
+                errorRef="ApiFailure"/>
 
-    </bpmn:serviceTask>
+            <bpmn:outgoing>f_manual_4</bpmn:outgoing>
 
-    <bpmn:boundaryEvent
-        id="update_address_error"
-        name="Address Update Failed"
-        attachedToRef="update_address">
+        </bpmn:boundaryEvent>
 
-        <bpmn:errorEventDefinition
-            errorRef="ServiceError"/>
+        <!-- ================================================== -->
+        <!-- Finalisation                                        -->
+        <!-- ================================================== -->
 
-    </bpmn:boundaryEvent>
+        <bpmn:callActivity
+            id="run_finalisation"
+            name="Finalisation"
+            calledElement="finalisation">
 
-    <bpmn:manualTask
-        id="manual_review"
-        name="Manual Review">
+            <bpmn:extensionElements>
 
-        <bpmn:extensionElements>
+                <meta:input
+                    source="driver_info.driver_id"
+                    target="driver_id"/>
 
-        <meta:taskHandler type="manual"/>
+                <meta:input
+                    source="driver_info.email"
+                    target="email"/>
 
-        <meta:manualReview
-            queue="dvla-review"
-            priority="high"
-            category="address-change"/>
+                <meta:input
+                    source="address"
+                    target="address"/>
 
-        </bpmn:extensionElements>
+                <meta:input
+                    source="update_result.job_id"
+                    target="job_id"/>
 
-    </bpmn:manualTask>
+            </bpmn:extensionElements>
 
-    <bpmn:endEvent
-        id="end_success"
-        name="Address Updated"/>
+            <bpmn:incoming>f7</bpmn:incoming>
+            <bpmn:outgoing>f8</bpmn:outgoing>
 
-    <bpmn:endEvent
-        id="end_manual_review"
-        name="Transferred To Manual Processing"/>
+        </bpmn:callActivity>
 
-    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="provide_details"/>
+        <bpmn:boundaryEvent
+            id="finalisation_error"
+            attachedToRef="run_finalisation"
+            cancelActivity="true">
 
-    <bpmn:sequenceFlow id="f2" sourceRef="provide_details" targetRef="check_photo_validity"/>
+            <bpmn:errorEventDefinition
+                errorRef="DeliveryFailure"/>
 
-    <bpmn:sequenceFlow id="f3" sourceRef="check_photo_validity" targetRef="photo_valid_gateway"/>
+            <bpmn:outgoing>f_manual_5</bpmn:outgoing>
 
-    <bpmn:sequenceFlow
-        id="f4"
-        sourceRef="photo_valid_gateway"
-        targetRef="map_existing_photo">
+        </bpmn:boundaryEvent>
 
-        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">not photo_validation["expired"]</bpmn:conditionExpression>
+        <!-- ================================================== -->
+        <!-- Manual Review                                       -->
+        <!-- ================================================== -->
 
-    </bpmn:sequenceFlow>
+        <bpmn:manualTask
+            id="manual_review"
+            name="Manual Review">
 
-    <bpmn:sequenceFlow
-        id="f4a"
-        sourceRef="map_existing_photo"
-        targetRef="photo_selected_gateway"/>
+            <bpmn:extensionElements>
 
-    <bpmn:sequenceFlow
-        id="f5"
-        sourceRef="photo_valid_gateway"
-        targetRef="upload_photo">
+                <meta:taskHandler type="manual"/>
 
-        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">photo_validation["expired"]</bpmn:conditionExpression>
+                <meta:manualReview
+                    queue="dvla-review"
+                    priority="high"
+                    category="address-change"/>
 
-    </bpmn:sequenceFlow>
+            </bpmn:extensionElements>
 
-    <bpmn:sequenceFlow id="f6" sourceRef="upload_photo" targetRef="validate_photo"/>
+            <bpmn:incoming>f_manual_1</bpmn:incoming>
+            <bpmn:incoming>f_manual_2</bpmn:incoming>
+            <bpmn:incoming>f_manual_3</bpmn:incoming>
+            <bpmn:incoming>f_manual_4</bpmn:incoming>
+            <bpmn:incoming>f_manual_5</bpmn:incoming>
 
-    <bpmn:sequenceFlow id="f7" sourceRef="validate_photo" targetRef="map_uploaded_photo"/>
+            <bpmn:outgoing>f_manual_complete</bpmn:outgoing>
 
-    <bpmn:sequenceFlow
-        id="f7a"
-        sourceRef="map_uploaded_photo"
-        targetRef="photo_selected_gateway"/>
+        </bpmn:manualTask>
 
-    <bpmn:sequenceFlow
-        id="f8"
-        sourceRef="photo_selected_gateway"
-        targetRef="provide_address"/>
+        <!-- ================================================== -->
+        <!-- End Events                                          -->
+        <!-- ================================================== -->
 
-    <bpmn:sequenceFlow
-        id="f8a"
-        sourceRef="provide_address"
-        targetRef="update_address"/>
+        <bpmn:endEvent
+            id="end_success"
+            name="Address Updated">
+            <bpmn:incoming>f8</bpmn:incoming>
+        </bpmn:endEvent>
 
-    <bpmn:sequenceFlow
-        id="f9"
-        sourceRef="update_address"
-        targetRef="end_success"/>
+        <bpmn:endEvent
+            id="end_cancelled"
+            name="Journey Cancelled">
+            <bpmn:incoming>f_cancel</bpmn:incoming>
+        </bpmn:endEvent>
 
-    <bpmn:sequenceFlow
-        id="err1"
-        sourceRef="check_photo_error"
-        targetRef="manual_review"/>
+        <bpmn:endEvent
+            id="end_ineligible"
+            name="Not Eligible">
+            <bpmn:incoming>f_ineligible</bpmn:incoming>
+        </bpmn:endEvent>
 
-    <bpmn:sequenceFlow
-        id="err2"
-        sourceRef="validate_photo_error"
-        targetRef="manual_review"/>
+        <bpmn:endEvent
+            id="end_rejected"
+            name="Request Rejected">
+            <bpmn:incoming>f_rejected_1</bpmn:incoming>
+            <bpmn:incoming>f_rejected_2</bpmn:incoming>
+        </bpmn:endEvent>
 
-    <bpmn:sequenceFlow
-        id="err3"
-        sourceRef="update_address_error"
-        targetRef="manual_review"/>
+        <bpmn:endEvent
+            id="end_manual_review"
+            name="Transferred To Manual Processing">
+            <bpmn:incoming>f_manual_complete</bpmn:incoming>
+        </bpmn:endEvent>
 
-    <bpmn:sequenceFlow
-        id="err4"
-        sourceRef="manual_review"
-        targetRef="end_manual_review"/>
+        <!-- ================================================== -->
+        <!-- Sequence Flows                                      -->
+        <!-- ================================================== -->
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="confirm_intent"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="confirm_intent"
+            targetRef="intent_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="f_continue"
+            sourceRef="intent_gateway"
+            targetRef="run_eligibility">
+
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+                bool(confirmed)
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="f_cancel"
+            sourceRef="intent_gateway"
+            targetRef="end_cancelled"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
+            sourceRef="run_eligibility"
+            targetRef="run_driver_lookup"/>
+
+        <bpmn:sequenceFlow
+            id="f4"
+            sourceRef="run_driver_lookup"
+            targetRef="run_photo_capture"/>
+
+        <bpmn:sequenceFlow
+            id="f5"
+            sourceRef="run_photo_capture"
+            targetRef="run_address_selection"/>
+
+        <bpmn:sequenceFlow
+            id="f6"
+            sourceRef="run_address_selection"
+            targetRef="run_address_update"/>
+
+        <bpmn:sequenceFlow
+            id="f7"
+            sourceRef="run_address_update"
+            targetRef="run_finalisation"/>
+
+        <bpmn:sequenceFlow
+            id="f8"
+            sourceRef="run_finalisation"
+            targetRef="end_success"/>
+
+        <bpmn:sequenceFlow
+            id="f_ineligible"
+            sourceRef="eligibility_failed"
+            targetRef="end_ineligible"/>
+
+        <bpmn:sequenceFlow
+            id="f_rejected_1"
+            sourceRef="photo_invalid"
+            targetRef="end_rejected"/>
+
+        <bpmn:sequenceFlow
+            id="f_rejected_2"
+            sourceRef="address_invalid"
+            targetRef="end_rejected"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_1"
+            sourceRef="driver_lookup_error"
+            targetRef="manual_review"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_2"
+            sourceRef="photo_api_error"
+            targetRef="manual_review"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_3"
+            sourceRef="address_selection_error"
+            targetRef="manual_review"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_4"
+            sourceRef="address_update_error"
+            targetRef="manual_review"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_5"
+            sourceRef="finalisation_error"
+            targetRef="manual_review"/>
+
+        <bpmn:sequenceFlow
+            id="f_manual_complete"
+            sourceRef="manual_review"
+            targetRef="end_manual_review"/>
 
     </bpmn:process>
 

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1">
+
+    <bpmn:process
+        id="address_selection"
+        isExecutable="true">
+
+        <bpmn:startEvent id="start"/>
+
+        <bpmn:userTask
+            id="enter_postcode"
+            name="Enter Postcode">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form title="Find Address">
+
+                    <meta:field
+                        id="postcode"
+                        variable="postcode"
+                        label="Postcode"
+                        type="string"
+                        required="true"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <bpmn:serviceTask
+            id="lookup_addresses"
+            name="Lookup Addresses"/>
+
+        <bpmn:userTask
+            id="select_address"
+            name="Select Address"/>
+
+        <bpmn:endEvent id="complete"/>
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="enter_postcode"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="enter_postcode"
+            targetRef="lookup_addresses"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
+            sourceRef="lookup_addresses"
+            targetRef="select_address"/>
+
+        <bpmn:sequenceFlow
+            id="f4"
+            sourceRef="select_address"
+            targetRef="complete"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

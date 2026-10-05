@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1">
+
+    <bpmn:error id="InvalidAddress"/>
+    <bpmn:error id="ApiFailure"/>
+
+    <bpmn:process
+        id="address_update"
+        isExecutable="true">
+
+        <bpmn:startEvent id="start"/>
+
+        <bpmn:serviceTask
+            id="submit_update"
+            name="Submit Address Change">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="POST"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/licence/address"/>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <bpmn:endEvent id="complete"/>
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="submit_update"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="submit_update"
+            targetRef="complete"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

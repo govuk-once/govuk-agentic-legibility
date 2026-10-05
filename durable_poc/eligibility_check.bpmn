@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <bpmn:error id="Ineligible" name="Ineligible"/>
+
+    <bpmn:process
+        id="eligibility_check"
+        name="Eligibility Check"
+        isExecutable="true">
+
+        <bpmn:startEvent id="start"/>
+
+        <bpmn:userTask
+            id="confirm_uk_resident"
+            name="Confirm UK Residency">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form title="Eligibility Check">
+
+                    <meta:field
+                        id="uk_resident"
+                        variable="uk_resident"
+                        label="Do you currently live in Great Britain?"
+                        type="boolean"
+                        required="true"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <bpmn:exclusiveGateway
+            id="eligibility_gateway"
+            default="ineligible_flow"/>
+
+        <bpmn:endEvent id="eligible"/>
+
+        <bpmn:endEvent id="ineligible">
+            <bpmn:errorEventDefinition errorRef="Ineligible"/>
+        </bpmn:endEvent>
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="confirm_uk_resident"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="confirm_uk_resident"
+            targetRef="eligibility_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="eligible_flow"
+            sourceRef="eligibility_gateway"
+            targetRef="eligible">
+
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+                bool(uk_resident)
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="ineligible_flow"
+            sourceRef="eligibility_gateway"
+            targetRef="ineligible"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

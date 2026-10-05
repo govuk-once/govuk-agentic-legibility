@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <bpmn:error id="InvalidPhoto"/>
+    <bpmn:error id="ApiFailure"/>
+
+    <bpmn:process
+        id="photo_capture"
+        isExecutable="true">
+
+        <bpmn:startEvent id="start"/>
+
+        <bpmn:serviceTask
+            id="check_existing_photo"
+            name="Check Existing Photo"/>
+
+        <bpmn:exclusiveGateway
+            id="photo_gateway"
+            default="upload_flow"/>
+
+        <bpmn:userTask
+            id="upload_photo"
+            name="Upload Photo">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form title="Upload Driver Photo">
+
+                    <meta:field
+                        id="photo"
+                        variable="uploaded_photo"
+                        type="file"
+                        required="true"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <bpmn:serviceTask
+            id="validate_photo"
+            name="Validate Photo"/>
+
+        <bpmn:endEvent id="complete"/>
+
+        <bpmn:sequenceFlow
+            id="f1"
+            sourceRef="start"
+            targetRef="check_existing_photo"/>
+
+        <bpmn:sequenceFlow
+            id="f2"
+            sourceRef="check_existing_photo"
+            targetRef="photo_gateway"/>
+
+        <bpmn:sequenceFlow
+            id="existing_valid"
+            sourceRef="photo_gateway"
+            targetRef="complete">
+
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+                not photo_validation["expired"]
+            </bpmn:conditionExpression>
+
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow
+            id="upload_flow"
+            sourceRef="photo_gateway"
+            targetRef="upload_photo"/>
+
+        <bpmn:sequenceFlow
+            id="f3"
+            sourceRef="upload_photo"
+            targetRef="validate_photo"/>
+
+        <bpmn:sequenceFlow
+            id="f4"
+            sourceRef="validate_photo"
+            targetRef="complete"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>

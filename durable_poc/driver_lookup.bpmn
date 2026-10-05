@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:meta="urn:durable-workflow:metadata:v1">
+
+    <bpmn:error id="ApiFailure"/>
+
+    <bpmn:process
+        id="driver_lookup"
+        name="Driver Lookup"
+        isExecutable="true">
+
+        <bpmn:startEvent id="start"/>
+
+        <bpmn:userTask
+            id="capture_driver_details"
+            name="Provide Driver Details">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="form"/>
+
+                <meta:form title="Find Driving Licence">
+
+                    <meta:field
+                        id="licence_number"
+                        variable="licence_number"
+                        label="Driving Licence Number"
+                        type="string"
+                        required="true"/>
+
+                    <meta:field
+                        id="dob"
+                        variable="date_of_birth"
+                        label="Date Of Birth"
+                        type="date"
+                        required="true"/>
+
+                </meta:form>
+
+            </bpmn:extensionElements>
+
+        </bpmn:userTask>
+
+        <bpmn:serviceTask
+            id="lookup_driver"
+            name="Lookup Driver">
+
+            <bpmn:extensionElements>
+
+                <meta:taskHandler type="http"/>
+
+                <meta:httpService
+                    method="GET"
+                    service="dvla"
+                    endpoint="/app/dvla/v1/driver/${licence_number}">
+
+                    <meta:output
+                        source="response.body"
+                        target="driver_info"/>
+
+                </meta:httpService>
+
+            </bpmn:extensionElements>
+
+        </bpmn:serviceTask>
+
+        <bpmn:endEvent id="success"/>
+
+        <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="capture_driver_details"/>
+        <bpmn:sequenceFlow id="f2" sourceRef="capture_driver_details" targetRef="lookup_driver"/>
+        <bpmn:sequenceFlow id="f3" sourceRef="lookup_driver" targetRef="success"/>
+
+    </bpmn:process>
+
+</bpmn:definitions>
