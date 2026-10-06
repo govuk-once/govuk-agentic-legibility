@@ -83,7 +83,7 @@ def resolve_dynamic_options(
 async def main() -> None:
 
     definition = parse_bpmn_file(
-        "change_of_address.bpmn",
+        "bpmn/change_of_address.bpmn",
     )
 
     definition.process_registry = {
