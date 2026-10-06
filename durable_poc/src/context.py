@@ -25,6 +25,7 @@ class InterpreterState:
     transcript: list[TranscriptEntry] = field(default_factory=list)
     step_counter: int = 0
     env: dict[str, Any] = field(default_factory=dict)
+    activity_history: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass

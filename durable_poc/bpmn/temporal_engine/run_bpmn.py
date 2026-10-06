@@ -14,10 +14,10 @@ from temporalio.client import Client
 from bpmn.temporal_engine.bpmn_interpreter import (
     BPMNInterpreter,
 )
-from bpmn.temporal_engine.context import (
+from src.context import (
     InputSubmission,
 )
-from bpmn.temporal_engine.paths import (
+from src.paths import (
     resolve_path,
 )
 from bpmn.temporal_engine.bpmn_parser import (
@@ -87,15 +87,15 @@ async def main() -> None:
     )
 
     definition.process_registry = {
-        "confirm_intent": "confirm_intent.bpmn",
-        "name_change_check": "name_change_check.bpmn",
-        "driver_lookup": "driver_lookup.bpmn",
-        "photo_update": "photo_update.bpmn",
-        "signature_update": "signature_update.bpmn",
-        "organ_donation": "organ_donation.bpmn",
-        "address_selection": "address_selection.bpmn",
-        "address_update": "address_update.bpmn",
-        "finalisation": "finalisation.bpmn",
+        "confirm_intent": "bpmn/confirm_intent.bpmn",
+        "name_change_check": "bpmn/name_change_check.bpmn",
+        "driver_lookup": "bpmn/driver_lookup.bpmn",
+        "photo_update": "bpmn/photo_update.bpmn",
+        "signature_update": "bpmn/signature_update.bpmn",
+        "organ_donation": "bpmn/organ_donation.bpmn",
+        "address_selection": "bpmn/address_selection.bpmn",
+        "address_update": "bpmn/address_update.bpmn",
+        "finalisation": "bpmn/finalisation.bpmn",
     }
 
     logger.info(

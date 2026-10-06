@@ -52,14 +52,14 @@ from bpmn.temporal_engine.bpmn_model import (
     ProcessContract,
 )
 
-from bpmn.temporal_engine.context import (
+from src.context import (
     AwaitingInput,
     InputSubmission,
     InterpreterState,
     StackFrame,
 )
 
-from bpmn.temporal_engine.paths import (
+from src.paths import (
     interpolate,
     parse_duration,
     resolve_path,

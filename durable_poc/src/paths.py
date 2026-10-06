@@ -57,14 +57,67 @@ def set_path(context: dict[str, Any], path: str, value: Any) -> None:
         current[idx] = value
 
 
-def interpolate(template: str, context: dict[str, Any]) -> str:
-    """Replace {{path.to.var}} in strings with resolved context values."""
+def interpolate(
+    template: str,
+    context: dict[str, Any],
+) -> str:
+    """
+    Replace template variables with values from context.
 
-    def replacer(match: re.Match[str]) -> str:
-        val = resolve_path(context, match.group(1).strip())
-        return str(val) if val is not None else ""
+    Supported forms:
 
-    return re.sub(r"\{\{(.*?)\}\}", replacer, template)
+        {{path.to.var}}
+
+        ${path.to.var}
+    """
+
+    def replacer(
+        match: re.Match[str],
+    ) -> str:
+
+        path = match.group(1).strip()
+
+        value = resolve_path(
+            context,
+            path,
+        )
+
+        return (
+            str(value)
+            if value is not None
+            else ""
+        )
+
+    pattern = (
+        r"\{\{(.*?)\}\}"
+        r"|\$\{(.*?)\}"
+    )
+
+    def combined_replacer(
+        match: re.Match[str],
+    ) -> str:
+
+        path = (
+            match.group(1)
+            or match.group(2)
+        )
+
+        value = resolve_path(
+            context,
+            path.strip(),
+        )
+
+        return (
+            str(value)
+            if value is not None
+            else ""
+        )
+
+    return re.sub(
+        pattern,
+        combined_replacer,
+        template,
+    )
 
 
 def resolve_dict(data: Any, context: dict[str, Any]) -> Any:
@@ -76,6 +129,41 @@ def resolve_dict(data: Any, context: dict[str, Any]) -> Any:
     elif isinstance(data, list):
         return [resolve_dict(item, context) for item in data]
     return data
+
+
+def resolve_literal(
+    expression: str,
+) -> Any:
+    """
+    Resolve simple BPMN literal values.
+
+    Examples:
+
+        true  -> True
+        false -> False
+        123   -> 123
+        1.5   -> 1.5
+    """
+
+    value = expression.strip()
+
+    if value.lower() == "true":
+        return True
+
+    if value.lower() == "false":
+        return False
+
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        pass
+
+    return None
 
 
 def parse_duration(duration_str: str) -> timedelta:

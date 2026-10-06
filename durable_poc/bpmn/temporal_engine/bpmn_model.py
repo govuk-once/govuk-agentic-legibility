@@ -1,5 +1,5 @@
+"""Pydantic models for BPMN process definitions and related metadata."""
 
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field

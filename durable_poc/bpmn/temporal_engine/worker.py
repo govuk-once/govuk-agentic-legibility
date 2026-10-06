@@ -7,7 +7,7 @@ import os
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from bpmn.temporal_engine.activities import (
+from bpmn.temporal_engine.bpmn_activities import (
     http_call,
     send_notification,
     load_process,

@@ -13,7 +13,7 @@ from bpmn.temporal_engine.bpmn_parser import (
     parse_process_file,
 )
 
-from bpmn.temporal_engine.paths import (
+from src.paths import (
     resolve_path,
     set_path,
     resolve_literal,
