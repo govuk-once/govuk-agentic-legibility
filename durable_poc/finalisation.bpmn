@@ -105,26 +105,39 @@
         </bpmn:scriptTask>
 
         <!-- ================================================== -->
-        <!-- Notify Delivery                                    -->
+        <!-- Submission Complete Message                        -->
         <!-- ================================================== -->
 
-        <bpmn:scriptTask
-            id="notify_delivery"
-            name="Notify Licence Delivery">
+        <bpmn:sendTask
+            id="submission_complete"
+            name="Application Submitted">
 
             <bpmn:incoming>f2</bpmn:incoming>
             <bpmn:outgoing>f3</bpmn:outgoing>
 
             <bpmn:extensionElements>
 
-                <meta:taskHandler type="notification"/>
+                <meta:taskHandler type="message"/>
 
-                <meta:notification
-                    channel="email"/>
+                <meta:message
+                    severity="success"
+                    title="Application Submitted">
+
+                    <meta:text>
+                        Your driving licence update has been submitted successfully.
+
+                        A confirmation email has been sent to your registered email address, ${email}.
+
+                        Your updated driving licence has been dispatched and should arrive within 5 working days.
+
+                        Reference: ${job_id}
+                    </meta:text>
+
+                </meta:message>
 
             </bpmn:extensionElements>
 
-        </bpmn:scriptTask>
+        </bpmn:sendTask>
 
         <!-- ================================================== -->
         <!-- Wait For Delivery                                  -->
@@ -140,7 +153,7 @@
             <bpmn:timerEventDefinition>
 
                 <bpmn:timeDuration>
-                    P7D
+                    PT10S
                 </bpmn:timeDuration>
 
             </bpmn:timerEventDefinition>
@@ -231,11 +244,11 @@
         <bpmn:sequenceFlow
             id="f2"
             sourceRef="send_confirmation"
-            targetRef="notify_delivery"/>
+            targetRef="submission_complete"/>
 
         <bpmn:sequenceFlow
             id="f3"
-            sourceRef="notify_delivery"
+            sourceRef="submission_complete"
             targetRef="wait_for_delivery"/>
 
         <bpmn:sequenceFlow

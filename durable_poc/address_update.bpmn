@@ -100,7 +100,7 @@
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>
@@ -175,7 +175,7 @@
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>

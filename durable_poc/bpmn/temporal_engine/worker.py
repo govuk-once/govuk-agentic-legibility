@@ -1,4 +1,4 @@
-"""Worker bootstrap."""
+"""Worker bootstrap"""
 
 import asyncio
 import logging
@@ -9,8 +9,9 @@ from temporalio.worker import Worker
 
 from bpmn.temporal_engine.activities import (
     http_call,
+    send_notification,
+    load_process,
 )
-
 from bpmn.temporal_engine.bpmn_interpreter import (
     BPMNInterpreter,
 )
@@ -19,7 +20,12 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-TASK_QUEUE = "bpmn-queue"
+logger = logging.getLogger(__name__)
+
+TASK_QUEUE = os.environ.get(
+    "TEMPORAL_TASK_QUEUE",
+    "bpmn-queue",
+)
 
 
 async def main() -> None:
@@ -33,7 +39,10 @@ async def main() -> None:
         temporal_address,
     )
 
-    logging.info(f"Connected to Temporal at {temporal_address}")
+    logger.info(
+        "Connected to Temporal at %s",
+        temporal_address,
+    )
 
     worker = Worker(
         client,
@@ -43,11 +52,16 @@ async def main() -> None:
         ],
         activities=[
             http_call,
+            send_notification,
+            load_process,
         ],
     )
 
-    logging.info(
-        f"Starting BPMN worker (task_queue={TASK_QUEUE}, temporal={temporal_address})"
+    logger.info(
+        "Starting BPMN worker "
+        "(task_queue=%s, temporal=%s)",
+        TASK_QUEUE,
+        temporal_address,
     )
 
     await worker.run()

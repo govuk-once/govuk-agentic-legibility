@@ -7,6 +7,7 @@ import json
 import mimetypes
 import uuid
 from pathlib import Path
+import logging
 
 from temporalio.client import Client
 
@@ -16,63 +17,16 @@ from bpmn.temporal_engine.bpmn_interpreter import (
 from bpmn.temporal_engine.context import (
     InputSubmission,
 )
+from bpmn.temporal_engine.paths import (
+    resolve_path,
+)
 from bpmn.temporal_engine.bpmn_parser import (
     parse_bpmn_file,
 )
-from bpmn.temporal_engine.bpmn_model import (
-    BPMNDefinition,
-)
+
+logger = logging.getLogger(__name__)
 
 TASK_QUEUE = "bpmn-queue"
-
-def load_process_set(
-    entry_bpmn: str,
-    child_bpmns: list[str],
-) -> BPMNDefinition:
-    """
-    Load a BPMN application consisting of
-    one root process and multiple callable
-    subprocess BPMNs.
-    """
-
-    definition = parse_bpmn_file(
-        entry_bpmn,
-    )
-
-    for bpmn_file in child_bpmns:
-
-        child_definition = parse_bpmn_file(
-            bpmn_file,
-        )
-
-        #
-        # Merge processes.
-        #
-
-        duplicate_processes = (
-            set(definition.processes)
-            & set(child_definition.processes)
-        )
-
-        if duplicate_processes:
-            raise ValueError(
-                f"Duplicate process ids found: "
-                f"{sorted(duplicate_processes)}"
-            )
-
-        definition.processes.update(
-            child_definition.processes,
-        )
-
-        #
-        # Merge BPMN errors.
-        #
-
-        definition.errors.update(
-            child_definition.errors,
-        )
-
-    return definition
 
 
 def collect_file_metadata(
@@ -128,20 +82,68 @@ def resolve_dynamic_options(
 
 async def main() -> None:
 
-    definition = load_process_set(
-        entry_bpmn="change_of_address.bpmn",
-        child_bpmns=[
-            "confirm_intent.bpmn",
-            "name_change_check.bpmn",
-            "driver_lookup.bpmn",
-            "photo_update.bpmn",
-            "signature_update.bpmn",
-            "organ_donation.bpmn",
-            "address_selection.bpmn",
-            "address_update.bpmn",
-            "finalisation.bpmn",
-        ],
+    definition = parse_bpmn_file(
+        "change_of_address.bpmn",
     )
+
+    definition.process_registry = {
+        "confirm_intent": "confirm_intent.bpmn",
+        "name_change_check": "name_change_check.bpmn",
+        "driver_lookup": "driver_lookup.bpmn",
+        "photo_update": "photo_update.bpmn",
+        "signature_update": "signature_update.bpmn",
+        "organ_donation": "organ_donation.bpmn",
+        "address_selection": "address_selection.bpmn",
+        "address_update": "address_update.bpmn",
+        "finalisation": "finalisation.bpmn",
+    }
+
+    logger.info(
+        "Loaded BPMN definition '%s' with %s processes",
+        definition.id,
+        len(definition.processes),
+    )
+
+    for process in definition.processes.values():
+
+        logger.info(
+            "Process %s contains %s nodes and %s flows",
+            process.id,
+            len(process.nodes),
+            len(process.flows),
+        )
+
+        for flow in process.flows.values():
+            logger.info(
+                "Flow %s: %s -> %s",
+                flow.id,
+                flow.source_ref,
+                flow.target_ref,
+            )
+
+    for process in definition.processes.values():
+
+        logger.info(
+            "Checking boundary event routing in process %s",
+            process.id,
+        )
+
+        for node in process.nodes.values():
+
+            if getattr(node, "type", None) == "boundaryEvent":
+
+                outgoing = process.outgoing_flows(
+                    node.id,
+                )
+
+                logger.info(
+                    "Boundary %s -> %s",
+                    node.id,
+                    [
+                        f.target_ref
+                        for f in outgoing
+                    ],
+                )
 
     print()
     print("Loaded processes:")
@@ -203,6 +205,19 @@ async def main() -> None:
 
                 print(f"Node ID: {activity.get('id')}")
 
+                if activity.get("type") == "SendTask":
+
+                    title = activity.get("title")
+                    text = activity.get("text")
+
+                    if title:
+                        print()
+                        print(title)
+
+                    if text:
+                        print()
+                        print(text)
+
                 if activity.get("process_id"):
                     print(f"Process: {activity['process_id']}")
 
@@ -211,8 +226,11 @@ async def main() -> None:
 
                 last_step = step
 
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(
+                "History query failed: %s",
+                exc,
+            )
 
         awaiting = await handle.query(
             BPMNInterpreter.awaiting,
@@ -328,8 +346,38 @@ async def main() -> None:
                         "string",
                     )
 
+                    if field_type == "display":
+                        source_variable = field.get(
+                            "source_variable"
+                        )
+
+                        value = resolve_path(
+                            workflow_vars,
+                            source_variable,
+                        )
+
+                        print(
+                            f"{label}: {value}"
+                        )
+
+                        continue
+
                     while True:
-                        value = input(f"{label}: ").strip()
+
+                        value = input(
+                            f"{label}: "
+                        ).strip()
+
+                        if field.get(
+                            "required",
+                            False,
+                        ) and not value:
+
+                            print(
+                                f"{label} is required."
+                            )
+
+                            continue
 
                         #
                         # Dynamic choices
@@ -381,6 +429,22 @@ async def main() -> None:
                                 )
 
                             elif field_type == "boolean":
+
+                                if value.lower() not in {
+                                    "true",
+                                    "false",
+                                    "yes",
+                                    "no",
+                                    "y",
+                                    "n",
+                                    "1",
+                                    "0",
+                                }:
+                                    print(
+                                        "Please enter yes or no."
+                                    )
+                                    continue
+
                                 payload[field["id"]] = (
                                     value.lower() in {
                                         "true",
@@ -401,16 +465,6 @@ async def main() -> None:
                             print(exc)
                             print("Please try again.")
                             print()
-
-            #
-            # Manual task.
-            #
-            else:
-                print()
-
-                input("Press Enter to continue...")
-
-                payload = {}
 
             await handle.execute_update(
                 BPMNInterpreter.submit_input,
@@ -454,4 +508,10 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+
+    # logging.basicConfig(
+    #     level=logging.INFO,
+    #     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    # )
+
     asyncio.run(main())

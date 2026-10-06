@@ -329,48 +329,13 @@
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_exception_3</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_4</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
         <!-- ================================================== -->
         <!-- Address Update                                      -->
         <!-- ================================================== -->
-
-        <bpmn:scriptTask
-            id="validate_submission"
-            name="Validate Submission">
-
-            <bpmn:incoming>f8</bpmn:incoming>
-            <bpmn:outgoing>f9</bpmn:outgoing>
-
-            <bpmn:extensionElements>
-
-                <meta:taskHandler type="validation"/>
-
-                <meta:validationRules>
-
-                    <meta:rule
-                        expression="driver_id is not None and driver_id != ''"
-                        message="Driver ID missing"/>
-
-                    <meta:rule
-                        expression="photo_id is not None and photo_id != ''"
-                        message="Photo ID missing"/>
-
-                    <meta:rule
-                        expression="address is not None"
-                        message="Address missing"/>
-
-                    <meta:rule
-                        expression="signature_id is not None and signature_id != ''"
-                        message="Signature ID missing"/>
-
-                </meta:validationRules>
-
-            </bpmn:extensionElements>
-
-        </bpmn:scriptTask>
 
         <bpmn:callActivity
             id="run_address_update"
@@ -408,8 +373,8 @@
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f9</bpmn:incoming>
-            <bpmn:outgoing>f10</bpmn:outgoing>
+            <bpmn:incoming>f8</bpmn:incoming>
+            <bpmn:outgoing>f9</bpmn:outgoing>
 
         </bpmn:callActivity>
 
@@ -433,7 +398,7 @@
             <bpmn:errorEventDefinition
                 errorRef="ApiFailure"/>
 
-            <bpmn:outgoing>f_exception_4</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_5</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -477,8 +442,8 @@
 
             </bpmn:extensionElements>
 
-            <bpmn:incoming>f10</bpmn:incoming>
-            <bpmn:outgoing>f11</bpmn:outgoing>
+            <bpmn:incoming>f9</bpmn:incoming>
+            <bpmn:outgoing>f10</bpmn:outgoing>
 
         </bpmn:callActivity>
 
@@ -490,7 +455,7 @@
             <bpmn:errorEventDefinition
                 errorRef="DeliveryFailure"/>
 
-            <bpmn:outgoing>f_exception_5</bpmn:outgoing>
+            <bpmn:outgoing>f_exception_6</bpmn:outgoing>
 
         </bpmn:boundaryEvent>
 
@@ -501,7 +466,7 @@
         <bpmn:endEvent
             id="end_success"
             name="Address Updated">
-            <bpmn:incoming>f11</bpmn:incoming>
+            <bpmn:incoming>f10</bpmn:incoming>
         </bpmn:endEvent>
 
         <bpmn:endEvent
@@ -583,20 +548,15 @@
         <bpmn:sequenceFlow
             id="f8"
             sourceRef="run_address_selection"
-            targetRef="validate_submission"/>
-
-        <bpmn:sequenceFlow
-            id="f9"
-            sourceRef="validate_submission"
             targetRef="run_address_update"/>
 
         <bpmn:sequenceFlow
-            id="f10"
+            id="f9"
             sourceRef="run_address_update"
             targetRef="run_finalisation"/>
 
         <bpmn:sequenceFlow
-            id="f11"
+            id="f10"
             sourceRef="run_finalisation"
             targetRef="end_success"/>
 
@@ -644,6 +604,16 @@
             id="f_exception_6"
             sourceRef="finalisation_error"
             targetRef="end_exception"/>
+
+        <bpmn:sequenceFlow
+            id="f_cancel"
+            sourceRef="confirm_cancelled"
+            targetRef="end_cancelled"/>
+
+        <bpmn:sequenceFlow
+            id="f_postal_required"
+            sourceRef="postal_required"
+            targetRef="end_postal_required"/>
         
     </bpmn:process>
 

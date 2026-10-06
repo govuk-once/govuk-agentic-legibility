@@ -78,7 +78,7 @@
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>
@@ -149,16 +149,52 @@
                 <meta:taskHandler type="form"/>
 
                 <meta:form
-                    title="Organ Donation Preferences">
+                title="Organ Donation Preferences">
 
-                    <meta:field
-                        id="organ_consent"
-                        variable="organ_consent"
-                        type="boolean"
-                        required="true"
-                        label="Would you like to remain registered as an organ donor?"/>
+                <meta:field
+                    id="kidneys_display"
+                    type="display"
+                    source_variable="kidneys"
+                    label="Kidneys"/>
 
-                </meta:form>
+                <meta:field
+                    id="liver_display"
+                    type="display"
+                    source_variable="liver"
+                    label="Liver"/>
+
+                <meta:field
+                    id="heart_display"
+                    type="display"
+                    source_variable="heart"
+                    label="Heart"/>
+
+                <meta:field
+                    id="cornea_display"
+                    type="display"
+                    source_variable="cornea"
+                    label="Cornea"/>
+
+                <meta:field
+                    id="pancreas_display"
+                    type="display"
+                    source_variable="pancreas"
+                    label="Pancreas"/>
+
+                <meta:field
+                    id="lungs_display"
+                    type="display"
+                    source_variable="lungs"
+                    label="Lungs"/>
+
+                <meta:field
+                    id="organ_consent"
+                    variable="organ_consent"
+                    type="boolean"
+                    required="true"
+                    label="Would you like to remain registered as an organ donor?"/>
+
+            </meta:form>
 
             </bpmn:extensionElements>
 

@@ -99,6 +99,41 @@ def resolve_dict(data: Any, context: dict[str, Any]) -> Any:
     return data
 
 
+def resolve_literal(
+    expression: str,
+) -> Any:
+    """
+    Resolve simple BPMN literal values.
+
+    Examples:
+
+        true  -> True
+        false -> False
+        123   -> 123
+        1.5   -> 1.5
+    """
+
+    value = expression.strip()
+
+    if value.lower() == "true":
+        return True
+
+    if value.lower() == "false":
+        return False
+
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        pass
+
+    return None
+
+
 def parse_duration(duration_str: str) -> timedelta:
     """Parse an ISO 8601 duration string into a timedelta."""
     if not duration_str or duration_str == "P":

@@ -70,7 +70,7 @@
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>
@@ -168,7 +168,8 @@
                         id="photo"
                         variable="uploaded_photo"
                         type="file"
-                        required="true">
+                        required="true"
+                        label="Upload your photo">
 
                         <meta:fileConstraints
                             maxSize="5242880"
@@ -204,7 +205,7 @@
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>

@@ -123,7 +123,7 @@
                 <meta:taskHandler type="form"/>
 
                 <meta:form
-                    title="Find Address">
+                    title="Enter Postcode">
 
                     <meta:field
                         id="postcode"
@@ -151,12 +151,12 @@
 
                 <meta:httpService
                     method="POST"
-                    service="dvla"
-                    endpoint="/app/dvla/v1/address_from_postcode">
+                    service="postoffice"
+                    endpoint="/app/postoffice/v1/address_from_postcode">
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>

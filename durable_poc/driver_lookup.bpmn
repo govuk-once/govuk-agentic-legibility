@@ -71,7 +71,7 @@
 
                     <meta:retry
                         attempts="3"
-                        backoffSeconds="5"/>
+                        backoff_seconds="5"/>
 
                     <meta:timeout
                         duration="PT30S"/>
@@ -138,16 +138,58 @@
                 <meta:taskHandler type="form"/>
 
                 <meta:form
-                    title="Confirm Driver Details">
+                title="Confirm Driver Details">
 
-                    <meta:field
-                        id="details_confirmed"
-                        variable="details_confirmed"
-                        type="boolean"
-                        required="true"
-                        label="Are these details correct?"/>
+                <meta:field
+                    id="driver_id_display"
+                    source_variable="driver_id"
+                    type="display"
+                    label="Driving Licence Number"/>
 
-                </meta:form>
+                <meta:field
+                    id="first_names_display"
+                    source_variable="first_names"
+                    type="display"
+                    label="First Names"/>
+
+                <meta:field
+                    id="last_name_display"
+                    source_variable="last_name"
+                    type="display"
+                    label="Last Name"/>
+
+                <meta:field
+                    id="dob_display"
+                    source_variable="dob"
+                    type="display"
+                    label="Date of Birth"/>
+
+                <meta:field
+                    id="email_display"
+                    source_variable="email"
+                    type="display"
+                    label="Email"/>
+
+                <meta:field
+                    id="line1"
+                    type="display"
+                    source_variable="current_address.line1"
+                    label="Address Line 1"/>
+
+                <meta:field
+                    id="postcode"
+                    type="display"
+                    source_variable="current_address.postcode"
+                    label="Postcode"/>
+
+                <meta:field
+                    id="details_confirmed"
+                    variable="details_confirmed"
+                    type="boolean"
+                    required="true"
+                    label="Are these details correct?"/>
+
+            </meta:form>
 
             </bpmn:extensionElements>
 

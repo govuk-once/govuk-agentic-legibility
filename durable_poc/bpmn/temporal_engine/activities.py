@@ -1,9 +1,7 @@
 """
-Activities bridging the BPMN interpreter
-to external services.
+Activities bridging the BPMN interpreter to external services.
 """
 
-import asyncio
 import logging
 import os
 from typing import Any
@@ -11,22 +9,20 @@ from typing import Any
 import httpx
 from temporalio import activity
 
-from bpmn.temporal_engine.bpmn_model import (
-    HttpRequest,
+from bpmn.temporal_engine.bpmn_parser import (
+    parse_process_file,
 )
 
 from bpmn.temporal_engine.paths import (
     resolve_path,
     set_path,
+    resolve_literal,
 )
 
 logger = logging.getLogger(__name__)
 
+_PROCESS_CACHE: dict[str, dict] = {}
 
-#
-# Maps BPMN service identifiers
-# to environment variables.
-#
 API_BASE_URLS = {
     "dvla": "DVLA_BASE",
     "postoffice": "POSTOFFICE_BASE",
@@ -35,67 +31,28 @@ API_BASE_URLS = {
 }
 
 
-def _resolve_literal(
-    expression: str,
-) -> Any:
-    """
-    Support simple BPMN literal mappings.
-
-    Examples:
-
-        true
-        false
-        123
-        hello
-    """
-
-    value = expression.strip()
-
-    if value.lower() == "true":
-        return True
-
-    if value.lower() == "false":
-        return False
-
-    try:
-        return int(value)
-    except ValueError:
-        pass
-
-    return None
-
-
 @activity.defn(name="http_call")
 async def http_call(
-    request: HttpRequest,
+    request: dict[str, Any],
 ) -> dict[str, Any]:
     """
     Execute HTTP request using BPMN metadata.
-
-    Returns mapped workflow variables.
-
-    Example:
-
-        {
-            "photo_id": "img_123",
-            "icao_compliant": True,
-        }
     """
 
     logger.info(
-        "HTTP activity "
-        f"service={request.service} "
-        f"method={request.method} "
-        f"endpoint={request.endpoint}"
+        "HTTP activity service=%s method=%s endpoint=%s",
+        request["service"],
+        request["method"],
+        request["endpoint"],
     )
 
     env_var = API_BASE_URLS.get(
-        request.service.lower(),
+        request["service"].lower(),
     )
 
     if env_var is None:
         raise ValueError(
-            f"Unknown service '{request.service}'"
+            f"Unknown service '{request['service']}'"
         )
 
     base_url = os.environ.get(
@@ -108,7 +65,7 @@ async def http_call(
             f"Environment variable '{env_var}' is not configured"
         )
 
-    full_url = f"{base_url}{request.endpoint}"
+    full_url = f"{base_url}{request['endpoint']}"
 
     #
     # Timeout
@@ -116,105 +73,41 @@ async def http_call(
 
     timeout_seconds = 30
 
-    if request.timeout is not None:
+    if request["timeout"] is not None:
         try:
             timeout_seconds = int(
-                request.timeout.duration
+                request["timeout"]["duration"]
                 .replace("PT", "")
                 .replace("S", "")
             )
         except Exception:
             logger.warning(
                 "Invalid timeout duration '%s'",
-                request.timeout.duration,
+                request["timeout"]["duration"],
             )
-
-    #
-    # Retry
-    #
-
-    attempts = 1
-    backoff_seconds = 0
-
-    if request.retry is not None:
-        attempts = request.retry.attempts
-        backoff_seconds = request.retry.backoffSeconds
-
-    last_exception = None
-
-    for attempt in range(
-        1,
-        attempts + 1,
-    ):
-        try:
-            logger.info(
-                "HTTP attempt %s/%s",
-                attempt,
-                attempts,
-            )
-
-            async with httpx.AsyncClient(
-                timeout=timeout_seconds,
-            ) as client:
-
-                response = await client.request(
-                    method=request.method,
-                    url=full_url,
-                    json=request.body,
-                )
-
-            logger.info(
-                "%s %s -> %s",
-                request.method,
-                full_url,
-                response.status_code,
-            )
-
-            #
-            # Retryable responses
-            #
-
-            if (
-                response.status_code >= 500
-                or response.status_code == 429
-            ):
-                raise RuntimeError(
-                    f"HTTP {response.status_code}"
-                )
-
-            #
-            # Business / client failures
-            #
-
-            if response.status_code >= 400:
-                raise ValueError(
-                    f"HTTP {response.status_code}"
-                )
-
-            break
-
-        except Exception as exc:
-            last_exception = exc
-
-            if attempt >= attempts:
-                raise
-
-            logger.warning(
-                "Retrying after error: %s",
-                exc,
-            )
-
-            if backoff_seconds > 0:
-                await asyncio.sleep(
-                    backoff_seconds,
-                )
-
-    if last_exception and response is None:
-        raise last_exception
 
     #
     # Parse body
     #
+    async with httpx.AsyncClient(
+        timeout=timeout_seconds,
+    ) as client:
+
+        logger.info(
+            "%s %s",
+            request["method"],
+            full_url,
+        )
+
+        response = await client.request(
+            method=request["method"],
+            url=full_url,
+            json=request["body"] or None,
+        )
+
+        logger.info("%s -> %s", full_url, response.status_code)
+
+        response.raise_for_status()
 
     content_type = response.headers.get(
         "Content-Type",
@@ -242,36 +135,31 @@ async def http_call(
 
     mapped_variables: dict[str, Any] = {}
 
-    for mapping in request.output_mappings:
+    for mapping in request["output_mappings"]:
+
+        source = mapping["source"]
+        target = mapping["target"]
 
         value = resolve_path(
             context,
-            mapping.source,
+            source,
         )
 
-        #
-        # Handle literal expressions.
-        #
-        # Example:
-        #
-        # source="true"
-        #
-
         if value is None:
-            value = _resolve_literal(
-                mapping.source,
+            value = resolve_literal(
+                source,
             )
 
         set_path(
             mapped_variables,
-            mapping.target,
+            target,
             value,
         )
 
         logger.info(
             "Mapped %s -> %s",
-            mapping.source,
-            mapping.target,
+            source,
+            target,
         )
 
     logger.info(
@@ -287,9 +175,6 @@ async def send_notification(
 ) -> dict[str, Any]:
     """
     Placeholder notification activity.
-
-    Future implementations may route
-    to email, SMS or GOV.UK Notify.
     """
 
     logger.info(
@@ -300,3 +185,28 @@ async def send_notification(
     return {
         "sent": True,
     }
+
+
+@activity.defn(name="load_process")
+async def load_process(
+    process_path: str,
+) -> dict[str, Any]:
+
+    if process_path in _PROCESS_CACHE:
+        return _PROCESS_CACHE[
+            process_path
+        ]
+
+    process = parse_process_file(
+        process_path,
+    )
+
+    result = process.model_dump(
+        mode="json",
+    )
+
+    _PROCESS_CACHE[
+        process_path
+    ] = result
+
+    return result

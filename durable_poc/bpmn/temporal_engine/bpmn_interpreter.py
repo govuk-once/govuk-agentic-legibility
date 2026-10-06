@@ -6,10 +6,12 @@ Supported BPMN elements:
 - StartEvent
 - UserTask
 - ServiceTask
+- ScriptTask
+- SendTask
 - ExclusiveGateway
 - IntermediateCatchEvent
 - CallActivity
-- ManualTask
+- BoundaryEvent
 - EndEvent
 
 Supported metadata:
@@ -17,14 +19,14 @@ Supported metadata:
 - meta:form
 - meta:httpService
 - meta:mapping
-- meta:manualReview
+- meta:notification
+- meta:message
 - meta:taskHandler
 
 TODO:
 - Continue-As-New
 - OpenTelemetry spans
 - ParallelGateway
-- Transcript support
 """
 
 import asyncio
@@ -40,14 +42,14 @@ from bpmn.temporal_engine.bpmn_model import (
     CallActivity,
     EndEvent,
     ExclusiveGateway,
-    ManualTask,
     ScriptTask,
     ServiceTask,
+    SendTask,
     StartEvent,
     IntermediateCatchEvent,
     UserTask,
-    HttpRequest,
     MappingItem,
+    ProcessContract,
 )
 
 from bpmn.temporal_engine.context import (
@@ -62,7 +64,10 @@ from bpmn.temporal_engine.paths import (
     parse_duration,
     resolve_path,
     set_path,
+    resolve_literal,
 )
+from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError
 
 class BPMNRuntimeError(Exception):
     """
@@ -112,10 +117,19 @@ class BPMNInterpreter:
 
         Returns True if handled.
         """
+        workflow.logger.info(
+            f"Looking for boundary event "
+            f"task={task_id} "
+            f"error={error_ref}"
+        )
 
         target = process.boundary_target(
             task_id,
             error_ref,
+        )
+
+        workflow.logger.info(
+            f"Boundary target={target}"
         )
 
         if target is None:
@@ -133,8 +147,8 @@ class BPMNInterpreter:
 
     def _validate_contract(
         self,
-        contract,
-        variables,
+        contract: ProcessContract | None,
+        variables: dict[str, Any],
         mode: str,
     ) -> None:
 
@@ -174,6 +188,10 @@ class BPMNInterpreter:
                 variables,
             )
 
+            context["true"] = True
+            context["false"] = False
+            context["null"] = None
+
             return bool(
                 eval(
                     expression,
@@ -204,12 +222,9 @@ class BPMNInterpreter:
             )
 
             if value is None:
-
-                if source.lower() == "true":
-                    value = True
-
-                elif source.lower() == "false":
-                    value = False
+                value = resolve_literal(
+                    source,
+                )
 
             set_path(
                 variables,
@@ -400,50 +415,6 @@ class BPMNInterpreter:
                 continue
 
             #
-            # ManualTask
-            #
-
-            if isinstance(
-                current_node,
-                ManualTask,
-            ):
-                token = f"manual_{self.state.step_counter}"
-
-                review_config = current_node.metadata.get(
-                    "manualReview",
-                    {},
-                )
-
-                self._awaiting_input = AwaitingInput(
-                    token=token,
-                    prompt=current_node.name or "Manual Review",
-                    schema={
-                        "kind": "manual_review",
-                        "review": review_config,
-                    },
-                    options=None,
-                    timeout_seconds=None,
-                    state_id=current_node.id,
-                    state_type="ManualTask",
-                )
-
-                self._received_input = None
-
-                self._input_ready_event.clear()
-
-                await workflow.wait_condition(lambda: self._input_ready_event.is_set())
-
-                self._awaiting_input = None
-
-                self._move_to_next_node(
-                    process,
-                    current_node.id,
-                    frame,
-                )
-
-                continue
-
-            #
             # ScriptTask
             #
 
@@ -492,27 +463,23 @@ class BPMNInterpreter:
                         ),
                     )
 
-                    self._move_to_next_node(
-                        process,
-                        current_node.id,
-                        frame,
-                    )
+                    for mapping in current_node.notification.outputs:
 
-                    continue
+                        value = resolve_literal(
+                            mapping.source,
+                        )
 
-                if current_node.task_handler_type == "validation":
-
-                    workflow.logger.info(f"Executing validation task {current_node.id}")
-
-                    for rule in current_node.validation_rules:
-
-                        if not self._evaluate_expression(
-                            rule.expression,
+                        set_path(
                             frame.vars,
-                        ):
-                            raise RuntimeError(
-                                rule.message
-                            )
+                            mapping.target,
+                            value,
+                        )
+
+                        workflow.logger.info(
+                            "Notification output %s -> %s",
+                            mapping.source,
+                            mapping.target,
+                        )
 
                     self._move_to_next_node(
                         process,
@@ -526,6 +493,51 @@ class BPMNInterpreter:
                     f"Unsupported ScriptTask handler "
                     f"'{current_node.task_handler_type}'"
                 )
+
+            #
+            # SendTask
+            #
+
+            if isinstance(
+                current_node,
+                SendTask,
+            ):
+                if current_node.message:
+
+                    activity = self.state.activity_history[-1]
+
+                    activity["title"] = interpolate(
+                        current_node.message.title or "",
+                        frame.vars,
+                    )
+
+                    activity["text"] = interpolate(
+                        current_node.message.text or "",
+                        frame.vars,
+                    )
+
+                    activity["severity"] = (
+                        current_node.message.severity
+                    )
+
+                workflow.logger.info(
+                    "Message task %s",
+                    current_node.id,
+                )
+
+                if current_node.message:
+                    workflow.logger.info(
+                        "Message: %s",
+                        current_node.message.title,
+                    )
+
+                self._move_to_next_node(
+                    process,
+                    current_node.id,
+                    frame,
+                )
+
+                continue
 
             #
             # ServiceTask
@@ -582,22 +594,48 @@ class BPMNInterpreter:
                     workflow.logger.info(f"Request payload: {request_payload}")
 
                     try:
-                        result = await workflow.execute_activity(
-                            "http_call",
-                            HttpRequest(
-                                service=service.service,
-                                method=service.method,
-                                endpoint=endpoint,
-                                body=request_payload,
-                                retry=service.retry,
-                                timeout=service.timeout,
-                                output_mappings=service.outputs,
-                                variables=frame.vars,
-                            ),
-                            start_to_close_timeout=timedelta(minutes=5),
+                        retry_policy = RetryPolicy(
+                            maximum_attempts=1,
                         )
 
-                    except Exception:
+                        if service.retry:
+                            retry_policy = RetryPolicy(
+                                maximum_attempts=service.retry.attempts,
+                                initial_interval=timedelta(
+                                    seconds=service.retry.backoff_seconds,
+                                ),
+                            )
+
+                        result = await workflow.execute_activity(
+                            "http_call",
+                            {
+                                "service": service.service,
+                                "method": service.method,
+                                "endpoint": endpoint,
+                                "body": request_payload,
+                                "retry": (
+                                    service.retry.model_dump()
+                                    if service.retry
+                                    else None
+                                ),
+                                "timeout": (
+                                    service.timeout.model_dump()
+                                    if service.timeout
+                                    else None
+                                ),
+                                "output_mappings": [
+                                    mapping.model_dump()
+                                    for mapping in service.outputs
+                                ],
+                                "variables": frame.vars,
+                            },
+                            start_to_close_timeout=timedelta(
+                                minutes=5,
+                            ),
+                            retry_policy=retry_policy,
+                        )
+
+                    except ActivityError:
                         handled = self._handle_boundary_error(
                             process,
                             current_node.id,
@@ -731,9 +769,25 @@ class BPMNInterpreter:
                     f"Invoking subprocess {current_node.called_element}"
                 )
 
-                child_process = self.definition.processes.get(
-                    current_node.called_element
+                process_path = self.definition.process_registry[
+                        current_node.called_element
+                    ]
+
+                child_process_data = await workflow.execute_activity(
+                    "load_process",
+                    process_path,
+                    start_to_close_timeout=timedelta(
+                        seconds=30,
+                    ),
                 )
+
+                child_process = BPMNProcess.model_validate(
+                    child_process_data,
+                )
+
+                self.definition.processes[
+                    child_process.id
+                ] = child_process
 
                 if child_process is None:
                     raise RuntimeError(
@@ -793,11 +847,14 @@ class BPMNInterpreter:
                 current_node,
                 EndEvent,
             ):
-                workflow.logger.info(
-                    f"Reached end event {current_node.id}"
-                )
-
                 completed = self.state.frames.pop()
+
+                workflow.logger.info(
+                    f"Reached end event "
+                    f"{completed.process_id}:"
+                    f"{current_node.id} "
+                    f"error_ref={current_node.error_ref}"
+                )
 
                 if current_node.error_ref:
 
@@ -895,8 +952,7 @@ class BPMNInterpreter:
                 )
 
                 return {
-                    "status": current_node.status,
-                    "outcome": current_node.outcome,
+                    "process_id": completed.process_id,
                     "variables": completed.vars,
                 }
 
