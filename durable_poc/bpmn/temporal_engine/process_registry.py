@@ -1,69 +1,116 @@
 """
-BPMN process discovery.
+BPMN process registry.
 
-Builds a registry of process ids to BPMN files.
-Used to resolve CallActivity targets.
+Maps process IDs to BPMN files.
+
+The root process is loaded by load_definition().
+
+Subprocesses are loaded lazily by load_process()
+when CallActivities are encountered.
 """
 
-from pathlib import Path
-from xml.etree import ElementTree as ET
+from __future__ import annotations
 
-BPMN_NS = {
-    "bpmn":
-        "http://www.omg.org/spec/BPMN/20100524/MODEL",
+from pathlib import Path
+
+BPMN_DIR = (
+    Path(__file__).resolve().parent.parent
+)
+
+PROCESS_REGISTRY: dict[str, str] = {
+    #
+    # Root process
+    #
+    "dvla.change_of_address":
+        str(
+            BPMN_DIR
+            / "change_of_address.bpmn"
+        ),
+
+    #
+    # Subprocesses
+    #
+    "confirm_intent":
+        str(
+            BPMN_DIR
+            / "confirm_intent.bpmn"
+        ),
+
+    "name_change_check":
+        str(
+            BPMN_DIR
+            / "name_change_check.bpmn"
+        ),
+
+    "driver_lookup":
+        str(
+            BPMN_DIR
+            / "driver_lookup.bpmn"
+        ),
+
+    "photo_update":
+        str(
+            BPMN_DIR
+            / "photo_update.bpmn"
+        ),
+
+    "signature_update":
+        str(
+            BPMN_DIR
+            / "signature_update.bpmn"
+        ),
+
+    "organ_donation":
+        str(
+            BPMN_DIR
+            / "organ_donation.bpmn"
+        ),
+
+    "address_selection":
+        str(
+            BPMN_DIR
+            / "address_selection.bpmn"
+        ),
+
+    "address_update":
+        str(
+            BPMN_DIR
+            / "address_update.bpmn"
+        ),
+
+    "finalisation":
+        str(
+            BPMN_DIR
+            / "finalisation.bpmn"
+        ),
 }
 
 
-class ProcessRegistry:
+def get_process_path(
+    process_id: str,
+) -> str:
+    """
+    Resolve a process ID to a BPMN file path.
+    """
 
-    def __init__(
-        self,
-        process_directory: Path,
-    ):
-        self.process_directory = process_directory
+    try:
+        return PROCESS_REGISTRY[
+            process_id
+        ]
 
-        self.process_files: dict[
-            str,
-            Path,
-        ] = {}
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown BPMN process '{process_id}'"
+        ) from exc
 
-        self._build_registry()
 
-    def _build_registry(
-        self,
-    ) -> None:
+def process_exists(
+    process_id: str,
+) -> bool:
+    return process_id in PROCESS_REGISTRY
 
-        for file in self.process_directory.glob(
-            "*.bpmn",
-        ):
-            root = ET.parse(
-                file,
-            ).getroot()
 
-            process_el = root.find(
-                "bpmn:process",
-                BPMN_NS,
-            )
-
-            if process_el is None:
-                continue
-
-            self.process_files[
-                process_el.attrib["id"]
-            ] = file
-
-    def get_process_path(
-        self,
-        process_id: str,
-    ) -> Path:
-
-        path = self.process_files.get(
-            process_id,
-        )
-
-        if path is None:
-            raise ValueError(
-                f"Unknown process '{process_id}'"
-            )
-
-        return path
+def list_processes() -> list[str]:
+    return sorted(
+        PROCESS_REGISTRY.keys()
+    )

@@ -9,6 +9,7 @@ import os
 import uuid
 import uvicorn
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from opentelemetry import trace, baggage
@@ -25,6 +26,10 @@ from src.telemetry import SessionSpanProcessor, create_agent_provider, session_i
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GOV.UK Chat Assistant")
+INDEX_HTML = (
+    Path(__file__).parent
+    / "index.html"
+)
 
 _polling_client: TemporalClient | None = None
 
@@ -47,29 +52,37 @@ def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
     if not awaiting:
         return {"kind": None, "options": []}
 
-    if hasattr(awaiting, "__dict__"):
-        awaiting = awaiting.__dict__
     if not isinstance(awaiting, dict):
         return {"kind": None, "options": []}
 
     schema = awaiting.get("schema") or {}
-    if hasattr(schema, "__dict__"):
-        schema = schema.__dict__
+
+    fields = schema.get("fields", [])
+
+    if len(fields) == 1:
+
+        field_type = fields[0].get("type")
+
+        if field_type == "choice":
+            kind = "select_one"
+
+        elif field_type == "multi_choice":
+            kind = "select_many"
+
+        else:
+            kind = field_type
+    else:
+        kind = schema.get("kind") or awaiting.get("state_type")
+
     if not isinstance(schema, dict):
         schema = {}
 
-    kind = schema.get("kind") or awaiting.get("state_type")
     if kind == "boolean":
         return {"kind": "boolean", "options": ["Yes", "No"]}
 
     raw_options = (
         awaiting.get("options")
         or schema.get("options")
-        or (
-            schema.get("schema", {}).get("options")
-            if isinstance(schema.get("schema"), dict)
-            else None
-        )
         or []
     )
 
@@ -116,7 +129,7 @@ def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
 def create_agent() -> WorkflowAgent:
     workflow_server_url = os.environ.get(
         "WORKFLOW_SERVER_URL",
-        "http://localhost:8080",
+        "http://Workfl-Workf-CwPhUxgpA91a-749675269.eu-west-2.elb.amazonaws.com",
     )
     model_id = os.environ.get(
         "BEDROCK_MODEL_ID",
@@ -138,282 +151,18 @@ def create_agent() -> WorkflowAgent:
         temporal_address=temporal_address,
     )
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>GOV.UK Chat Assistant</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        body {
-            font-family: "GDS Transport", Arial, sans-serif;
-            margin: 0; padding: 0;
-            background-color: #ffffff; color: #0b0c0c;
-        }
-        .header-banner {
-            background-color: #0b0c0c; color: #ffffff;
-            padding: 12px 20px; font-weight: bold; font-size: 24px;
-            border-bottom: 10px solid #1d70b8;
-        }
-        .main-layout {
-            display: flex; gap: 20px; max-width: 1400px; margin: 20px auto; padding: 0 20px;
-        }
-        .chat-container { flex: 1; min-width: 0; }
-        .sidebar-container { width: 480px; border-left: 2px solid #b1b4b6; padding-left: 20px; }
-        .picker-bar {
-            background-color: #f3f2f1; border: 2px solid #0b0c0c; padding: 12px; margin-bottom: 15px;
-            display: flex; gap: 10px; align-items: center;
-        }
-        .picker-bar select {
-            flex: 1; height: 38px; font-size: 15px; border: 1px solid #0b0c0c; padding: 0 8px;
-        }
-        .tag { background-color: #1d70b8; color: #fff; padding: 2px 8px; font-weight: bold; font-size: 14px; text-transform: uppercase; }
-        .phase-banner { border-bottom: 1px solid #b1b4b6; padding-bottom: 10px; margin-bottom: 20px; }
-        #chat-window { border: 2px solid #0b0c0c; background-color: #f8f8f8; height: 440px; overflow-y: auto; padding: 15px; margin-bottom: 15px; }
-        #event-window { border: 2px solid #0b0c0c; background-color: #1e1e1e; color: #d4d4d4; font-family: monospace; height: 530px; overflow-y: auto; padding: 12px; font-size: 13px; }
-        
-        /* Preserve line breaks (\n) and whitespace inside message bubbles */
-        .msg { 
-            padding: 12px 15px; 
-            margin-bottom: 12px; 
-            max-width: 85%; 
-            line-height: 1.5; 
-            font-size: 16px; 
-            white-space: pre-wrap; 
-            word-wrap: break-word;
-        }
-        .msg p { margin: 0 0 8px 0; }
-        .msg p:last-child { margin-bottom: 0; }
-        .msg.user { background-color: #f0f4f8; border-left: 5px solid #1d70b8; margin-left: auto; }
-        .msg.assistant { background-color: #ffffff; border-left: 5px solid #00703c; margin-right: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .completion-card { background-color: #d4edda; border: 2px solid #28a745; color: #155724; padding: 15px; font-weight: bold; margin-bottom: 15px; text-align: center; }
-        .timeout-badge { background-color: #fff3cd; border: 1px solid #ffeba2; color: #856404; padding: 8px 12px; margin-bottom: 10px; font-weight: bold; }
-        .options-container { margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 8px; }
-        
-        /* Option Button & Toggle Styles */
-        .opt-btn { background-color: #f3f2f1; border: 2px solid #0b0c0c; padding: 8px 14px; font-size: 15px; cursor: pointer; font-weight: bold; transition: background-color 0.15s, color 0.15s; }
-        .opt-btn:hover { background-color: #1d70b8; color: white; }
-        .opt-btn.multi-chip.selected {
-            background-color: #1d70b8;
-            color: #ffffff;
-            border-color: #003078;
-        }
-        .opt-btn.submit-multi-btn {
-            background-color: #00703c;
-            color: #ffffff;
-            border-color: #004d25;
-            margin-left: 6px;
-        }
-        .opt-btn.submit-multi-btn:hover {
-            background-color: #005a2b;
-        }
-
-        .input-row { display: flex; gap: 10px; align-items: center; }
-        input[type="text"] { flex-grow: 1; height: 44px; border: 2px solid #0b0c0c; padding: 0 10px; font-size: 16px; }
-        button.submit-btn { background-color: #00703c; color: white; border: none; font-weight: bold; font-size: 16px; padding: 0 20px; height: 48px; cursor: pointer; }
-        button.file-upload-btn { background-color: #f3f2f1; border: 2px solid #0b0c0c; font-weight: bold; font-size: 14px; padding: 0 15px; height: 48px; cursor: pointer; }
-        .trace-entry { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed #444; }
-        .trace-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-        .trace-badge { font-weight: bold; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
-        .badge-USER { background-color: #1d70b8; color: white; }
-        .badge-AGENT { background-color: #9147ff; color: white; }
-        .badge-ENGINE { background-color: #00703c; color: white; }
-        .badge-SYSTEM { background-color: #df3079; color: white; }
-        .trace-time { color: #888; font-size: 11px; }
-        .trace-body { color: #ce9178; word-break: break-all; margin-top: 3px; }
-    </style>
-</head>
-<body>
-    <div class="header-banner">GOV.UK</div>
-    <div class="main-layout">
-        <div class="chat-container">
-            <div class="phase-banner">
-                <span class="tag">Beta</span> Interactive Workflow & Event Trace
-            </div>
-            
-            <div class="picker-bar">
-                <strong>Resume Active Session:</strong>
-                <select id="workflow-picker">
-                    <option value="">-- Select Active Workflow --</option>
-                </select>
-                <button onclick="resumeSelectedWorkflow()" style="padding: 6px 12px; cursor: pointer; font-weight: bold;">Resume</button>
-            </div>
-
-            <h2>GOV.UK Chat Assistant</h2>
-            
-            <div id="chat-window">
-                <div class="msg assistant">Hello, how can I help you today?</div>
-            </div>
-
-            <div id="options-box" class="options-container"></div>
-            
-            <div class="input-row">
-                <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)" />
-                <button class="file-upload-btn" onclick="document.getElementById('file-input').click()">Upload Photo</button>
-                <input type="text" id="user-input" placeholder="Type your response..." />
-                <button class="submit-btn" id="submit-btn" onclick="sendMessage()">Continue</button>
-            </div>
-        </div>
-
-        <div class="sidebar-container">
-            <h2>Execution Events</h2>
-            <div id="event-window"></div>
-        </div>
-    </div>
-
-    <script>
-        /* Configure marked library to preserve single line breaks (\n) */
-        marked.setOptions({
-            breaks: true,
-            gfm: true
-        });
-
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const ws = new WebSocket(`${protocol}//${location.host}/ws`);
-        const chatWindow = document.getElementById("chat-window");
-        const eventWindow = document.getElementById("event-window");
-        const optionsBox = document.getElementById("options-box");
-        const userInput = document.getElementById("user-input");
-        const submitBtn = document.getElementById("submit-btn");
-        const workflowPicker = document.getElementById("workflow-picker");
-
-        let selectedMultiOptions = new Set();
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            
-            if (data.type === "message") {
-                appendMessage(data.role, data.text);
-            } else if (data.type === "options") {
-                renderOptions(data.options, data.kind);
-            } else if (data.type === "active_workflows") {
-                populateWorkflowPicker(data.workflows);
-            } else if (data.type === "event") {
-                appendEvent(data.category, data.summary, data.detail, data.timestamp);
-            }
-        };
-
-        function appendMessage(role, text) {
-            const div = document.createElement("div");
-            div.className = `msg ${role}`;
-            div.innerHTML = marked.parse(text);
-            chatWindow.appendChild(div);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-
-        function appendEvent(category, summary, detail, timestamp) {
-            const div = document.createElement("div");
-            div.className = "event-entry";
-            div.innerHTML = `
-                <div class="trace-header">
-                    <span class="trace-badge badge-${category}">${category}</span>
-                    <span class="trace-time">${timestamp}</span>
-                </div>
-                <div><strong>${summary}</strong></div>
-                <div class="trace-body">${detail ? (typeof detail === 'object' ? JSON.stringify(detail, null, 2) : detail) : ''}</div>
-            `;
-            eventWindow.appendChild(div);
-            eventWindow.scrollTop = eventWindow.scrollHeight;
-        }
-
-        function renderOptions(options, kind) {
-            optionsBox.innerHTML = "";
-            selectedMultiOptions.clear();
-
-            if (!options || options.length === 0) return;
-
-            if (kind === "select_many") {
-                // Multi-select mode: Toggle chips + Submit button
-                options.forEach(opt => {
-                    const btn = document.createElement("button");
-                    btn.className = "opt-btn multi-chip";
-                    btn.innerText = opt;
-                    btn.onclick = () => {
-                        if (selectedMultiOptions.has(opt)) {
-                            selectedMultiOptions.delete(opt);
-                            btn.classList.remove("selected");
-                        } else {
-                            selectedMultiOptions.add(opt);
-                            btn.classList.add("selected");
-                        }
-                    };
-                    optionsBox.appendChild(btn);
-                });
-
-                const submitSelectionsBtn = document.createElement("button");
-                submitSelectionsBtn.className = "opt-btn submit-multi-btn";
-                submitSelectionsBtn.innerText = "Confirm Selections ✓";
-                submitSelectionsBtn.onclick = () => {
-                    if (selectedMultiOptions.size === 0) return;
-                    const combinedSelection = Array.from(selectedMultiOptions).join(", ");
-                    sendText(combinedSelection);
-                };
-                optionsBox.appendChild(submitSelectionsBtn);
-
-            } else {
-                // Single-select mode: Immediate submission on click
-                options.forEach(opt => {
-                    const btn = document.createElement("button");
-                    btn.className = "opt-btn";
-                    btn.innerText = opt;
-                    btn.onclick = () => sendText(opt);
-                    optionsBox.appendChild(btn);
-                });
-            }
-        }
-
-        function populateWorkflowPicker(workflows) {
-            workflowPicker.innerHTML = '<option value="">-- Select Active Workflow --</option>';
-            workflows.forEach(wf => {
-                const opt = document.createElement("option");
-                opt.value = wf.id;
-                opt.innerText = `${wf.id} (${wf.status})`;
-                workflowPicker.appendChild(opt);
-            });
-        }
-
-        function resumeSelectedWorkflow() {
-            const selectedId = workflowPicker.value;
-            if (!selectedId) return;
-            ws.send(JSON.stringify({ action: "resume", workflow_id: selectedId }));
-        }
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const filePayload = `[Uploaded File: ref='${file.name}', content_type='${file.type || 'image/jpeg'}', bytes=${file.size}]`;
-            appendMessage("user", `Uploaded: ${file.name}`);
-            ws.send(JSON.stringify({ message: filePayload }));
-            event.target.value = "";
-        }
-
-        function sendText(text) {
-            if (!text.trim()) return;
-            appendMessage("user", text);
-            ws.send(JSON.stringify({ message: text }));
-            userInput.value = "";
-            optionsBox.innerHTML = "";
-        }
-
-        function sendMessage() {
-            sendText(userInput.value);
-        }
-
-        userInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") sendMessage();
-        });
-    </script>
-</body>
-</html>
-"""
-
 
 @app.get("/")
 async def get_index() -> HTMLResponse:
-    return HTMLResponse(HTML_TEMPLATE)
+    """
+    Serve the GOV.UK chat frontend.
+    """
 
+    return HTMLResponse(
+        INDEX_HTML.read_text(
+            encoding="utf-8",
+        )
+    )
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
@@ -501,7 +250,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                             if isinstance(entry, dict)
                             else getattr(entry, "message", "")
                         )
-                        clean_msg = msg_text
+                        clean_msg = str(
+                            msg_text or ""
+                        ).strip()
+
+                        if not clean_msg:
+                            continue
+
 
                         if clean_msg.startswith("[ENGINE LOG]"):
                             await emit_event(
@@ -544,21 +299,47 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
                 if token and token not in handled_tokens:
                     handled_tokens.add(token)
-                    prompt_text = awaiting.get("prompt", "")
-                    clean_prompt = prompt_text
-                    if clean_prompt:
+                    schema = awaiting.get("schema", {})
+
+                    message_parts = []
+
+                    for field in schema.get("fields", []):
+
+                        if field.get("type") != "display":
+                            continue
+
+                        label = field.get("label")
+                        value = field.get("value")
+
+                        if label and value is not None:
+                            message_parts.append(
+                                f"**{label}:** {value}"
+                            )
+
+                    prompt = awaiting.get("prompt")
+
+                    if prompt:
+                        message_parts.append("")
+                        message_parts.append(prompt)
+
+                    rendered_message = "\n".join(
+                        message_parts
+                    ).strip()
+
+                    if rendered_message:
                         await websocket.send_json(
                             {
                                 "type": "message",
                                 "role": "assistant",
-                                "text": clean_prompt,
+                                "text": rendered_message,
                             }
                         )
+
                         await emit_event(
                             "ENGINE",
                             f"Awaiting InputState [{token}]",
                             {
-                                "prompt": clean_prompt,
+                                "prompt": rendered_message,
                                 "schema": awaiting.get("schema"),
                             },
                         )

@@ -192,7 +192,7 @@
                     variable="organ_consent"
                     type="boolean"
                     required="true"
-                    label="Would you like to remain registered as an organ donor?"/>
+                    label="Here are your current organ donation preferences. Would you like to remain registered as an organ donor?"/>
 
             </meta:form>
 

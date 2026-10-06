@@ -124,13 +124,7 @@
                     title="Application Submitted">
 
                     <meta:text>
-                        Your driving licence update has been submitted successfully.
-
-                        A confirmation email has been sent to your registered email address, ${email}.
-
-                        Your updated driving licence has been dispatched and should arrive within 5 working days.
-
-                        Reference: ${job_id}
+                        Your driving licence update has been submitted successfully. \nA confirmation email has been sent to your registered email address, ${email}. \nYour updated driving licence has been dispatched and should arrive within 5 working days. \nReference: ${job_id}
                     </meta:text>
 
                 </meta:message>

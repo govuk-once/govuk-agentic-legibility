@@ -2,6 +2,8 @@
 Activities bridging the BPMN interpreter to external services.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 from typing import Any
@@ -10,18 +12,22 @@ import httpx
 from temporalio import activity
 
 from bpmn.temporal_engine.bpmn_parser import (
+    parse_bpmn_file,
     parse_process_file,
+)
+from bpmn.temporal_engine.process_registry import (
+    PROCESS_REGISTRY,
 )
 
 from src.paths import (
+    resolve_literal,
     resolve_path,
     set_path,
-    resolve_literal,
 )
 
 logger = logging.getLogger(__name__)
 
-_PROCESS_CACHE: dict[str, dict] = {}
+_PROCESS_CACHE: dict[str, dict[str, Any]] = {}
 
 API_BASE_URLS = {
     "dvla": "DVLA_BASE",
@@ -36,7 +42,7 @@ async def http_call(
     request: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    Execute HTTP request using BPMN metadata.
+    Execute an HTTP request defined in BPMN metadata.
     """
 
     logger.info(
@@ -67,13 +73,9 @@ async def http_call(
 
     full_url = f"{base_url}{request['endpoint']}"
 
-    #
-    # Timeout
-    #
-
     timeout_seconds = 30
 
-    if request["timeout"] is not None:
+    if request.get("timeout"):
         try:
             timeout_seconds = int(
                 request["timeout"]["duration"]
@@ -82,13 +84,10 @@ async def http_call(
             )
         except Exception:
             logger.warning(
-                "Invalid timeout duration '%s'",
+                "Invalid timeout duration %s",
                 request["timeout"]["duration"],
             )
 
-    #
-    # Parse body
-    #
     async with httpx.AsyncClient(
         timeout=timeout_seconds,
     ) as client:
@@ -102,10 +101,14 @@ async def http_call(
         response = await client.request(
             method=request["method"],
             url=full_url,
-            json=request["body"] or None,
+            json=request.get("body") or None,
         )
 
-        logger.info("%s -> %s", full_url, response.status_code)
+        logger.info(
+            "%s -> %s",
+            full_url,
+            response.status_code,
+        )
 
         response.raise_for_status()
 
@@ -115,7 +118,7 @@ async def http_call(
     )
 
     if content_type.startswith(
-        "application/json"
+        "application/json",
     ):
         body = response.json()
     else:
@@ -128,10 +131,6 @@ async def http_call(
             "body": body,
         }
     }
-
-    #
-    # Apply BPMN output mappings
-    #
 
     mapped_variables: dict[str, Any] = {}
 
@@ -187,12 +186,65 @@ async def send_notification(
     }
 
 
+@activity.defn(name="load_definition")
+async def load_definition(
+    process_id: str,
+) -> dict[str, Any]:
+    """
+    Load a root BPMN definition using the process registry.
+    """
+
+    logger.info(
+        "Loading BPMN definition process_id=%s",
+        process_id,
+    )
+
+    process_path = PROCESS_REGISTRY.get(
+        process_id,
+    )
+
+    if process_path is None:
+        raise ValueError(
+            f"Unknown BPMN process '{process_id}'"
+        )
+
+    definition = parse_bpmn_file(
+        process_path,
+    )
+
+    result = definition.model_dump(
+        mode="json",
+    )
+
+    logger.info(
+        "Loaded BPMN definition id=%s version=%s",
+        result.get("id"),
+        result.get("version"),
+    )
+
+    return result
+
+
 @activity.defn(name="load_process")
 async def load_process(
     process_path: str,
 ) -> dict[str, Any]:
+    """
+    Lazily load a BPMN subprocess.
+    """
+
+    logger.info(
+        "Loading BPMN subprocess %s",
+        process_path,
+    )
 
     if process_path in _PROCESS_CACHE:
+
+        logger.info(
+            "Using cached subprocess %s",
+            process_path,
+        )
+
         return _PROCESS_CACHE[
             process_path
         ]
@@ -208,5 +260,10 @@ async def load_process(
     _PROCESS_CACHE[
         process_path
     ] = result
+
+    logger.info(
+        "Loaded subprocess id=%s",
+        result.get("id"),
+    )
 
     return result

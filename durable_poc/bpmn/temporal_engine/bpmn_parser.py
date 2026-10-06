@@ -35,6 +35,9 @@ from bpmn.temporal_engine.bpmn_model import (
     UserTask,
     WorkflowMetadata,
 )
+from bpmn.temporal_engine.process_registry import (
+    PROCESS_REGISTRY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1170,4 +1173,5 @@ def parse_bpmn_file(
         entry=entry_process.id,
         errors=errors,
         processes=processes,
+        process_registry=PROCESS_REGISTRY
     )

@@ -80,7 +80,7 @@
                         variable="uploaded_signature"
                         type="file"
                         required="true"
-                        label="Upload your signature">
+                        label="Please upload your signature">
 
                         <meta:fileConstraints
                             maxSize="2097152"

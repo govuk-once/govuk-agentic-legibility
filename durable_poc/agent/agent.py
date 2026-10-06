@@ -1,4 +1,4 @@
-"""Strands agent composition for the durable FSM workflow executor."""
+"""Strands agent composition for the durable workflow executor."""
 
 from __future__ import annotations
 
@@ -65,95 +65,365 @@ def build_contextual_prompt(
     return f"{state_description}\nUser message: {user_message}"
 
 
-def _coerce_value(value: Any, session_state: dict[str, Any] | None) -> Any:
-    """Coerce a tool argument to the type the workflow schema expects."""
-    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+def _coerce_value(
+    value: Any,
+    session_state: dict[str, Any] | None,
+) -> Any:
+    """
+    Coerce a tool argument to the type expected by
+    the currently awaiting BPMN form field.
+    """
+
+    #
+    # Basic bool handling
+    #
+    if (
+        isinstance(value, str)
+        and value.strip().lower() in {"true", "false"}
+    ):
         return value.strip().lower() == "true"
 
     if session_state is None:
         return value
-    awaiting = session_state.get("awaiting")
-    if not awaiting or not isinstance(awaiting, dict):
+
+    awaiting = session_state.get(
+        "awaiting",
+    )
+
+    if not isinstance(awaiting, dict):
         return value
 
-    schema = awaiting.get("schema", {})
-    kind = schema.get("kind")
+    schema = awaiting.get(
+        "schema",
+        {},
+    )
 
-    if kind == "boolean":
-        if isinstance(value, bool):
-            return value
-        return str(value).strip().lower() in _TRUTHY
+    fields = schema.get(
+        "fields",
+        [],
+    )
 
-    if kind == "string":
-        val_str = str(value).strip()
-        if (val_str.startswith('"') and val_str.endswith('"')) or (
-            val_str.startswith("'") and val_str.endswith("'")
+    kind = schema.get(
+        "kind",
+    )
+
+    #
+    # Parse JSON strings early
+    #
+    if isinstance(value, str):
+
+        stripped = value.strip()
+
+        if (
+            stripped.startswith("{")
+            and stripped.endswith("}")
         ):
-            val_str = val_str[1:-1]
-        return val_str
-
-    if kind == "select_one":
-        if isinstance(value, str) and value.strip().startswith("{"):
             try:
-                return json.loads(value)
-            except json.JSONDecodeError, TypeError:
+                value = json.loads(
+                    stripped,
+                )
+            except json.JSONDecodeError:
                 pass
 
-        raw_options = awaiting.get("options") or schema.get("options") or []
-        if isinstance(raw_options, list):
-            for opt in raw_options:
-                if isinstance(opt, dict):
-                    opt_val = opt.get("value") or opt.get("id")
-                    opt_lbl = opt.get("label") or opt.get("title")
-                    if str(value).strip().lower() in (
-                        str(opt_val).strip().lower(),
-                        str(opt_lbl).strip().lower(),
-                    ):
-                        return opt_val if opt_val is not None else opt
-                elif str(value).strip().lower() == str(opt).strip().lower():
-                    return opt
+    #
+    # Infer kind from single-field forms
+    #
+    if (
+        not kind
+        and len(fields) == 1
+    ):
+        kind = fields[0].get(
+            "type",
+        )
 
-        return str(value).strip() if value is not None else value
+    #
+    # Single-field BPMN forms:
+    #
+    # If the agent submits:
+    #
+    #     {"address": {...}}
+    #
+    # but BPMN expects:
+    #
+    #     {"selected_address": {...}}
+    #
+    # rewrite to use the BPMN field id
+    #
+    if (
+        len(fields) == 1
+        and isinstance(value, dict)
+    ):
+        field_id = fields[0].get(
+            "id",
+        )
 
-    if kind == "select_many":
-        if isinstance(value, str):
-            value = value.strip()
-            if value.startswith("[") and value.endswith("]"):
-                try:
-                    return json.loads(value)
-                except json.JSONDecodeError, TypeError:
-                    pass
-            return [item.strip() for item in value.split(",") if item.strip()]
+        if (
+            field_id
+            and field_id not in value
+            and len(value) == 1
+        ):
+            only_value = next(
+                iter(value.values())
+            )
+
+            value = {
+                field_id: only_value,
+            }
+
+    #
+    # Boolean field
+    #
+    if kind == "boolean":
+
+        if (
+            isinstance(value, dict)
+            and len(fields) == 1
+        ):
+            field_id = fields[0].get(
+                "id",
+            )
+
+            if field_id in value:
+                value = value[field_id]
+
+        if isinstance(
+            value,
+            bool,
+        ):
+            return value
+
+        return (
+            str(value)
+            .strip()
+            .lower()
+            in _TRUTHY
+        )
+
+    #
+    # String field
+    #
+    if kind == "string":
+
+        if (
+            isinstance(value, dict)
+            and len(fields) == 1
+        ):
+            field_id = fields[0].get(
+                "id",
+            )
+
+            if field_id in value:
+                value = value[field_id]
+
+        value = str(
+            value,
+        ).strip()
+
+        if (
+            value.startswith('"')
+            and value.endswith('"')
+        ) or (
+            value.startswith("'")
+            and value.endswith("'")
+        ):
+            value = value[1:-1]
+
         return value
 
-    if kind == "file_ref" or (isinstance(value, str) and "bytes" in value):
-        wf_id = session_state.get("workflow_id", "file") if session_state else "file"
+    #
+    # Single select
+    #
+    if kind == "select_one":
 
-        if isinstance(value, str) and value.strip().startswith("{"):
-            try:
-                value = json.loads(value)
-            except json.JSONDecodeError, TypeError:
-                pass
+        raw_options = (
+            awaiting.get("options")
+            or schema.get("options")
+            or []
+        )
 
-        if isinstance(value, str) and value.startswith("[Uploaded File:"):
-            ref_match = re.search(r"ref='([^']+)'", value)
-            ct_match = re.search(r"content_type='([^']+)'", value)
-            bytes_match = re.search(r"bytes=(\d+)", value)
+        if isinstance(
+            raw_options,
+            list,
+        ):
+
+            value_text = str(
+                value,
+            ).strip().lower()
+
+            for opt in raw_options:
+
+                if isinstance(
+                    opt,
+                    dict,
+                ):
+
+                    opt_value = (
+                        opt.get("value")
+                        or opt.get("id")
+                    )
+
+                    opt_label = (
+                        opt.get("label")
+                        or opt.get("title")
+                    )
+
+                    candidates = []
+
+                    if opt_value is not None:
+                        candidates.append(
+                            str(opt_value)
+                            .strip()
+                            .lower()
+                        )
+
+                    if opt_label is not None:
+                        candidates.append(
+                            str(opt_label)
+                            .strip()
+                            .lower()
+                        )
+
+                    if value_text in candidates:
+                        return (
+                            opt_value
+                            if opt_value is not None
+                            else opt
+                        )
+
+                elif (
+                    value_text
+                    == str(opt).strip().lower()
+                ):
+                    return opt
+                
+        if (
+            len(fields) == 1
+            and isinstance(value, dict)
+        ):
+            field_id = fields[0].get(
+                "id",
+            )
+
+            if field_id in value:
+                return value
+
+        return value
+
+    #
+    # Multi-select.
+    #
+    if kind == "select_many":
+
+        if isinstance(
+            value,
+            str,
+        ):
+            value = value.strip()
+
+            if (
+                value.startswith("[")
+                and value.endswith("]")
+            ):
+                try:
+                    return json.loads(
+                        value,
+                    )
+                except (
+                    json.JSONDecodeError,
+                    TypeError,
+                ):
+                    pass
+
+            return [
+                item.strip()
+                for item in value.split(",")
+                if item.strip()
+            ]
+
+        return value
+
+    #
+    # File upload.
+    #
+    if kind == "file_ref":
+
+        workflow_id = (
+            session_state.get(
+                "workflow_id",
+                "file",
+            )
+            if session_state
+            else "file"
+        )
+
+        if (
+            isinstance(value, str)
+            and value.startswith(
+                "[Uploaded File:"
+            )
+        ):
+            ref_match = re.search(
+                r"ref='([^']+)'",
+                value,
+            )
+
+            ct_match = re.search(
+                r"content_type='([^']+)'",
+                value,
+            )
+
+            bytes_match = re.search(
+                r"bytes=(\d+)",
+                value,
+            )
 
             return {
-                "ref": ref_match.group(1) if ref_match else f"upload_{wf_id}.dat",
-                "content_type": ct_match.group(1) if ct_match else "image/jpeg",
-                "bytes": int(bytes_match.group(1)) if bytes_match else 1024,
+                "ref": (
+                    ref_match.group(1)
+                    if ref_match
+                    else f"upload_{workflow_id}.dat"
+                ),
+                "content_type": (
+                    ct_match.group(1)
+                    if ct_match
+                    else "image/jpeg"
+                ),
+                "bytes": (
+                    int(bytes_match.group(1))
+                    if bytes_match
+                    else 1024
+                ),
             }
 
-        if isinstance(value, dict) and int(value.get("bytes", 0)) > 0:
+        if (
+            isinstance(value, dict)
+            and int(
+                value.get(
+                    "bytes",
+                    0,
+                )
+            ) > 0
+        ):
             return {
-                "ref": str(value.get("ref") or f"upload_{wf_id}.dat"),
-                "content_type": str(value.get("content_type") or "image/jpeg"),
-                "bytes": int(value.get("bytes", 1024)),
+                "ref": str(
+                    value.get("ref")
+                    or f"upload_{workflow_id}.dat"
+                ),
+                "content_type": str(
+                    value.get("content_type")
+                    or "image/jpeg"
+                ),
+                "bytes": int(
+                    value.get(
+                        "bytes",
+                        1024,
+                    )
+                ),
             }
 
-        return {"error": "INVALID_FILE_UPLOAD"}
+        return {
+            "error": "INVALID_FILE_UPLOAD",
+        }
 
     return value
 
@@ -182,7 +452,7 @@ class WorkflowAgent:
         model_id: str,
         region_name: str,
         temporal_address: str = "localhost:7233",
-        task_queue: str = "sfsm-queue",
+        task_queue: str = "bpmn-queue",
         conversation_history: list[dict[str, Any]] | None = None,
     ) -> None:
         self._workflow_server_url = workflow_server_url
@@ -462,49 +732,114 @@ class WorkflowAgent:
                 return {"workflow_id": temporal_workflow_id, **state}
 
         @tool
-        async def get_workflow_state(workflow_id: str) -> dict[str, Any]:
-            """Query the current state of a running workflow.
+        async def get_workflow_state(
+            workflow_id: str,
+        ) -> dict[str, Any]:
+            """
+            Query the current state of a running workflow.
 
             Args:
-                workflow_id: The Temporal workflow ID.
+                workflow_id:
+                    The Temporal workflow ID.
             """
+
             with owner._tracer.start_as_current_span(
                 "tool.get_workflow_state",
-                attributes={"temporalWorkflowID": workflow_id},
+                attributes={
+                    "temporalWorkflowID": workflow_id,
+                },
             ):
-                logger.info("Tool get_workflow_state called: workflow_id=%s", workflow_id)
+                logger.info(
+                    "Tool get_workflow_state called: workflow_id=%s",
+                    workflow_id,
+                )
+
                 await owner._trace(
                     "AGENT",
                     "Selected Tool: get_workflow_state",
-                    {"workflow_id": workflow_id},
+                    {
+                        "workflow_id": workflow_id,
+                    },
                 )
+
                 try:
                     temporal_client = await owner._get_temporal_client()
+
                     state = await tool_functions.get_workflow_state(
                         workflow_id=workflow_id,
                         temporal_client=temporal_client,
                     )
-                except Exception as e:
-                    logger.exception(
-                        "Tool get_workflow_state failed for workflow_id=%s", workflow_id
-                    )
-                    await owner._trace("ENGINE", "Get Workflow State Failed", str(e))
-                    raise
-                owner._update_session_state(workflow_id, state)
 
-                if not state.get("awaiting"):
-                    return {
-                        "workflow_id": workflow_id,
-                        "status": state.get("status", "RUNNING"),
-                        "awaiting": None,
-                        "message": "The workflow is processing background tasks or completed. Do not re-query.",
-                        "transcript": state.get("transcript", []),
-                    }
+                except Exception as exc:
+                    logger.exception(
+                        "Tool get_workflow_state failed: workflow_id=%s",
+                        workflow_id,
+                    )
+
+                    await owner._trace(
+                        "ENGINE",
+                        "Get Workflow State Failed",
+                        str(exc),
+                    )
+
+                    raise
+
+                owner._update_session_state(
+                    workflow_id,
+                    state,
+                )
+
+                status = state.get(
+                    "status",
+                    "RUNNING",
+                )
+
+                awaiting = state.get(
+                    "awaiting",
+                )
+
+                if awaiting is not None:
+
+                    logger.info(
+                        "Tool get_workflow_state succeeded: workflow_id=%s awaiting=%s",
+                        workflow_id,
+                        awaiting.get("token"),
+                    )
+
+                    return state
+
+                messages = {
+                    "COMPLETED":
+                        "The workflow has completed.",
+                    "FAILED":
+                        "The workflow has failed.",
+                    "TERMINATED":
+                        "The workflow was terminated.",
+                    "CANCELED":
+                        "The workflow was cancelled.",
+                }
+
+                result = {
+                    "workflow_id": workflow_id,
+                    "status": status,
+                    "awaiting": None,
+                    "message": messages.get(
+                        status,
+                        "The workflow is processing background tasks.",
+                    ),
+                    "transcript": state.get(
+                        "transcript",
+                        [],
+                    ),
+                }
 
                 logger.info(
-                    "Tool get_workflow_state succeeded: workflow_id=%s", workflow_id
+                    "Tool get_workflow_state succeeded: workflow_id=%s status=%s",
+                    workflow_id,
+                    status,
                 )
-                return state
+
+                return result
 
         @tool
         async def submit_input(
@@ -520,7 +855,7 @@ class WorkflowAgent:
             coerced_value = _coerce_value(value, owner._session_state)
             with owner._tracer.start_as_current_span(
                 "tool.submit_input",
-                attributes={"temporalWorkflowID": workflow_id, "token": token, "input_value": coerced_value},
+                attributes={"temporalWorkflowID": workflow_id, "token": token, "input_value": str(coerced_value)},
             ):
                 logger.info(
                     "submit_input called: workflow_id=%r, token=%r, coerced_value=%r",
@@ -576,6 +911,118 @@ class WorkflowAgent:
                 )
                 return result
 
+        @tool
+        async def list_bpmn_workflows() -> list[dict[str, Any]]:
+            """
+            List BPMN workflows available from the local process registry.
+            """
+
+            logger.info(
+                "Tool list_bpmn_workflows called"
+            )
+
+            await owner._trace(
+                "AGENT",
+                "Selected Tool: list_bpmn_workflows",
+            )
+
+            try:
+                result = await tool_functions.list_bpmn_workflows()
+
+                logger.info(
+                    "Tool list_bpmn_workflows returned %d workflow(s)",
+                    len(result),
+                )
+
+                return result
+
+            except Exception as exc:
+                logger.exception(
+                    "Tool list_bpmn_workflows failed"
+                )
+
+                await owner._trace(
+                    "ENGINE",
+                    "List BPMN Workflows Failed",
+                    str(exc),
+                )
+
+                raise
+
+        @tool
+        async def start_bpmn_workflow(
+            process_id: str,
+        ) -> dict[str, Any]:
+            """
+            Start a BPMN workflow from the local process registry.
+
+            Args:
+                process_id:
+                    BPMN process identifier.
+            """
+
+            logger.info(
+                "Tool start_bpmn_workflow called: process_id=%s",
+                process_id,
+            )
+
+            await owner._trace(
+                "AGENT",
+                "Selected Tool: start_bpmn_workflow",
+                {
+                    "process_id": process_id,
+                },
+            )
+
+            try:
+                temporal_client = await owner._get_temporal_client()
+
+                temporal_workflow_id = (
+                    await tool_functions.start_bpmn_workflow(
+                        process_id=process_id,
+                        temporal_client=temporal_client,
+                        task_queue=owner._task_queue,
+                    )
+                )
+
+                await owner._trace(
+                    "ENGINE",
+                    "Started BPMN Workflow",
+                    {
+                        "workflow_id": temporal_workflow_id,
+                        "process_id": process_id,
+                    },
+                )
+
+                state = await tool_functions.get_workflow_state(
+                    workflow_id=temporal_workflow_id,
+                    temporal_client=temporal_client,
+                )
+
+            except Exception as exc:
+                logger.exception(
+                    "Tool start_bpmn_workflow failed"
+                )
+
+                await owner._trace(
+                    "ENGINE",
+                    "Start BPMN Workflow Failed",
+                    str(exc),
+                )
+
+                raise
+
+            owner._update_session_state(
+                temporal_workflow_id,
+                state,
+            )
+
+            return {
+                "workflow_id": temporal_workflow_id,
+                **state,
+            }
+
+
         return [
             list_available_workflows,
             find_workflow_by_intent,
@@ -584,4 +1031,6 @@ class WorkflowAgent:
             get_workflow_state,
             submit_input,
             list_active_workflows,
+            list_bpmn_workflows,
+            start_bpmn_workflow,
         ]

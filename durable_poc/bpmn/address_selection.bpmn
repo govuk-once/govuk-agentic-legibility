@@ -130,7 +130,7 @@
                         variable="postcode"
                         type="string"
                         required="true"
-                        label="Postcode"/>
+                        label="Please enter your postcode"/>
 
                 </meta:form>
 
@@ -238,28 +238,28 @@
                         variable="address.line1"
                         type="string"
                         required="true"
-                        label="Address Line 1"/>
+                        label="Please enter the first line of your address:"/>
 
                     <meta:field
                         id="line2"
                         variable="address.line2"
                         type="string"
                         required="false"
-                        label="Address Line 2"/>
+                        label="Please enter the second line of your address:"/>
 
                     <meta:field
                         id="post_town"
                         variable="address.post_town"
                         type="string"
                         required="true"
-                        label="Town or City"/>
+                        label="Please enter your Town or City:"/>
 
                     <meta:field
                         id="postcode"
                         variable="address.postcode"
                         type="string"
                         required="true"
-                        label="Postcode"/>
+                        label="Please enter your postcode"/>
 
                 </meta:form>
 

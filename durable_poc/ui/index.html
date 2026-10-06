@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOV.UK Chat Assistant</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        body {
+            font-family: "GDS Transport", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #0b0c0c;
+        }
+
+        .header-banner {
+            background-color: #0b0c0c;
+            color: #ffffff;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-size: 24px;
+            border-bottom: 10px solid #1d70b8;
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .chat-container {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sidebar-container {
+            width: 480px;
+            border-left: 2px solid #b1b4b6;
+            padding-left: 20px;
+        }
+
+        .picker-bar {
+            background-color: #f3f2f1;
+            border: 2px solid #0b0c0c;
+            padding: 12px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .picker-bar select {
+            flex: 1;
+            height: 38px;
+            font-size: 15px;
+            border: 1px solid #0b0c0c;
+            padding: 0 8px;
+        }
+
+        .tag {
+            background-color: #1d70b8;
+            color: #fff;
+            padding: 2px 8px;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .phase-banner {
+            border-bottom: 1px solid #b1b4b6;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        #chat-window {
+            border: 2px solid #0b0c0c;
+            background-color: #f8f8f8;
+            height: 440px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        #event-window {
+            border: 2px solid #0b0c0c;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: monospace;
+            height: 530px;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 13px;
+        }
+
+        .msg {
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            max-width: 85%;
+            line-height: 1.5;
+            font-size: 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .msg p {
+            margin: 0 0 8px 0;
+        }
+
+        .msg p:last-child {
+            margin-bottom: 0;
+        }
+
+        .msg.user {
+            background-color: #f0f4f8;
+            border-left: 5px solid #1d70b8;
+            margin-left: auto;
+        }
+
+        .msg.assistant {
+            background-color: #ffffff;
+            border-left: 5px solid #00703c;
+            margin-right: auto;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .options-container {
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .opt-btn {
+            background-color: #f3f2f1;
+            border: 2px solid #0b0c0c;
+            padding: 8px 14px;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .opt-btn:hover {
+            background-color: #1d70b8;
+            color: white;
+        }
+
+        .opt-btn.multi-chip.selected {
+            background-color: #1d70b8;
+            color: white;
+            border-color: #003078;
+        }
+
+        .opt-btn.submit-multi-btn {
+            background-color: #00703c;
+            color: white;
+            border-color: #004d25;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            height: 44px;
+            border: 2px solid #0b0c0c;
+            padding: 0 10px;
+            font-size: 16px;
+        }
+
+        button.submit-btn {
+            background-color: #00703c;
+            color: white;
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 0 20px;
+            height: 48px;
+            cursor: pointer;
+        }
+
+        button.file-upload-btn {
+            background-color: #f3f2f1;
+            border: 2px solid #0b0c0c;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 0 15px;
+            height: 48px;
+            cursor: pointer;
+        }
+
+        .trace-entry {
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #444;
+        }
+
+        .trace-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .trace-badge {
+            font-weight: bold;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .badge-USER {
+            background-color: #1d70b8;
+            color: white;
+        }
+
+        .badge-AGENT {
+            background-color: #9147ff;
+            color: white;
+        }
+
+        .badge-ENGINE {
+            background-color: #00703c;
+            color: white;
+        }
+
+        .badge-SYSTEM {
+            background-color: #df3079;
+            color: white;
+        }
+
+        .trace-time {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .trace-body {
+            color: #ce9178;
+            word-break: break-all;
+            margin-top: 3px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header-banner">
+    GOV.UK
+</div>
+
+<div class="main-layout">
+
+    <div class="chat-container">
+
+        <div class="phase-banner">
+            <span class="tag">Beta</span>
+            Interactive Workflow & Event Trace
+        </div>
+
+        <div class="picker-bar">
+            <strong>Resume Active Session:</strong>
+
+            <select id="workflow-picker">
+                <option value="">
+                    -- Select Active Workflow --
+                </option>
+            </select>
+
+            <button
+                onclick="resumeSelectedWorkflow()"
+                style="padding:6px 12px;font-weight:bold;cursor:pointer;">
+                Resume
+            </button>
+        </div>
+
+        <h2>GOV.UK Chat Assistant</h2>
+
+        <div id="chat-window">
+            <div class="msg assistant">
+            Hello, how can I help you today?
+            </div>
+        </div>
+
+        <div id="options-box" class="options-container"></div>
+
+        <div class="input-row">
+            <input
+                type="file"
+                id="file-input"
+                style="display:none;"
+                onchange="handleFileSelect(event)" />
+
+            <button
+                class="file-upload-btn"
+                onclick="document.getElementById('file-input').click()">
+                Upload Photo
+            </button>
+
+            <input
+                type="text"
+                id="user-input"
+                placeholder="Type your response..." />
+
+            <button
+                class="submit-btn"
+                onclick="sendMessage()">
+                Continue
+            </button>
+        </div>
+
+    </div>
+
+    <div class="sidebar-container">
+
+        <h2>Execution Events</h2>
+
+        <div id="event-window"></div>
+
+    </div>
+
+</div>
+
+<script>
+marked.setOptions({
+    breaks: true,
+    gfm: true
+});
+
+const protocol =
+    window.location.protocol === "https:"
+        ? "wss:"
+        : "ws:";
+
+const ws =
+    new WebSocket(
+        `${protocol}//${location.host}/ws`
+    );
+
+const chatWindow =
+    document.getElementById("chat-window");
+
+const eventWindow =
+    document.getElementById("event-window");
+
+const optionsBox =
+    document.getElementById("options-box");
+
+const userInput =
+    document.getElementById("user-input");
+
+const workflowPicker =
+    document.getElementById("workflow-picker");
+
+let selectedMultiOptions =
+    new Set();
+
+ws.onmessage = (event) => {
+
+    const data =
+        JSON.parse(event.data);
+
+    switch (data.type) {
+
+        case "message":
+            appendMessage(
+                data.role,
+                data.text
+            );
+            break;
+
+        case "options":
+            renderOptions(
+                data.options,
+                data.kind
+            );
+            break;
+
+        case "active_workflows":
+            populateWorkflowPicker(
+                data.workflows
+            );
+            break;
+
+        case "event":
+            appendEvent(
+                data.category,
+                data.summary,
+                data.detail,
+                data.timestamp
+            );
+            break;
+    }
+};
+
+function appendMessage(role, text) {
+
+    const div =
+        document.createElement("div");
+
+    div.className =
+        `msg ${role}`;
+
+    div.innerHTML =
+        marked.parse(text || "");
+
+    chatWindow.appendChild(div);
+
+    chatWindow.scrollTop =
+        chatWindow.scrollHeight;
+}
+
+function appendEvent(category, summary, detail, timestamp) {
+
+    const div =
+        document.createElement("div");
+
+    div.className =
+        "trace-entry";
+
+    div.innerHTML = `
+        <div class="trace-header">
+            <span class="trace-badge badge-${category}">
+                ${category}
+            </span>
+            <span class="trace-time">
+                ${timestamp}
+            </span>
+        </div>
+
+        <div>
+            <strong>${summary}</strong>
+        </div>
+
+        <div class="trace-body">
+            ${
+                detail
+                ? (typeof detail === "object"
+                    ? JSON.stringify(detail, null, 2)
+                    : detail)
+                : ""
+            }
+        </div>
+    `;
+
+    eventWindow.appendChild(div);
+
+    eventWindow.scrollTop =
+        eventWindow.scrollHeight;
+}
+
+function renderOptions(options, kind) {
+
+    optionsBox.innerHTML = "";
+
+    selectedMultiOptions.clear();
+
+    if (!options || options.length === 0) {
+        return;
+    }
+
+    if (kind === "select_many") {
+
+        options.forEach(opt => {
+
+            const btn =
+                document.createElement("button");
+
+            btn.className =
+                "opt-btn multi-chip";
+
+            btn.innerText = opt;
+
+            btn.onclick = () => {
+
+                if (selectedMultiOptions.has(opt)) {
+
+                    selectedMultiOptions.delete(opt);
+
+                    btn.classList.remove(
+                        "selected"
+                    );
+
+                } else {
+
+                    selectedMultiOptions.add(opt);
+
+                    btn.classList.add(
+                        "selected"
+                    );
+                }
+            };
+
+            optionsBox.appendChild(btn);
+        });
+
+        const submitBtn =
+            document.createElement("button");
+
+        submitBtn.className =
+            "opt-btn submit-multi-btn";
+
+        submitBtn.innerText =
+            "Confirm Selections ✓";
+
+        submitBtn.onclick = () => {
+
+            if (
+                selectedMultiOptions.size === 0
+            ) {
+                return;
+            }
+
+            sendText(
+                Array.from(
+                    selectedMultiOptions
+                ).join(", ")
+            );
+        };
+
+        optionsBox.appendChild(
+            submitBtn
+        );
+
+    } else {
+
+        options.forEach(opt => {
+
+            const btn =
+                document.createElement("button");
+
+            btn.className =
+                "opt-btn";
+
+            btn.innerText =
+                opt;
+
+            btn.onclick = () =>
+                sendText(opt);
+
+            optionsBox.appendChild(btn);
+        });
+    }
+}
+
+function populateWorkflowPicker(workflows) {
+
+    workflowPicker.innerHTML =
+        '<option value="">-- Select Active Workflow --</option>';
+
+    workflows.forEach(wf => {
+
+        const option =
+            document.createElement("option");
+
+        option.value = wf.id;
+
+        option.innerText =
+            `${wf.id} (${wf.status})`;
+
+        workflowPicker.appendChild(
+            option
+        );
+    });
+}
+
+function resumeSelectedWorkflow() {
+
+    const workflowId =
+        workflowPicker.value;
+
+    if (!workflowId) {
+        return;
+    }
+
+    ws.send(
+        JSON.stringify({
+            action: "resume",
+            workflow_id: workflowId,
+        })
+    );
+}
+
+function handleFileSelect(event) {
+
+    const file =
+        event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    const payload =
+        `[Uploaded File: ref='${file.name}', content_type='${file.type || "image/jpeg"}', bytes=${file.size}]`;
+
+    appendMessage(
+        "user",
+        `Uploaded: ${file.name}`
+    );
+
+    ws.send(
+        JSON.stringify({
+            message: payload,
+        })
+    );
+
+    event.target.value = "";
+}
+
+function sendText(text) {
+
+    if (!text || !text.trim()) {
+        return;
+    }
+
+    appendMessage(
+        "user",
+        text
+    );
+
+    ws.send(
+        JSON.stringify({
+            message: text,
+        })
+    );
+
+    userInput.value = "";
+
+    optionsBox.innerHTML = "";
+}
+
+function sendMessage() {
+    sendText(
+        userInput.value
+    );
+}
+
+userInput.addEventListener(
+    "keypress",
+    (event) => {
+
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    }
+);
+</script>
+
+</body>
+</html>

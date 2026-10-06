@@ -169,7 +169,7 @@
                         variable="uploaded_photo"
                         type="file"
                         required="true"
-                        label="Upload your photo">
+                        label="Please upload a new photo">
 
                         <meta:fileConstraints
                             maxSize="5242880"

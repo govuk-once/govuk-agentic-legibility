@@ -11,6 +11,7 @@ from bpmn.temporal_engine.bpmn_activities import (
     http_call,
     send_notification,
     load_process,
+    load_definition
 )
 from bpmn.temporal_engine.bpmn_interpreter import (
     BPMNInterpreter,
@@ -54,6 +55,7 @@ async def main() -> None:
             http_call,
             send_notification,
             load_process,
+            load_definition,
         ],
     )
 

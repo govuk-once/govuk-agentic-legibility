@@ -30,6 +30,7 @@ TODO:
 """
 
 import asyncio
+import textwrap
 from copy import deepcopy
 from datetime import timedelta
 from typing import Any
@@ -99,8 +100,6 @@ class BPMNInterpreter:
         self._awaiting_input: AwaitingInput | None = None
 
         self._received_input: Any = None
-
-        self._input_ready_event = asyncio.Event()
     #
     # Helpers
     #
@@ -263,6 +262,59 @@ class BPMNInterpreter:
             }
         )
 
+    def _add_transcript_message(
+        self,
+        message: str,
+    ) -> None:
+
+        if not message:
+            return
+
+        self.state.activity_history.append(
+            {
+                "message": message,
+                "type": "TranscriptMessage",
+            }
+        )
+
+    def _find_prompt_label(
+        self,
+        fields: list[Any],
+    ) -> str | None:
+
+        for field in fields:
+
+            if getattr(field, "type", None) == "display":
+                continue
+
+            children = getattr(
+                field,
+                "fields",
+                None,
+            )
+
+            if children:
+                prompt = self._find_prompt_label(
+                    children,
+                )
+
+                if prompt:
+                    return prompt
+
+            if field.label:
+                return field.label
+
+        return None
+
+    def _normalise_message(
+        self,
+        text: str,
+    ) -> str:
+
+        return textwrap.dedent(
+            text,
+        ).strip()
+
     #
     # Workflow Entry
     #
@@ -270,36 +322,52 @@ class BPMNInterpreter:
     @workflow.run
     async def run(
         self,
-        definition_dict: dict[str, Any],
-        initial_state: (InterpreterState | None) = None,
+        request: dict[str, Any],
     ) -> dict[str, Any]:
+        
+        workflow.logger.info(
+            "Workflow request=%s",
+            request,
+        )
 
-        self.definition = BPMNDefinition.model_validate(
-            definition_dict,
+        definition_data = await workflow.execute_activity(
+            "load_definition",
+            request["process_id"],
+            start_to_close_timeout=timedelta(
+                seconds=30,
+            ),
         )
 
         workflow.logger.info(
-            f"Loaded BPMN definition {self.definition.id} v{self.definition.version}"
+            "Definition loaded successfully"
         )
 
-        if initial_state:
-            self.state = initial_state
-            workflow.logger.info(
-                f"Resuming workflow with {len(initial_state.frames)} frame(s)"
+        self.definition = BPMNDefinition.model_validate(
+            definition_data,
+        )
+
+        workflow.logger.info(
+            "Validated BPMN definition %s v%s",
+            self.definition.id,
+            self.definition.version,
+        )
+
+        process = self.definition.processes[
+            self.definition.entry
+        ]
+
+        workflow.logger.info(
+            "Starting process %s",
+            process.id,
+        )
+
+        self.state.frames.append(
+            StackFrame(
+                process_id=process.id,
+                state_id=process.start_event,
+                vars=deepcopy(process.variables),
             )
-
-        else:
-            process = self.definition.processes[self.definition.entry]
-
-            workflow.logger.info(f"Starting process {process.id}")
-
-            self.state.frames.append(
-                StackFrame(
-                    process_id=process.id,
-                    state_id=process.start_event,
-                    vars=deepcopy(process.variables),
-                )
-            )
+        )
 
         while self.state.frames:
             await asyncio.sleep(0)
@@ -362,11 +430,58 @@ class BPMNInterpreter:
 
                 form = current_node.form
 
+                options = None
+
+                if len(form.fields) == 1:
+
+                    field = form.fields[0]
+
+                    if field.options:
+                        options = [
+                            option.model_dump()
+                            for option in field.options
+                        ]
+
+                    elif field.source_variable:
+
+                        source_values = resolve_path(
+                            frame.vars,
+                            field.source_variable,
+                        )
+
+                        if isinstance(
+                            source_values,
+                            list,
+                        ):
+                            options = source_values
+
+                prompt = (
+                    self._find_prompt_label(
+                        form.fields,
+                    )
+                    or form.title
+                    or current_node.name
+                    or current_node.id
+                )
+
+                schema = form.model_dump()
+
+                for field in schema["fields"]:
+
+                    if (
+                        field.get("type") == "display"
+                        and field.get("source_variable")
+                    ):
+                        field["value"] = resolve_path(
+                            frame.vars,
+                            field["source_variable"],
+                        )
+
                 self._awaiting_input = AwaitingInput(
                     token=token,
-                    prompt=(form.title or current_node.name or current_node.id),
-                    schema=form,
-                    options=None,
+                    prompt=prompt,
+                    schema=schema,
+                    options=options,
                     timeout_seconds=None,
                     state_id=current_node.id,
                     state_type="UserTask",
@@ -374,13 +489,24 @@ class BPMNInterpreter:
 
                 self._received_input = None
 
-                self._input_ready_event.clear()
-
-                await workflow.wait_condition(lambda: self._input_ready_event.is_set())
+                await workflow.wait_condition(
+                    lambda: self._received_input is not None
+                )
 
                 workflow.logger.info(f"Received user input for {current_node.id}")
 
-                if not isinstance(
+                if len(form.fields) == 1:
+
+                    if not isinstance(
+                        self._received_input,
+                        dict,
+                    ):
+                        self._received_input = {
+                            form.fields[0].id:
+                                self._received_input,
+                        }
+
+                elif not isinstance(
                     self._received_input,
                     dict,
                 ):
@@ -506,29 +632,29 @@ class BPMNInterpreter:
 
                     activity = self.state.activity_history[-1]
 
-                    activity["title"] = interpolate(
+                    title = interpolate(
                         current_node.message.title or "",
                         frame.vars,
                     )
 
-                    activity["text"] = interpolate(
-                        current_node.message.text or "",
-                        frame.vars,
+                    text = self._normalise_message(
+                        interpolate(
+                            current_node.message.text or "",
+                            frame.vars,
+                        )
                     )
 
+                    activity["title"] = title
+                    activity["text"] = text
                     activity["severity"] = (
                         current_node.message.severity
                     )
 
-                workflow.logger.info(
-                    "Message task %s",
-                    current_node.id,
-                )
+                    activity["message"] = text
 
-                if current_node.message:
                     workflow.logger.info(
-                        "Message: %s",
-                        current_node.message.title,
+                        "Message title=%s",
+                        title,
                     )
 
                 self._move_to_next_node(
@@ -769,9 +895,15 @@ class BPMNInterpreter:
                     f"Invoking subprocess {current_node.called_element}"
                 )
 
-                process_path = self.definition.process_registry[
-                        current_node.called_element
-                    ]
+                process_path = self.definition.process_registry.get(
+                    current_node.called_element,
+                )
+
+                if process_path is None:
+                    raise RuntimeError(
+                        f"No process registered for "
+                        f"'{current_node.called_element}'"
+                    )
 
                 child_process_data = await workflow.execute_activity(
                     "load_process",
@@ -789,11 +921,6 @@ class BPMNInterpreter:
                     child_process.id
                 ] = child_process
 
-                if child_process is None:
-                    raise RuntimeError(
-                        f"Process '{current_node.called_element}' not found"
-                    )
-
                 self._move_to_next_node(
                     process,
                     current_node.id,
@@ -803,6 +930,11 @@ class BPMNInterpreter:
                 child_vars = deepcopy(
                     child_process.variables,
                 )
+
+                if current_node.mappings is None:
+                    raise RuntimeError(
+                        f"CallActivity '{current_node.id}' has no mappings"
+                    )
 
                 for mapping in current_node.mappings.inputs:
 
@@ -985,8 +1117,6 @@ class BPMNInterpreter:
 
         self._received_input = msg.value
 
-        self._input_ready_event.set()
-
     @workflow.query
     def awaiting(
         self,
@@ -1045,3 +1175,14 @@ class BPMNInterpreter:
             return {}
 
         return self.state.frames[-1].vars
+
+    @workflow.query
+    def transcript(
+        self,
+    ) -> list[dict[str, Any]]:
+
+        return [
+            item
+            for item in self.state.activity_history
+            if item.get("message")
+        ]

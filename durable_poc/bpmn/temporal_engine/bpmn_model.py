@@ -391,7 +391,10 @@ class BPMNProcess(BaseModel):
 # ---------------------------------------
 
 class BPMNDefinition(BaseModel):
-    schema_: str = Field(alias="schema")
+    schema_: str | None = Field(
+        default=None,
+        alias="schema",
+    )
 
     workflow_id: int | str | None = None
 
