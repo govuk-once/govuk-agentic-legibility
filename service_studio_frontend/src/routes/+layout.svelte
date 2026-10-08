@@ -1,5 +1,6 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
+	import '@xyflow/svelte/dist/style.css';
 
 	let { children } = $props();
 </script>

@@ -1,43 +1,38 @@
 <script lang="ts">
-	import type { ArmedTool } from './types';
-
-	interface Props {
-		armedTool: ArmedTool;
-		onarm: (tool: ArmedTool) => void;
-	}
-
-	let { armedTool, onarm }: Props = $props();
-
-	const TOOLS: { value: Exclude<ArmedTool, null>; label: string }[] = [
+	const TOOLS = [
 		{ value: 'step', label: 'Step' },
 		{ value: 'condition', label: 'Condition' },
 		{ value: 'start', label: 'Start' },
 		{ value: 'end', label: 'End' }
-	];
+	] as const;
 
 	/**
-	 * Arming the already armed tool disarms it, since click to arm then click a target is a one shot
-	 * action with no other way to back out of it short of Escape.
+	 * Marks the drag as carrying one of the four shapes, rather than some other kind of drag the browser
+	 * might also fire this event for, so the canvas only reacts to a drop that actually came from here.
+	 * Dropped onto empty canvas, Step places a new, unconnected step there; dropped onto an existing step,
+	 * Condition gives that step a second route, Start makes it the journey's entry point, and End clears
+	 * its onward routes, the same three actions the step editor panel already offers, just reachable
+	 * directly on the canvas too.
 	 */
-	function toggle(tool: Exclude<ArmedTool, null>) {
-		onarm(armedTool === tool ? null : tool);
+	function handleDragStart(event: DragEvent, tool: (typeof TOOLS)[number]['value']) {
+		event.dataTransfer?.setData('application/x-journey-node', tool);
+		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
 	}
 </script>
 
-<!-- A step is placed with the existing Add a step control in the panel, these buttons place everything
-	that is not already reachable that way: a branch route, or a new entry point or ending. -->
 <nav class="graph-toolbar" aria-label="Add to the journey">
 	{#each TOOLS as tool (tool.value)}
-		<button
-			type="button"
-			class="graph-toolbar__button"
-			class:graph-toolbar__button--armed={armedTool === tool.value}
-			aria-pressed={armedTool === tool.value}
-			onclick={() => toggle(tool.value)}
+		<div
+			class="graph-toolbar__item"
+			role="button"
+			tabindex="0"
+			draggable="true"
+			ondragstart={(event) => handleDragStart(event, tool.value)}
+			aria-label="{tool.label}, drag onto the canvas to add"
 		>
 			<span class="graph-toolbar__icon graph-toolbar__icon--{tool.value}" aria-hidden="true"></span>
 			{tool.label}
-		</button>
+		</div>
 	{/each}
 	<p class="graph-toolbar__heading" aria-hidden="true">Add Node</p>
 </nav>
@@ -67,29 +62,21 @@
 		color: #505a5f;
 	}
 
-	.graph-toolbar__button {
+	.graph-toolbar__item {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 5px;
 		width: 100%;
 		padding: 4px 2px;
-		background: none;
-		border: 1px solid transparent;
-		font-family: inherit;
 		font-size: 0.8125rem;
 		color: #505a5f;
-		cursor: pointer;
+		cursor: grab;
 	}
 
-	.graph-toolbar__button:focus-visible {
+	.graph-toolbar__item:focus-visible {
 		outline: 3px solid #ffdd00;
 		outline-offset: 2px;
-	}
-
-	.graph-toolbar__button--armed {
-		background-color: #e1edf8;
-		border-color: #1d70b8;
 	}
 
 	.graph-toolbar__icon {

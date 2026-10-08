@@ -102,6 +102,27 @@
 	border-color: currentcolor;
 }
 
+/* 4. Link colour on button elements using govuk-link -------------------------
+   GOV.UK sets a link's colour through the :link and :visited pseudo-classes,
+   which only match real anchors. Several controls across this app are
+   buttons that perform an in-page action rather than a navigation, so they
+   cannot be anchors, but still want the same underline and colour states as
+   a link. Restated here once so every such button gets it consistently. */
+button.govuk-link {
+	background: none;
+	border: 0;
+	padding: 0;
+	font: inherit;
+	color: #1d70b8;
+	cursor: pointer;
+}
+button.govuk-link:hover {
+	color: #003078;
+}
+button.govuk-link:active {
+	color: #0b0c0c;
+}
+
 /* Sticky footer: fill the viewport so short pages (e.g. the initial upload
    screen) push the footer to the bottom instead of floating it mid-screen.
    The SvelteKit body wrapper uses display:contents, so the header, page

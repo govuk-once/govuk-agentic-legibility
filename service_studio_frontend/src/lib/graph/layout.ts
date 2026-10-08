@@ -66,10 +66,14 @@ export function layoutJourneyGraph(
 		const { width, height } = nodeSize(node);
 		const centre = graph.node(node.id);
 
-		// Convert dagre's centre coordinates to the top left coordinates the renderer positions nodes by.
+		// Convert dagre's centre coordinates to the top left coordinates Svelte Flow positions nodes by.
+		// width/height are set here too, alongside data.width/height, since Svelte Flow uses the node's own
+		// top level fields for handle placement and the connection line, not the data object's copy.
 		return {
 			...node,
-			position: { x: centre.x - width / 2, y: centre.y - height / 2 }
+			position: { x: centre.x - width / 2, y: centre.y - height / 2 },
+			width,
+			height
 		};
 	});
 

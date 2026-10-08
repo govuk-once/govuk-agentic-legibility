@@ -16,11 +16,16 @@
 		otherSteps: OtherStep[];
 		canMoveUp: boolean;
 		canMoveDown: boolean;
+		// Whether this step is already the journey's entry point, so "Set as start step" only ever offers
+		// somewhere new to move it from.
+		isStartStep: boolean;
 		onApply: (updatedStep: ServiceStep) => void;
 		onCancel: (stepId: string) => void;
 		onRemove: (stepId: string) => void;
 		onMoveUp: (stepId: string) => void;
 		onMoveDown: (stepId: string) => void;
+		onSetStart: (stepId: string) => void;
+		onEndJourney: (stepId: string) => void;
 	}
 
 	let {
@@ -29,11 +34,14 @@
 		otherSteps,
 		canMoveUp,
 		canMoveDown,
+		isStartStep,
 		onApply,
 		onCancel,
 		onRemove,
 		onMoveUp,
-		onMoveDown
+		onMoveDown,
+		onSetStart,
+		onEndJourney
 	}: Props = $props();
 
 	// The kinds the delivery-type select offers, in the order they are shown.
@@ -256,6 +264,33 @@
 			{step.fields.length === 1 ? 'field' : 'fields'}, not editable yet.
 		</p>
 
+		<!-- Moving the journey's entry point, or ending it at this step, changes the shape of the whole
+			journey rather than this one step, so these sit apart from the fields above them. Each only shows
+			when it would actually do something: a step already at the start has nowhere to move from, and a
+			step with no routes yet has nothing for "End the journey here" to clear. -->
+		{#if !isStartStep || step.transitions.length > 0}
+			<div class="step-editor__journey-actions">
+				{#if !isStartStep}
+					<button
+						type="button"
+						class="govuk-link govuk-body-s govuk-!-margin-bottom-0"
+						onclick={() => onSetStart(step.id)}
+					>
+						Set as start step
+					</button>
+				{/if}
+				{#if step.transitions.length > 0}
+					<button
+						type="button"
+						class="govuk-link govuk-body-s govuk-!-margin-bottom-0"
+						onclick={() => onEndJourney(step.id)}
+					>
+						End the journey here
+					</button>
+				{/if}
+			</div>
+		{/if}
+
 		{#if confirmingRemoval}
 			<RemoveStepConfirm onRemove={() => onRemove(step.id)} onCancel={() => (confirmingRemoval = false)} />
 		{:else}
@@ -355,6 +390,14 @@
 
 	.step-editor__fields-note {
 		color: #505a5f;
+	}
+
+	.step-editor__journey-actions {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		padding-top: 15px;
+		border-top: 1px solid #b1b4b6;
 	}
 
 	.step-editor__actions {

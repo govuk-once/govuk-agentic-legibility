@@ -76,7 +76,7 @@ describe('serviceToGraph', () => {
 		expect(gateway).toBeDefined();
 		expect(graph.edges.some((edge) => edge.source === 'a' && edge.target === gateway?.id)).toBe(true);
 
-		const branchEdges = graph.edges.filter((edge) => edge.kind === 'branch');
+		const branchEdges = graph.edges.filter((edge) => edge.data?.kind === 'branch');
 		expect(branchEdges).toHaveLength(3);
 		expect(branchEdges.map((edge) => edge.target).sort()).toEqual(['b', 'c', 'd']);
 		expect(branchEdges.every((edge) => edge.source === gateway?.id)).toBe(true);
@@ -90,6 +90,29 @@ describe('serviceToGraph', () => {
 		const terminal = graph.nodes.find((node) => node.type === 'terminal' && node.data.appearance === 'end');
 		expect(terminal).toBeDefined();
 		expect(graph.edges.some((edge) => edge.source === 'b' && edge.target === terminal?.id)).toBe(true);
+	});
+
+	it('gives every dead end a terminal by default, with no explicitEndStepIds given', () => {
+		const graph = serviceToGraph(
+			makeService([step({ id: 'a', transitions: [{ targetStepId: 'b' }] }), step({ id: 'b' })])
+		);
+
+		expect(graph.nodes.some((node) => node.id === 'end-b')).toBe(true);
+	});
+
+	it('with explicitEndStepIds given, only draws a terminal for a dead end named in it', () => {
+		const graph = serviceToGraph(
+			makeService([
+				step({ id: 'a', transitions: [{ targetStepId: 'b' }] }),
+				step({ id: 'b' }),
+				step({ id: 'c' })
+			]),
+			new Set(['b'])
+		);
+
+		expect(graph.nodes.some((node) => node.id === 'end-b')).toBe(true);
+		expect(graph.nodes.some((node) => node.id === 'end-c')).toBe(false);
+		expect(graph.edges.some((edge) => edge.source === 'c')).toBe(false);
 	});
 
 	it('connects the start node to the service startStepId', () => {

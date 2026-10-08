@@ -1,40 +1,76 @@
 <script lang="ts">
-	import ConditionNode from './ConditionNode.svelte';
+	import { untrack } from 'svelte';
+	import { SvelteFlow, Background, Controls, MiniMap, type Connection } from '@xyflow/svelte';
 	import StepNode from './StepNode.svelte';
+	import ConditionNode from './ConditionNode.svelte';
 	import TerminalNode from './TerminalNode.svelte';
-	import GraphMinimap from './GraphMinimap.svelte';
+	import FlowBridge, { type FlowInstance } from './FlowBridge.svelte';
 	import { serviceToGraph } from './service-to-graph';
-	import { layoutJourneyGraph, nodeSize } from './layout';
+	import { reconcileGraph, type PendingPositions } from './reconcile';
 	import type { JourneyEdge, JourneyNode } from './types';
 	import type { Service } from '$lib/schema';
 
 	interface Props {
 		service: Service;
+		// Every step whose dead end is treated as a deliberate ending rather than just the current default
+		// state, passed straight through to serviceToGraph. Owned by the page since it tracks history
+		// across the whole editing session, not just this canvas.
+		explicitEndStepIds: Set<string>;
 		selectedStepId?: string | null;
-		// Both live here as bindable rather than owned by the page, because they drive the pan/zoom
-		// transform and the display-only service filter this component already computes. The page's own
-		// toolbar, which sits above this component and the rest of the editor body, reads and writes them
-		// the same way it does selectedStepId.
+		// Owned by the page, not this component, because the design's own toolbar controlling it sits above
+		// the whole editor body rather than being scoped to the canvas column alone.
 		showBranching?: boolean;
-		zoom?: number;
-		// Reports a step node click without deciding what it means: with no tool armed the page just
-		// selects the step, with one armed it applies that tool to the step instead. Falls back to
-		// self-managed selection when not provided, so the component still works used on its own.
+		// Fired when a step node is clicked, naming the step, so the page can decide what a click means
+		// (today, always opening that step for editing).
 		onNodeActivate?: (stepId: string) => void;
-		// Fired from the "+" that appears on any route out of a step, including each of a branch step's
-		// own routes, with the step that route belongs to and the specific target it currently leads to,
-		// or null for a step's own dead end, which has no target to name.
-		onInsertAfter?: (stepId: string, targetStepId: string | null) => void;
+		// Fired when a connection is dragged from one node's handle to another's, naming the source in the
+		// same terms handleConnectSteps already understands, a real step's id, the gateway id resolved back
+		// to the step that owns it, or the sentinel 'start' for the journey's own entry point, and the real
+		// step id the connection landed on.
+		onConnectSteps?: (sourceStepId: string, targetStepId: string) => void;
+		// Fired when a connection is dragged out to empty canvas rather than onto another node, with the
+		// source resolved the same way as onConnectSteps and the flow position it was dropped at.
+		onCreateConnectedStep?: (sourceStepId: string, position: { x: number; y: number }) => void;
+		// Fired when the toolbar's Step item is dropped onto the canvas, with the flow position of the drop.
+		onCreateStep?: (position: { x: number; y: number }) => void;
+		// Fired once a draft condition, placed from the toolbar, has a real step feeding into it and at
+		// least two real steps it leads to: the draft is promoted into a real gateway by giving the source
+		// step these exact routes, the ones actually drawn, rather than a guess at which steps were meant.
+		onAddBranchRoutes?: (sourceStepId: string, targetStepIds: string[]) => void;
+		// Fired once a draft end, placed from the toolbar, is connected to a real step: the same "End the
+		// journey here" action the step editor panel already offers, reached from the canvas instead.
+		onSetStepEnd?: (stepId: string) => void;
+		// Fired once per delete gesture (the Delete key on a selection) with every step removed outright and
+		// every individual route cleared, so the page can patch dangling references and cascade the removal
+		// to anything that becomes unreachable as a result, the same way it already does for the step list's
+		// own remove action and for ending a journey at a step.
+		onDeleteElements?: (deleted: {
+			stepIds: string[];
+			edges: Array<{ sourceStepId: string; targetStepId: string }>;
+		}) => void;
 	}
 
 	let {
 		service,
+		explicitEndStepIds,
 		selectedStepId = $bindable(null),
 		showBranching = $bindable(true),
-		zoom = $bindable(1),
 		onNodeActivate,
-		onInsertAfter
+		onConnectSteps,
+		onCreateConnectedStep,
+		onCreateStep,
+		onAddBranchRoutes,
+		onSetStepEnd,
+		onDeleteElements
 	}: Props = $props();
+
+	const nodeTypes = { step: StepNode, condition: ConditionNode, terminal: TerminalNode };
+	// Declared once, rather than as object literals directly in the markup below, so SvelteFlow always
+	// receives the same object reference for these across every reactive update, rather than a freshly
+	// allocated one each time.
+	const fitViewOptions = { padding: 0.15, maxZoom: 0.9 };
+	const defaultEdgeOptions = { type: 'smoothstep' as const };
+	const proOptions = { hideAttribution: true };
 
 	// Off, every branching step is shown with only its first route, collapsing the rest of that branch out
 	// of the picture. This never touches the real service, only what is built and laid out for display.
@@ -49,405 +85,331 @@
 				}
 	);
 
-	// The graph is derived straight from the service in one chain, so there is no sync effect keeping a
-	// separate copy of nodes and edges in step with it. serviceToGraph and layoutJourneyGraph are both
-	// pure, so re-running them here on every change to the service is safe.
-	const built = $derived(serviceToGraph(displayService));
-	const laid = $derived(layoutJourneyGraph(built.nodes, built.edges));
-	const nodes = $derived(laid.nodes);
-	const edges = $derived(built.edges);
-	const contentWidth = $derived(laid.width);
-	const contentHeight = $derived(laid.height);
-	const nodeById = $derived(new Map(nodes.map((node) => [node.id, node])));
-	// Identifies the current set of nodes, so a fit is triggered when nodes are added, removed or a
-	// different service is loaded, but not when a step's own text or size changes.
-	const nodeSetKey = $derived(nodes.map((node) => node.id).join('|'));
+	// The position source of truth for the life of this editing session: seeded by dagre once, on first
+	// load, then kept in step with the service by reconcileGraph rather than replaced by it, so a survives
+	// node's position, and Svelte Flow's own selection and drag state, are never discarded by an unrelated
+	// edit. See reconcile.ts.
+	let nodes = $state.raw<JourneyNode[]>([]);
+	let edges = $state.raw<JourneyEdge[]>([]);
 
-	// Maps a gateway node's own id to the step that owns it, the source of the sequence edge leading into
-	// it, so a branch edge, whose own source is the gateway rather than a step, can still be traced back
-	// to the step whose transitions actually hold that route.
-	const gatewayOwner = $derived(
-		new Map(
-			edges
-				.filter((edge) => edge.kind === 'sequence' && nodeById.get(edge.target)?.type === 'condition')
-				.map((edge) => [edge.target, edge.source])
-		)
-	);
+	// A node id waiting to be placed at a specific point, set just before the schema change that creates
+	// it, consumed the one time reconcileGraph next runs. A plain Map rather than state, since nothing on
+	// screen needs to react to it directly, only reconcileGraph reads and clears it.
+	const pendingPositions: PendingPositions = new Map();
 
-	// Where the append "+" appears: the midpoint of every sequence edge that leaves a step with no onward
-	// route yet, and every branch edge leaving a gateway, one per route a branch step has, not just its
-	// first. It also appears on the one edge leaving the start terminal, so a step can be inserted before
-	// the current first step, reported with the sentinel id 'start' since there is no real step to key it
-	// by. Each point carries the exact target its own route currently leads to, null for a dead end,
-	// which has no target to name, so the handler can tell a branch step's routes apart by target rather
-	// than assuming there is only ever one.
-	const insertPoints = $derived(
-		edges.flatMap((edge) => {
-			const source = nodeById.get(edge.source);
-			const target = nodeById.get(edge.target);
-			if (!source || !target || target.type === 'condition') return [];
-
-			let stepId: string | undefined;
-			if (edge.kind === 'sequence' && source.type === 'step') {
-				stepId = source.data.stepId;
-			} else if (edge.kind === 'sequence' && source.type === 'terminal' && source.data.appearance === 'start') {
-				stepId = 'start';
-			} else if (edge.kind === 'branch' && source.type === 'condition') {
-				stepId = gatewayOwner.get(source.id);
-			}
-			if (!stepId) return [];
-
-			// A step type target names the route explicitly; a terminal target is a dead end, which has no
-			// step to name, so null stands for "this step's own dead end" instead.
-			const targetStepId = target.type === 'step' ? (target.data.stepId ?? null) : null;
-
-			const from = anchorBottom(source);
-			const to = anchorTop(target);
-			return [
-				{ id: edge.id, stepId, targetStepId, x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
-			];
-		})
-	);
-
-	// Pan and zoom act on the viewport transform alone, so dragging or zooming the canvas never re-runs
-	// the graph builder or layout.
-	let panX = $state(0);
-	let panY = $state(0);
-	let isPanning = $state(false);
-	// State so the fit effect re-runs once the canvas element is in the DOM.
-	let canvasEl = $state<HTMLDivElement | undefined>(undefined);
-	// Tracked with a ResizeObserver, rather than read once, because the canvas now fills whatever space
-	// its full page layout gives it instead of a fixed height, so its size can genuinely change.
-	let canvasWidth = $state(0);
-	let canvasHeight = $state(0);
-
-	// The interactive zoom range is wider than the fit range: fitting deliberately stops at 0.9 so the
-	// graph opens comfortably zoomed out, while a user can still zoom in to 1.5.
-	const MIN_ZOOM = 0.25;
-	const MAX_ZOOM = 1.5;
-	const FIT_MAX_ZOOM = 0.9;
-	const FIT_PADDING = 24;
-	const ZOOM_STEP = 0.1;
-
-	// The pointer position and pan offset captured when a drag starts, so each move is applied relative to
-	// where the drag began rather than accumulating rounding errors frame by frame.
-	let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
-
+	// Rebuilds the service-derived portion of the canvas whenever the service changes, leaving any draft
+	// node or edge exactly as it is: a draft has no counterpart in the service at all, so there is nothing
+	// for this to reconcile it against, it is carried across untouched until promoteDraftIfReady replaces
+	// it with the real thing.
 	$effect(() => {
-		if (!canvasEl) return;
-		const observer = new ResizeObserver((entries) => {
-			const entry = entries[0];
-			if (!entry) return;
-			canvasWidth = entry.contentRect.width;
-			canvasHeight = entry.contentRect.height;
+		const built = serviceToGraph(displayService, explicitEndStepIds);
+		// The current nodes and edges are read without tracking them, since this effect's job is to react
+		// to the service changing, not to its own writes back into nodes and edges below.
+		const reconciled = untrack(() => {
+			const draftNodes = nodes.filter(isDraftNode);
+			const draftNodeIds = new Set(draftNodes.map((node) => node.id));
+			const realNodes = nodes.filter((node) => !draftNodeIds.has(node.id));
+			const draftEdges = edges.filter((edge) => draftNodeIds.has(edge.source) || draftNodeIds.has(edge.target));
+
+			const r = reconcileGraph(realNodes, built, pendingPositions);
+			return { nodes: [...r.nodes, ...draftNodes], edges: [...r.edges, ...draftEdges] };
 		});
-		observer.observe(canvasEl);
-		return () => observer.disconnect();
+		nodes = reconciled.nodes;
+		edges = reconciled.edges;
 	});
 
-	// Fits the graph into view once the canvas is in the DOM and the graph has a size, and again whenever
-	// the set of nodes changes, so switching to a much larger or smaller service reframes it. It does not
-	// fire on pan or zoom, or on an edit that leaves the node set the same, because it keys on
-	// nodeSetKey, and applyFit writes only pan and zoom, which it does not read. The fit is run in a
-	// later macrotask so the canvas is laid out at its CSS size first, and the key is latched only once
-	// a fit actually lands, so a fit that measured too early is retried on the next change.
-	let lastFitNodeSetKey = '';
+	// Keeps a step node's own selected flag in step with selectedStepId when it changes for a reason other
+	// than clicking that node on the canvas, for example choosing it from the step list beside the graph.
+	// Reads nodes untracked, so this only reruns when selectedStepId itself changes, never as a reaction to
+	// the write it makes at its own end.
 	$effect(() => {
-		if (!canvasEl || !contentWidth || !contentHeight || nodeSetKey === lastFitNodeSetKey) return;
-		const key = nodeSetKey;
-		setTimeout(() => {
-			if (nodeSetKey === key && applyFit()) {
-				lastFitNodeSetKey = key;
-			}
-		}, 0);
+		const id = selectedStepId;
+		const current = untrack(() => nodes);
+		let changed = false;
+		const updated = current.map((node) => {
+			const isSelected = node.type === 'step' && node.data.stepId === id;
+			if (node.selected === isSelected) return node;
+			changed = true;
+			return { ...node, selected: isSelected } as JourneyNode;
+		});
+		if (changed) nodes = updated;
 	});
 
-	/**
-	 * Returns the point at the bottom centre of a node, where an outgoing edge leaves it.
-	 */
-	function anchorBottom(node: JourneyNode): { x: number; y: number } {
-		const { width, height } = nodeSize(node);
-		return { x: node.position.x + width / 2, y: node.position.y + height };
+	let flowInstance: FlowInstance | undefined;
+
+	// Places a brand new node the next time reconcileGraph runs, called by the page right before it makes
+	// the schema change that creates the step, so the node appears exactly where it was dropped or dragged
+	// to rather than wherever a fallback layout would otherwise put it.
+	export function placeNextNodeAt(id: string, position: { x: number; y: number }) {
+		pendingPositions.set(id, position);
 	}
 
 	/**
-	 * Returns the point at the top centre of a node, where an incoming edge meets it.
+	 * True for a condition, start or end node placed from the toolbar that has not yet been promoted: it
+	 * exists only on this canvas, not in the service, until enough of the right connections make it real.
+	 * See promoteDraftIfReady.
 	 */
-	function anchorTop(node: JourneyNode): { x: number; y: number } {
-		const { width } = nodeSize(node);
-		return { x: node.position.x + width / 2, y: node.position.y };
+	function isDraftNode(node: JourneyNode): boolean {
+		return (node.type === 'condition' || node.type === 'terminal') && node.data.draft === true;
 	}
 
 	/**
-	 * Builds the SVG path for one edge. A straight line when source and target sit in the same column,
-	 * otherwise a sharp orthogonal step that drops halfway, moves across, then drops into the target.
+	 * Resolves a canvas node id back to the step id it represents in handleConnectSteps' own terms: a step
+	 * node's own id, the sentinel 'start' for the journey's entry terminal, or, for a gateway, the step that
+	 * owns it, found via the one sequence edge leading into it, since a gateway holds no step id of its own.
+	 * A draft node resolves to nothing: it is not a real step, or the real 'start', until it is promoted.
 	 */
-	function pathFor(edge: JourneyEdge): string {
-		const source = nodeById.get(edge.source);
-		const target = nodeById.get(edge.target);
-		if (!source || !target) return '';
+	function resolveSourceStepId(nodeId: string | null | undefined): string | null {
+		if (!nodeId) return null;
+		const node = nodes.find((candidate) => candidate.id === nodeId);
+		if (!node || isDraftNode(node)) return null;
+		if (node.type === 'step') return node.data.stepId ?? null;
+		if (node.type === 'terminal') return node.data.appearance === 'start' ? 'start' : null;
 
-		const from = anchorBottom(source);
-		const to = anchorTop(target);
-		if (Math.abs(from.x - to.x) < 0.5) {
-			return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+		const ownerEdge = edges.find((edge) => edge.target === node.id && edge.data?.kind === 'sequence');
+		return ownerEdge ? resolveSourceStepId(ownerEdge.source) : null;
+	}
+
+	// Two drafts cannot connect to each other, only a real step and a draft can, since a draft only ever
+	// becomes real by attaching to an actual step on at least one end. Between two real nodes, the target
+	// must be a real step: a terminal has no routes of its own to receive one, and a gateway is synthesised
+	// from a step already having two or more, never a target chosen by hand. A step connecting to itself is
+	// rejected too, since a route from a step back to itself describes nothing a real journey does.
+	function isValidConnection(connection: JourneyEdge | Connection): boolean {
+		if (connection.source === connection.target) return false;
+		const sourceNode = nodes.find((node) => node.id === connection.source);
+		const targetNode = nodes.find((node) => node.id === connection.target);
+		if (!sourceNode || !targetNode) return false;
+
+		const sourceIsDraft = isDraftNode(sourceNode);
+		const targetIsDraft = isDraftNode(targetNode);
+		if (sourceIsDraft && targetIsDraft) return false;
+		if (sourceIsDraft) return targetNode.type === 'step';
+		if (targetIsDraft) return sourceNode.type === 'step';
+
+		return targetNode.type === 'step';
+	}
+
+	function handleConnect(connection: Connection) {
+		const sourceNode = nodes.find((node) => node.id === connection.source);
+		const targetNode = nodes.find((node) => node.id === connection.target);
+		if (!sourceNode || !targetNode) return;
+
+		if (!isDraftNode(sourceNode) && !isDraftNode(targetNode)) {
+			const sourceStepId = resolveSourceStepId(connection.source);
+			if (!sourceStepId || targetNode.type !== 'step' || !targetNode.data.stepId) return;
+			onConnectSteps?.(sourceStepId, targetNode.data.stepId);
+			return;
 		}
-		const midY = (from.y + to.y) / 2;
-		return `M ${from.x} ${from.y} L ${from.x} ${midY} L ${to.x} ${midY} L ${to.x} ${to.y}`;
+
+		// One end is a draft: this connection is not a real route yet, only recorded on the canvas, until
+		// the draft it touches has enough real connections to promote.
+		const draftEdgeId = `draft-edge-${connection.source}-${connection.target}`;
+		if (edges.some((edge) => edge.id === draftEdgeId)) return;
+		edges = [
+			...edges,
+			{ id: draftEdgeId, source: connection.source, target: connection.target, data: { kind: 'sequence', draft: true } }
+		];
+
+		promoteDraftIfReady(isDraftNode(sourceNode) ? sourceNode : targetNode);
 	}
 
 	/**
-	 * Scales and centres the graph so the whole thing fits inside the canvas with a small margin. The
-	 * canvas size is measured live from the element rather than read from a binding, so a fit still works
-	 * when a resize has not yet propagated to reactive state. The new zoom is worked out from the fit
-	 * scale alone, never from the current zoom, so repeated calls are stable.
+	 * Checks whether a draft node now has enough real connections to become part of the service, and if so,
+	 * applies that change and removes the draft: a start once it has one connection to a real step
+	 * (reassigning the entry point, the same as connecting from the real start terminal), an end once it
+	 * has one connection from a real step (clearing that step's routes), and a condition once it has one
+	 * real step feeding in and at least two real steps it leads to (giving the source step those exact
+	 * routes). Anything short of that is left as it is, still just a draft.
 	 */
-	function applyFit(): boolean {
-		if (!canvasEl || !contentWidth || !contentHeight) return false;
+	function promoteDraftIfReady(draft: JourneyNode) {
+		if (draft.type === 'terminal' && draft.data.appearance === 'start') {
+			const outgoing = edges.find((edge) => edge.source === draft.id);
+			const targetNode = outgoing && nodes.find((node) => node.id === outgoing.target);
+			if (targetNode?.type !== 'step' || !targetNode.data.stepId) return;
+			onConnectSteps?.('start', targetNode.data.stepId);
+			removeDraft(draft.id);
+			return;
+		}
 
-		const { width, height } = canvasEl.getBoundingClientRect();
-		if (!width || !height) return false;
+		if (draft.type === 'terminal' && draft.data.appearance === 'end') {
+			const incoming = edges.find((edge) => edge.target === draft.id);
+			const sourceStepId = incoming && resolveSourceStepId(incoming.source);
+			if (!sourceStepId) return;
+			onSetStepEnd?.(sourceStepId);
+			removeDraft(draft.id);
+			return;
+		}
 
-		const usableWidth = Math.max(1, width - FIT_PADDING * 2);
-		const usableHeight = Math.max(1, height - FIT_PADDING * 2);
-		const scale = Math.min(usableWidth / contentWidth, usableHeight / contentHeight, FIT_MAX_ZOOM);
+		if (draft.type === 'condition') {
+			const incoming = edges.find((edge) => edge.target === draft.id);
+			const sourceStepId = incoming && resolveSourceStepId(incoming.source);
+			if (!sourceStepId) return;
 
-		zoom = Math.max(MIN_ZOOM, scale);
-		panX = (width - contentWidth * zoom) / 2;
-		panY = (height - contentHeight * zoom) / 2;
-		return true;
-	}
+			const targetStepIds = [
+				...new Set(
+					edges
+						.filter((edge) => edge.source === draft.id)
+						.flatMap((edge) => {
+							const targetNode = nodes.find((node) => node.id === edge.target);
+							return targetNode?.type === 'step' && targetNode.data.stepId ? [targetNode.data.stepId] : [];
+						})
+				)
+			];
+			if (targetStepIds.length < 2) return;
 
-	// Exposed so the page's own toolbar, which sits above this component, can trigger a fit and step the
-	// zoom the same way its in-canvas controls used to, via bind:this rather than duplicating this math.
-	export function fit() {
-		applyFit();
-	}
-
-	export function zoomIn() {
-		adjustZoom(ZOOM_STEP);
-	}
-
-	export function zoomOut() {
-		adjustZoom(-ZOOM_STEP);
+			onAddBranchRoutes?.(sourceStepId, targetStepIds);
+			removeDraft(draft.id);
+		}
 	}
 
 	/**
-	 * Steps the zoom level from a button press, keeping the canvas's own centre point fixed in the graph
-	 * rather than the top left, since a button press has no cursor position to anchor the zoom to the way
-	 * the wheel handler below does.
+	 * Removes a draft node once it has been promoted, along with every draft edge touching it: the real
+	 * gateway, entry point or ended step the promotion just wrote takes its place on the next reconcile,
+	 * see reconcile.ts.
 	 */
-	function adjustZoom(delta: number) {
-		if (!canvasEl) return;
-		const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + delta));
-		const centreX = canvasEl.clientWidth / 2;
-		const centreY = canvasEl.clientHeight / 2;
-		const graphX = (centreX - panX) / zoom;
-		const graphY = (centreY - panY) / zoom;
-		panX = centreX - graphX * next;
-		panY = centreY - graphY * next;
-		zoom = next;
+	function removeDraft(nodeId: string) {
+		nodes = nodes.filter((node) => node.id !== nodeId);
+		edges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
 	}
 
-	/**
-	 * Wires pointer panning and wheel zooming onto the canvas element. Used as an attachment rather than
-	 * markup event handlers so the wheel listener can be registered non-passive, which is what lets it
-	 * call preventDefault to stop the page scrolling during a zoom.
-	 */
-	function panZoom(node: HTMLDivElement) {
-		// Start a pan, unless the pointer went down on a node or the append "+", in which case the event is
-		// left alone so the element's own click still fires: capturing the pointer for a pan here would
-		// otherwise swallow the click these overlay buttons depend on.
-		const onPointerDown = (event: PointerEvent) => {
-			if (
-				event.target instanceof Element &&
-				event.target.closest('.journey-graph__node, .journey-graph__insert')
-			) {
-				return;
+	async function handleBeforeDelete({
+		nodes: deletedNodes,
+		edges: deletedEdges
+	}: {
+		nodes: JourneyNode[];
+		edges: JourneyEdge[];
+	}) {
+		// A draft node or edge has no counterpart in the service at all, so deleting one is just removing it
+		// from the canvas, nothing for the page to apply.
+		const draftNodeIds = new Set(deletedNodes.filter(isDraftNode).map((node) => node.id));
+		const isDraftEdge = (edge: JourneyEdge) => edge.data?.draft || draftNodeIds.has(edge.source) || draftNodeIds.has(edge.target);
+		const draftEdgeIds = new Set(deletedEdges.filter(isDraftEdge).map((edge) => edge.id));
+		if (draftNodeIds.size > 0 || draftEdgeIds.size > 0) {
+			nodes = nodes.filter((node) => !draftNodeIds.has(node.id));
+			edges = edges.filter((edge) => !draftEdgeIds.has(edge.id));
+		}
+
+		const realNodes = deletedNodes.filter((node) => !draftNodeIds.has(node.id));
+		const realEdges = deletedEdges.filter((edge) => !draftEdgeIds.has(edge.id));
+
+		const stepIds = realNodes.flatMap((node) => (node.type === 'step' && node.data.stepId ? [node.data.stepId] : []));
+
+		// Only an edge that both starts somewhere real and lands on an actual step is a route worth clearing:
+		// this leaves out the structural edge from a step into its own gateway, and the journey's own entry
+		// edge from 'start', neither of which is a route the step editor can point somewhere else on its own.
+		const edgesToClear = realEdges.flatMap((edge) => {
+			const sourceStepId = resolveSourceStepId(edge.source);
+			const targetNode = nodes.find((node) => node.id === edge.target);
+			if (!sourceStepId || sourceStepId === 'start' || targetNode?.type !== 'step' || !targetNode.data.stepId) {
+				return [];
 			}
-			panStart = { x: event.clientX, y: event.clientY, panX, panY };
-			isPanning = true;
-			node.setPointerCapture(event.pointerId);
-		};
+			return [{ sourceStepId, targetStepId: targetNode.data.stepId }];
+		});
 
-		// Move the viewport by the distance dragged since the pan started.
-		const onPointerMove = (event: PointerEvent) => {
-			if (!isPanning || !panStart) return;
-			panX = panStart.panX + (event.clientX - panStart.x);
-			panY = panStart.panY + (event.clientY - panStart.y);
-		};
+		if (stepIds.length > 0 || edgesToClear.length > 0) {
+			onDeleteElements?.({ stepIds, edges: edgesToClear });
+		}
 
-		// End the pan and release the captured pointer.
-		const onPointerUp = (event: PointerEvent) => {
-			if (!isPanning) return;
-			isPanning = false;
-			panStart = null;
-			if (node.hasPointerCapture(event.pointerId)) {
-				node.releasePointerCapture(event.pointerId);
-			}
-		};
+		// Deleting a real gateway diamond collapses it: the step it belongs to loses every route it
+		// currently branches into, the same as ending the journey there, since a diamond feeding out of a
+		// step but leading nowhere is not a shape this canvas can otherwise represent.
+		for (const node of realNodes) {
+			if (node.type !== 'condition') continue;
+			const ownerStepId = resolveSourceStepId(node.id);
+			if (ownerStepId) onSetStepEnd?.(ownerStepId);
+		}
 
-		// Zoom toward the cursor, keeping the graph point under the pointer fixed while the scale changes.
-		const onWheel = (event: WheelEvent) => {
+		// The schema mutation above, once applied by the page, flows back through the reconcile effect and
+		// rebuilds nodes and edges to match, so Svelte Flow's own default deletion is always declined here.
+		return false;
+	}
+
+	function handleDragOver(event: DragEvent) {
+		if (event.dataTransfer?.types.includes('application/x-journey-node')) {
 			event.preventDefault();
-
-			// Normalise the delta so a mouse reporting lines or pages zooms at a similar rate to one
-			// reporting pixels.
-			let delta = event.deltaY;
-			if (event.deltaMode === 1) {
-				delta *= 16;
-			} else if (event.deltaMode === 2) {
-				delta *= node.clientHeight;
-			}
-
-			const factor = Math.exp(-delta * 0.0015);
-			const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
-
-			const rect = node.getBoundingClientRect();
-			const cursorX = event.clientX - rect.left;
-			const cursorY = event.clientY - rect.top;
-			const graphX = (cursorX - panX) / zoom;
-			const graphY = (cursorY - panY) / zoom;
-			panX = cursorX - graphX * next;
-			panY = cursorY - graphY * next;
-			zoom = next;
-		};
-
-		node.addEventListener('pointerdown', onPointerDown);
-		node.addEventListener('pointermove', onPointerMove);
-		node.addEventListener('pointerup', onPointerUp);
-		node.addEventListener('pointercancel', onPointerUp);
-		node.addEventListener('wheel', onWheel, { passive: false });
-
-		return () => {
-			node.removeEventListener('pointerdown', onPointerDown);
-			node.removeEventListener('pointermove', onPointerMove);
-			node.removeEventListener('pointerup', onPointerUp);
-			node.removeEventListener('pointercancel', onPointerUp);
-			node.removeEventListener('wheel', onWheel);
-		};
+		}
 	}
 
-	function activateStep(stepId: string | undefined) {
-		if (!stepId) return;
-		if (onNodeActivate) {
-			onNodeActivate(stepId);
-		} else {
-			selectedStepId = stepId;
+	/**
+	 * Drops one of the toolbar's four shapes at the flow position it landed on, independent of whatever
+	 * else is already on the canvas there. A step is real immediately, since an unconnected step is
+	 * already a perfectly ordinary thing for the service to contain. A condition, start or end instead
+	 * starts life as a draft, existing only here until connecting it up promotes it, see
+	 * promoteDraftIfReady: there is no such thing as a gateway with nothing feeding into it, a second entry
+	 * point, or an ending nothing leads to, so none of the three can be written to the service on their own.
+	 */
+	function handleDrop(event: DragEvent) {
+		const tool = event.dataTransfer?.getData('application/x-journey-node');
+		if (!tool || !flowInstance) return;
+		event.preventDefault();
+		const position = flowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+
+		if (tool === 'step') {
+			onCreateStep?.(position);
+			return;
 		}
+
+		if (tool !== 'condition' && tool !== 'start' && tool !== 'end') return;
+		const id = `draft-${crypto.randomUUID()}`;
+		const draftNode: JourneyNode =
+			tool === 'condition'
+				? { id, type: 'condition', position, data: { ariaLabel: 'Draft condition, not yet connected', draft: true } }
+				: {
+						id,
+						type: 'terminal',
+						position,
+						data: {
+							label: tool === 'start' ? 'Start' : 'End',
+							appearance: tool,
+							ariaLabel: `Draft ${tool}, not yet connected`,
+							draft: true
+						}
+					};
+		nodes = [...nodes, draftNode];
 	}
 </script>
 
-<!-- The graph section's own controls now live in the page's full-width toolbar above it, matching the
-	design, where they sit alongside the left tool rail rather than scoped to just this canvas column. -->
 <section class="journey-graph" aria-label="Journey graph">
-	<!-- touch-action none stops the browser claiming a touch drag as a scroll gesture before the pointer
-		handlers can treat it as a pan. -->
-	<div
-		class="journey-graph__canvas"
-		class:journey-graph__canvas--panning={isPanning}
-		bind:this={canvasEl}
-		{@attach panZoom}
+	<SvelteFlow
+		bind:nodes
+		bind:edges
+		{nodeTypes}
+		fitView
+		{fitViewOptions}
+		minZoom={0.25}
+		maxZoom={1.5}
+		{defaultEdgeOptions}
+		{proOptions}
+		{isValidConnection}
+		onconnect={handleConnect}
+		onconnectend={(_event, connectionState) => {
+			// A connection dropped onto empty canvas, rather than another node's handle, creates a new step
+			// instead of linking to an existing one. Only a drag that started from a source handle is treated
+			// this way: a step's own routes always run forward, so there is no equivalent gesture for a drag
+			// that started from a target handle.
+			if (connectionState.toNode || !connectionState.to) return;
+			if (connectionState.fromHandle?.type !== 'source') return;
+			const sourceStepId = resolveSourceStepId(connectionState.fromNode?.id);
+			if (!sourceStepId) return;
+			onCreateConnectedStep?.(sourceStepId, connectionState.to);
+		}}
+		onbeforedelete={handleBeforeDelete}
+		onnodeclick={({ node }) => {
+			if (node.type === 'step' && node.data.stepId) onNodeActivate?.(node.data.stepId);
+		}}
+		ondragover={handleDragOver}
+		ondrop={handleDrop}
 	>
-		<div
-			class="journey-graph__viewport"
-			style:width="{contentWidth}px"
-			style:height="{contentHeight}px"
-			style:transform="translate({panX}px, {panY}px) scale({zoom})"
-		>
-			<svg class="journey-graph__edges" width={contentWidth} height={contentHeight} aria-hidden="true">
-				<defs>
-					<marker
-						id="journey-arrowhead"
-						viewBox="0 0 10 6"
-						refX="5"
-						refY="5"
-						markerWidth="8"
-						markerHeight="5"
-						orient="auto"
-					>
-						<path d="M1 1 L5 5 L9 1" fill="none" stroke="#b1b4b6" stroke-width="1.5" />
-					</marker>
-				</defs>
-				{#each edges as edge (edge.id)}
-					<path class="journey-graph__edge" d={pathFor(edge)} marker-end="url(#journey-arrowhead)" />
-				{/each}
-			</svg>
-
-			{#each nodes as node (node.id)}
-				<div class="journey-graph__node" style:left="{node.position.x}px" style:top="{node.position.y}px">
-					{#if node.type === 'step'}
-						<StepNode
-							data={node.data}
-							selected={node.data.stepId === selectedStepId}
-							onselect={() => activateStep(node.data.stepId)}
-							ariaLabel={node.ariaLabel}
-						/>
-					{:else if node.type === 'condition'}
-						<ConditionNode ariaLabel={node.ariaLabel} />
-					{:else}
-						<TerminalNode data={node.data} />
-					{/if}
-				</div>
-			{/each}
-
-			{#each insertPoints as insertPoint (insertPoint.id)}
-				<button
-					type="button"
-					class="journey-graph__insert"
-					style:left="{insertPoint.x}px"
-					style:top="{insertPoint.y}px"
-					aria-label="Insert a step here"
-					onclick={() => onInsertAfter?.(insertPoint.stepId, insertPoint.targetStepId)}
-				>
-					+
-				</button>
-			{/each}
-		</div>
-
-		<!-- The minimap and legend sit together as one footer row, so the legend always lands next to the
-			minimap regardless of its own width rather than at a coordinate tuned for one particular size. -->
-		<div class="journey-graph__canvas-footer">
-			{#if contentWidth && contentHeight && canvasWidth && canvasHeight}
-				<GraphMinimap
-					{nodes}
-					{contentWidth}
-					{contentHeight}
-					{panX}
-					{panY}
-					{zoom}
-					{canvasWidth}
-					{canvasHeight}
-					onpan={(nextPanX, nextPanY) => {
-						panX = nextPanX;
-						panY = nextPanY;
-					}}
-				/>
-			{/if}
-
-			<!-- Explains the shapes once, here, rather than repeating a label on every node, so the canvas
-				itself stays uncluttered. -->
-			<ul class="journey-graph__legend">
-				<li class="journey-graph__legend-item">
-					<span class="journey-graph__legend-swatch journey-graph__legend-swatch--start"></span>
-					Start
-				</li>
-				<li class="journey-graph__legend-item">
-					<span class="journey-graph__legend-swatch journey-graph__legend-swatch--end"></span>
-					End
-				</li>
-				<li class="journey-graph__legend-item">
-					<span class="journey-graph__legend-swatch journey-graph__legend-swatch--condition"></span>
-					Condition
-				</li>
-				<li class="journey-graph__legend-divider" aria-hidden="true"></li>
-				<li class="journey-graph__legend-item">
-					<span class="journey-graph__legend-swatch journey-graph__legend-swatch--selected"></span>
-					Selected step
-				</li>
-			</ul>
-		</div>
-	</div>
+		<FlowBridge
+			onready={(instance) => {
+				flowInstance = instance;
+			}}
+		/>
+		<Background />
+		<Controls />
+		<MiniMap pannable zoomable />
+	</SvelteFlow>
 </section>
 
 <style>
@@ -458,132 +420,44 @@
 		font-family: 'GDS Transport', arial, sans-serif;
 	}
 
-	.journey-graph__canvas {
-		position: relative;
-		flex: 1 1 auto;
-		min-height: 0;
-		overflow: hidden;
+	.journey-graph :global(.svelte-flow) {
 		background-color: #ffffff;
-		background-image: radial-gradient(circle, #b1b4b6 1px, transparent 1px);
-		background-size: 24px 24px;
-		cursor: grab;
-		touch-action: none;
 	}
 
-	.journey-graph__canvas--panning {
-		cursor: grabbing;
-	}
-
-	.journey-graph__viewport {
-		position: absolute;
-		top: 0;
-		left: 0;
-		transform-origin: 0 0;
-	}
-
-	.journey-graph__edges {
-		position: absolute;
-		inset: 0;
-		overflow: visible;
-		pointer-events: none;
-	}
-
-	.journey-graph__edge {
-		fill: none;
-		stroke: #b1b4b6;
-		stroke-width: 1.5;
-	}
-
-	.journey-graph__node {
-		position: absolute;
-	}
-
-	.journey-graph__insert {
-		position: absolute;
+	/* A small solid dot at rest, always visible, the same as Figma's own connection points. Growing on
+		hover, rather than needing the hover to reveal it in the first place, is what signals a particular
+		one is now ready to grab and drag: the "+" glyph inside only appears once it has grown large enough
+		to actually carry it legibly. Centralised here rather than repeating it in every node component that
+		uses a handle. */
+	.journey-graph :global(.svelte-flow__handle) {
+		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 18px;
-		height: 18px;
-		transform: translate(-50%, -50%);
-		background-color: #1d70b8;
-		border: 0;
-		border-radius: 50%;
-		color: #ffffff;
-		font-size: 0.8125rem;
-		font-weight: 700;
-		line-height: 1;
-		cursor: pointer;
-	}
-
-	.journey-graph__insert:hover,
-	.journey-graph__insert:focus-visible {
-		box-shadow: 0 0 0 3px #e1edf8;
-		outline: none;
-	}
-
-	.journey-graph__canvas-footer {
-		position: absolute;
-		bottom: 15px;
-		left: 15px;
-		display: flex;
-		align-items: flex-end;
-		gap: 15px;
-	}
-
-	.journey-graph__legend {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 15px;
-		margin: 0;
-		padding: 8px 14px;
-		list-style: none;
-		background-color: #ffffff;
-		border: 1px solid #b1b4b6;
-		font-size: 0.6875rem;
-		color: #505a5f;
-	}
-
-	.journey-graph__legend-item {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-	}
-
-	.journey-graph__legend-divider {
-		width: 1px;
-		height: 14px;
-		background-color: #b1b4b6;
-	}
-
-	.journey-graph__legend-swatch {
-		display: inline-block;
-		width: 12px;
-		height: 12px;
-		flex-shrink: 0;
-	}
-
-	.journey-graph__legend-swatch--start {
-		border-radius: 50%;
-		background-color: #0b0c0c;
-	}
-
-	.journey-graph__legend-swatch--end {
-		border-radius: 50%;
-		background-color: #00703c;
-		border: 2px solid #0b0c0c;
-	}
-
-	.journey-graph__legend-swatch--condition {
 		width: 10px;
 		height: 10px;
-		background-color: #ffdd00;
-		transform: rotate(45deg);
+		background-color: #1d70b8;
+		border: none;
+		border-radius: 50%;
+		transition: width 0.12s ease-in-out, height 0.12s ease-in-out;
 	}
 
-	.journey-graph__legend-swatch--selected {
-		box-sizing: border-box;
-		border: 1.5px solid #1d70b8;
+	.journey-graph :global(.svelte-flow__handle:hover) {
+		width: 28px;
+		height: 28px;
+	}
+
+	.journey-graph :global(.journey-node-handle-hint) {
+		opacity: 0;
+		font-size: 1rem;
+		font-weight: 700;
+		line-height: 1;
+		color: #ffffff;
+		pointer-events: none;
+		transition: opacity 0.1s ease-in-out;
+	}
+
+	.journey-graph :global(.svelte-flow__handle:hover .journey-node-handle-hint) {
+		opacity: 1;
 	}
 </style>

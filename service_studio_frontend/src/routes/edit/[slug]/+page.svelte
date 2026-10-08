@@ -7,8 +7,7 @@
 	import JourneyGraph from '$lib/graph/JourneyGraph.svelte';
 	import GraphToolbar from '$lib/graph/GraphToolbar.svelte';
 	import { humanKind, isBranchStep, kindColour } from '$lib/schema';
-	import type { Service, ServiceStep, StepTransition } from '$lib/schema';
-	import type { ArmedTool } from '$lib/graph/types';
+	import type { Service, ServiceStep } from '$lib/schema';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -27,20 +26,37 @@
 	// a different service without leaving the page.
 	let workingService = $state.raw<Service>(untrack(() => structuredClone(data.example.service)));
 
+	/**
+	 * Every step that already had no transitions when a service was loaded, so the graph can tell those
+	 * genuine, already saved endings apart from a step that only just became a dead end as the side effect
+	 * of something else in this editing session, such as being dropped on the canvas or wired into a
+	 * branch but not yet given anywhere further to go.
+	 */
+	function deadEndsAtLoad(service: Service): Set<string> {
+		return new Set(service.steps.filter((step) => step.transitions.length === 0).map((step) => step.id));
+	}
+
+	// Grows as the person explicitly decides a step ends the journey, from the step editor's own "End the
+	// journey here", from wiring a draft End shape into a step, or from deleting a gateway, so any of those
+	// count as deliberate from then on too, the same as one that was already a genuine ending on load.
+	let explicitEndStepIds = $state<Set<string>>(untrack(() => deadEndsAtLoad(data.example.service)));
+
+	function markExplicitEnd(stepId: string) {
+		explicitEndStepIds = new Set([...explicitEndStepIds, stepId]);
+	}
+
 	// Tracks which step is highlighted. Shared both ways with the graph, so selecting a step in the list
 	// also highlights it on the canvas, and the other way round.
 	let selectedStepId = $state<string | null>(null);
 	// Which step, if any, is open for editing. Kept separate from selectedStepId so selecting a step,
 	// whether from the list or the graph, only ever highlights it rather than forcing its editor open.
 	let editingStepId = $state<string | null>(null);
-	// Which toolbar tool, if any, is armed. Set from the toolbar, read and cleared by handleNodeActivate.
-	let armedTool = $state<ArmedTool>(null);
-	// Owned here, rather than inside JourneyGraph, because the design's own toolbar controlling them sits
+	// Owned here, rather than inside JourneyGraph, because the design's own toolbar controlling it sits
 	// above the whole editor body, not scoped to the canvas column alone.
 	let showBranching = $state(true);
-	let zoom = $state(1);
-	// The graph component instance, so the page's toolbar buttons can trigger its fit and zoom step
-	// behaviour without duplicating the pan and zoom maths that already lives there.
+	// The graph component instance, so a step created interactively, by dragging from the toolbar or
+	// dragging a connection out to empty canvas, can be told where on the canvas to appear the moment it is
+	// created, before the graph's own reconciliation would otherwise have to guess.
 	let journeyGraph: ReturnType<typeof JourneyGraph> | undefined = $state();
 
 	// Counted from the working copy, so the toolbar's stats always match what is actually on the canvas.
@@ -56,9 +72,9 @@
 		if (data.example.slug === loadedSlug) return;
 		loadedSlug = data.example.slug;
 		workingService = structuredClone(data.example.service);
+		explicitEndStepIds = deadEndsAtLoad(workingService);
 		editingStepId = null;
 		selectedStepId = null;
-		armedTool = null;
 	});
 
 	// The single place a step number is worked out, from its position in the list, so it can never go out
@@ -96,6 +112,9 @@
 			...workingService,
 			steps: workingService.steps.map((step) => (step.id === updatedStep.id ? updatedStep : step))
 		};
+		// Choosing "Ends the journey" from the step's own "Continues to" field is just as deliberate a
+		// decision as the dedicated End action, so it counts the same way.
+		if (updatedStep.transitions.length === 0) markExplicitEnd(updatedStep.id);
 		editingStepId = null;
 	}
 
@@ -113,6 +132,16 @@
 			}));
 		const startStepId =
 			workingService.startStepId === stepId ? (steps[0]?.id ?? workingService.startStepId) : workingService.startStepId;
+
+		// A step left with no transitions here had its own only route removed along with the step it led
+		// to, which is deliberate in the same way the End action is: the person just chose to remove the
+		// very thing that step continued to.
+		for (const step of workingService.steps) {
+			if (step.id === stepId) continue;
+			const hadRoute = step.transitions.some((t) => t.targetStepId === stepId);
+			const stillHasRoutes = steps.find((candidate) => candidate.id === step.id)?.transitions.length;
+			if (hadRoute && !stillHasRoutes) markExplicitEnd(step.id);
+		}
 
 		workingService = { ...workingService, startStepId, steps };
 		if (selectedStepId === stepId) selectedStepId = null;
@@ -183,26 +212,12 @@
 	}
 
 	/**
-	 * Inserts a new step onto one specific route leading out of stepId: the route that currently leads to
-	 * targetStepId, or, when targetStepId is null, the step's own dead end. Working out which route by
-	 * its target, rather than assuming a step only ever has one, is what makes this work for a branch
-	 * step's routes too. The new step takes over that one route's old target, and if that route had a
-	 * label or a condition, the new step keeps it, so the branch still means what it did before. The
-	 * step's other routes, if it has any, are left alone. The made up id 'start' is handled separately
-	 * below, since inserting there puts a new step before the very first step rather than after an
-	 * existing one.
+	 * Builds a fresh, unconnected step ready to drop onto the canvas. Every interactive way of adding a
+	 * step, dragging the toolbar's own Step item, or dragging a connection out to empty canvas, starts from
+	 * this same shape and then wires it in its own way.
 	 */
-	function handleInsertAfter(stepId: string, targetStepId: string | null) {
-		if (stepId === 'start') {
-			handleInsertAtStart();
-			return;
-		}
-
-		const sourceIndex = workingService.steps.findIndex((step) => step.id === stepId);
-		const sourceStep = workingService.steps[sourceIndex];
-		if (!sourceStep) return;
-
-		const newStep: ServiceStep = {
+	function newBlankStep(): ServiceStep {
+		return {
 			id: crypto.randomUUID(),
 			type: { kind: 'info', body: '' },
 			name: 'New step',
@@ -210,147 +225,182 @@
 			fields: [],
 			transitions: []
 		};
+	}
 
-		let nextTransitions: StepTransition[];
-		if (targetStepId === null) {
-			// Inserting after the step's own dead end: only valid while it still has none, so a stale "+"
-			// left over from before this step gained a route cannot silently add a second one.
-			if (sourceStep.transitions.length !== 0) return;
-			nextTransitions = [{ targetStepId: newStep.id }];
-		} else {
-			const transitionIndex = sourceStep.transitions.findIndex((t) => t.targetStepId === targetStepId);
-			if (transitionIndex === -1) return; // that route no longer exists either: also out of date, stop here
-			newStep.transitions = [{ targetStepId }];
-			// Changing just this one route, rather than rebuilding the whole list, is what keeps its label
-			// and condition, if it had any, attached to it now that it leads to the new step first.
-			nextTransitions = sourceStep.transitions.map((transition, index) =>
-				index === transitionIndex ? { ...transition, targetStepId: newStep.id } : transition
-			);
-		}
-
-		const steps = [...workingService.steps];
-		steps[sourceIndex] = { ...sourceStep, transitions: nextTransitions };
-		steps.splice(sourceIndex + 1, 0, newStep);
-
-		workingService = { ...workingService, steps };
+	/**
+	 * Drops a new, unconnected step at the given canvas position, from dragging the toolbar's Step item
+	 * onto the canvas. placeNextNodeAt is called first so the graph's own reconciliation already knows
+	 * where to put the node the moment this change reaches it, rather than falling back to a guess.
+	 */
+	function handleCreateStep(position: { x: number; y: number }) {
+		const newStep = newBlankStep();
+		journeyGraph?.placeNextNodeAt(newStep.id, position);
+		workingService = { ...workingService, steps: [...workingService.steps, newStep] };
 		editingStepId = newStep.id;
 		selectedStepId = newStep.id;
 	}
 
 	/**
-	 * Inserts a new step before the current entry point: the new step becomes the journey's start and
-	 * takes over the old entry step as its own single route, mirroring what handleInsertAfter does for
-	 * every other single-route step, just with the graph's own start terminal standing in for a source.
+	 * Creates a new step and wires it as a fresh onward route from sourceStepId, from dragging a connection
+	 * out from a node's own handle to empty canvas rather than onto another node. The sentinel 'start'
+	 * stands for the journey's own entry terminal: dragging from there makes the new step the journey's
+	 * entry point instead, ahead of whatever step led it before, mirroring what happens for a real step.
 	 */
-	function handleInsertAtStart() {
-		const newStep: ServiceStep = {
-			id: crypto.randomUUID(),
-			type: { kind: 'info', body: '' },
-			name: 'New step',
-			description: 'Not yet configured',
-			fields: [],
-			transitions: [{ targetStepId: workingService.startStepId }]
-		};
+	function handleCreateConnectedStep(sourceStepId: string, position: { x: number; y: number }) {
+		const newStep = newBlankStep();
+		journeyGraph?.placeNextNodeAt(newStep.id, position);
 
-		workingService = {
-			...workingService,
-			startStepId: newStep.id,
-			steps: [newStep, ...workingService.steps]
-		};
-		editingStepId = newStep.id;
-		selectedStepId = newStep.id;
-	}
-
-	/**
-	 * Reports a step node click on the graph. With no tool armed this opens the step for editing directly,
-	 * since clicking a step on the canvas is the primary way into its editor. With a tool armed it applies
-	 * that tool to the clicked step instead, then disarms, since click to arm then click a target is a one
-	 * shot action.
-	 */
-	function handleNodeActivate(stepId: string) {
-		const tool = armedTool;
-		armedTool = null;
-
-		if (!tool) {
-			handleEdit(stepId);
-			return;
-		}
-
-		if (tool === 'step') {
-			// Clicking the step itself, rather than one of its own route "+" buttons, only makes sense
-			// while it is clear which route to insert into: no route yet, or exactly one. A branch step
-			// has more than one, so this does nothing there, its own routes each have a "+" for this instead.
-			const clickedStep = workingService.steps.find((step) => step.id === stepId);
-			if (!clickedStep || clickedStep.transitions.length > 1) return;
-			handleInsertAfter(stepId, clickedStep.transitions[0]?.targetStepId ?? null);
-			return;
-		}
-
-		if (tool === 'start') {
-			workingService = { ...workingService, startStepId: stepId };
-			return;
-		}
-
-		if (tool === 'end') {
-			const clickedStep = workingService.steps.find((step) => step.id === stepId);
-			const oldTargets = clickedStep?.transitions.map((transition) => transition.targetStepId) ?? [];
-
-			const cleared = {
+		if (sourceStepId === 'start') {
+			newStep.transitions = [{ targetStepId: workingService.startStepId }];
+			workingService = {
 				...workingService,
-				steps: workingService.steps.map((step) => (step.id === stepId ? { ...step, transitions: [] } : step))
+				startStepId: newStep.id,
+				steps: [newStep, ...workingService.steps]
 			};
-			workingService = removeUnreachableSteps(cleared, oldTargets);
-
-			// A step this cleared away, rather than just its own route, could be the one currently
-			// selected or open for editing, if it was chosen before this action removed it.
-			const remainingIds = new Set(workingService.steps.map((step) => step.id));
-			if (selectedStepId && !remainingIds.has(selectedStepId)) selectedStepId = null;
-			if (editingStepId && !remainingIds.has(editingStepId)) editingStepId = null;
+			editingStepId = newStep.id;
+			selectedStepId = newStep.id;
 			return;
 		}
 
-		// tool === 'condition': the clicked step must end up with at least two routes to actually be a
-		// branch, not one, so a dead end (no routes yet) gets two new targets rather than just one, which
-		// would otherwise leave it as a plain continuation instead of a branch.
-		const clickedStep = workingService.steps.find((step) => step.id === stepId);
-		if (!clickedStep) return;
-		const candidates = workingService.steps.filter((step) => step.id !== stepId);
-		const routesNeeded = Math.max(1, 2 - clickedStep.transitions.length);
-		const newRoutes = candidates.slice(0, routesNeeded).map((candidate) => ({ targetStepId: candidate.id }));
-		if (newRoutes.length === 0) return;
+		const sourceStep = workingService.steps.find((step) => step.id === sourceStepId);
+		if (!sourceStep) return;
+
+		const steps = workingService.steps.map((step) =>
+			step.id === sourceStepId
+				? { ...step, transitions: [...step.transitions, { targetStepId: newStep.id }] }
+				: step
+		);
+		workingService = { ...workingService, steps: [...steps, newStep] };
+		editingStepId = newStep.id;
+		selectedStepId = newStep.id;
+	}
+
+	/**
+	 * Adds a real transition between two existing steps, from dragging a connection between them on the
+	 * canvas. The sentinel 'start' stands for the journey's own entry terminal, so connecting from there
+	 * reassigns which step the journey begins at rather than adding a transition to a step named 'start'.
+	 * A route that already exists between the two is left alone rather than duplicated.
+	 */
+	function handleConnectSteps(sourceStepId: string, targetStepId: string) {
+		if (sourceStepId === 'start') {
+			workingService = { ...workingService, startStepId: targetStepId };
+			return;
+		}
+
+		const sourceStep = workingService.steps.find((step) => step.id === sourceStepId);
+		if (!sourceStep || sourceStep.transitions.some((t) => t.targetStepId === targetStepId)) return;
 
 		workingService = {
 			...workingService,
 			steps: workingService.steps.map((step) =>
-				step.id === stepId ? { ...step, transitions: [...step.transitions, ...newRoutes] } : step
+				step.id === sourceStepId ? { ...step, transitions: [...step.transitions, { targetStepId }] } : step
 			)
 		};
-		handleEdit(stepId);
 	}
 
-	function handleArmTool(tool: ArmedTool) {
-		armedTool = tool;
+	/**
+	 * Applies a delete gesture from the canvas, Delete on a selection of nodes, edges, or both. Clears
+	 * every named route first, then removes every step named outright, patching dangling references to it
+	 * the same way handleRemoveStep does, before cascading removeUnreachableSteps across whatever either
+	 * change could have orphaned. Deleting the graph's own entry edge on its own is not offered, since a
+	 * journey with no entry point at all has nowhere to route from until a different step is made the start.
+	 */
+	function handleDeleteGraphElements(deleted: {
+		stepIds: string[];
+		edges: Array<{ sourceStepId: string; targetStepId: string }>;
+	}) {
+		let next = workingService;
+
+		for (const { sourceStepId, targetStepId } of deleted.edges) {
+			next = {
+				...next,
+				steps: next.steps.map((step) =>
+					step.id === sourceStepId
+						? { ...step, transitions: step.transitions.filter((t) => t.targetStepId !== targetStepId) }
+						: step
+				)
+			};
+			// Deleting the line itself is just as deliberate a decision as the dedicated End action, once it
+			// leaves the step with nowhere else to go.
+			const source = next.steps.find((step) => step.id === sourceStepId);
+			if (source && source.transitions.length === 0) markExplicitEnd(sourceStepId);
+		}
+
+		if (deleted.stepIds.length > 0) {
+			const removedIds = new Set(deleted.stepIds);
+			const steps = next.steps
+				.filter((step) => !removedIds.has(step.id))
+				.map((step) => ({ ...step, transitions: step.transitions.filter((t) => !removedIds.has(t.targetStepId)) }));
+			const startStepId = removedIds.has(next.startStepId) ? (steps[0]?.id ?? next.startStepId) : next.startStepId;
+			next = { ...next, startStepId, steps };
+		}
+
+		next = removeUnreachableSteps(
+			next,
+			deleted.edges.map((edge) => edge.targetStepId)
+		);
+
+		workingService = next;
+
+		const remainingIds = new Set(workingService.steps.map((step) => step.id));
+		if (selectedStepId && !remainingIds.has(selectedStepId)) selectedStepId = null;
+		if (editingStepId && !remainingIds.has(editingStepId)) editingStepId = null;
 	}
 
-	const ARMED_TOOL_HINT: Record<Exclude<ArmedTool, null>, string> = {
-		step: 'Click a step to insert a new one after it.',
-		condition: 'Click a step to add a branch route to it.',
-		start: 'Click a step to make it the entry point.',
-		end: 'Click a step to clear its onward routes.'
-	};
+	function handleSetStart(stepId: string) {
+		workingService = { ...workingService, startStepId: stepId };
+	}
+
+	/**
+	 * Clears every route out of a step, then cascades removeUnreachableSteps across whatever those routes
+	 * used to lead to, the same "End the journey here" action the graph's own End tool used to offer.
+	 */
+	function handleEndJourney(stepId: string) {
+		const step = workingService.steps.find((candidate) => candidate.id === stepId);
+		const oldTargets = step?.transitions.map((transition) => transition.targetStepId) ?? [];
+
+		const cleared = {
+			...workingService,
+			steps: workingService.steps.map((candidate) =>
+				candidate.id === stepId ? { ...candidate, transitions: [] } : candidate
+			)
+		};
+		workingService = removeUnreachableSteps(cleared, oldTargets);
+		markExplicitEnd(stepId);
+
+		const remainingIds = new Set(workingService.steps.map((candidate) => candidate.id));
+		if (selectedStepId && !remainingIds.has(selectedStepId)) selectedStepId = null;
+		if (editingStepId && !remainingIds.has(editingStepId)) editingStepId = null;
+	}
+
+	/**
+	 * Gives a step its exact set of new onward routes at once, turning it into a branch if it was not
+	 * already one, once a draft condition dropped from the toolbar has a real step feeding into it and at
+	 * least two real steps it leads to. A target already among the step's routes is left alone rather than
+	 * duplicated.
+	 */
+	function handleAddBranchRoutes(sourceStepId: string, targetStepIds: string[]) {
+		const step = workingService.steps.find((candidate) => candidate.id === sourceStepId);
+		if (!step) return;
+		const existingTargets = new Set(step.transitions.map((t) => t.targetStepId));
+		const newRoutes = targetStepIds.filter((id) => !existingTargets.has(id)).map((targetStepId) => ({ targetStepId }));
+		if (newRoutes.length === 0) return;
+
+		workingService = {
+			...workingService,
+			steps: workingService.steps.map((candidate) =>
+				candidate.id === sourceStepId
+					? { ...candidate, transitions: [...candidate.transitions, ...newRoutes] }
+					: candidate
+			)
+		};
+		handleEdit(sourceStepId);
+	}
 </script>
 
 <svelte:head>
 	<title>Edit and review the journey | Service Studio</title>
 </svelte:head>
-
-<!-- Cancels an armed tool without needing a dedicated on screen button for it, matching the toolbar's own
-	toggle-off as the other way to cancel. -->
-<svelte:window
-	onkeydown={(event) => {
-		if (event.key === 'Escape') armedTool = null;
-	}}
-/>
 
 <!-- The stage sequence sits inside this same banner row, as a snippet passed into ServiceHeader, rather
 	than as a second row beneath it: this screen's own design keeps the two together, every other route
@@ -384,34 +434,26 @@
 				<input type="checkbox" bind:checked={showBranching} />
 				Show branching
 			</label>
-
-			<button class="editor-page__fit" type="button" onclick={() => journeyGraph?.fit()}>Fit</button>
-
-			<div class="editor-page__zoom">
-				<button type="button" onclick={() => journeyGraph?.zoomOut()} aria-label="Zoom out">−</button>
-				<span class="editor-page__zoom-level">{Math.round(zoom * 100)}%</span>
-				<button type="button" onclick={() => journeyGraph?.zoomIn()} aria-label="Zoom in">+</button>
-			</div>
 		</div>
 	</div>
 
 	<div class="editor-page__body">
-		<GraphToolbar {armedTool} onarm={handleArmTool} />
+		<GraphToolbar />
 
-		<div class="editor-page__canvas" class:editor-page__canvas--armed={armedTool !== null}>
-			{#if armedTool}
-				<p class="editor-page__armed-hint govuk-body-s govuk-!-margin-bottom-0" role="status">
-					{ARMED_TOOL_HINT[armedTool]} Press Escape to cancel.
-				</p>
-			{/if}
+		<div class="editor-page__canvas">
 			<JourneyGraph
 				bind:this={journeyGraph}
 				service={workingService}
+				{explicitEndStepIds}
 				bind:selectedStepId
 				bind:showBranching
-				bind:zoom
-				onNodeActivate={handleNodeActivate}
-				onInsertAfter={handleInsertAfter}
+				onNodeActivate={handleEdit}
+				onConnectSteps={handleConnectSteps}
+				onCreateConnectedStep={handleCreateConnectedStep}
+				onCreateStep={handleCreateStep}
+				onAddBranchRoutes={handleAddBranchRoutes}
+				onSetStepEnd={handleEndJourney}
+				onDeleteElements={handleDeleteGraphElements}
 			/>
 		</div>
 
@@ -427,11 +469,14 @@
 							.map((other) => ({ id: other.id, number: other.number, name: other.name }))}
 						canMoveUp={step.number > 1}
 						canMoveDown={step.number < stepsWithNumbers.length}
+						isStartStep={step.id === workingService.startStepId}
 						onApply={handleApplyStep}
 						onCancel={handleCancelEdit}
 						onRemove={handleRemoveStep}
 						onMoveUp={(stepId) => handleEditAdjacentStep(stepId, 'up')}
 						onMoveDown={(stepId) => handleEditAdjacentStep(stepId, 'down')}
+						onSetStart={handleSetStart}
+						onEndJourney={handleEndJourney}
 					/>
 				{/if}
 			{:else}
@@ -477,21 +522,6 @@
 		flex-direction: column;
 		height: calc(100vh - 74px);
 		font-family: 'GDS Transport', arial, sans-serif;
-	}
-
-	/* An overlay on the canvas itself, near the tool rail the armed tool came from, rather than a banner
-		near the stage nav at the top of the page: this is feedback about the canvas, so it belongs on it. */
-	.editor-page__armed-hint {
-		position: absolute;
-		top: 15px;
-		left: 15px;
-		z-index: 1;
-		max-width: calc(100% - 30px);
-		margin: 0;
-		padding: 8px 12px;
-		background-color: #ffffff;
-		border: 1px solid #1d70b8;
-		color: #1d70b8;
 	}
 
 	/* Padding matches .service-header's own 40px so this row's title lines up under GOV.UK, and its
@@ -554,53 +584,6 @@
 		accent-color: #0b0c0c;
 	}
 
-	/* GOV.UK's own button component has no outline variant, and its secondary button carries a grey fill
-		that the design for this screen deliberately avoids, so Fit is a plain bordered button instead. */
-	.editor-page__fit {
-		padding: 6px 12px;
-		background: none;
-		border: 1px solid #b1b4b6;
-		font-family: inherit;
-		font-size: 1rem;
-		font-weight: 700;
-		color: #0b0c0c;
-		cursor: pointer;
-	}
-
-	.editor-page__zoom {
-		display: flex;
-		align-items: center;
-		border: 1px solid #b1b4b6;
-	}
-
-	.editor-page__zoom button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		background: none;
-		border: 0;
-		border-right: 1px solid #b1b4b6;
-		font-size: 1rem;
-		font-weight: 700;
-		cursor: pointer;
-	}
-
-	.editor-page__zoom-level {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 46px;
-		height: 28px;
-		border-right: 1px solid #b1b4b6;
-		font-size: 0.875rem;
-	}
-
-	.editor-page__zoom button:last-child {
-		border-right: 0;
-	}
-
 	.editor-page__body {
 		display: flex;
 		flex: 1 1 auto;
@@ -611,10 +594,6 @@
 		position: relative;
 		flex: 1 1 auto;
 		min-width: 0;
-	}
-
-	.editor-page__canvas--armed :global(.journey-graph__canvas) {
-		cursor: crosshair;
 	}
 
 	.editor-page__panel {
