@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Studio: how the agent moves through the steps</title>
+<!--
+	A self contained animation of a service owner choosing how the agent moves through the steps of a
+	service. Strict keeps the numbered order exactly. Agentic lets the agent reorder the steps, and the
+	order it picks is shown. Everything it needs is in this one file, so it can be shared or opened on its
+	own. To change what is shown, edit the STEPS, ORDER and TEXT in the script at the bottom and the run()
+	timeline.
+-->
+<style>
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--border: #d8d8d3;
+		--blue: #1d70b8;
+		--blue-tint: #e8f1f8;
+		--selected-tint: #f3f8fc;
+		--green: #00703c;
+		--green-tint: #cce2d8;
+		--green-pale: #e5f0ea;
+		--grey-tint: #f1f1ee;
+		--divider: #ecece8;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: 20px;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: #ffffff;
+		color: var(--text);
+		font-family: arial, sans-serif;
+	}
+
+	.wrap {
+		width: min(100%, 1440px);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* The stage is drawn at a fixed 1440 by 900 and scaled to fit, so every position below is in the same
+		simple coordinates whatever size the page is viewed at. */
+	.viewport {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 1440 / 900;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.stage {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 1440px;
+		height: 900px;
+		transform-origin: 0 0;
+		transition: opacity 0.7s ease;
+	}
+
+	.stage.fade {
+		opacity: 0;
+	}
+
+	/* Anything that arrives during the story starts hidden and slightly low, then settles into place. */
+	.arrive {
+		opacity: 0;
+		transform: translateY(8px);
+		transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.arrive.show {
+		opacity: 1;
+		transform: none;
+	}
+
+	.card {
+		position: absolute;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+	}
+
+	/* The service owner card */
+	.owner-card {
+		left: 72px;
+		top: 40px;
+		width: 440px;
+		height: 260px;
+		padding: 26px;
+		display: flex;
+		flex-direction: column;
+		gap: 18px;
+	}
+
+	.owner-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.card-title {
+		font-size: 20px;
+		font-weight: 700;
+		line-height: 26px;
+	}
+
+	.saved {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 3px 10px;
+		background: var(--green-pale);
+		border-radius: 12px;
+		color: var(--green);
+		font-size: 12px;
+		line-height: 16px;
+	}
+
+	.card-text {
+		font-size: 14px;
+		line-height: 21px;
+		color: var(--secondary-text);
+	}
+
+	.person {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px 16px;
+		border: 1.5px solid var(--blue);
+		border-radius: 10px;
+	}
+
+	.avatar {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 40px;
+		height: 40px;
+		background: var(--blue);
+		border-radius: 50%;
+		color: #ffffff;
+		font-size: 14px;
+		font-weight: 700;
+	}
+
+	.person-name {
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 20px;
+	}
+
+	.person-role {
+		margin-top: 2px;
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.small-print {
+		font-size: 13px;
+		line-height: 16px;
+		color: var(--secondary-text);
+	}
+
+	.arrow {
+		position: absolute;
+		left: 512px;
+		top: 160px;
+		clip-path: inset(0 100% 0 0);
+	}
+
+	/* The checks under the owner card. A check that is still being decided is a dashed circle, and turns into
+		a tick once it is settled. */
+	.checks-card {
+		left: 72px;
+		top: 340px;
+		width: 440px;
+		padding: 8px 26px;
+	}
+
+	.check-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 14px 0;
+		border-bottom: 1px solid var(--divider);
+		font-size: 15px;
+		line-height: 18px;
+		opacity: 0;
+		transition: opacity 0.35s ease;
+	}
+
+	.check-row.show {
+		opacity: 1;
+	}
+
+	.check-row:last-child {
+		border-bottom: 0;
+	}
+
+	.check-row .label {
+		font-weight: 700;
+		transition: color 0.3s ease;
+	}
+
+	.check-row.done .label {
+		font-weight: 400;
+		color: var(--secondary-text);
+	}
+
+	.mark-slot {
+		position: relative;
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+	}
+
+	.mark-slot .waiting {
+		position: absolute;
+		inset: 0;
+		border: 2px dashed var(--blue);
+		border-radius: 50%;
+		animation: turn 6s linear infinite;
+		transition: opacity 0.25s ease;
+	}
+
+	.mark-slot .ticked {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		background: var(--green-tint);
+		border-radius: 50%;
+		opacity: 0;
+		transition: opacity 0.25s ease;
+	}
+
+	.check-row.done .waiting {
+		opacity: 0;
+	}
+
+	.check-row.done .ticked {
+		opacity: 1;
+	}
+
+	@keyframes turn {
+		to { transform: rotate(360deg); }
+	}
+
+	/* The panel where the owner chooses how the agent moves */
+	.panel {
+		left: 600px;
+		top: 40px;
+		width: 768px;
+		padding: 26px;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.panel-sub {
+		margin-top: 6px;
+		font-size: 14px;
+		line-height: 21px;
+		color: var(--secondary-text);
+	}
+
+	.options {
+		display: flex;
+		gap: 16px;
+	}
+
+	/* An option is a card with a radio button. The chosen one gets a thicker blue edge and a pale blue ground. */
+	.option {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		height: 134px;
+		padding: 16px;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+	}
+
+	.option.chosen {
+		background: var(--selected-tint);
+		border-color: var(--blue);
+		box-shadow: inset 0 0 0 1px var(--blue);
+	}
+
+	.option-head {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 20px;
+	}
+
+	.radio {
+		position: relative;
+		flex-shrink: 0;
+		width: 20px;
+		height: 20px;
+		border: 2px solid var(--secondary-text);
+		border-radius: 50%;
+		transition: border-color 0.25s ease;
+	}
+
+	.radio::after {
+		content: '';
+		position: absolute;
+		inset: 3px;
+		background: var(--blue);
+		border-radius: 50%;
+		transform: scale(0);
+		transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.option.chosen .radio {
+		border-color: var(--blue);
+	}
+
+	.option.chosen .radio::after {
+		transform: scale(1);
+	}
+
+	.option-text {
+		font-size: 13px;
+		line-height: 19px;
+		color: var(--secondary-text);
+	}
+
+	.order-section {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-top: 6px;
+		border-top: 1px solid var(--divider);
+	}
+
+	.order-title {
+		padding-top: 14px;
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 22px;
+	}
+
+	/* Held to two lines so the list below does not shift when the wording changes. */
+	.order-sub {
+		min-height: 38px;
+		font-size: 13px;
+		line-height: 19px;
+		color: var(--secondary-text);
+		transition: opacity 0.2s ease;
+	}
+
+	.order-sub.swap {
+		opacity: 0;
+	}
+
+	/* The list is a stack of fixed height rows. A row is moved by changing its top, which slides it. */
+	.list {
+		position: relative;
+		height: 376px;
+	}
+
+	.row {
+		position: absolute;
+		left: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		height: 34px;
+		padding: 0 14px;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		font-size: 14px;
+		line-height: 18px;
+		transition: top 0.8s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease, border-color 0.4s ease;
+	}
+
+	.row.optional {
+		border-style: dashed;
+		border-color: #b1b4b6;
+		color: var(--secondary-text);
+	}
+
+	.row.moved {
+		background: var(--selected-tint);
+		border-color: var(--blue);
+	}
+
+	.grip {
+		flex-shrink: 0;
+		transition: opacity 0.3s ease;
+	}
+
+	/* The grip is faded when the agent chooses the order, as the owner no longer drags the rows. */
+	.list.agentic .grip {
+		opacity: 0.25;
+	}
+
+	.step-number {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		background: var(--blue-tint);
+		border-radius: 50%;
+		color: var(--blue);
+		font-size: 12px;
+		font-weight: 700;
+	}
+
+	.row.optional .step-number {
+		background: var(--grey-tint);
+		color: var(--secondary-text);
+	}
+
+	.row-name {
+		flex-grow: 1;
+	}
+
+	.tag {
+		padding: 2px 9px;
+		border-radius: 4px;
+		font-size: 12px;
+		line-height: 16px;
+		background: var(--green-pale);
+		color: var(--green);
+	}
+
+	/* Says where a step gets its answers from: records the agent already has, or the person. */
+	.tag.kind {
+		background: var(--blue-tint);
+		color: var(--blue);
+	}
+
+	.tag.kind.from-person {
+		background: var(--grey-tint);
+		color: var(--secondary-text);
+	}
+
+	.row.optional .tag:not(.kind) {
+		background: var(--grey-tint);
+		color: var(--secondary-text);
+	}
+
+	.caption {
+		position: absolute;
+		left: 72px;
+		top: 740px;
+		width: 440px;
+		display: flex;
+		gap: 14px;
+		opacity: 0.35;
+		transition: opacity 0.4s ease;
+	}
+
+	.caption.active,
+	.caption.done {
+		opacity: 1;
+	}
+
+	.badge {
+		position: relative;
+		flex-shrink: 0;
+		width: 30px;
+		height: 30px;
+		border-radius: 50%;
+		background: #d8d8d3;
+		transition: background-color 0.3s ease;
+	}
+
+	.caption.active .badge {
+		background: var(--blue);
+	}
+
+	.caption.done .badge {
+		background: var(--green-tint);
+	}
+
+	.badge .num,
+	.badge .tick {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		transition: opacity 0.25s ease;
+	}
+
+	.badge .num {
+		color: #ffffff;
+		font-size: 14px;
+		font-weight: 700;
+	}
+
+	.badge .tick {
+		opacity: 0;
+	}
+
+	.caption.done .num {
+		opacity: 0;
+	}
+
+	.caption.done .tick {
+		opacity: 1;
+	}
+
+	.caption-title {
+		font-size: 18px;
+		font-weight: 700;
+		line-height: 24px;
+	}
+
+	.caption-sub {
+		margin-top: 3px;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--secondary-text);
+	}
+
+	/* The pointer sits above everything, at stage level, and finds its targets by measuring them. */
+	.cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.3s;
+		z-index: 10;
+	}
+
+	.cursor.visible {
+		opacity: 1;
+	}
+
+	.cursor svg {
+		position: absolute;
+		top: -2px;
+		left: -2px;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+	}
+
+	.cursor .click {
+		position: absolute;
+		top: -18px;
+		left: -18px;
+		width: 36px;
+		height: 36px;
+		border: 2px solid var(--blue);
+		border-radius: 50%;
+		opacity: 0;
+	}
+
+	.cursor.clicking .click {
+		animation: click 0.45s ease-out;
+	}
+
+	@keyframes click {
+		0% { opacity: 0.8; transform: scale(0.4); }
+		100% { opacity: 0; transform: scale(1.3); }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.arrive,
+		.check-row,
+		.option,
+		.radio,
+		.radio::after,
+		.order-sub,
+		.row,
+		.grip,
+		.caption,
+		.badge,
+		.stage {
+			transition: none;
+		}
+
+		.mark-slot .waiting {
+			animation: none;
+		}
+
+		.cursor.clicking .click {
+			animation: none;
+		}
+	}
+</style>
+</head>
+<body>
+<main class="wrap">
+	<h1 class="sr-only">A service owner chooses between strict and agentic navigation for the agent</h1>
+
+	<div class="viewport" id="viewport">
+		<!-- The drawing is for sight only. What is happening is repeated in plain text just below for screen readers. -->
+		<div class="stage" id="stage" aria-hidden="true">
+
+			<div class="card owner-card arrive" id="owner-card">
+				<div class="owner-head">
+					<div class="card-title">Service owner</div>
+					<div class="saved"><svg width="10" height="8" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.6" /></svg>Saved</div>
+				</div>
+				<div class="card-text">Accountable for the service once it is live. They sign off and are told when it changes.</div>
+				<div class="person">
+					<div class="avatar">PN</div>
+					<div style="flex-grow: 1;">
+						<div class="person-name">Priya Nair</div>
+						<div class="person-role">Head of Licensing Policy · DVLA</div>
+					</div>
+					<svg width="14" height="9" viewBox="0 0 14 9"><path d="M1.5 1.5 L7 7 L12.5 1.5" fill="none" stroke="#505a5f" stroke-width="2" /></svg>
+				</div>
+				<div class="small-print">Created by Jen Sykes · Only the owner can sign off</div>
+			</div>
+
+			<svg class="arrow" id="arrow" width="70" height="40" viewBox="0 0 70 40">
+				<path d="M6 20 H54" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M52 13 L62 20 L52 27" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+
+			<div class="card checks-card arrive" id="checks-card">
+				<div class="check-row" id="check-owner"><span class="mark-slot"><span class="waiting"></span><span class="ticked" data-tick></span></span><span class="label">Owner saved · Priya Nair</span></div>
+				<div class="check-row" id="check-mode"><span class="mark-slot"><span class="waiting"></span><span class="ticked" data-tick></span></span><span class="label" id="check-mode-label"></span></div>
+				<div class="check-row" id="check-ready"><span class="mark-slot"><span class="waiting"></span><span class="ticked" data-tick></span></span><span class="label">Ready to sign off</span></div>
+			</div>
+
+			<div class="card panel arrive" id="panel">
+				<div>
+					<div class="card-title">How the agent moves through the steps</div>
+					<div class="panel-sub">Steps marked required are never skipped.</div>
+				</div>
+
+				<div class="options">
+					<div class="option chosen" id="option-strict">
+						<div class="option-head"><span class="radio"></span>Strict</div>
+						<svg width="140" height="20" viewBox="0 0 140 20">
+							<g fill="#ffffff" stroke="#505a5f" stroke-width="1.4"><rect x="2" y="4" width="28" height="12" /><rect x="56" y="4" width="28" height="12" /><rect x="110" y="4" width="28" height="12" /></g>
+							<path d="M30 10 H56 M84 10 H110" fill="none" stroke="#505a5f" stroke-width="1.4" />
+						</svg>
+						<div class="option-text">Follows the journey in order and asks every step, one at a time.</div>
+					</div>
+					<div class="option" id="option-agentic">
+						<div class="option-head"><span class="radio"></span>Agentic</div>
+						<svg width="140" height="20" viewBox="0 0 140 20">
+							<g fill="#ffffff" stroke="#505a5f" stroke-width="1.4"><rect x="2" y="4" width="28" height="12" /><rect x="110" y="4" width="28" height="12" /></g>
+							<rect x="56" y="4" width="28" height="12" fill="#f1f1ee" stroke="#b1b4b6" stroke-dasharray="3 3" />
+							<path d="M30 10 H56 M84 10 H110" fill="none" stroke="#b1b4b6" stroke-width="1.4" stroke-dasharray="3 3" />
+						</svg>
+						<div class="option-text">Skips answers it already has and reorders where the journey allows.</div>
+					</div>
+				</div>
+
+				<div class="order-section">
+					<div class="order-title" id="order-title"></div>
+					<div class="order-sub" id="order-sub"></div>
+				</div>
+
+				<div class="list" id="list"></div>
+			</div>
+
+			<div class="caption" id="caption"></div>
+
+			<div class="cursor" id="cursor">
+				<span class="click"></span>
+				<svg width="18" height="24" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7 17 L11 26 L14 24.5 L10 16 L17 16 Z" fill="#0b0c0c" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" /></svg>
+			</div>
+		</div>
+	</div>
+	<p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+	// The steps of the service, each keeping the number it has in the journey. A step either gets its answers
+	// from records the agent already has, or has to ask the person. Required steps are never skipped, and an
+	// optional step is shown with a dashed edge.
+	const STEPS = {
+		eligibility: { number: 1, name: 'Check you can use this service', source: 'records', required: true },
+		change: { number: 2, name: 'Choose what you want to change', source: 'person', required: true },
+		account: { number: 3, name: 'Get your name and date of birth from your account', source: 'records', required: true },
+		address: { number: 4, name: 'Enter your new address', source: 'person', required: true },
+		identity: { number: 5, name: 'Check your identity with GOV.UK One Login', source: 'records', required: true },
+		reason: { number: 6, name: 'Tell us why your address changed', source: 'person', required: false },
+		licence: { number: 7, name: 'Look up your driving licence record', source: 'records', required: true },
+		photo: { number: 8, name: 'Upload a photo of your licence', source: 'person', required: false },
+		penalties: { number: 9, name: 'Check for penalty points or restrictions', source: 'records', required: true },
+		submit: { number: 10, name: 'Confirm and submit your change', source: 'person', required: true }
+	};
+
+	const SOURCE_LABEL = { records: 'From records', person: 'Asks the person' };
+
+	// The order in each mode. Strict is the numbered order of the journey, set by the owner, which mixes the
+	// two kinds of step. Agentic does everything it can from records first, then asks the person for all of
+	// their input together at the end, so they are asked once and nothing they type is held up by a check.
+	const ORDER = {
+		strict: ['eligibility', 'change', 'account', 'address', 'identity', 'reason', 'licence', 'photo', 'penalties', 'submit'],
+		agentic: ['eligibility', 'account', 'identity', 'licence', 'penalties', 'change', 'address', 'reason', 'photo', 'submit']
+	};
+
+	// The words that change with the mode.
+	const TEXT = {
+		strict: {
+			title: 'Order the agent follows',
+			sub: 'Drag to change the order. Strict keeps this order exactly.',
+			check: 'Agent navigation chosen · Strict',
+			live: 'Strict chosen. The agent follows the steps in their numbered order.'
+		},
+		agentic: {
+			title: 'Order the agent chooses',
+			sub: 'Everything it can find in records comes first. The person is only asked for their own input at the end, in one go.',
+			check: 'Agent navigation chosen · Agentic',
+			live: 'Agentic chosen. The agent reorders the steps, using records first and asking the person for their input last.'
+		}
+	};
+
+	const CAPTION = { title: 'The owner decides', sub: 'Choose who owns it and how the agent moves.' };
+
+	const TICK = '<svg width="11" height="9" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.6"/></svg>';
+	const GRIP = '<svg class="grip" width="10" height="14" viewBox="0 0 10 14"><g fill="#b1b4b6"><circle cx="2" cy="2" r="1.4"/><circle cx="8" cy="2" r="1.4"/><circle cx="2" cy="7" r="1.4"/><circle cx="8" cy="7" r="1.4"/><circle cx="2" cy="12" r="1.4"/><circle cx="8" cy="12" r="1.4"/></g></svg>';
+	const ROW_HEIGHT = 34;
+	const ROW_GAP = 4;
+	const $ = (id) => document.getElementById(id);
+
+	const stage = $('stage');
+	const viewport = $('viewport');
+	const cursorEl = $('cursor');
+	const caption = $('caption');
+	const list = $('list');
+	const rowEls = {};
+	let cursor = { x: 1250, y: 740 };
+	let mode = 'strict';
+
+	/**
+	 * Draws the parts of the stage that come from the lists above: a row for each step, the ticks and the
+	 * caption. The timeline only ever shows and changes these, it never creates them.
+	 */
+	function build() {
+		for (const [id, step] of Object.entries(STEPS)) {
+			const row = document.createElement('div');
+			row.className = `row${step.required ? '' : ' optional'}`;
+			row.innerHTML = `${GRIP}<span class="step-number">${step.number}</span><span class="row-name">${step.name}</span><span class="tag kind from-${step.source}">${SOURCE_LABEL[step.source]}</span><span class="tag">${step.required ? 'Required' : 'Optional'}</span>`;
+			list.appendChild(row);
+			rowEls[id] = row;
+		}
+		document.querySelectorAll('[data-tick]').forEach((el) => (el.innerHTML = TICK));
+		caption.innerHTML = `
+			<div class="badge"><span class="num">5</span><span class="tick"><svg width="13" height="10" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.4"/></svg></span></div>
+			<div><div class="caption-title">${CAPTION.title}</div><div class="caption-sub">${CAPTION.sub}</div></div>`;
+		placeRows('strict');
+	}
+
+	/**
+	 * Puts each row at the place it has in the given order. The rows slide there, as their top is eased.
+	 */
+	function placeRows(which) {
+		ORDER[which].forEach((id, index) => {
+			rowEls[id].style.top = `${index * (ROW_HEIGHT + ROW_GAP)}px`;
+			// A small delay for each place down the list makes the rows ripple into position rather than all jolt at once.
+			rowEls[id].style.transitionDelay = `${index * 30}ms`;
+		});
+	}
+
+	/**
+	 * Scales the fixed size stage to the width it has been given.
+	 */
+	function fit() {
+		stage.style.transform = `scale(${viewport.clientWidth / 1440})`;
+	}
+
+	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+	const lerp = (a, b, t) => a + (b - a) * t;
+	const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+	/**
+	 * Runs onFrame with a 0 to 1 progress value over the given milliseconds, and resolves when it is done.
+	 */
+	function tween(ms, onFrame, ease = easeInOut) {
+		return new Promise((resolve) => {
+			const start = performance.now();
+			function frame(now) {
+				const t = clamp((now - start) / ms, 0, 1);
+				onFrame(ease(t));
+				if (t < 1) requestAnimationFrame(frame);
+				else resolve();
+			}
+			requestAnimationFrame(frame);
+		});
+	}
+
+	const wait = (ms) => tween(ms, () => {}, (t) => t);
+
+	/**
+	 * Fades in a part of the stage that arrives.
+	 */
+	function show(...els) {
+		for (const el of els) el.classList.add('show');
+	}
+
+	/**
+	 * Uncovers the dotted arrow from the left, so it seems to be drawn towards its head.
+	 */
+	function uncover(ms) {
+		const el = $('arrow');
+		return tween(ms, (e) => (el.style.clipPath = `inset(0 ${(1 - e) * 100}% 0 0)`));
+	}
+
+	/**
+	 * Puts the pointer at a point on the stage.
+	 */
+	function setCursor(x, y) {
+		cursor = { x, y };
+		cursorEl.style.transform = `translate(${x}px, ${y}px)`;
+	}
+
+	/**
+	 * Finds the middle of an element on the stage, wherever it has got to.
+	 */
+	function centreOf(el, dx = 0, dy = 0) {
+		const box = stage.getBoundingClientRect();
+		const scale = box.width / 1440;
+		const r = el.getBoundingClientRect();
+		return { x: (r.left + r.width / 2 - box.left) / scale + dx, y: (r.top + r.height / 2 - box.top) / scale + dy };
+	}
+
+	/**
+	 * Moves the pointer to an element and clicks it, with a ring that spreads from the point of the click.
+	 */
+	async function click(el, dx = 0, dy = 0) {
+		const from = { ...cursor };
+		const to = centreOf(el, dx, dy);
+		await tween(800, (e) => setCursor(lerp(from.x, to.x, e), lerp(from.y, to.y, e)));
+		cursorEl.classList.remove('clicking');
+		void cursorEl.offsetWidth;
+		cursorEl.classList.add('clicking');
+		await wait(220);
+	}
+
+	/**
+	 * Tells screen readers what is happening, in plain words.
+	 */
+	function say(text) {
+		$('live').textContent = text;
+	}
+
+	/**
+	 * Swaps the explanation under the list heading, fading it out and back so the change is not abrupt.
+	 */
+	async function setOrderText(which) {
+		const sub = $('order-sub');
+		sub.classList.add('swap');
+		await wait(200);
+		$('order-title').textContent = TEXT[which].title;
+		sub.textContent = TEXT[which].sub;
+		sub.classList.remove('swap');
+	}
+
+	/**
+	 * Applies a choice of mode: the chosen option, the wording, the order of the rows and the check on the
+	 * left. The rows that change place are tinted for a moment, so it is clear which ones moved.
+	 */
+	async function choose(which) {
+		const before = ORDER[mode];
+		mode = which;
+		$('option-strict').classList.toggle('chosen', which === 'strict');
+		$('option-agentic').classList.toggle('chosen', which === 'agentic');
+		list.classList.toggle('agentic', which === 'agentic');
+		say(TEXT[which].live);
+
+		// The check on the left goes back to deciding, then settles on the new choice.
+		$('check-mode').classList.remove('done');
+		setOrderText(which);
+		await wait(350);
+
+		const moved = ORDER[which].filter((id, index) => before[index] !== id);
+		placeRows(which);
+		moved.forEach((id) => rowEls[id].classList.add('moved'));
+		await wait(1300);
+		$('check-mode-label').textContent = TEXT[which].check;
+		$('check-mode').classList.add('done');
+		await wait(700);
+		Object.values(rowEls).forEach((row) => row.classList.remove('moved'));
+	}
+
+	/**
+	 * Puts everything back to the start: strict chosen and nothing on the stage yet.
+	 */
+	function reset() {
+		stage.classList.remove('fade');
+		mode = 'strict';
+		document.querySelectorAll('.arrive, .check-row').forEach((el) => el.classList.remove('show'));
+		document.querySelectorAll('.check-row').forEach((el) => el.classList.remove('done'));
+		$('arrow').style.clipPath = 'inset(0 100% 0 0)';
+		$('option-strict').classList.add('chosen');
+		$('option-agentic').classList.remove('chosen');
+		list.classList.remove('agentic');
+		Object.values(rowEls).forEach((row) => row.classList.remove('moved'));
+		placeRows('strict');
+		$('order-title').textContent = TEXT.strict.title;
+		$('order-sub').textContent = TEXT.strict.sub;
+		$('check-mode-label').textContent = TEXT.strict.check;
+		caption.classList.remove('active', 'done');
+		cursorEl.classList.remove('visible', 'clicking');
+		setCursor(1250, 740);
+	}
+
+	/**
+	 * The whole story, in order: the owner is saved and strict is the starting choice, then the owner picks
+	 * agentic and the steps reorder, goes back to strict and the numbered order returns, and finally settles
+	 * on agentic.
+	 */
+	async function run() {
+		reset();
+		caption.classList.add('active');
+		say('A service owner is saved, and strict navigation is chosen to begin with');
+		await wait(500);
+
+		show($('owner-card'));
+		await wait(500);
+		show($('checks-card'), $('check-owner'));
+		await wait(400);
+		$('check-owner').classList.add('done');
+		await uncover(600);
+		show($('panel'));
+		await wait(700);
+		show($('check-mode'), $('check-ready'));
+		await wait(500);
+		$('check-mode').classList.add('done');
+		await wait(1800);
+
+		// The owner picks agentic, and the steps take the order the agent would choose.
+		cursorEl.classList.add('visible');
+		await click($('option-agentic'), 0, -30);
+		await choose('agentic');
+		await wait(2200);
+
+		// Back to strict, and the numbered order returns exactly as it was set.
+		await click($('option-strict'), 0, -30);
+		await choose('strict');
+		await wait(1600);
+
+		// And the owner settles on agentic.
+		await click($('option-agentic'), 0, -30);
+		await choose('agentic');
+		caption.classList.remove('active');
+		caption.classList.add('done');
+		cursorEl.classList.remove('visible');
+		await wait(3200);
+
+		stage.classList.add('fade');
+		await wait(900);
+	}
+
+	/**
+	 * Runs the story over and over.
+	 */
+	async function loop() {
+		while (true) await run();
+	}
+
+	/**
+	 * Shows the finished picture straight away, with nothing moving, for anyone who has asked their device
+	 * to reduce motion.
+	 */
+	function showFinal() {
+		reset();
+		mode = 'agentic';
+		document.querySelectorAll('.arrive, .check-row').forEach((el) => el.classList.add('show'));
+		$('arrow').style.clipPath = 'inset(0)';
+		$('option-strict').classList.remove('chosen');
+		$('option-agentic').classList.add('chosen');
+		list.classList.add('agentic');
+		placeRows('agentic');
+		$('order-title').textContent = TEXT.agentic.title;
+		$('order-sub').textContent = TEXT.agentic.sub;
+		$('check-mode-label').textContent = TEXT.agentic.check;
+		document.querySelectorAll('.check-row').forEach((el, index) => el.classList.toggle('done', index < 2));
+		caption.classList.add('done');
+		say(TEXT.agentic.live);
+	}
+
+	build();
+	fit();
+	new ResizeObserver(fit).observe(viewport);
+
+	if (matchMedia('(prefers-reduced-motion: reduce)').matches) showFinal();
+	else loop();
+</script>
+</body>
+</html>

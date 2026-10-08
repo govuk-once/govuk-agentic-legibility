@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Studio: building a journey</title>
+<!--
+	A self contained animation of the Service Studio graph editor. A short service that has been generated
+	appears first, the view zooms in on its last step, and a condition, two branch steps and an end are
+	added to it one at a time, each connected as it arrives. Everything it needs is in this one file, so it
+	can be shared or opened on its own. To change what is shown, edit the NODES and EDGES lists, the STEPS
+	captions and the run() timeline in the script at the bottom.
+-->
+<style>
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--muted: #737373;
+		--border: #c9cac6;
+		--soft-border: #d8d8d3;
+		--line: #7b8387;
+		--blue: #1d70b8;
+		--blue-tint: #e8f1f8;
+		--yellow: #ffdd00;
+		--green: #00703c;
+		--green-tint: #cce2d8;
+		--black: #0b0c0c;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: 20px;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: #ffffff;
+		color: var(--text);
+		font-family: 'GDS Transport', arial, sans-serif;
+	}
+
+	.wrap {
+		width: min(100%, 1440px);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* The stage is drawn at a fixed 1440 by 900 and scaled to fit, so every position below is in the same
+		simple coordinates whatever size the page is viewed at. */
+	.viewport {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 1440 / 900;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.stage {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 1440px;
+		height: 900px;
+		transform-origin: 0 0;
+	}
+
+	/* The window onto the drawing: a square of dotted canvas. What is inside it, the world, is what gets
+		zoomed and moved. */
+	.canvas {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 900px;
+		height: 900px;
+		overflow: hidden;
+		background-image: radial-gradient(circle at 2px 2px, #e6e6e2 1.2px, transparent 1.7px);
+		background-size: 30px 30px;
+	}
+
+	.world {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 900px;
+		height: 900px;
+		transform-origin: 0 0;
+		transition: opacity 0.6s ease;
+	}
+
+	.world.fade {
+		opacity: 0;
+	}
+
+	/* Softens the right hand edge of the canvas into the white behind the timeline. */
+	.canvas-fade {
+		position: absolute;
+		top: 0;
+		left: 780px;
+		width: 120px;
+		height: 900px;
+		background: linear-gradient(90deg, rgba(255, 255, 255, 0), #ffffff);
+		pointer-events: none;
+	}
+
+	/* The shape rail. The shape being added is highlighted as it is used. */
+	.rail {
+		position: absolute;
+		top: 96px;
+		left: 64px;
+		width: 52px;
+		padding: 8px 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		background: #ffffff;
+		border: 1px solid var(--soft-border);
+		border-radius: 16px;
+	}
+
+	.rail-item {
+		display: grid;
+		place-items: center;
+		width: 36px;
+		height: 36px;
+		border-radius: 10px;
+		transition: background-color 0.25s;
+	}
+
+	.rail-item.active {
+		background: var(--blue-tint);
+	}
+
+	.glyph-step {
+		width: 16px;
+		height: 12px;
+		border: 1.8px solid var(--black);
+		border-radius: 2px;
+	}
+
+	.glyph-condition {
+		width: 16px;
+		height: 16px;
+		background: var(--yellow);
+		clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+	}
+
+	.glyph-end {
+		width: 16px;
+		height: 16px;
+		border: 1.8px solid var(--black);
+		border-radius: 50%;
+		background: var(--green);
+	}
+
+	/* The numbered steps, one under another to the right of the canvas, joined by a line that fills in
+		as each is completed. */
+	.timeline {
+		position: absolute;
+		top: 0;
+		left: 960px;
+		width: 384px;
+		height: 900px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.tl {
+		position: relative;
+		display: grid;
+		grid-template-columns: 32px 24px 1fr;
+		column-gap: 20px;
+		align-items: start;
+		padding-bottom: 56px;
+		color: var(--muted);
+	}
+
+	.tl:last-child {
+		padding-bottom: 0;
+	}
+
+	.tl::after {
+		content: '';
+		position: absolute;
+		top: 32px;
+		bottom: 0;
+		left: 15px;
+		width: 2px;
+		background: #e5e5e0;
+		transition: background-color 0.3s;
+	}
+
+	.tl:last-child::after {
+		display: none;
+	}
+
+	.tl.done::after {
+		background: var(--green-tint);
+	}
+
+	.tl .dot {
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: #ffffff;
+		border: 1.5px solid #b1b4b6;
+		color: var(--muted);
+		font-size: 0.875rem;
+		font-weight: 700;
+		transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+	}
+
+	.tl .dot svg {
+		display: none;
+	}
+
+	.tl.done .dot {
+		background: var(--green-tint);
+		border-color: var(--green-tint);
+	}
+
+	.tl.done .dot b {
+		display: none;
+	}
+
+	.tl.done .dot svg {
+		display: block;
+	}
+
+	.tl.current .dot {
+		background: var(--blue);
+		border-color: var(--blue);
+		color: #ffffff;
+		font-size: 0.9375rem;
+	}
+
+	.tl .glyph {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		margin-top: 4px;
+		color: #9aa0a4;
+		transition: color 0.3s, opacity 0.3s;
+	}
+
+	.tl.done .glyph,
+	.tl.current .glyph {
+		color: var(--black);
+	}
+
+	.tl .glyph svg {
+		overflow: visible;
+	}
+
+	.tl .label {
+		margin-top: 3px;
+		font-size: 1.1875rem;
+		line-height: 26px;
+		transition: color 0.3s;
+	}
+
+	.tl.done .label {
+		color: var(--secondary-text);
+	}
+
+	.tl.current .label {
+		margin-top: 0;
+		color: var(--text);
+		font-size: 1.375rem;
+		font-weight: 700;
+		line-height: 29px;
+	}
+
+	/* Lines sit under the shapes. A finished line is solid grey, drawn in by moving its dash offset from 1
+		(nothing showing) to 0 (all showing). */
+	.edges {
+		position: absolute;
+		top: 0;
+		left: 0;
+		pointer-events: none;
+	}
+
+	.edge {
+		fill: none;
+		stroke: var(--line);
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-dasharray: 1;
+		stroke-dashoffset: 1;
+	}
+
+	/* The line being dragged: dotted blue, redrawn each frame as far as the pointer has got. */
+	.drag {
+		fill: none;
+		stroke: var(--blue);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-dasharray: 1 6;
+	}
+
+	/* A shape. Its position and size are set from the script as it appears, so it starts hidden. */
+	.node {
+		position: absolute;
+		top: 0;
+		left: 0;
+		opacity: 0;
+		transform-origin: 50% 50%;
+		transition: opacity 0.25s ease;
+	}
+
+	.node.show {
+		opacity: 1;
+	}
+
+	.inner {
+		position: relative;
+		width: 100%;
+		height: 100%;
+	}
+
+	.node.pop > .inner {
+		animation: pop 0.3s ease-out;
+	}
+
+	@keyframes pop {
+		0% { transform: scale(1.08); }
+		100% { transform: scale(1); }
+	}
+
+	.step-body {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 10px;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 700;
+		line-height: 1.2;
+		text-align: center;
+		transition: border-color 0.3s, background-color 0.3s;
+	}
+
+	/* The step being worked on: a blue outline and a light blue fill. */
+	.node.selected .step-body {
+		border-color: var(--blue);
+		box-shadow: 0 0 0 1px var(--blue);
+		background: #f2f7fb;
+	}
+
+	.cond-shape {
+		width: 100%;
+		height: 100%;
+		background: var(--yellow);
+		clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+	}
+
+	.start-disc,
+	.end-disc {
+		width: 100%;
+		height: 100%;
+		border: 2px solid #ffffff;
+		border-radius: 50%;
+	}
+
+	.start-disc {
+		background: var(--black);
+		box-shadow: 0 0 0 1.5px var(--black);
+	}
+
+	.end-disc {
+		background: var(--green);
+		box-shadow: 0 0 0 1.5px var(--green);
+	}
+
+	.node.condition .inner,
+	.node.end .inner {
+		transition: opacity 0.4s;
+	}
+
+	/* A shape that has been added but is not connected yet: faded, with a dashed ring that opens out and
+		disappears when the shape is connected and becomes part of the service. */
+	.node.condition::after,
+	.node.end::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 60px;
+		height: 60px;
+		margin: -30px 0 0 -30px;
+		border: 1.5px dashed var(--blue);
+		border-radius: 50%;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* The outline takes the shape's own form: a diamond for a condition, a circle for an end. */
+	.node.condition::after {
+		width: 40px;
+		height: 40px;
+		margin: -20px 0 0 -20px;
+		border-radius: 3px;
+		transform: rotate(45deg);
+	}
+
+	.node.draft .inner {
+		opacity: 0.4;
+	}
+
+	.node.draft::after {
+		opacity: 1;
+	}
+
+	/* While a line is about to land on it, the landing outline stands in for its own, so the two are never
+		drawn one on top of the other. */
+	.node.targeted::after {
+		opacity: 0;
+	}
+
+	.node.promoted::after {
+		animation: ring-out 0.8s ease-out;
+	}
+
+	.node.condition.promoted::after {
+		animation-name: ring-out-diamond;
+	}
+
+	@keyframes ring-out {
+		0% { opacity: 1; transform: scale(1); }
+		100% { opacity: 0; transform: scale(1.7); }
+	}
+
+	@keyframes ring-out-diamond {
+		0% { opacity: 1; transform: rotate(45deg) scale(1); }
+		100% { opacity: 0; transform: rotate(45deg) scale(1.7); }
+	}
+
+	/* Where a line starts while it is being dragged. */
+	.src {
+		position: absolute;
+		width: 12px;
+		height: 12px;
+		background: var(--blue);
+		border: 2px solid #ffffff;
+		border-radius: 4px;
+		box-shadow: 0 0 0 1px var(--blue);
+		transform: translate(-50%, -50%);
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+
+	/* Where a line will land: a dashed outline round the shape, drawn in the shape's own form. */
+	.target {
+		position: absolute;
+		border: 1.5px dashed var(--blue);
+		opacity: 0;
+		transition: opacity 0.15s;
+		pointer-events: none;
+	}
+
+	.src.on,
+	.target.on {
+		opacity: 1;
+	}
+
+	/* The pointer is drawn at its own fixed size whatever the zoom, so the script sets its scale to match. */
+	.cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.cursor.visible {
+		opacity: 1;
+	}
+
+	.cursor svg {
+		position: absolute;
+		top: -2px;
+		left: -2px;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.world,
+		.node,
+		.rail-item,
+		.tl::after,
+		.tl .dot,
+		.tl .glyph,
+		.tl .label,
+		.step-body,
+		.src,
+		.target,
+		.node.condition .inner,
+		.node.end .inner {
+			transition: none;
+		}
+
+		.node.pop > .inner,
+		.node.promoted::after {
+			animation: none;
+		}
+	}
+</style>
+</head>
+<body>
+<main class="wrap">
+	<h1 class="sr-only">Building a journey in Service Studio</h1>
+
+	<div class="viewport" id="viewport">
+		<!-- The drawing is for sight only. The current step is repeated in plain text just below for screen readers. -->
+		<div class="stage" id="stage" aria-hidden="true">
+			<div class="canvas" id="canvas">
+				<div class="world" id="world">
+					<svg class="edges" id="edges" width="900" height="900">
+						<path class="drag" id="drag" d=""></path>
+					</svg>
+					<div id="nodes"></div>
+					<div class="src" id="src"></div>
+					<div class="target" id="target"></div>
+					<div class="cursor" id="cursor">
+						<svg width="18" height="24" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7 17 L11 26 L14 24.5 L10 16 L17 16 Z" fill="#0b0c0c" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+					</div>
+				</div>
+			</div>
+			<div class="canvas-fade"></div>
+
+			<div class="rail">
+				<span class="rail-item" data-shape="step"><span class="glyph-step"></span></span>
+				<span class="rail-item" data-shape="condition"><span class="glyph-condition"></span></span>
+				<span class="rail-item" data-shape="end"><span class="glyph-end"></span></span>
+			</div>
+
+			<ol class="timeline" id="timeline"></ol>
+		</div>
+	</div>
+	<p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+	// The shapes that end up on the canvas, by centre. The first five are the short service that has been
+	// generated. draft shapes start faded until they are connected.
+	const NODES = {
+		begin: { kind: 'start', x: 450, y: 70, w: 36, h: 36 },
+		check: { kind: 'step', x: 450, y: 150, w: 290, h: 44, text: 'Check you can use this service' },
+		licence: { kind: 'step', x: 450, y: 230, w: 290, h: 44, text: 'Enter your driving licence number' },
+		identity: { kind: 'step', x: 450, y: 310, w: 290, h: 44, text: 'Confirm your identity' },
+		choose: { kind: 'step', x: 450, y: 390, w: 290, h: 44, text: 'Choose how to enter your address' },
+		gate: { kind: 'condition', x: 450, y: 500, w: 36, h: 36, draft: true },
+		postcode: { kind: 'step', x: 320, y: 620, w: 244, h: 44, text: 'Find your address by postcode' },
+		manual: { kind: 'step', x: 580, y: 620, w: 244, h: 44, text: 'Enter your address manually' },
+		finish: { kind: 'end', x: 450, y: 760, w: 36, h: 36, draft: true }
+	};
+
+	// The lines, each from the bottom of one shape to the top of the next. g1 to g4 belong to the generated
+	// service and draw themselves. The two shapes that become real once connected are named in PROMOTES
+	// against the line that completes them.
+	const EDGES = {
+		g1: ['begin', 'check'],
+		g2: ['check', 'licence'],
+		g3: ['licence', 'identity'],
+		g4: ['identity', 'choose'],
+		a: ['choose', 'gate'],
+		b: ['gate', 'postcode'],
+		c: ['gate', 'manual'],
+		d: ['postcode', 'finish'],
+		e: ['manual', 'finish']
+	};
+	const PROMOTES = { c: 'gate', d: 'finish' };
+
+	// The numbered steps listed down the right hand side. They say why each moment matters, not what is
+	// already visible on the canvas. Each has a small glyph, drawn here as SVG.
+	const GLYPH_STROKE = 'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
+	const STEPS = [
+		{
+			text: 'A first draft of the service is generated',
+			glyph: `<svg width="20" height="20" viewBox="0 0 20 20" ${GLYPH_STROKE}><rect x="5" y="1.5" width="10" height="5" rx="1.5"/><path d="M10 6.5V13.5"/><rect x="5" y="13.5" width="10" height="5" rx="1.5"/></svg>`
+		},
+		{
+			text: 'Refine only the part that needs a person',
+			glyph: `<svg width="20" height="20" viewBox="0 0 20 20" ${GLYPH_STROKE}><circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.6 12.6L17.5 17.5"/></svg>`
+		},
+		{
+			text: 'Branch where people need different routes',
+			glyph: '<span class="glyph-condition"></span>'
+		},
+		{
+			text: 'Add an end to a step',
+			glyph: '<span class="glyph-end"></span>'
+		},
+		{
+			text: 'Connected shapes become part of the service',
+			glyph: `<svg width="22" height="14" viewBox="0 0 22 14" ${GLYPH_STROKE}><circle cx="3" cy="7" r="2.4"/><circle cx="11" cy="7" r="2.4"/><circle cx="19" cy="7" r="2.4"/><path d="M5.4 7H8.6M13.4 7H16.6"/></svg>`
+		}
+	];
+	const CHECK = '<svg width="14" height="11" viewBox="0 0 14 11"><path d="M1.5 5.5L5 9L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.4"/></svg>';
+
+	const OVERVIEW = { s: 1, fx: 450, fy: 450 };
+	const CURSOR_START = { x: 760, y: 560 };
+	const SVG_NS = 'http://www.w3.org/2000/svg';
+	const $ = (id) => document.getElementById(id);
+
+	const stage = $('stage');
+	const viewport = $('viewport');
+	const canvas = $('canvas');
+	const world = $('world');
+	const cursorEl = $('cursor');
+	const dragEl = $('drag');
+
+	const nodeEls = {};
+	const edgeEls = {};
+	const stepEls = [];
+
+	let cursor = { ...CURSOR_START };
+	let cam = { ...OVERVIEW };
+
+	/**
+	 * Draws the stage once: the timeline, a hidden shape for every entry in NODES and an undrawn line for
+	 * every entry in EDGES. The timeline only ever shows, moves and styles these, it never creates them.
+	 */
+	function build() {
+		STEPS.forEach((step, index) => {
+			const item = document.createElement('li');
+			item.className = 'tl';
+			item.innerHTML = `<span class="dot">${CHECK}<b>${index + 1}</b></span><span class="glyph">${step.glyph}</span><span class="label">${step.text}</span>`;
+			$('timeline').appendChild(item);
+			stepEls.push(item);
+		});
+
+		for (const [id, c] of Object.entries(NODES)) {
+			const el = document.createElement('div');
+			el.className = `node ${c.kind}`;
+			el.style.width = c.w + 'px';
+			el.style.height = c.h + 'px';
+
+			let inner = '';
+			if (c.kind === 'step') inner = `<div class="inner step-body">${c.text}</div>`;
+			if (c.kind === 'condition') inner = `<div class="inner"><div class="cond-shape"></div></div>`;
+			if (c.kind === 'start') inner = `<div class="inner"><div class="start-disc"></div></div>`;
+			if (c.kind === 'end') inner = `<div class="inner"><div class="end-disc"></div></div>`;
+			el.innerHTML = inner;
+			$('nodes').appendChild(el);
+			nodeEls[id] = el;
+		}
+
+		for (const [id, [from, to]] of Object.entries(EDGES)) {
+			const path = document.createElementNS(SVG_NS, 'path');
+			path.setAttribute('class', 'edge');
+			path.setAttribute('pathLength', '1');
+			path.setAttribute('d', route(handlePoint(from, 'bot'), handlePoint(to, 'top')));
+			$('edges').insertBefore(path, dragEl);
+			edgeEls[id] = path;
+		}
+	}
+
+	/**
+	 * The centre of a shape's top or bottom edge, in the drawing's own coordinates.
+	 */
+	function handlePoint(id, side) {
+		const n = NODES[id];
+		return { x: n.x, y: side === 'top' ? n.y - n.h / 2 : n.y + n.h / 2 };
+	}
+
+	/**
+	 * The path for a line between two points: straight down when they line up, otherwise down to a level a
+	 * little above the target, across, and down again, with rounded corners.
+	 */
+	function route(a, b) {
+		if (Math.abs(a.x - b.x) < 1) return `M${a.x} ${a.y}V${b.y}`;
+		const bus = b.y - 30;
+		const r = 10;
+		const dir = b.x > a.x ? 1 : -1;
+		return `M${a.x} ${a.y}V${bus - r}Q${a.x} ${bus} ${a.x + dir * r} ${bus}H${b.x - dir * r}Q${b.x} ${bus} ${b.x} ${bus + r}V${b.y}`;
+	}
+
+	/**
+	 * Scales the fixed size stage to the width it has been given.
+	 */
+	function fit() {
+		stage.style.transform = `scale(${viewport.clientWidth / 1440})`;
+	}
+
+	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+	const lerp = (a, b, t) => a + (b - a) * t;
+	const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+	const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+	/**
+	 * Runs onFrame with a 0 to 1 progress value over the given milliseconds, and resolves when it is done.
+	 */
+	function tween(ms, onFrame, ease = easeInOut) {
+		return new Promise((resolve) => {
+			const start = performance.now();
+			function frame(now) {
+				const t = clamp((now - start) / ms, 0, 1);
+				onFrame(ease(t));
+				if (t < 1) requestAnimationFrame(frame);
+				else resolve();
+			}
+			requestAnimationFrame(frame);
+		});
+	}
+
+	const wait = (ms) => tween(ms, () => {}, (t) => t);
+
+	/**
+	 * Sets the view: the zoom, and the point of the drawing that sits in the middle of the canvas. The dot
+	 * grid is moved and spaced with it so the whole canvas, not just the shapes, appears to zoom.
+	 */
+	function setCamera(s, fx, fy) {
+		cam = { s, fx, fy };
+		const tx = 450 - fx * s;
+		const ty = 450 - fy * s;
+		world.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+		canvas.style.backgroundSize = `${30 * s}px ${30 * s}px`;
+		canvas.style.backgroundPosition = `${tx}px ${ty}px`;
+		setCursor(cursor.x, cursor.y);
+	}
+
+	/**
+	 * Eases the view to a new zoom and centre. Zoom is blended by ratio rather than by amount, which is
+	 * what makes a zoom feel even from start to finish.
+	 */
+	function moveCamera(s, fx, fy, ms) {
+		const from = { ...cam };
+		return tween(ms, (e) =>
+			setCamera(from.s * Math.pow(s / from.s, e), lerp(from.fx, fx, e), lerp(from.fy, fy, e))
+		);
+	}
+
+	/**
+	 * Puts the pointer at a point of the drawing, shrunk by the zoom so it stays the same size on screen.
+	 */
+	function setCursor(x, y) {
+		cursor = { x, y };
+		cursorEl.style.transform = `translate(${x}px, ${y}px) scale(${1 / cam.s})`;
+	}
+
+	/**
+	 * Slides the pointer to a point.
+	 */
+	function moveCursor(x, y, ms) {
+		const from = { ...cursor };
+		return tween(ms, (e) => setCursor(lerp(from.x, x, e), lerp(from.y, y, e)));
+	}
+
+	/**
+	 * Positions a shape by its centre and scale.
+	 */
+	function setPose(id, x, y, scale) {
+		const n = NODES[id];
+		nodeEls[id].style.transform = `translate(${x - n.w / 2}px, ${y - n.h / 2}px) scale(${scale})`;
+	}
+
+	/**
+	 * Moves the timeline on to a step: those before it are ticked, it is the large blue one, and the rest
+	 * wait in grey.
+	 */
+	function showStep(number) {
+		stepEls.forEach((el, index) => {
+			el.classList.toggle('done', index < number - 1);
+			el.classList.toggle('current', index === number - 1);
+		});
+		$('live').textContent = STEPS[number - 1].text;
+	}
+
+	/**
+	 * Highlights one shape on the rail, or none, to show which kind is being added.
+	 */
+	function setRail(shape) {
+		document.querySelectorAll('.rail-item').forEach((el) => {
+			el.classList.toggle('active', el.dataset.shape === shape);
+		});
+	}
+
+	/**
+	 * Brings a shape onto the canvas: it fades in a little above its place and settles down into it.
+	 */
+	async function appear(id, ms = 450, after = 400) {
+		const n = NODES[id];
+		nodeEls[id].classList.add('show');
+		await tween(ms, (e) => setPose(id, n.x, lerp(n.y - 18, n.y, e), lerp(0.8, 1, e)), easeOut);
+		nodeEls[id].classList.add('placed', 'pop');
+		await wait(after);
+	}
+
+	/**
+	 * Draws a line on its own, with no pointer, the way the generated part of the service arrives.
+	 */
+	async function autoDraw(id) {
+		await tween(450, (e) => {
+			edgeEls[id].style.strokeDashoffset = String(1 - e);
+		});
+	}
+
+	/**
+	 * Marks where a line is being dragged from: a small blue square on the shape's bottom edge.
+	 */
+	function showSource(point) {
+		const el = $('src');
+		el.style.left = point.x + 'px';
+		el.style.top = point.y + 'px';
+		el.classList.add('on');
+	}
+
+	/**
+	 * Marks where a line will land: a dashed outline round the shape, in the same shape as the shape itself.
+	 */
+	function showTarget(id) {
+		const n = NODES[id];
+		// A step gets a rounded box, a condition a diamond (a square turned on its corner) and a start or
+		// end a circle.
+		const isStep = n.kind === 'step';
+		const isDiamond = n.kind === 'condition';
+		const w = isStep ? n.w + 16 : isDiamond ? 40 : 60;
+		const h = isStep ? n.h + 16 : isDiamond ? 40 : 60;
+		const ring = $('target');
+		ring.style.width = w + 'px';
+		ring.style.height = h + 'px';
+		ring.style.left = n.x - w / 2 + 'px';
+		ring.style.top = n.y - h / 2 + 'px';
+		ring.style.borderRadius = isStep ? '10px' : isDiamond ? '3px' : '50%';
+		ring.style.transform = isDiamond ? 'rotate(45deg)' : '';
+		ring.classList.add('on');
+		nodeEls[id].classList.add('targeted');
+
+	}
+
+	/**
+	 * Clears the line start mark and the landing outline.
+	 */
+	function clearGuides() {
+		$('src').classList.remove('on');
+		$('target').classList.remove('on');
+		Object.values(nodeEls).forEach((el) => el.classList.remove('targeted'));
+		dragEl.setAttribute('d', '');
+	}
+
+	/**
+	 * Draws a line the way a person would: press on the bottom of one shape, drag a dotted line along its
+	 * final route, with the pointer on its leading edge, and let go over the next shape. A shape named in
+	 * PROMOTES stops being faded once its line is drawn.
+	 */
+	async function connect(id) {
+		const [from, to] = EDGES[id];
+		const a = handlePoint(from, 'bot');
+		const path = edgeEls[id];
+		const length = path.getTotalLength();
+
+		await moveCursor(a.x, a.y, 450);
+		showSource(a);
+		await wait(250);
+
+		await tween(700, (e) => {
+			const reach = e * length;
+			let d = `M${a.x} ${a.y}`;
+			for (let at = 4; at < reach; at += 4) {
+				const p = path.getPointAtLength(at);
+				d += `L${p.x} ${p.y}`;
+			}
+			const head = path.getPointAtLength(reach);
+			dragEl.setAttribute('d', `${d}L${head.x} ${head.y}`);
+			setCursor(head.x, head.y);
+		});
+
+		showTarget(to);
+		await moveCursor(NODES[to].x, NODES[to].y, 250);
+		await wait(450);
+
+		clearGuides();
+		path.style.strokeDashoffset = '0';
+
+		const promoted = PROMOTES[id];
+		if (promoted) {
+			nodeEls[promoted].classList.remove('draft');
+			nodeEls[promoted].classList.add('promoted');
+		}
+		await wait(350);
+	}
+
+	/**
+	 * Puts everything back to the empty canvas, ready for the timeline to start again.
+	 */
+	function reset() {
+		world.classList.remove('fade');
+		cursorEl.classList.remove('visible');
+		setRail(null);
+		clearGuides();
+		setCamera(OVERVIEW.s, OVERVIEW.fx, OVERVIEW.fy);
+		setCursor(CURSOR_START.x, CURSOR_START.y);
+		for (const [id, c] of Object.entries(NODES)) {
+			nodeEls[id].classList.remove('show', 'placed', 'pop', 'promoted', 'selected');
+			nodeEls[id].classList.toggle('draft', Boolean(c.draft));
+			setPose(id, c.x, c.y, 1);
+		}
+		for (const el of Object.values(edgeEls)) el.style.strokeDashoffset = '';
+	}
+
+	/**
+	 * The whole story, in order: a generated service arrives, the view zooms in on its last step, and a
+	 * condition, two branches and an end are added to it, each connected as it appears.
+	 */
+	async function run() {
+		reset();
+		showStep(1);
+		await wait(700);
+		await appear('begin', 300, 120);
+		for (const [shape, line] of [['check', 'g1'], ['licence', 'g2'], ['identity', 'g3'], ['choose', 'g4']]) {
+			await appear(shape, 300, 60);
+			await autoDraw(line);
+		}
+		await wait(1000);
+
+		showStep(2);
+		nodeEls.choose.classList.add('selected');
+		cursorEl.classList.add('visible');
+		await moveCamera(1.7, 450, 440, 1400);
+		await wait(700);
+
+		showStep(3);
+		setRail('condition');
+		await moveCamera(1.5, 450, 480, 800);
+		await appear('gate');
+		await connect('a');
+		setRail('step');
+		await moveCamera(1.1, 450, 550, 1000);
+		await appear('postcode');
+		await connect('b');
+		await appear('manual');
+		await connect('c');
+
+		showStep(4);
+		setRail('end');
+		await appear('finish');
+		await connect('d');
+		await connect('e');
+
+		showStep(5);
+		setRail(null);
+		nodeEls.choose.classList.remove('selected');
+		cursorEl.classList.remove('visible');
+		await moveCamera(OVERVIEW.s, OVERVIEW.fx, OVERVIEW.fy, 1200);
+		await wait(3500);
+		world.classList.add('fade');
+		await wait(1000);
+	}
+
+	/**
+	 * Runs the story over and over.
+	 */
+	async function loop() {
+		while (true) await run();
+	}
+
+	/**
+	 * Shows the finished journey straight away, with nothing moving, for anyone who has asked their device
+	 * to reduce motion.
+	 */
+	function showFinal() {
+		reset();
+		for (const [id, c] of Object.entries(NODES)) {
+			nodeEls[id].classList.add('show', 'placed');
+			nodeEls[id].classList.remove('draft');
+			setPose(id, c.x, c.y, 1);
+		}
+		for (const el of Object.values(edgeEls)) el.style.strokeDashoffset = '0';
+		showStep(STEPS.length);
+	}
+
+	build();
+	fit();
+	new ResizeObserver(fit).observe(viewport);
+
+	if (matchMedia('(prefers-reduced-motion: reduce)').matches) showFinal();
+	else loop();
+</script>
+</body>
+</html>
