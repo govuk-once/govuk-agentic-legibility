@@ -58,10 +58,11 @@ def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
     schema = awaiting.get("schema") or {}
 
     fields = schema.get("fields", [])
+    interactive_fields = [f for f in fields if f.get("type") != "display"]
 
-    if len(fields) == 1:
+    if len(interactive_fields) == 1:
 
-        field_type = fields[0].get("type")
+        field_type = interactive_fields[0].get("type")
 
         if field_type == "choice":
             kind = "select_one"

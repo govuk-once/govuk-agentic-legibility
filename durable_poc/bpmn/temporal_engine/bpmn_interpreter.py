@@ -313,7 +313,7 @@ class BPMNInterpreter:
 
         return textwrap.dedent(
             text,
-        ).strip()
+        ).strip().replace("\\n", "\n")
 
     #
     # Workflow Entry
