@@ -1,6 +1,8 @@
 <script lang="ts">
 	import RemoveStepConfirm from './RemoveStepConfirm.svelte';
 	import StepReorderButtons from './StepReorderButtons.svelte';
+	import StepContext from './StepContext.svelte';
+	import type { ContextItem } from './context';
 	import { defaultStepType } from '$lib/schema';
 	import type { ServiceStep, ServiceStepKind, StepTransition } from '$lib/schema';
 
@@ -19,6 +21,10 @@
 		// Whether this step is already the journey's entry point, so "Set as start step" only ever offers
 		// somewhere new to move it from.
 		isStartStep: boolean;
+		// Context added for the agent on this step. Held by the page and changed straight away when added or
+		// removed, not by Apply changes, since it is not part of the step's own fields.
+		contextItems: ContextItem[];
+		onContextChange: (items: ContextItem[]) => void;
 		onApply: (updatedStep: ServiceStep) => void;
 		onCancel: (stepId: string) => void;
 		onRemove: (stepId: string) => void;
@@ -35,6 +41,8 @@
 		canMoveUp,
 		canMoveDown,
 		isStartStep,
+		contextItems,
+		onContextChange,
 		onApply,
 		onCancel,
 		onRemove,
@@ -205,6 +213,13 @@
 				{/each}
 			</select>
 		</div>
+
+		<!-- Sits before the routes, straight after the step's own details, as in the design. Keyed on the
+			step, so opening a different step starts with the section closed and no half typed form carried
+			over from the previous one. -->
+		{#key step.id}
+			<StepContext items={contextItems} onChange={onContextChange} />
+		{/key}
 
 		{#if !isBranch}
 			<div class="govuk-form-group step-editor__form-group">

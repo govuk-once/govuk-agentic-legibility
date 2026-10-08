@@ -6,6 +6,7 @@
 	import StepEditorCard from '$lib/components/StepEditorCard.svelte';
 	import JourneyGraph from '$lib/graph/JourneyGraph.svelte';
 	import GraphToolbar from '$lib/graph/GraphToolbar.svelte';
+	import type { ContextItem } from '$lib/components/context';
 	import { humanKind, isBranchStep, kindColour } from '$lib/schema';
 	import type { Service, ServiceStep } from '$lib/schema';
 	import type { PageData } from './$types';
@@ -45,6 +46,14 @@
 		explicitEndStepIds = new Set([...explicitEndStepIds, stepId]);
 	}
 
+	// Context added for the agent, by step id. Held here only to try out the interaction: it lasts while
+	// the page is open, is not part of the service, and is not saved anywhere.
+	let stepContext = $state.raw<Record<string, ContextItem[]>>({});
+
+	function handleContextChange(stepId: string, items: ContextItem[]) {
+		stepContext = { ...stepContext, [stepId]: items };
+	}
+
 	// Tracks which step is highlighted. Shared both ways with the graph, so selecting a step in the list
 	// also highlights it on the canvas, and the other way round.
 	let selectedStepId = $state<string | null>(null);
@@ -73,6 +82,7 @@
 		loadedSlug = data.example.slug;
 		workingService = structuredClone(data.example.service);
 		explicitEndStepIds = deadEndsAtLoad(workingService);
+		stepContext = {};
 		editingStepId = null;
 		selectedStepId = null;
 	});
@@ -470,6 +480,8 @@
 						canMoveUp={step.number > 1}
 						canMoveDown={step.number < stepsWithNumbers.length}
 						isStartStep={step.id === workingService.startStepId}
+						contextItems={stepContext[step.id] ?? []}
+						onContextChange={(items) => handleContextChange(step.id, items)}
 						onApply={handleApplyStep}
 						onCancel={handleCancelEdit}
 						onRemove={handleRemoveStep}
