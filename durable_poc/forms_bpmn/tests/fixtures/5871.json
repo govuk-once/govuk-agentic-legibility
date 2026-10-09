@@ -1,0 +1,371 @@
+{
+  "id": 13175,
+  "form_id": 5871,
+  "tag": "live",
+  "content": {
+    "name": "Submit liquefied petroleum gas (LPG) statistics (individual tanks)",
+    "steps": [
+      {
+        "id": "Jcggb7bK",
+        "data": {
+          "hint_text": null,
+          "answer_type": "organisation_name",
+          "is_optional": false,
+          "page_heading": "How to complete this form",
+          "is_repeatable": false,
+          "question_text": "What's the name of your company?",
+          "answer_settings": null,
+          "guidance_markdown": "This form is for information about non-metered estates only. \r\n\r\nIf your company supplies metered estates, you will need to [complete a separate form](https://submit.forms.service.gov.uk/form/5870/submit-liquefied-petroleum-gas-lpg-statistics-metered-estates). "
+        },
+        "type": "question",
+        "position": 1,
+        "exit_pages": [],
+        "next_step_id": "LRhEpZMu",
+        "routing_conditions": []
+      },
+      {
+        "id": "LRhEpZMu",
+        "data": {
+          "hint_text": null,
+          "answer_type": "name",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What's your name?",
+          "answer_settings": {
+            "input_type": "full_name",
+            "title_needed": "false"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 2,
+        "exit_pages": [],
+        "next_step_id": "ywtiZe89",
+        "routing_conditions": []
+      },
+      {
+        "id": "ywtiZe89",
+        "data": {
+          "hint_text": "You can provide your email address or one for a shared inbox.",
+          "answer_type": "email",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What's your email address?",
+          "answer_settings": {
+            "only_one_option": "true",
+            "selection_options": [
+              {
+                "name": "Q1: January to March"
+              },
+              {
+                "name": "Q2: April to June"
+              }
+            ]
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 3,
+        "exit_pages": [],
+        "next_step_id": "YBXGZZ2L",
+        "routing_conditions": []
+      },
+      {
+        "id": "YBXGZZ2L",
+        "data": {
+          "hint_text": "Tell us the total number as at 31 May 2026.",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many domestic customers does your company supply?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 4,
+        "exit_pages": [],
+        "next_step_id": "geJC2kBD",
+        "routing_conditions": []
+      },
+      {
+        "id": "geJC2kBD",
+        "data": {
+          "hint_text": "Enter data for the period 1 June 2025 to 31 May 2026.",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many tank transfer requests did you receive?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 5,
+        "exit_pages": [],
+        "next_step_id": "9pgU2CDc",
+        "routing_conditions": []
+      },
+      {
+        "id": "9pgU2CDc",
+        "data": {
+          "hint_text": "Enter data for the period 1 June 2025 to 31 May 2026. Reasons might include supplier rejections, customer re-signings, or other reasons. ",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many tank transfer requests were withdrawn?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 6,
+        "exit_pages": [],
+        "next_step_id": "GUFpj8tP",
+        "routing_conditions": []
+      },
+      {
+        "id": "GUFpj8tP",
+        "data": {
+          "hint_text": "Enter data for the period 1 June 2025 to 31 May 2026.",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many tank transfer requests were refused because of minimum period obligations in supply contracts?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 7,
+        "exit_pages": [],
+        "next_step_id": "59BYYz8a",
+        "routing_conditions": []
+      },
+      {
+        "id": "59BYYz8a",
+        "data": {
+          "hint_text": "Enter data for the period 1 June 2025 to 31 May 2026. Reasons might include problems with land ownership, or engineering or infrastructure problems.",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many tank transfer requests were refused for other reasons?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 8,
+        "exit_pages": [],
+        "next_step_id": "S6uHQYLE",
+        "routing_conditions": []
+      },
+      {
+        "id": "S6uHQYLE",
+        "data": {
+          "hint_text": "Enter data for the period 1 June 2025 to 31 May 2026. Include customers who had their tank uplifted for any reason, including fuel type changes.",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many tank uplifts took place?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 9,
+        "exit_pages": [],
+        "next_step_id": "MADaqMjD",
+        "routing_conditions": []
+      },
+      {
+        "id": "MADaqMjD",
+        "data": {
+          "hint_text": "Enter data for the period 1 June 2025 to 31 May 2026. Include new installations and customers switching from another LPG supplier.",
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many new customers did your company acquire?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 10,
+        "exit_pages": [],
+        "next_step_id": "AvKNrygg",
+        "routing_conditions": []
+      },
+      {
+        "id": "AvKNrygg",
+        "data": {
+          "hint_text": null,
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many tank transfers were completed within 28 days?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 11,
+        "exit_pages": [],
+        "next_step_id": "vtniG7mZ",
+        "routing_conditions": []
+      },
+      {
+        "id": "vtniG7mZ",
+        "data": {
+          "hint_text": "Provide any explanations or assumptions used in these figures, if necessary.",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": "Customers who switch away",
+          "is_repeatable": false,
+          "question_text": "How many switches were completed within 42 days?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": "Article 14.1 puts a time limit of 42 days in place between:\r\n\r\n* the existing supplier receiving a notice of termination of contract and a notice of tank transfer request / tank uplift request, and the date of agreement to purchase the existing tank (or the installation of a new tank), or\r\n\r\n* the customer requesting tank transfer and the date of agreement to purchase the existing tank (or the installation of a new tank)\r\n\r\nYou can find a detailed explanation in the Domestic Bulk LPG Market Investigation Order on the [Liquefied petroleum gas (LPG) market orders and calculator page](https://www.gov.uk/government/publications/liquefied-petroleum-gas-lpg-market-orders-and-calculator)."
+        },
+        "type": "question",
+        "position": 12,
+        "exit_pages": [],
+        "next_step_id": "FPoTvnio",
+        "routing_conditions": []
+      },
+      {
+        "id": "FPoTvnio",
+        "data": {
+          "hint_text": null,
+          "answer_type": "number",
+          "is_optional": false,
+          "page_heading": "Customers who switch away",
+          "is_repeatable": false,
+          "question_text": "Of the customers who switched away from your company who were subject to Article 14.1, how many had Article 14.2 or 14.3 applied?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": "These exemptions relate to Articles 14.2 and 14.3 of the Order.\r\n\r\n* Article 14.2 excludes customers who provided written consent that the 42 day limit could be exceeded\r\n* Article 14.3 excludes switches where engineering works were required, such as tank re-siting\r\n\r\nYou can find a detailed explanation in the Domestic Bulk LPG Market Investigation Order on the [Liquefied petroleum gas (LPG) market orders and calculator page](https://www.gov.uk/government/publications/liquefied-petroleum-gas-lpg-market-orders-and-calculator)."
+        },
+        "type": "question",
+        "position": 13,
+        "exit_pages": [],
+        "next_step_id": "44v3QJHf",
+        "routing_conditions": []
+      },
+      {
+        "id": "44v3QJHf",
+        "data": {
+          "hint_text": "This is the number of switches subject to Article 14.1, minus those that were subject to Article 14.2 (customer consent for a longer switch) and Article 14.3 (re-siting or engineering work).\r\n\r\nProvide any explanations or assumptions used in these figures, if necessary.",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many switches should have met the 42 day requirement?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 14,
+        "exit_pages": [],
+        "next_step_id": "bxqe9AL7",
+        "routing_conditions": []
+      },
+      {
+        "id": "bxqe9AL7",
+        "data": {
+          "hint_text": "Provide any explanations or assumptions used in these figures, if necessary.\r\n",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many switches did meet the 42 day requirement?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 15,
+        "exit_pages": [],
+        "next_step_id": "Lwqnnr8m",
+        "routing_conditions": []
+      },
+      {
+        "id": "Lwqnnr8m",
+        "data": {
+          "hint_text": "Do not include any that were subject to Article 14.2 (customer consent for a longer switch) and Article 14.3 (re-siting or engineering work).",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "How many switches did not meet the 42 day requirement?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 16,
+        "exit_pages": [],
+        "next_step_id": "iFnjVDfM",
+        "routing_conditions": []
+      },
+      {
+        "id": "iFnjVDfM",
+        "data": {
+          "hint_text": null,
+          "answer_type": "text",
+          "is_optional": true,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "Do you have any feedback about this form?",
+          "answer_settings": {
+            "input_type": "long_text"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 17,
+        "exit_pages": [],
+        "next_step_id": null,
+        "routing_conditions": []
+      }
+    ],
+    "form_id": "5871",
+    "live_at": "2026-09-08T14:30:43.534494Z",
+    "brand_id": null,
+    "language": "en",
+    "form_slug": "submit-liquefied-petroleum-gas-lpg-statistics-individual-tanks",
+    "created_at": "2025-01-30T10:13:46.174713Z",
+    "creator_id": 1910,
+    "start_page": "Jcggb7bK",
+    "updated_at": "2026-09-08T14:30:43.534494Z",
+    "payment_url": null,
+    "support_url": null,
+    "support_email": "remediesmonitoringteam@cma.gov.uk",
+    "support_phone": "020 3738 6000",
+    "copied_from_id": null,
+    "declaration_text": "By submitting this form you’re confirming that, to the best of your knowledge, the answers you’re providing are correct.",
+    "support_url_text": null,
+    "first_made_live_at": "2025-06-02T00:00:00.000000Z",
+    "privacy_policy_url": "https://www.gov.uk/government/organisations/competition-and-markets-authority/about/personal-information-charter",
+    "available_languages": [
+      "en"
+    ],
+    "declaration_markdown": "By submitting this form you’re confirming that, to the best of your knowledge, the answers you’re providing are correct.\n\n",
+    "send_copy_of_answers": "disabled",
+    "what_happens_next_markdown": "We will:\r\n\r\n* review your information\r\n* use this data to check compliance with the market order\r\n* send you an email to let you know the outcome\r\n\r\nPlease [give us feedback](https://www.gov.uk/done/submit-liquefied-petroleum-gas-lpg-statistics-individual-tanks) on using this form. "
+  },
+  "created_at": "2026-09-08 14:30:43.601142",
+  "updated_at": "2026-09-08 14:30:43.601142",
+  "language": "en",
+  "version": 2
+}

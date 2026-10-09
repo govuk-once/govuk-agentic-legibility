@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Optional independent BPMN import/schema checks; not converter runtime dependencies",
+  "devDependencies": {
+    "bpmn-moddle": "10.3.1"
+  }
+}

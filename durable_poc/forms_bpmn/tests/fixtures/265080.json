@@ -1,0 +1,230 @@
+{
+  "id": 10000,
+  "form_id": 265080,
+  "tag": "live",
+  "content": {
+    "name": "Request to add IP rights to your IP account",
+    "steps": [
+      {
+        "id": "Li3wC4fD",
+        "data": {
+          "hint_text": "We can only link patents to your IP account if the name and address match the legal entity details on your IP account exactly.",
+          "answer_type": "organisation_name",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is the name of the legal entity your IP account is linked to?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 1,
+        "next_step_id": "Dm1cKMyX",
+        "routing_conditions": []
+      },
+      {
+        "id": "Dm1cKMyX",
+        "data": {
+          "hint_text": "We can only link patents to your IP account if the name and address match the legal entity details on your IP account exactly.",
+          "answer_type": "address",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is the full address of the legal entity? ",
+          "answer_settings": {
+            "input_type": {
+              "uk_address": "true",
+              "international_address": "false"
+            }
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 2,
+        "next_step_id": "59kGCS2D",
+        "routing_conditions": []
+      },
+      {
+        "id": "59kGCS2D",
+        "data": {
+          "hint_text": null,
+          "answer_type": "selection",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "Are any patents or applications currently visible in your IP account?",
+          "answer_settings": {
+            "only_one_option": "true",
+            "selection_options": [
+              {
+                "name": "Yes",
+                "value": "Yes"
+              },
+              {
+                "name": "No",
+                "value": "No"
+              }
+            ]
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 3,
+        "next_step_id": "xa9aPKTh",
+        "routing_conditions": [
+          {
+            "id": 136634,
+            "created_at": "2026-04-23T14:23:45.536205Z",
+            "updated_at": "2026-04-23T14:23:45.536205Z",
+            "skip_to_end": false,
+            "answer_value": "No",
+            "goto_page_id": "mnjL9UmK",
+            "check_page_id": "59kGCS2D",
+            "routing_page_id": "59kGCS2D",
+            "exit_page_heading": null,
+            "validation_errors": [],
+            "exit_page_markdown": null
+          }
+        ]
+      },
+      {
+        "id": "xa9aPKTh",
+        "data": {
+          "hint_text": "For example, GB1234567, GB1234567.1, EP1234567, EP12345678.9",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "Enter a patent or application that you can view in your account",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 4,
+        "next_step_id": "mnjL9UmK",
+        "routing_conditions": [
+          {
+            "id": 136635,
+            "created_at": "2026-04-23T14:24:34.673584Z",
+            "updated_at": "2026-04-23T14:24:34.673584Z",
+            "skip_to_end": false,
+            "answer_value": null,
+            "goto_page_id": "M5dD7tjq",
+            "check_page_id": "59kGCS2D",
+            "routing_page_id": "xa9aPKTh",
+            "exit_page_heading": null,
+            "validation_errors": [],
+            "exit_page_markdown": null
+          }
+        ]
+      },
+      {
+        "id": "mnjL9UmK",
+        "data": {
+          "hint_text": "For example, GB1234567, GB1234567.1, EP1234567, EP12345678.9",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": "How we link patents and applications to a legal entity",
+          "is_repeatable": false,
+          "question_text": "Enter only one GB or EP patent or application associated with the legal entity",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": "You must enter only one UK or EP patent or application number.\r\n\r\nIf you have just applied for a patent, use the application number shown on the confirmation page or in the confirmation email.\r\n\r\nYou can continue to use services in the intellectual property account while we process your request.\r\n\r\nDo not submit this request again unless we ask you to."
+        },
+        "type": "question",
+        "position": 5,
+        "next_step_id": "M5dD7tjq",
+        "routing_conditions": []
+      },
+      {
+        "id": "M5dD7tjq",
+        "data": {
+          "hint_text": "For example, GB1234567, GB1234567.1, EP1234567, EP12345678.9",
+          "answer_type": "text",
+          "is_optional": false,
+          "page_heading": "Details of missing patents",
+          "is_repeatable": true,
+          "question_text": "Enter the patent or application number that is missing from your IP account",
+          "answer_settings": {
+            "input_type": "single_line"
+          },
+          "guidance_markdown": "As part of your request, you can add up to 50 patents or applications that you think are missing from your IP account.\r\n\r\nTo help us process them, add one number in the box below. \r\n\r\nYou’ll be able to add more on the next page."
+        },
+        "type": "question",
+        "position": 6,
+        "next_step_id": "SXJuBxp1",
+        "routing_conditions": []
+      },
+      {
+        "id": "SXJuBxp1",
+        "data": {
+          "hint_text": null,
+          "answer_type": "name",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What's your full name?",
+          "answer_settings": {
+            "input_type": "full_name",
+            "title_needed": "false"
+          },
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 7,
+        "next_step_id": "zCy3HHnq",
+        "routing_conditions": []
+      },
+      {
+        "id": "zCy3HHnq",
+        "data": {
+          "hint_text": "We will use your GOV.UK One Login email to check that you’re linked to the legal entity.",
+          "answer_type": "email",
+          "is_optional": false,
+          "page_heading": null,
+          "is_repeatable": false,
+          "question_text": "What is your GOV.UK One Login email?",
+          "answer_settings": {},
+          "guidance_markdown": null
+        },
+        "type": "question",
+        "position": 8,
+        "next_step_id": null,
+        "routing_conditions": []
+      }
+    ],
+    "form_id": "265080",
+    "live_at": "2026-04-27T05:44:26.460590Z",
+    "language": "en",
+    "form_slug": "request-to-add-ip-rights-to-your-ip-account",
+    "created_at": "2026-03-26T12:43:25.781333Z",
+    "creator_id": 3246,
+    "start_page": "Li3wC4fD",
+    "updated_at": "2026-04-27T05:44:26.460590Z",
+    "payment_url": null,
+    "support_url": null,
+    "support_email": "information@ipo.gov.uk",
+    "support_phone": null,
+    "copied_from_id": null,
+    "submission_type": "email",
+    "declaration_text": null,
+    "support_url_text": null,
+    "submission_format": [],
+    "first_made_live_at": "2026-03-31T06:30:00.872761Z",
+    "privacy_policy_url": "https://submit.forms.service.gov.uk/preview-live/264844/request-to-link-to-your-legal-entity/privacy",
+    "available_languages": [
+      "en"
+    ],
+    "declaration_markdown": "By submitting this form you’re confirming that:\n\n1. you will not be able to view any pre‑publication patents that were submitted before your account was linked\n   \n2. the name and address you provide must exactly match the legal entity details on your IP account\n   \n3. to the best of your knowledge, the information you have provided is correct",
+    "what_happens_next_markdown": "Your request will be reviewed by our dedicated support team who will carry out validation checks.\r\n\r\nIf your request identifies missing IP rights from your IP account, we will post a letter, to the address for service against the application or publication number(s) you provided. \r\n\r\nIf your request is not accepted, we will notify you by email. You may be asked to submit a new request to add IP rights form.\r\n\r\nWhat you can do now\r\n\r\n[Go to account home (opens in new tab)](https://www.manage-intellectual-property.service.gov.uk/)",
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "created_at": "2026-03-31 06:30:00.984774",
+  "updated_at": "2026-08-12 16:14:42.693751",
+  "language": "en",
+  "version": 1
+}
