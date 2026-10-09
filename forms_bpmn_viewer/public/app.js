@@ -4,6 +4,7 @@ import { diagramBounds, fittedViewbox, focusedViewbox } from './viewport.js';
 
 import {createOverview} from './overview.js';
 import {resizeLabels,preferredFontSize} from './typography.js';
+import {routingRegions,collapsedAncestors,regionView} from './regions.js';
 
 const $ = (id) => document.getElementById(id);
 const viewer = new window.BpmnJS({ container:$('canvas') });
@@ -11,7 +12,7 @@ const overview=createOverview(viewer,$('overview-map'));
 let fontSize=18;try{fontSize=preferredFontSize(localStorage.getItem('forms-viewer-font-size'));}catch{}
 $('font-size').value=String(fontSize);
 $('font-size').addEventListener('change',()=>{fontSize=preferredFontSize($('font-size').value);try{localStorage.setItem('forms-viewer-font-size',String(fontSize));}catch{}if(state.model){resizeLabels(viewer,fontSize);overview.rebuild();viewer.get('canvas').resized();}});
-const state = { forms:[], form:null, variant:null, payload:null, model:null, selected:null, tab:'selection', request:0, preferredMode:null, markers:[], page:0, pageSize:30, questionNodes:new Map() };
+const state = { forms:[], form:null, variant:null, payload:null, model:null, selected:null, tab:'selection', request:0, preferredMode:null, markers:[], page:0, pageSize:30, questionNodes:new Map(), collapsed:new Set(), regions:[], viewRequest:0 };
 function dom(tag, text, className) { const e=document.createElement(tag); if (text !== undefined && text !== null) e.textContent=String(text); if (className) e.className=className; return e; }
 function button(text, action, className) { const e=dom('button',text,className); e.type='button'; e.addEventListener('click',action); return e; }
 function raw(value) { return dom('pre',typeof value === 'string' ? value : JSON.stringify(value,null,2),'raw-json'); }
@@ -60,7 +61,7 @@ $('page-next').addEventListener('click',()=>{state.page++;renderCatalogue();$('f
 
 function notices(items) { const messages=[...new Set(items.filter(Boolean))]; $('notices').replaceChildren(...messages.map(message => dom('div',message))); $('notices').hidden=!messages.length; }
 function empty(message) { const e=$('canvas-empty'); e.hidden=false; e.replaceChildren(dom('span','◇','empty-icon'),dom('h3',message),dom('p','Choose another diagram or inspect the conversion report.')); }
-function controls(enabled) { for (const id of ['zoom-in','zoom-out','fit','readable','focus','download']) $(id).disabled=!enabled; $('previous').disabled=true; $('next').disabled=true; }
+function controls(enabled) { for (const id of ['zoom-in','zoom-out','fit','readable','focus','download','regions-toggle']) $(id).disabled=!enabled; $('previous').disabled=true; $('next').disabled=true; }
 function zoomLabel() { try { $('zoom-label').textContent=Math.round(viewer.get('canvas').zoom()*100)+'%'; } catch { /* before import */ } }
 viewer.on('canvas.viewbox.changed',zoomLabel);
 viewer.on('element.click',event => { if (event.element?.id && state.model?.nodes.has(event.element.id)) selectElement(event.element.id,false); });
@@ -113,14 +114,20 @@ function buildQuestionIndex() {
     .filter(question => found.has(question.id))
     .map(question => [question.id, found.get(question.id)]));
   for (const [sourceId, nodeId] of found) if (!state.questionNodes.has(sourceId)) state.questionNodes.set(sourceId, nodeId);
+  // Generated question names retain their export position even without sidecars.
+  if(!sourceQuestions(state.payload.questions).length){
+    const entries=[...state.questionNodes];
+    const position=id=>/^Q(\d+)\s*[·:]/.exec(state.model.nodes.get(id)?.name || '')?.[1];
+    if(entries.every(([,id])=>position(id)))state.questionNodes=new Map(entries.sort((a,b)=>Number(position(a[1]))-Number(position(b[1]))));
+  }
 }
 async function openForm(form, variant=null, preserveQuestion=null) {
-  const token=++state.request; state.form=form; state.variant=variant || chooseVariant(form.variants,state.preferredMode); state.payload=null; state.model=null; state.selected=null;
+  const token=++state.request; state.form=form; state.variant=variant || chooseVariant(form.variants,state.preferredMode); state.payload=null; state.model=null; state.selected=null;state.regions=[];state.collapsed=new Set();
   overview.clear(); controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
   $('form-id').textContent='FORM '+form.formId; $('form-title').textContent=form.name; $('form-summary').textContent=(form.questionCount ?? 'Unknown number of')+' questions · select a node to inspect';
   for (const id of ['selection','questions','report','source']) $('panel-'+id).replaceChildren(dom('p','Loading…','muted'));
   $('variants').replaceChildren();
-  for (const v of form.variants) { const b=button(v.mode==='auto' ? (v.groups===0 ? 'Auto (no groups)' : 'Grouped') : v.mode==='flat' ? 'Flat' : v.filename,() => { const q=selectedSourceId(); state.preferredMode=v.mode; openForm(form,v,q); },v.id===state.variant?.id ? 'active' : ''); b.title=(v.mode==='auto' ? 'Converter output with safely inferred routing regions shown as expanded subprocesses. No questions are hidden. ' : v.mode==='flat' ? 'Every question and route shown without subprocess grouping. ' : '')+v.filename; b.setAttribute('aria-pressed',String(v.id===state.variant?.id)); $('variants').append(b); }
+  for (const v of form.variants) { const b=button(v.mode==='auto' ? (v.groups===0 ? 'Auto (no groups)' : 'Grouped') : v.mode==='flat' ? 'Flat' : v.filename,() => { const q=selectedSourceId(); state.preferredMode=v.mode; openForm(form,v,q); },v.id===state.variant?.id ? 'active' : ''); b.title=(v.mode==='auto' ? 'Converter output with safely inferred routing regions. Routing regions can be expanded to inspect their questions. ' : v.mode==='flat' ? 'Every question and route shown without subprocess grouping. ' : '')+v.filename; b.setAttribute('aria-pressed',String(v.id===state.variant?.id)); $('variants').append(b); }
   notices(form.issues); $('canvas-empty').hidden=true;
   if (!state.variant) {
     empty('This form has no generated BPMN'); $('diagram-status').textContent='Conversion did not produce a diagram';
@@ -137,19 +144,21 @@ async function openForm(form, variant=null, preserveQuestion=null) {
       if (token!==state.request) return;
       const doc=new DOMParser().parseFromString(payload.xml,'application/xml');
       if (doc.querySelector('parsererror')) throw new Error('The BPMN XML is not well formed.');
-      const result=await viewer.importXML(payload.xml);
+      state.model=inspectXml(doc);
+      state.regions=routingRegions(state.model);state.collapsed=new Set(state.regions.map(n=>n.id));
+      const result=await viewer.importXML(regionView(payload.xml,state.model,state.collapsed));
       if (token!==state.request) { viewer.clear(); return; }
       state.payload=payload; state.model=inspectXml(doc); buildQuestionIndex();
-      resizeLabels(viewer,fontSize); overview.rebuild();
+      resizeLabels(viewer,fontSize); regionControls(); overview.rebuild();
       viewer.get('canvas').resized();
       const warnings=(result.warnings || []).map(w => w.message);
       notices([...form.issues,...payload.issues,...warnings]); $('filename').textContent=payload.filename;
-      controls(true); $('canvas-empty').hidden=true; $('diagram-status').textContent='Click a question or decision. Blue lines show its connected routes.';
-      $('form-summary').textContent=`${form.questionCount ?? state.questionNodes.size} source questions · ${payload.report?.decomposition?.length ?? 0} groups · ${state.variant.mode==='flat' ? 'flat view' : state.variant.mode==='auto' ? 'automatic grouping' : 'diagram view'}`;
-      $('representation-help').textContent=state.variant.mode==='auto' ? (payload.report?.decomposition?.length ? 'Grouped: inferred routing regions are outlined as expanded subprocesses. All questions remain visible; see Report for reasons.' : 'Auto: no safe grouping was inferred. This form remains flat.') : state.variant.mode==='flat' ? 'Flat: questions and routes without subprocess grouping.' : 'Diagram as generated; select a node to inspect its BPMN type.';
+      controls(true); regionControls(); $('canvas-empty').hidden=true; $('diagram-status').textContent='Click a question or decision. Blue lines show its connected routes.';
+      $('form-summary').textContent=`${form.questionCount ?? state.questionNodes.size} source questions · ${payload.report?.decomposition?.length ?? state.regions.length} groups · ${state.variant.mode==='flat' ? 'flat view' : state.variant.mode==='auto' ? 'automatic grouping' : 'diagram view'}`;
+      $('representation-help').textContent=state.variant.mode==='auto' ? ((payload.report?.decomposition?.length || state.regions.length) ? 'Grouped: routing regions start collapsed (+). Expand a region to inspect its branches; question navigation opens it automatically. Repeat collections stay expanded.' : 'Auto: no safe grouping was inferred. This form remains flat.') : state.variant.mode==='flat' ? 'Flat: questions and routes without subprocess grouping.' : state.regions.length ? 'Routing regions start collapsed (+); expand one to inspect its branches.' : 'Diagram as generated; select a node to inspect its BPMN type.';
       renderQuestions(); renderReport(payload.report); renderSource();
       const first=preserveQuestion && state.questionNodes.get(preserveQuestion) || state.questionNodes.values().next().value;
-      if (first) selectElement(first,true); else { fitJourney(); renderSelection(null); }
+      if (first) selectElement(!preserveQuestion && collapsedAncestors(first,state.model,state.collapsed).at(-1) || first,true); else { fitJourney(); renderSelection(null); }
       await addLog(form,token);
       const hash=new URLSearchParams({form:form.id,variant:state.variant.id}); if (preserveQuestion) hash.set('question',preserveQuestion);
       history.replaceState(null,'','#'+hash);
@@ -157,11 +166,51 @@ async function openForm(form, variant=null, preserveQuestion=null) {
     await importQueue;
   } catch (error) { if (token!==state.request) return; controls(false); empty('Unable to display this BPMN'); notices([...form.issues,error.message]); $('diagram-status').textContent='Diagram import failed'; $('panel-selection').replaceChildren(note(error.message)); renderReport(null); $('panel-questions').replaceChildren(dom('p','Diagram import failed.','muted')); $('panel-source').replaceChildren(raw(error.message)); await addLog(form,token); }
 }
+function regionControls() {
+  const overlays=viewer.get('overlays');overlays.remove({type:'routing-region'});
+  for(const region of state.regions) {
+    const shape=viewer.get('elementRegistry').get(region.id);if(!shape || shape.hidden)continue;
+    // Replace the stock drill-down overlay (which opens a separate plane)
+    // with our inline expand control, keeping the standard '+' shape marker.
+    overlays.remove({element:region.id,type:'drilldown'});
+    viewer.get('canvas').addMarker(region.id,'routing-region');
+    const collapsed=state.collapsed.has(region.id);
+    const control=button(collapsed ? 'Expand region' : 'Collapse region',event=>{event.stopPropagation();toggleRegion(region.id);},'region-control');
+    control.setAttribute('aria-expanded',String(!collapsed));control.setAttribute('aria-label',`${collapsed ? 'Expand' : 'Collapse'} ${region.name}`);
+    overlays.add(region.id,'routing-region',{position:{bottom:-8,left:0},html:control,show:{minZoom:.35}});
+  }
+  $('regions-toggle').disabled=!state.regions.length;
+  $('regions-toggle').textContent=state.collapsed.size ? 'Expand all regions' : 'Collapse all regions';
+}
+async function redrawRegions(id=state.selected,move=true) {
+  const token=state.request,revision=++state.viewRequest,payload=state.payload,model=state.model,collapsed=new Set(state.collapsed);
+  if(!payload || !model)return;
+  importQueue=importQueue.catch(()=>{}).then(async()=>{
+    if(token!==state.request || revision!==state.viewRequest)return;
+    clearMarkers();await viewer.importXML(regionView(payload.xml,model,collapsed));
+    if(token!==state.request || revision!==state.viewRequest)return;
+    resizeLabels(viewer,fontSize);regionControls();overview.rebuild();viewer.get('canvas').resized();
+    if(id && viewer.get('elementRegistry').get(id))selectElement(id,move);else fitJourney();
+  });
+  try{await importQueue;}catch(error){notices([...state.form.issues,error.message]);}
+}
+function toggleRegion(id) {
+  if(state.collapsed.has(id))state.collapsed.delete(id);else state.collapsed.add(id);
+  redrawRegions(id);
+}
+$('regions-toggle').addEventListener('click',()=>{
+  const collapsing=state.collapsed.size===0;
+  state.collapsed=collapsing ? new Set(state.regions.map(n=>n.id)) : new Set();
+  const target=collapsedAncestors(state.selected,state.model,state.collapsed).at(-1) || state.selected;
+  redrawRegions(target,false).then(fitJourney);
+});
 let importQueue=Promise.resolve();
 function clearMarkers() { const canvas=viewer.get('canvas'); for (const [id,marker] of state.markers) { try { canvas.removeMarker(id,marker); } catch { /* old diagram */ } } state.markers=[]; }
 function mark(id,marker) { if (!viewer.get('elementRegistry').get(id)) return; viewer.get('canvas').addMarker(id,marker); state.markers.push([id,marker]); }
 function selectedSourceId() { const node=state.model?.nodes.get(state.selected); return node?.sourceStepId || node?.stateId?.split('__')[0] || null; }
 function selectElement(id, move) {
+  const ancestors=state.model && collapsedAncestors(id,state.model,state.collapsed);
+  if(ancestors?.length){for(const parent of ancestors)state.collapsed.delete(parent);return redrawRegions(id,move);}
   const node=state.model?.nodes.get(id); if (!node) return; state.selected=id; clearMarkers(); mark(id,'inspected');
   for (const flow of state.model.flows.filter(f => f.source===id || f.target===id || f.id===id)) { mark(flow.id,'route-highlight'); if (flow.source!==id) mark(flow.source,'route-neighbour'); if (flow.target!==id) mark(flow.target,'route-neighbour'); }
   viewer.get('selection').select(viewer.get('elementRegistry').get(id));
@@ -177,8 +226,9 @@ $('previous').addEventListener('click',() => stepQuestion(-1)); $('next').addEve
 function renderSelection(node) {
   const panel=$('panel-selection'); panel.replaceChildren(); panel.scrollTop=0;
   if (!node) { panel.append(dom('h2','Inspect a node'),dom('p','Click a question, decision or connecting arrow.','muted')); return; }
-  const kinds={userTask:'Question / user task',exclusiveGateway:'Exclusive gateway',subProcess:'Expanded subprocess',sequenceFlow:'Sequence flow',scriptTask:'Collection operation',task:'Display task',startEvent:'Start',endEvent:'End'};
+  const kinds={userTask:'Question / user task',exclusiveGateway:'Exclusive gateway',subProcess:state.collapsed.has(node.id) ? 'Collapsed routing region / subprocess' : 'Expanded subprocess',sequenceFlow:'Sequence flow',scriptTask:'Collection operation',task:'Display task',startEvent:'Start',endEvent:'End'};
   panel.append(dom('p',kinds[node.type] || node.type,'node-kind'),dom('h2',node.name,'node-name'),dom('p',node.id,'identifier'));
+  if(state.regions.some(r=>r.id===node.id))panel.append(button(state.collapsed.has(node.id) ? 'Expand region' : 'Collapse region',()=>toggleRegion(node.id)));
   if (node.stateId) panel.append(dom('p','Source state: '+node.stateId,'identifier'));
   const { question, issue }=resolveQuestion(node.questionRef,state.payload.questions,state.payload.filename.replace(/\.bpmn$/,'.questions.json'));
   if (issue) panel.append(note(issue));

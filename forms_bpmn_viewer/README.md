@@ -64,8 +64,9 @@ conversion succeeded. Only converter-produced sidecar schemas are supported.
   from compiled-kind categories. Unknown metadata is not labelled linear.
   Navigate numbered pages of 30 forms rather than an ever-growing list.
 - Switch between flat and **Grouped** diagrams. Grouped selects the converter's `auto` output;
-  it is not an expand/collapse control. All questions stay visible within
-  expanded subprocess outlines, and Report explains the inferred boundaries.
+  it is separate from the region expand/collapse controls. Inferred routing
+  regions start collapsed; repeat collections remain expanded. Report explains
+  the inferred boundaries.
   **Auto (no groups)** means no safe boundary was found; the result remains flat. The selected source
   question is retained where possible. Automatic grouping is selected initially.
 - Pan, zoom, fit the journey or focus the selected question. Click shapes or
@@ -85,8 +86,7 @@ Question references are resolved only against the matching local sidecar.
 Help text is displayed as plain text/Markdown, without executing embedded HTML.
 Repeatable questions and exit pages are shown through retained metadata; this
 viewer does not simulate validation, route selection or repeatable collections.
-Subprocesses are expanded as emitted by the converter; there is no editing or
-separate call-activity drill-down. Very large diagrams still require panning.
+There is no editing or separate call-activity drill-down. Very large diagrams still require panning.
 
 ## Tests
 
@@ -94,10 +94,11 @@ separate call-activity drill-down. Very large diagrams still require panning.
 npm test
 ```
 
-The 18 Node tests cover catalogue discovery, multiple variants, missing/corrupt
+The 22 Node tests cover catalogue discovery, multiple variants, missing/corrupt
 sidecars, failed logs, refresh, containment, read-only HTTP endpoints, 505 form
 folders, variant selection, question-reference matching, source feature classification
-and finite viewport calculations, including long and degenerate bounds.
+finite viewport calculations, including long and degenerate bounds, and routing
+region classification, ancestor navigation and safe layout compression.
 Fit uses BPMN coordinates for shapes, labels and connections, rather than cached
 SVG bounds; Readable size and Focus selection reset the view directly. Chromium
 checks covered fit from 100% and approximately 46%, complete-diagram visibility
@@ -126,3 +127,32 @@ individually to fit existing boxes. Gateway names, route conditions and event la
 with label bounds enlarged and text rewrapped rather than squeezed into the old
 small label box. No question wording is changed; full details remain in the
 inspector. These controls affect this viewer only, not downloaded BPMN XML.
+
+## Collapsible routing regions
+
+Inferred routing regions start as compact, standard BPMN collapsed subprocesses:
+a rounded box with a boxed **+** marker, the opening question as its label and a
+blue border. Click the **Expand region** button beside a box or in Selection to
+show all its questions and routes in place. **Collapse region** reverses this.
+The toolbar has **Expand all regions** / **Collapse all regions**; the overview
+tracks the current view. Buttons beside boxes appear at 35% zoom or above;
+Selection and toolbar controls remain available at lower zoom.
+
+Navigating to an internal question or route automatically opens its enclosing
+region. Collapse choices reset when loading a form or switching representations.
+Only subprocesses explicitly marked as inferred routing regions are collapsed
+by default; repeat collections remain expanded so their loops stay visible.
+
+This is a display-only transformation: original process IDs, conditions, metadata
+and downloaded BPMN remain unchanged. No regeneration is needed. The converter
+still writes expanded subprocesses for bpmn.io. The viewer rebuilds coordinates
+from the original XML each time, shortening empty vertical bands beneath
+collapsed process-level regions. If a parallel sibling occupies the same band,
+that band is retained to avoid overlaps. Nested collapses hide their contents
+but retain their enclosing subprocess's layout. This is deliberately conservative
+rather than a general-purpose BPMN auto-layout engine.
+
+Chromium checks also covered the supplied Veterans Badge diagram: collapsed
+address region, repeated expand/collapse, expand/collapse all, automatic reveal
+through question navigation, unchanged download, finite fit and preserved flow
+structure. Its displayed vertical extent falls from 7,980 to 6,600 diagram units.
