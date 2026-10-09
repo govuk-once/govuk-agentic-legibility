@@ -1,0 +1,10 @@
+{
+  "name": "forms-bpmn-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local browser for generated Forms BPMN and question metadata",
+  "engines": {"node": ">=20"},
+  "scripts": {"start": "node server.mjs", "test": "node --test test/*.test.mjs"},
+  "dependencies": {"bpmn-js": "18.31.0"}
+}
