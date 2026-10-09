@@ -94,7 +94,7 @@ separate call-activity drill-down. Very large diagrams still require panning.
 npm test
 ```
 
-The 17 Node tests cover catalogue discovery, multiple variants, missing/corrupt
+The 18 Node tests cover catalogue discovery, multiple variants, missing/corrupt
 sidecars, failed logs, refresh, containment, read-only HTTP endpoints, 505 form
 folders, variant selection, question-reference matching, source feature classification
 and finite viewport calculations, including long and degenerate bounds.
@@ -110,3 +110,18 @@ The small person drawn by bpmn-js is the standard BPMN User Task marker. It is
 retained; hiding it or converting questions to untyped tasks would remove that
 meaning. The viewer uses bpmn-js's standard renderer, with only selection/route
 colour highlights. Existing BPMN files do not need regenerating for these changes.
+
+## Overview and text size
+
+The strip beside the canvas shows the whole journey and a blue viewport marker.
+Click or drag to move without changing zoom. Focus the overview and use arrow
+keys to pan; Home/End move to the top/bottom. This is a structural thumbnail,
+without readable labels; the main canvas retains the standard BPMN symbols.
+It does not cover the bpmn.io watermark, whose continued visibility is required
+by the installed bpmn-js licence.
+
+**Task text** selects a preferred embedded label size at 100% zoom (12–24px,
+default 18px), retained locally in your browser. Long labels rewrap and shrink
+individually to fit existing boxes. Compact external route/event labels retain
+their original size. No question wording is changed; full details remain in the
+inspector. These controls affect this viewer only, not downloaded BPMN XML.

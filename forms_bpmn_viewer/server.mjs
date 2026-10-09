@@ -113,7 +113,7 @@ export function createServer(rootDirectory) {
       if (log) { const value = await catalogue.log(log[1]); return json(value === null ? 404 : 200, value === null ? { error:'Unknown form' } : { log:value }); }
       let filename;
       if (url.pathname === '/') filename = path.join(publicDirectory, 'index.html');
-      else if (['/app.js','/style.css','/metadata.js','/viewport.js'].includes(url.pathname)) filename = path.join(publicDirectory, url.pathname.slice(1));
+      else if (['/app.js','/style.css','/metadata.js','/viewport.js','/overview.js','/typography.js'].includes(url.pathname)) filename = path.join(publicDirectory, url.pathname.slice(1));
       else if (url.pathname === '/vendor/bpmn.js') filename = path.join(vendorDirectory, 'bpmn-navigated-viewer.production.min.js');
       else if (url.pathname.startsWith('/vendor/assets/')) {
         const relative = decodeURIComponent(url.pathname.slice('/vendor/'.length));

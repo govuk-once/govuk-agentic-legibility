@@ -33,3 +33,9 @@ test('unknown metadata is not classified as a linear form',()=>{
  assert.deepEqual(formFeatures(null,null).features,['unknown']);
  assert.deepEqual(formFeatures({source_export:{content:{steps:[{data:{answer_type:'text'}}]}}},null).features,['linear']);
 });
+
+test('text preference defaults and clamps invalid stored values',async()=>{
+ const {preferredFontSize}=await import('../public/typography.js');
+ assert.equal(preferredFontSize(null),18);assert.equal(preferredFontSize('18'),18);assert.equal(preferredFontSize('24'),24);
+ assert.equal(preferredFontSize('Infinity'),18);assert.equal(preferredFontSize('0'),18);assert.equal(preferredFontSize('99'),18);
+});

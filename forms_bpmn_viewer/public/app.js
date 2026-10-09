@@ -2,8 +2,15 @@ import { chooseVariant, sourceQuestions, resolveQuestion, inspectXml, matchesFil
 
 import { diagramBounds, fittedViewbox, focusedViewbox } from './viewport.js';
 
+import {createOverview} from './overview.js';
+import {resizeLabels,preferredFontSize} from './typography.js';
+
 const $ = (id) => document.getElementById(id);
 const viewer = new window.BpmnJS({ container:$('canvas') });
+const overview=createOverview(viewer,$('overview-map'));
+let fontSize=18;try{fontSize=preferredFontSize(localStorage.getItem('forms-viewer-font-size'));}catch{}
+$('font-size').value=String(fontSize);
+$('font-size').addEventListener('change',()=>{fontSize=preferredFontSize($('font-size').value);try{localStorage.setItem('forms-viewer-font-size',String(fontSize));}catch{}if(state.model){resizeLabels(viewer,fontSize);overview.rebuild();viewer.get('canvas').resized();}});
 const state = { forms:[], form:null, variant:null, payload:null, model:null, selected:null, tab:'selection', request:0, preferredMode:null, markers:[], page:0, pageSize:30, questionNodes:new Map() };
 function dom(tag, text, className) { const e=document.createElement(tag); if (text !== undefined && text !== null) e.textContent=String(text); if (className) e.className=className; return e; }
 function button(text, action, className) { const e=dom('button',text,className); e.type='button'; e.addEventListener('click',action); return e; }
@@ -109,7 +116,7 @@ function buildQuestionIndex() {
 }
 async function openForm(form, variant=null, preserveQuestion=null) {
   const token=++state.request; state.form=form; state.variant=variant || chooseVariant(form.variants,state.preferredMode); state.payload=null; state.model=null; state.selected=null;
-  controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
+  overview.clear(); controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
   $('form-id').textContent='FORM '+form.formId; $('form-title').textContent=form.name; $('form-summary').textContent=(form.questionCount ?? 'Unknown number of')+' questions · select a node to inspect';
   for (const id of ['selection','questions','report','source']) $('panel-'+id).replaceChildren(dom('p','Loading…','muted'));
   $('variants').replaceChildren();
@@ -133,6 +140,7 @@ async function openForm(form, variant=null, preserveQuestion=null) {
       const result=await viewer.importXML(payload.xml);
       if (token!==state.request) { viewer.clear(); return; }
       state.payload=payload; state.model=inspectXml(doc); buildQuestionIndex();
+      resizeLabels(viewer,fontSize); overview.rebuild();
       viewer.get('canvas').resized();
       const warnings=(result.warnings || []).map(w => w.message);
       notices([...form.issues,...payload.issues,...warnings]); $('filename').textContent=payload.filename;
