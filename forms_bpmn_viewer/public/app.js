@@ -4,7 +4,7 @@ import { diagramBounds, fittedViewbox, focusedViewbox } from './viewport.js';
 
 import {createOverview} from './overview.js';
 import {resizeLabels,preferredFontSize} from './typography.js';
-import {routingRegions,collapsedAncestors,regionView} from './regions.js';
+import {collapsibleGroups,collapsedAncestors,regionView} from './regions.js';
 
 const $ = (id) => document.getElementById(id);
 const viewer = new window.BpmnJS({ container:$('canvas') });
@@ -145,7 +145,7 @@ async function openForm(form, variant=null, preserveQuestion=null) {
       const doc=new DOMParser().parseFromString(payload.xml,'application/xml');
       if (doc.querySelector('parsererror')) throw new Error('The BPMN XML is not well formed.');
       state.model=inspectXml(doc);
-      state.regions=routingRegions(state.model);state.collapsed=new Set(state.regions.map(n=>n.id));
+      state.regions=collapsibleGroups(state.model);state.collapsed=new Set(state.regions.map(n=>n.id));
       const result=await viewer.importXML(regionView(payload.xml,state.model,state.collapsed));
       if (token!==state.request) { viewer.clear(); return; }
       state.payload=payload; state.model=inspectXml(doc); buildQuestionIndex();
@@ -155,7 +155,7 @@ async function openForm(form, variant=null, preserveQuestion=null) {
       notices([...form.issues,...payload.issues,...warnings]); $('filename').textContent=payload.filename;
       controls(true); regionControls(); $('canvas-empty').hidden=true; $('diagram-status').textContent='Click a question or decision. Blue lines show its connected routes.';
       $('form-summary').textContent=`${form.questionCount ?? state.questionNodes.size} source questions · ${payload.report?.decomposition?.length ?? state.regions.length} groups · ${state.variant.mode==='flat' ? 'flat view' : state.variant.mode==='auto' ? 'automatic grouping' : 'diagram view'}`;
-      $('representation-help').textContent=state.variant.mode==='auto' ? ((payload.report?.decomposition?.length || state.regions.length) ? 'Grouped: routing regions start collapsed (+). Expand a region to inspect its branches; question navigation opens it automatically. Repeat collections stay expanded.' : 'Auto: no safe grouping was inferred. This form remains flat.') : state.variant.mode==='flat' ? 'Flat: questions and routes without subprocess grouping.' : state.regions.length ? 'Routing regions start collapsed (+); expand one to inspect its branches.' : 'Diagram as generated; select a node to inspect its BPMN type.';
+      $('representation-help').textContent=state.variant.mode==='auto' ? ((payload.report?.decomposition?.length || state.regions.length) ? 'Grouped: routing regions and repeat collections start collapsed (+). Expand a group to inspect its branches or loop; question navigation opens it automatically.' : 'Auto: no safe grouping was inferred. This form remains flat.') : state.variant.mode==='flat' ? 'Flat: questions and routes without subprocess grouping.' : state.regions.length ? 'Routing regions and repeat collections start collapsed (+); expand one to inspect its branches or loop.' : 'Diagram as generated; select a node to inspect its BPMN type.';
       renderQuestions(); renderReport(payload.report); renderSource();
       const first=preserveQuestion && state.questionNodes.get(preserveQuestion) || state.questionNodes.values().next().value;
       if (first) selectElement(!preserveQuestion && collapsedAncestors(first,state.model,state.collapsed).at(-1) || first,true); else { fitJourney(); renderSelection(null); }
@@ -174,13 +174,13 @@ function regionControls() {
     // with our inline expand control, keeping the standard '+' shape marker.
     overlays.remove({element:region.id,type:'drilldown'});
     viewer.get('canvas').addMarker(region.id,'routing-region');
-    const collapsed=state.collapsed.has(region.id);
-    const control=button(collapsed ? 'Expand region' : 'Collapse region',event=>{event.stopPropagation();toggleRegion(region.id);},'region-control');
+    const collapsed=state.collapsed.has(region.id),noun=region.decomposition?.reason==='explicit is_repeatable' ? 'collection' : 'region';
+    const control=button(`${collapsed ? 'Expand' : 'Collapse'} ${noun}`,event=>{event.stopPropagation();toggleRegion(region.id);},'region-control');
     control.setAttribute('aria-expanded',String(!collapsed));control.setAttribute('aria-label',`${collapsed ? 'Expand' : 'Collapse'} ${region.name}`);
     overlays.add(region.id,'routing-region',{position:{bottom:-8,left:0},html:control,show:{minZoom:.35}});
   }
   $('regions-toggle').disabled=!state.regions.length;
-  $('regions-toggle').textContent=state.collapsed.size ? 'Expand all regions' : 'Collapse all regions';
+  $('regions-toggle').textContent=state.collapsed.size ? 'Expand all groups' : 'Collapse all groups';
 }
 async function redrawRegions(id=state.selected,move=true) {
   const token=state.request,revision=++state.viewRequest,payload=state.payload,model=state.model,collapsed=new Set(state.collapsed);
@@ -226,9 +226,9 @@ $('previous').addEventListener('click',() => stepQuestion(-1)); $('next').addEve
 function renderSelection(node) {
   const panel=$('panel-selection'); panel.replaceChildren(); panel.scrollTop=0;
   if (!node) { panel.append(dom('h2','Inspect a node'),dom('p','Click a question, decision or connecting arrow.','muted')); return; }
-  const kinds={userTask:'Question / user task',exclusiveGateway:'Exclusive gateway',subProcess:state.collapsed.has(node.id) ? 'Collapsed routing region / subprocess' : 'Expanded subprocess',sequenceFlow:'Sequence flow',scriptTask:'Collection operation',task:'Display task',startEvent:'Start',endEvent:'End'};
+  const kinds={userTask:'Question / user task',exclusiveGateway:'Exclusive gateway',subProcess:state.collapsed.has(node.id) ? (node.decomposition?.reason==='explicit is_repeatable' ? 'Collapsed repeat collection / subprocess' : 'Collapsed routing region / subprocess') : 'Expanded subprocess',sequenceFlow:'Sequence flow',scriptTask:'Collection operation',task:'Display task',startEvent:'Start',endEvent:'End'};
   panel.append(dom('p',kinds[node.type] || node.type,'node-kind'),dom('h2',node.name,'node-name'),dom('p',node.id,'identifier'));
-  if(state.regions.some(r=>r.id===node.id))panel.append(button(state.collapsed.has(node.id) ? 'Expand region' : 'Collapse region',()=>toggleRegion(node.id)));
+  if(state.regions.some(r=>r.id===node.id))panel.append(button(`${state.collapsed.has(node.id) ? 'Expand' : 'Collapse'} ${node.decomposition?.reason==='explicit is_repeatable' ? 'collection' : 'region'}`,()=>toggleRegion(node.id)));
   if (node.stateId) panel.append(dom('p','Source state: '+node.stateId,'identifier'));
   const { question, issue }=resolveQuestion(node.questionRef,state.payload.questions,state.payload.filename.replace(/\.bpmn$/,'.questions.json'));
   if (issue) panel.append(note(issue));

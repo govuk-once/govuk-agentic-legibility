@@ -3,11 +3,15 @@ const DI='http://www.omg.org/spec/BPMN/20100524/DI';
 const DC='http://www.omg.org/spec/DD/20100524/DC';
 const DD='http://www.omg.org/spec/DD/20100524/DI';
 
-// Only structurally inferred routing regions collapse by default. Repeat
-// collections remain expanded so their loop behaviour is not hidden.
+// Collapse only groups identified by converter metadata; labels alone are not
+// evidence of a safe boundary. Repeats retain their label and complete inner loop.
 export function routingRegions(model) {
   return [...model.nodes.values()].filter(n=>n.type==='subProcess' &&
     n.decomposition?.reason?.includes('routing region'));
+}
+export function collapsibleGroups(model) {
+  return [...model.nodes.values()].filter(n=>n.type==='subProcess' &&
+    (n.decomposition?.reason?.includes('routing region') || n.decomposition?.reason==='explicit is_repeatable'));
 }
 export function collapsedAncestors(id,model,collapsed) {
   const result=[],seen=new Set();let node=model.nodes.get(id);

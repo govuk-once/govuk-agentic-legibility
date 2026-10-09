@@ -65,7 +65,7 @@ conversion succeeded. Only converter-produced sidecar schemas are supported.
   Navigate numbered pages of 30 forms rather than an ever-growing list.
 - Switch between flat and **Grouped** diagrams. Grouped selects the converter's `auto` output;
   it is separate from the region expand/collapse controls. Inferred routing
-  regions start collapsed; repeat collections remain expanded. Report explains
+  regions and repeat collections start collapsed. Report explains
   the inferred boundaries.
   **Auto (no groups)** means no safe boundary was found; the result remains flat. The selected source
   question is retained where possible. Automatic grouping is selected initially.
@@ -94,7 +94,7 @@ There is no editing or separate call-activity drill-down. Very large diagrams st
 npm test
 ```
 
-The 22 Node tests cover catalogue discovery, multiple variants, missing/corrupt
+The 23 Node tests cover catalogue discovery, multiple variants, missing/corrupt
 sidecars, failed logs, refresh, containment, read-only HTTP endpoints, 505 form
 folders, variant selection, question-reference matching, source feature classification
 finite viewport calculations, including long and degenerate bounds, and routing
@@ -115,6 +115,8 @@ colour highlights. Existing BPMN files do not need regenerating for these change
 ## Overview and text size
 
 The strip beside the canvas shows the whole journey and a blue viewport marker.
+Groups have a bright blue, thicker border; collapsed groups also have a stronger
+blue fill, distinguishing them from ordinary questions.
 Click or drag to move without changing zoom. Focus the overview and use arrow
 keys to pan; Home/End move to the top/bottom. This is a structural thumbnail,
 without readable labels; the main canvas retains the standard BPMN symbols.
@@ -130,18 +132,22 @@ inspector. These controls affect this viewer only, not downloaded BPMN XML.
 
 ## Collapsible routing regions
 
-Inferred routing regions start as compact, standard BPMN collapsed subprocesses:
+Inferred routing regions and repeat collections start as compact, standard BPMN
+collapsed subprocesses:
 a rounded box with a boxed **+** marker, the opening question as its label and a
 blue border. Click the **Expand region** button beside a box or in Selection to
-show all its questions and routes in place. **Collapse region** reverses this.
-The toolbar has **Expand all regions** / **Collapse all regions**; the overview
+show all its questions and routes in place. Repeat groups use **Expand collection**
+/ **Collapse collection** controls. **Collapse region** reverses this.
+The toolbar has **Expand all groups** / **Collapse all groups**; the overview
 tracks the current view. Buttons beside boxes appear at 35% zoom or above;
 Selection and toolbar controls remain available at lower zoom.
 
 Navigating to an internal question or route automatically opens its enclosing
 region. Collapse choices reset when loading a form or switching representations.
-Only subprocesses explicitly marked as inferred routing regions are collapsed
-by default; repeat collections remain expanded so their loops stay visible.
+Subprocesses explicitly marked as inferred routing regions or repeat collections
+start collapsed. Repeat collection labels retain their prefix so repetition is
+visible in the compact view; expand a collection to see its complete loop.
+Unrecognised subprocesses remain as generated.
 
 This is a display-only transformation: original process IDs, conditions, metadata
 and downloaded BPMN remain unchanged. No regeneration is needed. The converter
@@ -156,3 +162,9 @@ Chromium checks also covered the supplied Veterans Badge diagram: collapsed
 address region, repeated expand/collapse, expand/collapse all, automatic reveal
 through question navigation, unchanged download, finite fit and preserved flow
 structure. Its displayed vertical extent falls from 7,980 to 6,600 diagram units.
+
+The supplied redundancies form was also checked in Chromium: both repeat
+collections and its routing region start collapsed; expanding a collection
+reveals its retained repeat control and loop. Individual/all toggles, overview
+colours, finite fit, unchanged topology and byte-identical downloads passed.
+Its displayed extent shortens from 17,730 to 9,808 diagram units.

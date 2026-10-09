@@ -29,7 +29,7 @@ export function createOverview(viewer,element) {
       else if (e.type.endsWith('Gateway')) shape=svg('polygon',{points:`${e.x+e.width/2},${e.y} ${e.x+e.width},${e.y+e.height/2} ${e.x+e.width/2},${e.y+e.height} ${e.x},${e.y+e.height/2}`});
       else if (e.type.endsWith('Event')) shape=svg('ellipse',{cx:e.x+e.width/2,cy:e.y+e.height/2,rx:e.width/2,ry:e.height/2});
       else shape=svg('rect',{x:e.x,y:e.y,width:e.width,height:e.height,rx:8});
-      shape.setAttribute('class',e.type==='bpmn:SubProcess' ? 'overview-group' : 'overview-element');shapes.append(shape);
+      shape.setAttribute('class',e.type==='bpmn:SubProcess' ? 'overview-group'+(e.collapsed ? ' overview-group-collapsed' : '') : 'overview-element');shapes.append(shape);
     }
     resize();
   }

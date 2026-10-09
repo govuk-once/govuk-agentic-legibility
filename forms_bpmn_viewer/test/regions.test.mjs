@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {routingRegions,collapsedAncestors,compressionBands,compressY} from '../public/regions.js';
+import {routingRegions,collapsibleGroups,collapsedAncestors,compressionBands,compressY} from '../public/regions.js';
 test('only inferred routing regions collapse, not repeat collections or arbitrary subprocesses',()=>{
  const model={nodes:new Map([['a',{id:'a',type:'subProcess',decomposition:{reason:'acyclic single-entry/single-continuation routing region'}}],['b',{id:'b',type:'subProcess',decomposition:{reason:'repeat collection'}}],['c',{id:'c',type:'subProcess'}]])};
  assert.deepEqual(routingRegions(model).map(n=>n.id),['a']);
@@ -19,4 +19,9 @@ test('multiple disjoint regions shorten the journey without shifting preceding n
 test('parallel sibling rows are never squeezed into a collapsed region',()=>{
  const a={id:'a',parentId:'p',y:200,height:1200};
  assert.deepEqual(compressionBands([a],[a,{id:'branch',parentId:'p',y:400,height:90}]),[]);
+});
+
+test('repeat collections are also collapsible without guessing from display names',()=>{
+ const model={nodes:new Map([['repeat',{id:'repeat',type:'subProcess',decomposition:{reason:'explicit is_repeatable'}}],['route',{id:'route',type:'subProcess',decomposition:{reason:'acyclic routing region'}}],['other',{id:'other',type:'subProcess',name:'Repeat collection · Looks similar'}]])};
+ assert.deepEqual(collapsibleGroups(model).map(n=>n.id),['repeat','route']);
 });
