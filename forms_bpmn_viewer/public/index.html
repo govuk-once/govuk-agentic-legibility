@@ -17,17 +17,19 @@
       <div class="catalogue-header"><h2>Forms</h2><button id="refresh" class="subtle" title="Reload files from disk">Refresh</button></div>
       <label class="sr-only" for="search">Search forms</label><input id="search" type="search" placeholder="Search name or form ID…" autocomplete="off">
       <label class="filter"><input id="issues-only" type="checkbox"> Only forms with issues</label>
+      <div class="catalogue-filters"><label for="feature-filter">Journey feature</label><select id="feature-filter"></select><label for="answer-filter">Source answer type</label><select id="answer-filter"></select><label for="kind-filter">Compiled answer kind</label><select id="kind-filter" title="Source question schema kinds; generated repeat controls excluded"></select><button id="clear-filters" class="subtle">Clear filters</button></div>
       <p id="catalogue-count" class="muted" aria-live="polite">Loading catalogue…</p>
       <nav id="form-list" aria-label="Select a form"></nav>
-      <button id="load-more" hidden>Show more forms</button>
+      <div class="pagination"><button id="page-previous" aria-label="Previous forms page">←</button><span id="page-label"></span><button id="page-next" aria-label="Next forms page">→</button></div>
       <div class="directory"><span>Reading from</span><code id="directory"></code></div>
     </aside>
     <section class="diagram-pane" aria-label="Journey diagram">
       <div class="journey-header"><div><p id="form-id" class="eyebrow">SELECT A FORM</p><h2 id="form-title">Explore the journey, one question at a time</h2><p id="form-summary" class="muted">Questions, branching and repeatable collection</p></div><div id="variants" class="variant-switch" aria-label="Diagram representation"></div></div>
+      <p id="representation-help" class="representation-help"></p>
       <div id="notices" class="notices" role="status" hidden></div>
       <div class="toolbar"><div class="toolbar-group"><button id="zoom-out" title="Zoom out" disabled>−</button><span id="zoom-label">100%</span><button id="zoom-in" title="Zoom in" disabled>+</button><button id="fit" disabled>Fit journey</button><button id="readable" disabled>Readable size</button><button id="focus" disabled>Focus selection</button></div><div class="toolbar-group"><button id="previous" disabled>← Previous</button><button id="next" disabled>Next →</button><button id="download" disabled>Download BPMN</button></div></div>
       <div class="canvas-wrap"><div id="canvas"></div><div id="canvas-empty" class="empty"><span class="empty-icon">◇</span><h3>A clearer view of the form</h3><p>Choose a form on the left. Click a question or gateway to inspect its source and routing.</p></div><div id="diagram-status" class="canvas-status" aria-live="polite"></div></div>
-      <footer class="diagram-footer"><span>Drag to pan · Ctrl/Cmd + scroll to zoom · click a node to inspect</span><span id="filename"></span></footer>
+      <footer class="diagram-footer"><span>Person = User Task (question) · diamond = decision · drag to pan</span><span id="filename"></span></footer>
     </section>
     <aside class="inspector" aria-label="Journey information">
       <div class="inspector-tabs" role="tablist" aria-label="Information panels">

@@ -1,3 +1,4 @@
+import { formFeatures } from './public/metadata.js';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -41,12 +42,14 @@ export function createCatalogue(rootDirectory) {
       let log = null;
       try { log = await safeRead(root, path.join(group.directory, 'conversion.log')); } catch { /* optional */ }
       if (!files.length && !log) continue;
-      const form = { id: key(group.name), folder: group.name, formId: group.name, name: group.name, variants: [], questionCount: null, issues: [], hasLog: Boolean(log) };
+      const form = { id: key(group.name), folder: group.name, formId: group.name, name: group.name, variants: [], questionCount: null, issues: [], hasLog: Boolean(log), features:[], answerTypes:[], compiledKinds:[] };
       for (const file of files) {
         const stem = file.name.slice(0, -5);
         const questions = await sidecar(root, path.join(group.directory, stem + '.questions.json'));
         const report = await sidecar(root, path.join(group.directory, stem + '.report.json'));
         const source = questions.value?.source_export;
+        const classification=formFeatures(questions.value,report.value);
+        for (const field of ['features','answerTypes','compiledKinds']) form[field]=[...new Set([...form[field],...classification[field]])].sort();
         form.name = source?.content?.name?.trim() || form.name;
         form.formId = String(questions.value?.form_id ?? report.value?.form_id ?? form.formId);
         form.questionCount = source?.content?.steps?.length ?? report.value?.question_count ?? form.questionCount;
@@ -54,6 +57,9 @@ export function createCatalogue(rootDirectory) {
         form.variants.push(variant);
         lookup.set(form.id + '/' + variant.id, { directory: group.directory, file: file.name });
       }
+      if (!files.length) form.features.push('failed');
+      // A missing sidecar on one variant must not override known source data.
+      if (form.answerTypes.length) form.features=form.features.filter(f=>f!=='unknown');
       form.issues = form.variants.flatMap(v => v.issues);
       if (log && /UNSUPPORTED:|Traceback \(most recent call last\)/.test(log)) form.issues.push('Latest conversion log reports failure; existing diagrams may be stale.');
       if (!files.length) form.issues.push('No BPMN generated; inspect the conversion log.');
@@ -107,7 +113,7 @@ export function createServer(rootDirectory) {
       if (log) { const value = await catalogue.log(log[1]); return json(value === null ? 404 : 200, value === null ? { error:'Unknown form' } : { log:value }); }
       let filename;
       if (url.pathname === '/') filename = path.join(publicDirectory, 'index.html');
-      else if (['/app.js','/style.css','/metadata.js'].includes(url.pathname)) filename = path.join(publicDirectory, url.pathname.slice(1));
+      else if (['/app.js','/style.css','/metadata.js','/viewport.js'].includes(url.pathname)) filename = path.join(publicDirectory, url.pathname.slice(1));
       else if (url.pathname === '/vendor/bpmn.js') filename = path.join(vendorDirectory, 'bpmn-navigated-viewer.production.min.js');
       else if (url.pathname.startsWith('/vendor/assets/')) {
         const relative = decodeURIComponent(url.pathname.slice('/vendor/'.length));

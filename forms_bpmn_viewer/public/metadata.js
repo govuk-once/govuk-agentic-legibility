@@ -6,7 +6,8 @@ export function chooseVariant(variants, preferredMode) {
 }
 
 export function sourceQuestions(metadata) {
-  return (metadata?.source_export?.content?.steps || []).map(step => ({ ...step, position: step.position ?? '?', data: step.data || {} }));
+  const steps=metadata?.source_export?.content?.steps;
+  return (Array.isArray(steps) ? steps : []).map(step => ({ ...step, position: step.position ?? '?', data: step.data || {} }));
 }
 
 // Only a local matching sidecar is used. Never fetch a questionRef URL from XML.
@@ -39,4 +40,22 @@ export function inspectXml(document) {
     nodes.set(id,item);
   }
   return { nodes, flows };
+}
+
+// Catalogue features describe source semantics, not generated repeat controls.
+export function formFeatures(metadata, report) {
+  const steps=sourceQuestions(metadata), known=Array.isArray(metadata?.source_export?.content?.steps);
+  const questions=Object.values(metadata?.questions || {});
+  const features=[];
+  if (steps.some(q=>q.data.is_repeatable===true)) features.push('repeatable');
+  if (steps.some(q=>q.routing_conditions?.length)) features.push('routing');
+  if (steps.some(q=>q.exit_pages?.length)) features.push('exits');
+  if (steps.some(q=>q.data.is_optional===true)) features.push('optional');
+  if (known && !features.some(f=>['repeatable','routing','exits'].includes(f))) features.push('linear');
+  if (!known) features.push('unknown');
+  if (report?.decomposition?.length) features.push('grouped');
+  return {features, answerTypes:[...new Set(steps.map(q=>q.data.answer_type).filter(Boolean))].sort(), compiledKinds:[...new Set(questions.filter(q=>!q.generated).map(q=>q.schema?.kind).filter(Boolean))].sort()};
+}
+export function matchesFilters(form,{query='',feature='',answerType='',compiledKind='',issuesOnly=false}={}) {
+  return (!query || (form.name+' '+form.formId+' '+form.folder).toLowerCase().includes(query.toLowerCase())) && (!feature || form.features?.includes(feature)) && (!answerType || form.answerTypes?.includes(answerType)) && (!compiledKind || form.compiledKinds?.includes(compiledKind)) && (!issuesOnly || form.issues.length>0);
 }

@@ -55,8 +55,18 @@ conversion succeeded. Only converter-produced sidecar schemas are supported.
 ## Explore
 
 - Search form names, IDs and folders; filter entries with conversion issues.
-  The catalogue progressively displays 100 entries at a time.
-- Switch between flat and automatically grouped diagrams. The selected source
+  Use journey-feature filters for repeatable questions, conditional routing,
+  exits, optional questions, linear forms and inferred groups. Filter by source
+  answer type (including types approximated by the compiler) or compiled answer
+  kind such as `select_one`, `boolean` or `string`. Filters combine with search
+  and issues; option counts describe the full catalogue, while the result count
+  describes their intersection. Generated repeat-control questions are excluded
+  from compiled-kind categories. Unknown metadata is not labelled linear.
+  Navigate numbered pages of 30 forms rather than an ever-growing list.
+- Switch between flat and **Grouped** diagrams. Grouped selects the converter's `auto` output;
+  it is not an expand/collapse control. All questions stay visible within
+  expanded subprocess outlines, and Report explains the inferred boundaries.
+  **Auto (no groups)** means no safe boundary was found; the result remains flat. The selected source
   question is retained where possible. Automatic grouping is selected initially.
 - Pan, zoom, fit the journey or focus the selected question. Click shapes or
   connections; connected routes are highlighted. The initial view focuses on
@@ -84,9 +94,19 @@ separate call-activity drill-down. Very large diagrams still require panning.
 npm test
 ```
 
-The Node tests cover catalogue discovery, multiple variants, missing/corrupt
+The 17 Node tests cover catalogue discovery, multiple variants, missing/corrupt
 sidecars, failed logs, refresh, containment, read-only HTTP endpoints, 505 form
-folders, variant selection and question-reference matching. Browser rendering
+folders, variant selection, question-reference matching, source feature classification
+and finite viewport calculations, including long and degenerate bounds.
+Fit uses BPMN coordinates for shapes, labels and connections, rather than cached
+SVG bounds; Readable size and Focus selection reset the view directly. Chromium
+checks covered fit from 100% and approximately 46%, complete-diagram visibility
+and recovery from a zero-scale transform. Browser rendering
 was also checked with Chromium against the four supplied Forms, including the
 DVSA conditional branch and the IP repeatable question, both flat and auto views.
 Neither the SFSM interpreter nor the BPMN interpreter is changed.
+
+The small person drawn by bpmn-js is the standard BPMN User Task marker. It is
+retained; hiding it or converting questions to untyped tasks would remove that
+meaning. The viewer uses bpmn-js's standard renderer, with only selection/route
+colour highlights. Existing BPMN files do not need regenerating for these changes.

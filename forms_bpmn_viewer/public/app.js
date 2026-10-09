@@ -1,8 +1,10 @@
-import { chooseVariant, sourceQuestions, resolveQuestion, inspectXml } from './metadata.js';
+import { chooseVariant, sourceQuestions, resolveQuestion, inspectXml, matchesFilters } from './metadata.js';
+
+import { diagramBounds, fittedViewbox, focusedViewbox } from './viewport.js';
 
 const $ = (id) => document.getElementById(id);
 const viewer = new window.BpmnJS({ container:$('canvas') });
-const state = { forms:[], form:null, variant:null, payload:null, model:null, selected:null, tab:'selection', request:0, preferredMode:null, markers:[], pageSize:100, questionNodes:new Map() };
+const state = { forms:[], form:null, variant:null, payload:null, model:null, selected:null, tab:'selection', request:0, preferredMode:null, markers:[], page:0, pageSize:30, questionNodes:new Map() };
 function dom(tag, text, className) { const e=document.createElement(tag); if (text !== undefined && text !== null) e.textContent=String(text); if (className) e.className=className; return e; }
 function button(text, action, className) { const e=dom('button',text,className); e.type='button'; e.addEventListener('click',action); return e; }
 function raw(value) { return dom('pre',typeof value === 'string' ? value : JSON.stringify(value,null,2),'raw-json'); }
@@ -16,10 +18,20 @@ for (const name of ['selection','questions','report','source']) $('tab-'+name).a
 const tabNames=['selection','questions','report','source'];
 document.querySelector('.inspector-tabs').addEventListener('keydown',event => { if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return; event.preventDefault(); const i=tabNames.indexOf(state.tab); const n=event.key==='Home' ? 0 : event.key==='End' ? 3 : (i+(event.key==='ArrowRight' ? 1 : 3))%4; tab(tabNames[n]); $('tab-'+tabNames[n]).focus(); });
 
-function filteredForms() { const query=$('search').value.trim().toLowerCase(); return state.forms.filter(form => (!query || (form.name+' '+form.formId+' '+form.folder).toLowerCase().includes(query)) && (!$('issues-only').checked || form.issues.length)); }
+const featureNames={repeatable:'Repeatable questions',routing:'Conditional routing',exits:'Exit pages',optional:'Optional questions',linear:'Linear (no routing or repeats)',grouped:'Automatically grouped',unknown:'Missing source metadata',failed:'Not converted'};
+function filterOptions() {
+  for (const [id,field,names] of [['feature-filter','features',featureNames],['answer-filter','answerTypes',{}],['kind-filter','compiledKinds',{}]]) {
+    const select=$(id), previous=select.value; select.replaceChildren(new Option('All',''));
+    const values=[...new Set(state.forms.flatMap(f=>f[field] || []))].sort();
+    for (const value of values) select.append(new Option(`${names[value] || value} (${state.forms.filter(f=>f[field]?.includes(value)).length})`,value));
+    if (values.includes(previous)) select.value=previous;
+  }
+}
+function filteredForms() { return state.forms.filter(form=>matchesFilters(form,{query:$('search').value.trim(),feature:$('feature-filter').value,answerType:$('answer-filter').value,compiledKind:$('kind-filter').value,issuesOnly:$('issues-only').checked})); }
 function renderCatalogue() {
   const forms=filteredForms(); $('form-list').replaceChildren(); $('catalogue-count').textContent=`${forms.length} of ${state.forms.length} forms`;
-  for (const form of forms.slice(0,state.pageSize)) {
+  const pages=Math.max(1,Math.ceil(forms.length/state.pageSize)); state.page=Math.min(state.page,pages-1);
+  for (const form of forms.slice(state.page*state.pageSize,(state.page+1)*state.pageSize)) {
     const card=button('',() => openForm(form),'form-card'+(state.form?.id===form.id ? ' active' : ''));
     card.setAttribute('aria-label',`Form ${form.formId}: ${form.name}`); card.setAttribute('aria-current',String(state.form?.id===form.id));
     card.append(dom('span','FORM '+form.formId,'eyebrow'),dom('strong',form.name));
@@ -27,14 +39,17 @@ function renderCatalogue() {
     meta.append(dom('span',form.questionCount === null ? 'No question metadata' : `${form.questionCount} questions`,'badge'));
     meta.append(dom('span',`${form.variants.length} ${form.variants.length===1 ? 'view' : 'views'}`,'badge'));
     if (form.issues.length) meta.append(dom('span',form.variants.length ? 'Check warnings' : 'Not converted','badge warning'));
+    for (const f of ['repeatable','routing','exits','grouped']) if (form.features?.includes(f)) meta.append(dom('span',featureNames[f],'badge'));
     card.append(meta); $('form-list').append(card);
   }
   if (!forms.length) $('form-list').append(dom('p',state.forms.length ? 'No matching forms.' : 'No generated forms found. Generate BPMN, then click Refresh.','muted'));
-  $('load-more').hidden=forms.length<=state.pageSize;
+  $('page-label').textContent=`Page ${state.page+1} of ${pages}`;
+  $('page-previous').disabled=state.page===0; $('page-next').disabled=state.page>=pages-1;
 }
-$('search').addEventListener('input',() => { state.pageSize=100; renderCatalogue(); });
-$('issues-only').addEventListener('change',() => { state.pageSize=100; renderCatalogue(); });
-$('load-more').addEventListener('click',() => { state.pageSize+=100; renderCatalogue(); });
+for (const id of ['search','issues-only','feature-filter','answer-filter','kind-filter']) $(id).addEventListener(id==='search' ? 'input' : 'change',()=>{state.page=0;renderCatalogue();});
+$('clear-filters').addEventListener('click',()=>{for(const id of ['search','feature-filter','answer-filter','kind-filter']) $(id).value='';$('issues-only').checked=false;state.page=0;renderCatalogue();});
+$('page-previous').addEventListener('click',()=>{state.page--;renderCatalogue();$('form-list').scrollTop=0;});
+$('page-next').addEventListener('click',()=>{state.page++;renderCatalogue();$('form-list').scrollTop=0;});
 
 function notices(items) { const messages=[...new Set(items.filter(Boolean))]; $('notices').replaceChildren(...messages.map(message => dom('div',message))); $('notices').hidden=!messages.length; }
 function empty(message) { const e=$('canvas-empty'); e.hidden=false; e.replaceChildren(dom('span','◇','empty-icon'),dom('h3',message),dom('p','Choose another diagram or inspect the conversion report.')); }
@@ -44,28 +59,33 @@ viewer.on('canvas.viewbox.changed',zoomLabel);
 viewer.on('element.click',event => { if (event.element?.id && state.model?.nodes.has(event.element.id)) selectElement(event.element.id,false); });
 viewer.on('selection.changed',event => { const item=event.newSelection?.[0]; if (item && item.id!==state.selected && state.model?.nodes.has(item.id)) selectElement(item.id,false); });
 
-function center(element) {
-  const canvas=viewer.get('canvas'); const view=canvas.viewbox(false);
-  canvas.viewbox({ x:element.x+element.width/2-view.width/2, y:Math.max(0,element.y+element.height/2-view.height*.28), width:view.width, height:view.height });
+function applyViewbox(box) { if (!box) return; viewer.get('canvas').viewbox(box); zoomLabel(); }
+function fitJourney() {
+  // Include shape, label and connection coordinates. Avoid cached SVG bounds,
+  // and reset the transform directly so a previous invalid zoom cannot persist.
+  const canvas=viewer.get('canvas');
+  applyViewbox(fittedViewbox(diagramBounds(viewer.get('elementRegistry').getAll()),canvas.getSize()));
 }
 function focusElement(id, scale='readable') {
   const element=viewer.get('elementRegistry').get(id); if (!element) return;
-  const canvas=viewer.get('canvas');
-  if (element.waypoints) { const source=viewer.get('elementRegistry').get(element.source?.id); if (source) focusElement(source.id,scale); return; }
-  if (scale==='fit-node') {
-    const size=$('canvas').getBoundingClientRect(); const zoom=Math.min(1.3,(size.width-100)/Math.max(100,element.width),(size.height-100)/Math.max(100,element.height));
-    canvas.zoom(Math.max(.08,zoom));
-  } else canvas.zoom(1);
-  center(element); zoomLabel();
+  if (element.waypoints) { if (element.source) focusElement(element.source.id,scale); return; }
+  const size=viewer.get('canvas').getSize();
+  applyViewbox(scale==='fit-node' ? fittedViewbox(element,size,50,1.3) : focusedViewbox(element,size));
 }
 function readable() {
   const current=viewer.get('elementRegistry').get(state.selected);
   const id=current && !current.waypoints && current.type!=='bpmn:SubProcess' ? current.id : state.questionNodes.values().next().value;
-  if (id) focusElement(id); else { viewer.get('canvas').zoom(1); zoomLabel(); }
+  if (id) focusElement(id); else fitJourney();
 }
-$('zoom-in').addEventListener('click',() => { const canvas=viewer.get('canvas'); canvas.zoom(Math.min(4,canvas.zoom()*1.3)); });
-$('zoom-out').addEventListener('click',() => { const canvas=viewer.get('canvas'); canvas.zoom(Math.max(.05,canvas.zoom()/1.3)); });
-$('fit').addEventListener('click',() => { viewer.get('canvas').zoom('fit-viewport','auto'); zoomLabel(); });
+function zoomBy(factor) {
+  const canvas=viewer.get('canvas'),box=canvas.viewbox(false);
+  if (![box.x,box.y,box.width,box.height,box.scale].every(Number.isFinite) || box.scale<=0) return fitJourney();
+  const size=canvas.getSize(),scale=Math.min(4,Math.max(.001,box.scale*factor));
+  applyViewbox(fittedViewbox({x:box.x+box.width/2,y:box.y+box.height/2,width:0,height:0},size,0,scale));
+}
+$('zoom-in').addEventListener('click',()=>zoomBy(1.3));
+$('zoom-out').addEventListener('click',()=>zoomBy(1/1.3));
+$('fit').addEventListener('click',fitJourney);
 $('readable').addEventListener('click',readable);
 $('focus').addEventListener('click',() => { if (state.selected) focusElement(state.selected,'fit-node'); else readable(); });
 function download(text, filename, type='text/plain') { const url=URL.createObjectURL(new Blob([text],{type})); const link=dom('a'); link.href=url; link.download=filename; link.click(); setTimeout(() => URL.revokeObjectURL(url),1000); }
@@ -89,11 +109,11 @@ function buildQuestionIndex() {
 }
 async function openForm(form, variant=null, preserveQuestion=null) {
   const token=++state.request; state.form=form; state.variant=variant || chooseVariant(form.variants,state.preferredMode); state.payload=null; state.model=null; state.selected=null;
-  controls(false); renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
+  controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
   $('form-id').textContent='FORM '+form.formId; $('form-title').textContent=form.name; $('form-summary').textContent=(form.questionCount ?? 'Unknown number of')+' questions · select a node to inspect';
   for (const id of ['selection','questions','report','source']) $('panel-'+id).replaceChildren(dom('p','Loading…','muted'));
   $('variants').replaceChildren();
-  for (const v of form.variants) { const b=button(v.mode==='auto' ? 'Expanded (auto)' : v.mode==='flat' ? 'Flat' : v.filename,() => { const q=selectedSourceId(); state.preferredMode=v.mode; openForm(form,v,q); },v.id===state.variant?.id ? 'active' : ''); b.title=v.filename; b.setAttribute('aria-pressed',String(v.id===state.variant?.id)); $('variants').append(b); }
+  for (const v of form.variants) { const b=button(v.mode==='auto' ? (v.groups===0 ? 'Auto (no groups)' : 'Grouped') : v.mode==='flat' ? 'Flat' : v.filename,() => { const q=selectedSourceId(); state.preferredMode=v.mode; openForm(form,v,q); },v.id===state.variant?.id ? 'active' : ''); b.title=(v.mode==='auto' ? 'Converter output with safely inferred routing regions shown as expanded subprocesses. No questions are hidden. ' : v.mode==='flat' ? 'Every question and route shown without subprocess grouping. ' : '')+v.filename; b.setAttribute('aria-pressed',String(v.id===state.variant?.id)); $('variants').append(b); }
   notices(form.issues); $('canvas-empty').hidden=true;
   if (!state.variant) {
     empty('This form has no generated BPMN'); $('diagram-status').textContent='Conversion did not produce a diagram';
@@ -118,9 +138,10 @@ async function openForm(form, variant=null, preserveQuestion=null) {
       notices([...form.issues,...payload.issues,...warnings]); $('filename').textContent=payload.filename;
       controls(true); $('canvas-empty').hidden=true; $('diagram-status').textContent='Click a question or decision. Blue lines show its connected routes.';
       $('form-summary').textContent=`${form.questionCount ?? state.questionNodes.size} source questions · ${payload.report?.decomposition?.length ?? 0} groups · ${state.variant.mode==='flat' ? 'flat view' : state.variant.mode==='auto' ? 'automatic grouping' : 'diagram view'}`;
+      $('representation-help').textContent=state.variant.mode==='auto' ? (payload.report?.decomposition?.length ? 'Grouped: inferred routing regions are outlined as expanded subprocesses. All questions remain visible; see Report for reasons.' : 'Auto: no safe grouping was inferred. This form remains flat.') : state.variant.mode==='flat' ? 'Flat: questions and routes without subprocess grouping.' : 'Diagram as generated; select a node to inspect its BPMN type.';
       renderQuestions(); renderReport(payload.report); renderSource();
       const first=preserveQuestion && state.questionNodes.get(preserveQuestion) || state.questionNodes.values().next().value;
-      if (first) selectElement(first,true); else { viewer.get('canvas').zoom('fit-viewport','auto'); renderSelection(null); }
+      if (first) selectElement(first,true); else { fitJourney(); renderSelection(null); }
       await addLog(form,token);
       const hash=new URLSearchParams({form:form.id,variant:state.variant.id}); if (preserveQuestion) hash.set('question',preserveQuestion);
       history.replaceState(null,'','#'+hash);
@@ -219,7 +240,7 @@ function renderSource() {
 async function refresh(force=false) {
   $('refresh').disabled=true;
   try {
-    const catalogue=await api('/api/forms'+(force ? '?refresh=1' : '')); state.forms=catalogue.forms; $('directory').textContent=catalogue.directory; renderCatalogue();
+    const catalogue=await api('/api/forms'+(force ? '?refresh=1' : '')); state.forms=catalogue.forms; filterOptions(); $('directory').textContent=catalogue.directory; renderCatalogue();
     if (catalogue.notice) notices([catalogue.notice]);
     if (!force && !state.form) { const hash=new URLSearchParams(location.hash.slice(1)), form=state.forms.find(f => f.id===hash.get('form')) || state.forms.find(f => f.variants.length); if (form) await openForm(form,form.variants.find(v => v.id===hash.get('variant')),hash.get('question')); }
     else if (force && state.form) { const selected=state.forms.find(f => f.id===state.form.id); if (selected) await openForm(selected,selected.variants.find(v => v.id===state.variant?.id),selectedSourceId()); else { state.form=null; renderCatalogue(); empty('Selected form is no longer in the catalogue'); controls(false); } }

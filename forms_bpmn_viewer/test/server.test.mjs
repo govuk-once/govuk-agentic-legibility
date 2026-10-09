@@ -102,3 +102,13 @@ test('question references resolve only the matching local sidecar',() => {
   assert.match(resolveQuestion('form.questions.json#/questions/missing',metadata,'form.questions.json').issue,/missing/);
   assert.deepEqual(sourceQuestions(null),[]);
 });
+
+test('catalogue merges feature sets across views without double-counting or labelling repeats as routing',async t=>{
+ const root=await corpus(t);await put(root,'7530','flat','flat');await put(root,'7530','auto','auto');
+ const file=path.join(root,'7530','flat.questions.json');
+ const metadata=JSON.parse(await fs.readFile(file,'utf8'));metadata.source_export.content.steps[0].data.is_repeatable=true;
+ await fs.writeFile(file,JSON.stringify(metadata));await fs.writeFile(path.join(root,'7530','auto.questions.json'),JSON.stringify(metadata));
+ const form=(await createCatalogue(root).list()).forms[0];
+ assert.deepEqual(form.answerTypes,['selection']);assert.deepEqual(form.compiledKinds,['select_one']);
+ assert.ok(form.features.includes('repeatable'));assert.ok(form.features.includes('grouped'));assert.ok(!form.features.includes('routing'));assert.ok(!form.features.includes('linear'));
+});
