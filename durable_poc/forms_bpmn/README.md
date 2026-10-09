@@ -206,3 +206,9 @@ execution engine, nor that hundreds of forms can be decomposed into meaningful
 reusable services automatically. The next useful evaluation is whether designers,
 service owners and engineers can identify routing errors or missing questions
 more quickly using these diagrams than a structured question/route table.
+
+Layout uses the actual widths in each row, rather than applying the widest
+subprocess width to every column. Bypass/return lanes clear only the rows crossed
+by that route, and disjoint routes can reuse lanes. These remain orthogonal
+connections around intervening questions; they do not represent extra questions.
+Existing exports must be regenerated to obtain the more compact BPMN DI.

@@ -517,9 +517,13 @@ def layout(graph: Graph) -> None:
     levels = defaultdict(list)
     for n in graph.nodes:
         levels[rank[n]].append(n)
-    maxcols = max(map(len, levels.values()))
-    col_width = max(n.width for n in graph.nodes.values()) + 130
-    graph.width = maxcols * col_width + (120 if back else 0)
+    # Size each row from its actual nodes. A wide expanded subprocess must
+    # not determine the spacing between small questions in every other row.
+    row_width = {
+        r: sum(graph.nodes[n].width for n in ids) + 130 * (len(ids) - 1)
+        for r, ids in levels.items()
+    }
+    graph.width = max(row_width.values()) + 130
     y = 60
     for r in sorted(levels):
         ids = levels[r]
@@ -531,14 +535,12 @@ def layout(graph: Graph) -> None:
             )
         )
         height = max(graph.nodes[nid].height for nid in ids)
-        for i, nid in enumerate(ids):
+        x = (graph.width - row_width[r]) / 2
+        for nid in ids:
             node = graph.nodes[nid]
-            node.x = (
-                (graph.width - len(ids) * col_width) / 2
-                + i * col_width
-                + (col_width - node.width) / 2
-            )
+            node.x = x
             node.y = y + (height - node.height) / 2
+            x += node.width + 130
         y += height + 170
     graph.height = y - 90
     # Long skips and return loops use exterior lanes, so their lines cannot
@@ -551,7 +553,7 @@ def layout(graph: Graph) -> None:
     special = [
         e for e in graph.edges if e.id in back or rank[e.target] > rank[e.source] + 1
     ]
-    lane_base = graph.width + 35
+    allocated_lanes = []
     for i, e in enumerate(graph.edges):
         a, b = graph.nodes[e.source], graph.nodes[e.target]
         ax, bx = a.x + a.width / 2, b.x + b.width / 2
@@ -562,7 +564,19 @@ def layout(graph: Graph) -> None:
             # unrelated branch entering that skipped task.
             if a.kind in {"userTask", "task", "scriptTask", "subProcess"}:
                 ax = a.x + a.width * 0.85
-            lane = lane_base + special.index(e) * 55
+            lo, hi = sorted((rank[e.source], rank[e.target]))
+            # Clear only the rows this edge actually crosses. Short skips
+            # should not detour around distant wide groups or unused columns.
+            lane = max(
+                n.x + n.width for nid, n in graph.nodes.items()
+                if lo <= rank[nid] <= hi
+            ) + 45
+            while any(
+                not (hi < old_lo or lo > old_hi) and abs(lane - old_x) < 55
+                for old_lo, old_hi, old_x in allocated_lanes
+            ):
+                lane += 55
+            allocated_lanes.append((lo, hi, lane))
             top = level_bottom[rank[e.source]] + 35 + (i % 4) * 20
             bottom = level_top[rank[e.target]] - 55
             e.points = [
@@ -573,7 +587,7 @@ def layout(graph: Graph) -> None:
                 (bx, bottom),
                 (bx, ty),
             ]
-            lx, ly = lane + 12, top + 18
+            lx, ly = ax + 20, top + 10
         else:
             mid = level_bottom[rank[e.source]] + 35 + (i % 4) * 20
             e.points = (
@@ -584,7 +598,13 @@ def layout(graph: Graph) -> None:
             lx, ly = (bx - 155 if abs(ax - bx) > 1 else ax + 15), mid + 12
         if e.name:
             lines = textwrap.wrap(e.name, 43)
-            e.label = (lx, ly, 310, max(25, 18 * len(lines)))
+            label_width = max(90, min(310, max(map(len, lines), default=0) * 9))
+            if e in special:
+                lx = max(0, min(lx, lane - label_width - 10))
+            elif abs(ax - bx) > 1:
+                label_width = min(label_width, max(90, abs(ax - bx) - 30))
+                lx = (ax + bx) / 2 - label_width / 2
+            e.label = (lx, ly, label_width, max(25, 22 * len(lines)))
     # Include exterior lanes and all labels in the subprocess/preview extents.
     graph.width = max(
         [

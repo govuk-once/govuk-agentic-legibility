@@ -438,3 +438,41 @@ def test_dvsa_skip_departure_does_not_look_like_entry_to_motorcycle_question():
     task = next(n for n in region.nodes.values() if n.state_id == "KZQmxcge")
     edge = next(e for e in region.edges if e.source == task.id)
     assert edge.points[0][0] != task.x + task.width / 2
+
+
+def test_local_skip_is_not_routed_beyond_a_distant_wide_subprocess():
+    from forms_bpmn.converter import Edge, Graph, Node, layout
+
+    children = Graph(
+        {name: Node(name, "userTask", name) for name in ["s", "a", "b", "c", "d", "e"]},
+        [Edge("sa", "s", "a"), Edge("sb", "s", "b"), Edge("sc", "s", "c"),
+         Edge("sd", "s", "d"), *[Edge(n + "e", n, "e") for n in "abcd"]],
+        "s",
+    )
+    nodes = {name: Node(name, "userTask", name) for name in ["start", "choose", "question", "join", "wide", "end"]}
+    nodes["choose"].kind = "exclusiveGateway"
+    nodes["wide"] = Node("wide", "subProcess", "Wide unrelated region", children=children)
+    edges = [Edge("sc", "start", "choose"), Edge("cq", "choose", "question"),
+             Edge("qj", "question", "join"), Edge("skip", "choose", "join", "Q5 = first badge"),
+             Edge("jw", "join", "wide"), Edge("we", "wide", "end")]
+    graph = Graph(nodes, edges, "start")
+    layout(graph)
+    skip = next(e for e in edges if e.id == "skip")
+    lane = skip.points[2][0]
+    assert lane == nodes["question"].x + nodes["question"].width + 45
+    assert lane - skip.points[0][0] < 300
+    assert skip.label[0] + skip.label[2] <= lane
+
+
+def test_rows_use_actual_widths_instead_of_widest_subprocess_column():
+    from forms_bpmn.converter import Edge, Graph, Node, layout
+
+    children = Graph({n: Node(n, "userTask", n) for n in ["s", "a", "b", "c", "e"]},
+                     [Edge("sa", "s", "a"), Edge("sb", "s", "b"), Edge("sc", "s", "c"),
+                      *[Edge(n + "e", n, "e") for n in "abc"]], "s")
+    nodes = {n: Node(n, "userTask", n) for n in ["s", "a", "b", "e"]}
+    nodes["wide"] = Node("wide", "subProcess", "Wide", children=children)
+    graph = Graph(nodes, [Edge("sa", "s", "a"), Edge("sb", "s", "b"), Edge("aw", "a", "wide"),
+                          Edge("bw", "b", "wide"), Edge("we", "wide", "e")], "s")
+    layout(graph)
+    assert nodes["b"].x - nodes["a"].x - nodes["a"].width == 130

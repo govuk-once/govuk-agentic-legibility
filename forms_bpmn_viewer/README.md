@@ -120,8 +120,9 @@ without readable labels; the main canvas retains the standard BPMN symbols.
 It does not cover the bpmn.io watermark, whose continued visibility is required
 by the installed bpmn-js licence.
 
-**Task text** selects a preferred embedded label size at 100% zoom (12–24px,
+**Diagram text** selects a preferred diagram label size at 100% zoom (12–24px,
 default 18px), retained locally in your browser. Long labels rewrap and shrink
-individually to fit existing boxes. Compact external route/event labels retain
-their original size. No question wording is changed; full details remain in the
+individually to fit existing boxes. Gateway names, route conditions and event labels use the same selected size,
+with label bounds enlarged and text rewrapped rather than squeezed into the old
+small label box. No question wording is changed; full details remain in the
 inspector. These controls affect this viewer only, not downloaded BPMN XML.
