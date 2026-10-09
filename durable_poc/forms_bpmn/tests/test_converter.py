@@ -459,9 +459,9 @@ def test_local_skip_is_not_routed_beyond_a_distant_wide_subprocess():
     layout(graph)
     skip = next(e for e in edges if e.id == "skip")
     lane = skip.points[2][0]
-    assert lane == nodes["question"].x + nodes["question"].width + 45
-    assert lane - skip.points[0][0] < 300
-    assert skip.label[0] + skip.label[2] <= lane
+    assert lane == nodes["question"].x - 45
+    assert abs(lane - skip.points[0][0]) < 300
+    assert lane <= skip.label[0] <= skip.points[0][0]
 
 
 def test_rows_use_actual_widths_instead_of_widest_subprocess_column():
@@ -476,3 +476,37 @@ def test_rows_use_actual_widths_instead_of_widest_subprocess_column():
                           Edge("bw", "b", "wide"), Edge("we", "wide", "e")], "s")
     layout(graph)
     assert nodes["b"].x - nodes["a"].x - nodes["a"].width == 130
+
+
+def test_default_branch_uses_marker_not_display_label():
+    from forms_bpmn.converter import Edge, Graph, Node, layout
+
+    nodes = {n: Node(n, "userTask", n) for n in ["s", "g", "default", "condition", "join"]}
+    nodes["g"].kind = "exclusiveGateway"
+    # Put default first in source order, with a label that is not "Otherwise".
+    graph = Graph(nodes, [Edge("sg", "s", "g"), Edge("gd", "g", "default", "fallback", default=True),
+                          Edge("gc", "g", "condition", "Otherwise"), Edge("dj", "default", "join"),
+                          Edge("cj", "condition", "join")], "s")
+    layout(graph)
+    assert nodes["condition"].x < nodes["default"].x
+
+
+def test_veterans_bpmn_relayout_preserves_process_and_compacts_q5():
+    from forms_bpmn.relayout import relayout_bpmn
+
+    original = (FIXTURES / "656-original.bpmn").read_text()
+    updated = relayout_bpmn(original)
+    before, after = ET.fromstring(original), ET.fromstring(updated)
+    # Recursive structural comparison ignores only serializer whitespace.
+    def canonical(e):
+        return (e.tag, sorted(e.attrib.items()), (e.text or "").strip(), [canonical(c) for c in e])
+    assert canonical(before.find("bpmn:process", NS)) == canonical(after.find("bpmn:process", NS))
+    assert updated == relayout_bpmn(updated)
+    shapes = {s.get("bpmnElement"): s.find("dc:Bounds", NS) for s in after.findall(".//bpmndi:BPMNShape", NS)}
+    assert float(shapes["state_KBregWzz"].get("x")) < float(shapes["state_9WSHmVcK"].get("x"))
+    edge = next(e for e in after.findall(".//bpmndi:BPMNEdge", NS) if e.get("bpmnElement") == "flow_jwBiAmYm_5f__5f_route_5f__5f_rule_5f_1")
+    points = [(float(p.get("x")), float(p.get("y"))) for p in edge.findall("di:waypoint", NS)]
+    assert max(x for x, _ in points) - min(x for x, _ in points) < 300
+    assert points[2][0] < points[0][0]  # conditional skip left; continuation down
+    for diagram_edge in after.findall(".//bpmndi:BPMNEdge", NS):
+        assert all(float(p.get("x")) >= 0 and float(p.get("y")) >= 0 for p in diagram_edge.findall("di:waypoint", NS))

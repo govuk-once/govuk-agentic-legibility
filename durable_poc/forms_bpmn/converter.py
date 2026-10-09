@@ -517,6 +517,29 @@ def layout(graph: Graph) -> None:
     levels = defaultdict(list)
     for n in graph.nodes:
         levels[rank[n]].append(n)
+    # A stable visual convention: conditional alternatives before the default.
+    # Carry branch positions through descendants; reconvergence drops differing
+    # suffixes. Use the default marker, never translated labels such as Otherwise.
+    incoming = defaultdict(list)
+    alternatives = {}
+    for e in dag:
+        incoming[e.target].append(e)
+    for nid in graph.nodes:
+        outgoing = [e for e in adj[nid] if e.id not in back]
+        if graph.nodes[nid].kind == "exclusiveGateway" and len(outgoing) > 1:
+            ordered = sorted(outgoing, key=lambda e: e.default)
+            alternatives.update({e.id: (i,) for i, e in enumerate(ordered)})
+    branch_path = {}
+    for r in sorted(levels):
+        for nid in levels[r]:
+            paths = [branch_path[e.source] + alternatives.get(e.id, ()) for e in incoming[nid]]
+            common = []
+            if paths:
+                for parts in zip(*paths):
+                    if len(set(parts)) != 1:
+                        break
+                    common.append(parts[0])
+            branch_path[nid] = tuple(common)
     # Size each row from its actual nodes. A wide expanded subprocess must
     # not determine the spacing between small questions in every other row.
     row_width = {
@@ -529,6 +552,7 @@ def layout(graph: Graph) -> None:
         ids = levels[r]
         ids.sort(
             key=lambda nid: (
+                branch_path[nid],
                 sum(graph.nodes[p].x + graph.nodes[p].width / 2 for p in parents[nid])
                 / max(1, len(parents[nid])),
                 list(graph.nodes).index(nid),
@@ -567,15 +591,14 @@ def layout(graph: Graph) -> None:
             lo, hi = sorted((rank[e.source], rank[e.target]))
             # Clear only the rows this edge actually crosses. Short skips
             # should not detour around distant wide groups or unused columns.
-            lane = max(
-                n.x + n.width for nid, n in graph.nodes.items()
-                if lo <= rank[nid] <= hi
-            ) + 45
+            crossed = [n for nid, n in graph.nodes.items() if lo <= rank[nid] <= hi]
+            left = a.kind == "exclusiveGateway" and not e.default
+            lane = min(n.x for n in crossed) - 45 if left else max(n.x + n.width for n in crossed) + 45
             while any(
                 not (hi < old_lo or lo > old_hi) and abs(lane - old_x) < 55
                 for old_lo, old_hi, old_x in allocated_lanes
             ):
-                lane += 55
+                lane += -55 if left else 55
             allocated_lanes.append((lo, hi, lane))
             top = level_bottom[rank[e.source]] + 35 + (i % 4) * 20
             bottom = level_top[rank[e.target]] - 55
@@ -600,11 +623,27 @@ def layout(graph: Graph) -> None:
             lines = textwrap.wrap(e.name, 43)
             label_width = max(90, min(310, max(map(len, lines), default=0) * 9))
             if e in special:
-                lx = max(0, min(lx, lane - label_width - 10))
+                label_width = min(label_width, max(90, abs(lane - ax) - 20))
+                lx = (ax + lane) / 2 - label_width / 2
             elif abs(ax - bx) > 1:
                 label_width = min(label_width, max(90, abs(ax - bx) - 30))
                 lx = (ax + bx) / 2 - label_width / 2
             e.label = (lx, ly, label_width, max(25, 22 * len(lines)))
+    # Left bypasses may need margin. Translate the scope as a whole, preserving
+    # relative paths and ensuring child coordinates stay nonnegative in DI.
+    minimum_x = min([n.x for n in graph.nodes.values()] +
+                    [x for e in graph.edges for x, _ in e.points] +
+                    [e.label[0] for e in graph.edges if e.label])
+    shift = max(0, 40 - minimum_x)
+    if shift:
+        for n in graph.nodes.values():
+            n.x += shift
+        for e in graph.edges:
+            e.points = [(x + shift, y) for x, y in e.points]
+            if e.label:
+                x, y, w, h = e.label
+                e.label = (x + shift, y, w, h)
+        graph.width += shift
     # Include exterior lanes and all labels in the subprocess/preview extents.
     graph.width = max(
         [
