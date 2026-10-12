@@ -126,7 +126,7 @@ function buildQuestionIndex() {
 async function openForm(form, variant=null, preserveQuestion=null, processId=null, focusNode=null) {
   if(!processId)state.processTrail=[];
   const token=++state.request; state.form=form; state.variant=variant || chooseVariant(form.variants,state.preferredMode); state.payload=null; state.model=null; state.selected=null;state.regions=[];state.collapsed=new Set();
-  $('process-navigation').hidden=true;$('process-context').hidden=true;$('diagram-pane').classList.remove('inside-process');overview.clear(); controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
+  $('journey-details').open=false;$('parent-details').open=false;$('process-navigation').hidden=true;$('process-context').hidden=true;$('diagram-pane').classList.remove('inside-process');overview.clear(); controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
   $('form-id').textContent='FORM '+form.formId; $('form-title').textContent=form.name; $('form-summary').textContent=(form.questionCount ?? 'Unknown number of')+' questions · select a node to inspect';
   for (const id of ['selection','questions','report','source']) $('panel-'+id).replaceChildren(dom('p','Loading…','muted'));
   $('variants').replaceChildren();
@@ -188,6 +188,7 @@ function processControls(){
   $('context-label').textContent=inside ? 'INSIDE A LINKED PROCESS' : 'JOURNEY OVERVIEW';
   $('context-title').textContent=state.model.nodes.get(state.processId)?.name || '';
   const callers=processCallers(state.model,state.processId),last=state.processTrail.at(-1);
+  $('parent-details').hidden=!inside || !callers.length;$('parent-details').open=false;
   $('context-description').textContent=last ? `Opened from ${state.model.nodes.get(last.processId)?.name} via “${state.model.nodes.get(last.nodeId)?.name}”.` : inside ? 'Used by the parent calls below. Choose one to return to its position in the parent diagram.' : 'Purple tasks open another process. Use Open process or double-click a task; purple blocks in Overview can also be double-clicked.';
   $('context-parents').replaceChildren();
   if(last)$('context-parents').append(button('← Parent: '+state.model.nodes.get(last.processId)?.name,()=>returnToCaller(state.processTrail.length-1)));
@@ -358,3 +359,8 @@ async function refresh(force=false) {
 $('refresh').addEventListener('click',() => refresh(true));
 new ResizeObserver(() => { try { viewer.get('canvas').resized(); } catch { /* initial empty canvas */ } }).observe($('canvas'));
 refresh();
+
+for(const name of ['pointerdown','keydown'])document.addEventListener(name,event=>{
+ if(name==='keydown' && event.key!=='Escape')return;
+ for(const id of ['journey-details','parent-details']){const popup=$(id);if(popup.open && (name==='keydown' || !popup.contains(event.target)))popup.open=false;}
+});

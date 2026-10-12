@@ -214,3 +214,23 @@ when it was actually selected directly.
 
 These are viewer-only affordances; downloaded BPMN and process semantics are
 unchanged. No regeneration is needed.
+
+## Compact diagram layout
+
+The title and toolbar are compact; the process scope badge now shares the
+process-navigation row instead of occupying a separate banner. Breadcrumbs,
+Back to caller, purple call activities and the child-canvas edge remain visible.
+Longer explanations and the source identifier live in the **Details** popover.
+**Parent calls** opens the calling activities, including multiple uses of shared
+processes. Popovers float over the canvas without reducing its height; click
+outside or press Escape to dismiss them. Conversion/import warnings stay visible.
+
+The toolbar stays on one row and scrolls horizontally when space is limited;
+its controls remain keyboard-accessible. The main app header and footer are also
+smaller. On narrow/mobile layouts the process row can wrap to remain usable.
+
+Chromium comparisons against patch 0011 measured canvas-height increases from
+672 to 914 pixels at 1800×1100, and from 418.5 to 714 pixels at 1440×900. Checks
+covered main and child processes, Details/Parent calls, Escape, shared-parent
+navigation, linked-task styling and finite fit, alongside the Forms regressions.
+These changes affect the viewer only; no BPMN regeneration is required.
