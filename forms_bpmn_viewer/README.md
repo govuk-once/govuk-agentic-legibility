@@ -94,7 +94,7 @@ There is no editing or separate call-activity drill-down. Very large diagrams st
 npm test
 ```
 
-The 23 Node tests cover catalogue discovery, multiple variants, missing/corrupt
+The 27 Node tests cover catalogue discovery, multiple variants, missing/corrupt
 sidecars, failed logs, refresh, containment, read-only HTTP endpoints, 505 form
 folders, variant selection, question-reference matching, source feature classification
 finite viewport calculations, including long and degenerate bounds, and routing
@@ -168,3 +168,22 @@ collections and its routing region start collapsed; expanding a collection
 reveals its retained repeat control and loop. Individual/all toggles, overview
 colours, finite fit, unchanged topology and byte-identical downloads passed.
 Its displayed extent shortens from 17,730 to 9,808 diagram units.
+
+## SFSM journeys and linked processes
+
+The same viewer also reads `sfsm_bpmn` output. See
+[`durable_poc/sfsm_bpmn/README.md`](../durable_poc/sfsm_bpmn/README.md) for conversion
+commands. Keep the `.bpmn`, `.questions.json` and `.report.json` files together
+inside a directory in the configured corpus. The catalogue adds SFSM journey,
+Linked processes and API service calls filters, using the source definition.
+
+Multi-process files show a Process selector. Select a call activity and click
+**Open process**, or double-click its box; **Back to caller** restores the caller
+selection. The breadcrumb includes nested calls. Questions and Previous/Next
+show only the current process's source state listing. Full prompts, validation
+schemas, API configurations, input/return mappings and outcome metadata remain
+in the inspector. Report lists processes and disconnected source states.
+
+The BPMN download includes all processes and planes. This navigation does not
+change the original file or execute a journey. Existing Forms collapse controls,
+font settings, overview, filters and viewport controls continue to work.

@@ -50,8 +50,8 @@ export function createCatalogue(rootDirectory) {
         const source = questions.value?.source_export;
         const classification=formFeatures(questions.value,report.value);
         for (const field of ['features','answerTypes','compiledKinds']) form[field]=[...new Set([...form[field],...classification[field]])].sort();
-        form.name = source?.content?.name?.trim() || form.name;
-        form.formId = String(questions.value?.form_id ?? report.value?.form_id ?? form.formId);
+        form.name = source?.content?.name?.trim() || report.value?.name || questions.value?.source_sfsm?.id || form.name;
+        form.formId = String(questions.value?.form_id ?? report.value?.model_id ?? report.value?.form_id ?? form.formId);
         form.questionCount = source?.content?.steps?.length ?? report.value?.question_count ?? form.questionCount;
         const variant = { id: key(file.name), filename: file.name, mode: report.value?.mode || (/(^|\.)flat$/.test(stem) ? 'flat' : /(^|\.)auto$/.test(stem) ? 'auto' : 'diagram'), groups: report.value?.decomposition?.length ?? null, issues: [questions.issue, report.issue].filter(Boolean) };
         form.variants.push(variant);

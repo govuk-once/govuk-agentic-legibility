@@ -7,3 +7,9 @@
 /* Standard BPMN collapsed subprocess (+), with viewer-only grouping emphasis. */
 .djs-element.routing-region .djs-visual > rect { stroke:#2461a5 !important; stroke-width:2px !important; }
 .region-control { font-size:13px; padding:4px 9px; background:#edf5ff; color:#174a84; border:1px solid #2461a5; white-space:nowrap; }
+
+.process-navigation {display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--border);background:#edf5ff;flex-wrap:wrap;font-size:12px}
+.process-navigation[hidden] {display:none}
+.process-navigation label {display:flex;align-items:center;gap:8px}
+.process-navigation select {max-width:280px;font-size:12px;padding:5px}
+#process-location {color:#174a84;overflow-wrap:anywhere}

@@ -80,7 +80,7 @@ test('API reads only indexed files, rejects writes and serves local assets',asyn
   assert.equal((await fetch(base+'/api/forms',{method:'POST'})).status,405);
   assert.equal((await fetch(base+'/server.mjs')).status,404);
   assert.equal((await fetch(base+'/vendor/assets/%2e%2e%2f%2e%2e%2fserver.mjs')).status,404);
-  assert.match(await (await fetch(base+'/')).text(),/Forms journey explorer/);
+  assert.match(await (await fetch(base+'/')).text(),/Journey explorer/);
   assert.equal((await fetch(base+'/vendor/bpmn.js')).status,200);
 });
 

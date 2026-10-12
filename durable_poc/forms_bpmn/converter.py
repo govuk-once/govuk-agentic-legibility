@@ -472,7 +472,7 @@ def layout(graph: Graph) -> None:
         if n.children:
             layout(n.children)
             n.width, n.height = n.children.width + 80, n.children.height + 140
-        elif n.kind in {"startEvent", "endEvent"}:
+        elif n.kind in {"startEvent", "endEvent", "boundaryEvent"}:
             n.width, n.height = 40, 40
         elif n.kind == "exclusiveGateway":
             n.width, n.height = 50, 50
@@ -729,7 +729,7 @@ def write_di(plane, graph: Graph, dx=0, dy=0) -> None:
             **({"isExpanded": "true"} if n.children else {}),
         )
         el(shape, "dc:Bounds", x=n.x + dx, y=n.y + dy, width=n.width, height=n.height)
-        if n.kind in {"startEvent", "endEvent", "exclusiveGateway"}:
+        if n.kind in {"startEvent", "endEvent", "boundaryEvent", "exclusiveGateway"}:
             label = el(shape, "bpmndi:BPMNLabel")
             el(
                 label,
