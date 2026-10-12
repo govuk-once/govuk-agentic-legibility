@@ -1,4 +1,4 @@
-import { chooseVariant, sourceQuestions, resolveQuestion, inspectXml, matchesFilters, processForNode } from './metadata.js';
+import { chooseVariant, sourceQuestions, resolveQuestion, inspectXml, matchesFilters, processForNode, linkedCalls, processCallers } from './metadata.js';
 
 import { diagramBounds, fittedViewbox, focusedViewbox } from './viewport.js';
 
@@ -8,7 +8,7 @@ import {collapsibleGroups,collapsedAncestors,regionView} from './regions.js';
 
 const $ = (id) => document.getElementById(id);
 const viewer = new window.BpmnJS({ container:$('canvas') });
-const overview=createOverview(viewer,$('overview-map'));
+const overview=createOverview(viewer,$('overview-map'),{canOpenProcess:id=>Boolean(state.model && linkedCalls(state.model).some(n=>n.id===id)),onOpenProcess:id=>{const node=state.model?.nodes.get(id);if(node)openCalledProcess(node);}});
 let fontSize=18;try{fontSize=preferredFontSize(localStorage.getItem('forms-viewer-font-size'));}catch{}
 $('font-size').value=String(fontSize);
 $('font-size').addEventListener('change',()=>{fontSize=preferredFontSize($('font-size').value);try{localStorage.setItem('forms-viewer-font-size',String(fontSize));}catch{}if(state.model){resizeLabels(viewer,fontSize);overview.rebuild();viewer.get('canvas').resized();}});
@@ -126,7 +126,7 @@ function buildQuestionIndex() {
 async function openForm(form, variant=null, preserveQuestion=null, processId=null, focusNode=null) {
   if(!processId)state.processTrail=[];
   const token=++state.request; state.form=form; state.variant=variant || chooseVariant(form.variants,state.preferredMode); state.payload=null; state.model=null; state.selected=null;state.regions=[];state.collapsed=new Set();
-  $('process-navigation').hidden=true;overview.clear(); controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
+  $('process-navigation').hidden=true;$('process-context').hidden=true;$('diagram-pane').classList.remove('inside-process');overview.clear(); controls(false); $('representation-help').textContent=''; renderCatalogue(); clearMarkers(); viewer.clear(); $('diagram-status').textContent='Loading…'; $('filename').textContent='';
   $('form-id').textContent='FORM '+form.formId; $('form-title').textContent=form.name; $('form-summary').textContent=(form.questionCount ?? 'Unknown number of')+' questions · select a node to inspect';
   for (const id of ['selection','questions','report','source']) $('panel-'+id).replaceChildren(dom('p','Loading…','muted'));
   $('variants').replaceChildren();
@@ -178,7 +178,28 @@ function processControls(){
   const processes=state.model?.processes || [];$('process-navigation').hidden=processes.length<=1;
   $('process-select').replaceChildren(...processes.map(p=>new Option(p.name,p.id)));
   $('process-select').value=state.processId;$('process-back').disabled=!state.processTrail.length;
-  $('process-location').textContent=[...state.processTrail.map(p=>state.model.nodes.get(p.processId)?.name),state.model.nodes.get(state.processId)?.name].filter(Boolean).join(' → ');
+  $('process-location').replaceChildren();
+  state.processTrail.forEach((caller,index)=>{
+    $('process-location').append(button(state.model.nodes.get(caller.processId)?.name || caller.processId,()=>returnToCaller(index),'breadcrumb-button'),dom('span',' → '));
+  });
+  $('process-location').append(dom('strong',state.model.nodes.get(state.processId)?.name));
+  const entry=state.payload.report?.entry_bpmn_id || processes[0]?.id,inside=state.processId!==entry;
+  $('process-context').hidden=processes.length<=1;$('diagram-pane').classList.toggle('inside-process',inside);
+  $('context-label').textContent=inside ? 'INSIDE A LINKED PROCESS' : 'JOURNEY OVERVIEW';
+  $('context-title').textContent=state.model.nodes.get(state.processId)?.name || '';
+  const callers=processCallers(state.model,state.processId),last=state.processTrail.at(-1);
+  $('context-description').textContent=last ? `Opened from ${state.model.nodes.get(last.processId)?.name} via “${state.model.nodes.get(last.nodeId)?.name}”.` : inside ? 'Used by the parent calls below. Choose one to return to its position in the parent diagram.' : 'Purple tasks open another process. Use Open process or double-click a task; purple blocks in Overview can also be double-clicked.';
+  $('context-parents').replaceChildren();
+  if(last)$('context-parents').append(button('← Parent: '+state.model.nodes.get(last.processId)?.name,()=>returnToCaller(state.processTrail.length-1)));
+  else if(inside)for(const caller of callers){const parent=processForNode(state.model,caller.id);$('context-parents').append(button('← '+state.model.nodes.get(parent)?.name+' · '+caller.name,()=>{state.processTrail=[];openForm(state.form,state.variant,null,parent,caller.id);}));}
+  if(inside && !last && !callers.length)$('context-description').textContent='This is a separately defined process. No parent call is present in this file.';
+  const overlays=viewer.get('overlays');overlays.remove({type:'linked-process'});
+  for(const call of linkedCalls(state.model,state.processId)){
+    viewer.get('canvas').addMarker(call.id,'linked-process');
+    const control=button('Open process ↗',event=>{event.stopPropagation();openCalledProcess(call);},'process-open-control');
+    control.setAttribute('aria-label','Open linked process '+state.model.nodes.get(call.calledElement)?.name);
+    overlays.add(call.id,'linked-process',{position:{bottom:-8,left:0},html:control,show:{minZoom:.35}});
+  }
 }
 function openCalledProcess(node){
   if(!state.model.nodes.has(node.calledElement))return;
@@ -186,7 +207,8 @@ function openCalledProcess(node){
   openForm(state.form,state.variant,null,node.calledElement);
 }
 $('process-select').addEventListener('change',()=>{state.processTrail=[];openForm(state.form,state.variant,null,$('process-select').value);});
-$('process-back').addEventListener('click',()=>{const caller=state.processTrail.pop();if(caller)openForm(state.form,state.variant,null,caller.processId,caller.nodeId);});
+function returnToCaller(index){const caller=state.processTrail[index];if(!caller)return;state.processTrail=state.processTrail.slice(0,index);openForm(state.form,state.variant,null,caller.processId,caller.nodeId);}
+$('process-back').addEventListener('click',()=>returnToCaller(state.processTrail.length-1));
 function regionControls() {
   const overlays=viewer.get('overlays');overlays.remove({type:'routing-region'});
   for(const region of state.regions) {

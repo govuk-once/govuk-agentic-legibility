@@ -74,3 +74,10 @@ export function processForNode(model,id) {
  }
  return null;
 }
+
+export function linkedCalls(model,processId=null) {
+  return [...model.nodes.values()].filter(n=>n.type==='callActivity' && model.nodes.get(n.calledElement)?.type==='process' && (!processId || processForNode(model,n.id)===processId));
+}
+export function processCallers(model,processId) {
+  return linkedCalls(model).filter(n=>n.calledElement===processId);
+}

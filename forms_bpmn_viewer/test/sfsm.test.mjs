@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sourceQuestions,formFeatures,processForNode} from '../public/metadata.js';
+import {sourceQuestions,formFeatures,processForNode,linkedCalls,processCallers} from '../public/metadata.js';
 import {createCatalogue} from '../server.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';
 const metadata={
@@ -62,4 +62,9 @@ test('catalogue uses the SFSM journey name and all-process question count',async
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'sfsm-viewer-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
  await fs.writeFile(path.join(dir,'journey.bpmn'),'<definitions/>');await fs.writeFile(path.join(dir,'journey.questions.json'),JSON.stringify(metadata));await fs.writeFile(path.join(dir,'journey.report.json'),JSON.stringify({model_id:'test.journey',mode:'sfsm',question_count:2}));
  const {forms}=await createCatalogue(dir).list();assert.equal(forms[0].name,'test.journey');assert.equal(forms[0].formId,'test.journey');assert.equal(forms[0].questionCount,2);assert.ok(forms[0].features.includes('linked_processes'));assert.ok(!forms[0].features.includes('unknown'));
+});
+
+test('only locally resolvable call activities receive linked-process affordances',()=>{
+ const nodes=new Map([['main',{id:'main',type:'process'}],['child',{id:'child',type:'process'}],['a',{id:'a',type:'callActivity',parentId:'main',calledElement:'child'}],['b',{id:'b',type:'callActivity',parentId:'main',calledElement:'external'}],['c',{id:'c',type:'userTask',parentId:'main',calledElement:'child'}]]);
+ assert.deepEqual(linkedCalls({nodes},'main').map(n=>n.id),['a']);assert.deepEqual(processCallers({nodes},'child').map(n=>n.id),['a']);assert.deepEqual(processCallers({nodes},'missing'),[]);
 });

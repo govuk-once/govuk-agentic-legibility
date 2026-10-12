@@ -13,3 +13,21 @@
 .process-navigation label {display:flex;align-items:center;gap:8px}
 .process-navigation select {max-width:280px;font-size:12px;padding:5px}
 #process-location {color:#174a84;overflow-wrap:anywhere}
+
+/* Keep the standard thick call-activity border and '+' marker; colour and
+   labelled controls make its linked navigation discoverable. */
+.djs-element.linked-process .djs-visual > rect:first-child {fill:#f3edff!important;stroke:#7642a6!important;stroke-width:4px!important}
+.process-open-control {background:#f3edff;color:#66318f;border:1px solid #7642a6;font-size:13px;padding:4px 9px;white-space:nowrap}
+.overview-call {fill:#d4b8f0;stroke:#7642a6;stroke-width:2.5;vector-effect:non-scaling-stroke;cursor:pointer}
+.overview-call-legend {color:#66318f;display:inline-block;margin-top:8px}
+.process-context {display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:#f8f5ff;border-left:4px solid #7642a6;border-bottom:1px solid #d8c5ed}
+.process-context[hidden] {display:none}
+#context-label {display:block;font-size:10px;letter-spacing:.08em;font-weight:700;color:#66318f;margin-bottom:3px}
+#context-title {display:block;font-size:17px;color:#482265}
+#context-description {font-size:11px;line-height:1.5;margin:4px 0 0;color:#624975}
+#context-parents {display:flex;gap:6px;flex-wrap:wrap;max-width:45%}
+#context-parents button,.breadcrumb-button {font-size:11px;color:#66318f;background:#fff;border-color:#d8c5ed}
+#process-location {display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.breadcrumb-button {padding:3px 6px}
+.inside-process .canvas-wrap {border-left:3px solid #b395d0}
+.overview-call-legend[hidden] {display:none}

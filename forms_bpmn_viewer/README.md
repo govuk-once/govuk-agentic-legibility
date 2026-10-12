@@ -94,7 +94,7 @@ There is no editing or separate call-activity drill-down. Very large diagrams st
 npm test
 ```
 
-The 27 Node tests cover catalogue discovery, multiple variants, missing/corrupt
+The 28 Node tests cover catalogue discovery, multiple variants, missing/corrupt
 sidecars, failed logs, refresh, containment, read-only HTTP endpoints, 505 form
 folders, variant selection, question-reference matching, source feature classification
 finite viewport calculations, including long and degenerate bounds, and routing
@@ -187,3 +187,30 @@ in the inspector. Report lists processes and disconnected source states.
 The BPMN download includes all processes and planes. This navigation does not
 change the original file or execute a journey. Existing Forms collapse controls,
 font settings, overview, filters and viewport controls continue to work.
+
+## Finding linked processes and seeing their parent
+
+Call activities whose target process is included in the file have a purple fill
+and border, retaining the standard thick BPMN border and boxed '+' marker. An
+**Open process ↗** button appears below the box at 35% zoom or above; the inspector
+and double-click navigation remain available at lower zoom.
+
+The Overview uses the same purple for linked-process blocks and displays a
+legend when links are present. Double-click a purple block to open its process.
+Keyboard users can focus a block and press Enter or Space; arrow-key panning is
+still available. Other task and grouped-subprocess colours remain unchanged.
+
+A prominent banner identifies **Journey overview** versus **Inside a linked
+process**, naming the current process and, when opened through a call, its parent
+and originating call activity. The child canvas has a purple edge. Breadcrumbs
+are clickable and return to the corresponding caller selection. A **Parent**
+button gives a second explicit way back to the immediate caller.
+
+If a process is selected directly, its banner lists all calling activities in
+the file. These links open the parent diagram and select that call. This matters
+for reusable processes: Calculate deadlines shows both timeline calls, rather
+than implying that it has only one parent or that it was entered through a call
+when it was actually selected directly.
+
+These are viewer-only affordances; downloaded BPMN and process semantics are
+unchanged. No regeneration is needed.
