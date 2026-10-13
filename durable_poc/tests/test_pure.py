@@ -3,7 +3,8 @@
 from datetime import timedelta
 import pytest
 
-from src.paths import append_path, interpolate, parse_duration, resolve_dict, resolve_path
+from src.paths import append_path, interpolate, resolve_dict, resolve_path
+from src.actions import parse_duration
 from src.predicates import evaluate
 
 

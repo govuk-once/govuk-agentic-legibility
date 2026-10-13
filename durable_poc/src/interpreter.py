@@ -37,11 +37,11 @@ with workflow.unsafe.imports_passed_through():
     from src.paths import (
         append_path,
         interpolate,
-        parse_duration,
         resolve_dict,
         resolve_path,
         set_path,
     )
+    from src.actions import parse_duration
     from src.predicates import evaluate
     from opentelemetry import trace as otel_trace
 

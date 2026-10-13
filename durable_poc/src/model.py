@@ -1,8 +1,44 @@
 """Pydantic models for the FSM schema."""
 
-from typing import Any, Literal
+from typing import Any, Literal, Callable
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class OperationSpec(BaseModel):
+    name: str
+    fn: Callable[[dict, dict], Any]
+    description: str
+    spec_schema: dict[str, Any]
+    example: dict[str, Any] | None = None
+
+class InvalidSpecNameException(Exception):
+    pass
+
+
+class OperationsRegistry:
+    def __init__(self):
+        self.registry: list[OperationSpec] = []
+
+    def register(self, op_spec: OperationSpec):
+        existing_names = [spec for spec in self.registry if spec.name == op_spec.name]
+        if len(existing_names) > 0:
+            raise InvalidSpecNameException("A spec with this name already exists in the registry")
+        else:
+            self.registry.append(op_spec)
+
+    def execute(self, name: str, spec: dict, context: dict) -> Any:
+        op_spec = self.get_op(name)
+        return op_spec.fn(spec, context)
+
+    def list_ops(self) -> list[OperationSpec]:
+        return self.registry
+
+    def get_op(self, name: str) -> OperationSpec:
+        try:
+            return [op for op in self.registry if op.name == name][0]
+        except IndexError:
+            raise InvalidSpecNameException(f"There is no operation spec with the name {name}")
 
 
 class OptionItem(BaseModel):

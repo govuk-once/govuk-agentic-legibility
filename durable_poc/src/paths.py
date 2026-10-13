@@ -1,13 +1,7 @@
 """Path resolution, interpolation, and duration parsing."""
 
 import re
-from datetime import timedelta
 from typing import Any
-
-# Matches ISO 8601 Durations requiring at least one populated unit
-DURATION_RE = re.compile(
-    r"^P(?=.)(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?)?$"
-)
 
 
 def resolve_path(context: dict[str, Any], path: str) -> Any:
@@ -93,23 +87,3 @@ def resolve_dict(data: Any, context: dict[str, Any]) -> Any:
         return [resolve_dict(item, context) for item in data]
     return data
 
-
-def parse_duration(duration_str: str) -> timedelta:
-    """Parse an ISO 8601 duration string into a timedelta."""
-    if not duration_str or duration_str == "P":
-        raise ValueError(f"Invalid duration format: '{duration_str}'")
-
-    match = DURATION_RE.match(duration_str)
-    if not match:
-        raise ValueError(f"Invalid duration format: '{duration_str}'")
-
-    groups = match.groupdict(default="0")
-    days = int(groups["days"])
-    hours = int(groups["hours"])
-    minutes = int(groups["minutes"])
-    seconds = float(groups["seconds"])
-
-    if days == 0 and hours == 0 and minutes == 0 and seconds == 0:
-        raise ValueError(f"Duration string '{duration_str}' resolved to 0 time")
-
-    return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
