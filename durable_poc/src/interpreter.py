@@ -14,7 +14,6 @@ with workflow.unsafe.imports_passed_through():
     import pydantic
 
     import src.activities as activities
-    from src.actions import apply_date_math
     from src.context import (
         AwaitingInput,
         InputSubmission,
@@ -35,13 +34,12 @@ with workflow.unsafe.imports_passed_through():
         WaitState,
     )
     from src.paths import (
-        append_path,
         interpolate,
         resolve_dict,
         resolve_path,
         set_path,
     )
-    from src.actions import parse_duration
+    from src.actions import REGISTRY, parse_duration
     from src.predicates import evaluate
     from opentelemetry import trace as otel_trace
 
@@ -507,57 +505,12 @@ class SFSMInterpreter:
             elif isinstance(current_state, AssignState):
                 for k, v in current_state.set.items():
                     if isinstance(v, dict) and "op" in v:
-                        op = v["op"]
-                        if op == "add":
-                            val1 = resolve_path(context, v.get("path", ""))
-                            val2 = (
-                                resolve_path(context, v.get("value_path", ""))
-                                if "value_path" in v
-                                else v.get("value")
-                            )
-                            if val1 is not None and val2 is not None:
-                                set_path(frame.vars, k, val1 + val2)
-
-                        elif op == "append":
-                            value = (
-                                resolve_path(context, v.get("value_path", ""))
-                                if "value_path" in v
-                                else v.get("value")
-                            )
-                            try:
-                                append_path(frame.vars, k, value)
-                            except ValueError as exc:
-                                raise DefinitionError(str(exc)) from exc
-
-                        elif op == "now_plus":
-                            dur_path = v.get("value_path")
-                            if dur_path:
-                                dur_str = resolve_path(context, dur_path)
-                                if dur_str:
-                                    dt = workflow.now() + parse_duration(dur_str)
-                                    set_path(frame.vars, k, dt.isoformat())
-
-                        elif op in ["date_subtract", "date_add"]:
-                            base_date = resolve_path(context, v.get("path", ""))
-                            offset_str = v.get("value")
-                            op_type = "add" if op == "date_add" else "subtract"
-                            res_date = apply_date_math(
-                                base_date, offset_str, op_type=op_type
-                            )
-                            set_path(frame.vars, k, res_date)
-
-                        elif op in [
-                            "date_before",
-                            "before_now",
-                            "is_true",
-                            "is_false",
-                            "eq",
-                            "lt",
-                            "gt",
-                        ]:
-                            res_bool = evaluate(v, context)
-                            set_path(frame.vars, k, res_bool)
-
+                        try:
+                            result = REGISTRY.execute(v["op"], v, context)
+                        except ValueError as exc:
+                            raise DefinitionError(str(exc)) from exc
+                        if result is not None:
+                            set_path(frame.vars, k, result)
                     else:
                         set_path(frame.vars, k, resolve_dict(v, context))
                     workflow.logger.info(f"Assigned '{k}' = {frame.vars.get(k)}")

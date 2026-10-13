@@ -5,6 +5,7 @@ from typing import Any
 
 from src.model import OperationSpec, OperationsRegistry
 from src.paths import resolve_path
+from src.predicates import evaluate
 
 # Matches ISO 8601 Durations requiring at least one populated unit
 DURATION_RE = re.compile(
@@ -43,6 +44,16 @@ SCHEMA_TEMPLATES: dict[str, dict[str, Any]] = {
             "value_path": {"type": "string", "description": "Dot-path to an ISO 8601 duration string"},
         },
         "required": ["op", "value_path"],
+    },
+    "predicate": {
+        "type": "object",
+        "properties": {
+            "op": {"type": "string"},
+            "path": {"type": "string", "description": "Dot-path to the value to test"},
+            "value": {"description": "Literal comparison value"},
+            "value_path": {"type": "string", "description": "Dot-path to the comparison value"},
+        },
+        "required": ["op", "path"],
     },
     "list_append": {
         "type": "object",
@@ -144,9 +155,10 @@ def multiply(spec: dict, context: dict) -> int | float | None:
     example={"op": "now_plus", "value_path": "reminder_offset"},
 )
 def now_plus(spec: dict, context: dict) -> str | None:
-    now = context.get("__now__")
-    if now is None:
+    now_raw = context.get("__now__")
+    if now_raw is None:
         return None
+    now = datetime.fromisoformat(now_raw) if isinstance(now_raw, str) else now_raw
     dur_path = spec.get("value_path")
     if dur_path:
         dur_str = resolve_path(context, dur_path)
@@ -183,15 +195,53 @@ def date_subtract(spec: dict, context: dict) -> str | None:
     example={"op": "append", "path": "selected_items", "value": "photo_update"},
 )
 def append(spec: dict, context: dict) -> list:
-    current = resolve_path(context, spec.get("path", ""))
-    current = list(current) if isinstance(current, list) else []
+    path = spec.get("path", "")
+    existing = resolve_path(context, path)
+    if existing is not None and not isinstance(existing, list):
+        raise ValueError(
+            f"Append target '{path}' must be a list or unset, got {type(existing).__name__}"
+        )
     value = (
         resolve_path(context, spec["value_path"])
         if "value_path" in spec
         else spec.get("value")
     )
-    current.append(value)
-    return current
+    if value is None:
+        raise ValueError(f"Append operation for '{path}' resolved no value")
+    return [*(existing or []), value]
+
+
+# ---------------------------------------------------------------------------
+# Predicate operations — thin wrappers around src.predicates.evaluate()
+# ---------------------------------------------------------------------------
+
+_PREDICATE_OPS = [
+    ("eq", "Test equality of two values."),
+    ("lt", "Test whether a value is less than another."),
+    ("gt", "Test whether a value is greater than another."),
+    ("is_true", "Test whether a value is truthy."),
+    ("is_false", "Test whether a value is falsy."),
+    ("date_before", "Test whether a date is before another date."),
+    ("before_now", "Test whether a date is before the current time."),
+]
+
+for _name, _desc in _PREDICATE_OPS:
+    def _make_pred(op_name):
+        def pred(spec: dict, context: dict) -> bool:
+            return evaluate(spec, context)
+        pred.__name__ = op_name
+        return pred
+
+    operation(description=_desc, schema="predicate")(
+        _make_pred(_name)
+    )
+
+del _name, _desc
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers (not registered)
+# ---------------------------------------------------------------------------
 
 
 def apply_date_math(

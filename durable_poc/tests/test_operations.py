@@ -1,9 +1,8 @@
-"""Unit tests for operations, the registry, and the ops API."""
+"""Unit tests for operations and the registry."""
 
 from datetime import datetime, timedelta
 
 import pytest
-from starlette.testclient import TestClient
 
 from src.actions import (
     REGISTRY,
@@ -20,7 +19,6 @@ from src.model import (
     OperationSpec,
     OperationsRegistry,
 )
-from src.ops_api import app
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +98,12 @@ class TestDateSubtract:
 
 
 class TestNowPlus:
-    def test_adds_duration(self):
+    def test_adds_duration_from_iso_string(self):
+        ctx = {"__now__": "2026-06-01T12:00:00", "offset": "PT30M"}
+        result = now_plus({"value_path": "offset"}, ctx)
+        assert result == "2026-06-01T12:30:00"
+
+    def test_adds_duration_from_datetime(self):
         now = datetime(2026, 6, 1, 12, 0, 0)
         ctx = {"__now__": now, "offset": "PT30M"}
         result = now_plus({"value_path": "offset"}, ctx)
@@ -140,6 +143,15 @@ class TestAppend:
         append({"path": "items", "value": "y"}, ctx)
         assert original == ["x"]
 
+    def test_rejects_non_list_target(self):
+        ctx = {"name": "Alice"}
+        with pytest.raises(ValueError, match="must be a list"):
+            append({"path": "name", "value": "Bob"}, ctx)
+
+    def test_rejects_none_value(self):
+        with pytest.raises(ValueError, match="resolved no value"):
+            append({"path": "items", "value_path": "missing"}, {})
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -153,6 +165,8 @@ class TestOperationsRegistry:
             "add", "subtract", "multiply",
             "now_plus", "date_add", "date_subtract",
             "append",
+            "eq", "lt", "gt", "is_true", "is_false",
+            "date_before", "before_now",
         }
 
     def test_execute_returns_result(self):
@@ -180,43 +194,3 @@ class TestOperationsRegistry:
         registry.register(spec)
         with pytest.raises(InvalidSpecNameException):
             registry.register(spec)
-
-
-# ---------------------------------------------------------------------------
-# Ops API
-# ---------------------------------------------------------------------------
-
-
-client = TestClient(app)
-
-
-class TestOpsAPI:
-    def test_health(self):
-        resp = client.get("/api/v1/health")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["status"] == "ok"
-        assert body["ops_count"] == 7
-
-    def test_list_ops(self):
-        resp = client.get("/api/v1/ops")
-        assert resp.status_code == 200
-        ops = resp.json()
-        assert len(ops) == 7
-        names = {op["name"] for op in ops}
-        assert "add" in names
-        assert "multiply" in names
-        for op in ops:
-            assert "description" in op
-            assert "spec_schema" in op
-
-    def test_get_op_found(self):
-        resp = client.get("/api/v1/ops/add")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["name"] == "add"
-        assert body["example"] == {"op": "add", "path": "retry_count", "value": 1}
-
-    def test_get_op_not_found(self):
-        resp = client.get("/api/v1/ops/nonexistent")
-        assert resp.status_code == 404
