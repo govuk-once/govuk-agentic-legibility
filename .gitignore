@@ -112,3 +112,7 @@ coverage/
 .svelte-kit/
 
 *.jpeg
+
+# BPMN forms actual forms and exported
+forms_export/
+bpmn_forms/
