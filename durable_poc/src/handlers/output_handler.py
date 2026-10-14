@@ -12,6 +12,28 @@ from src.paths import interpolate, resolve_dict
 
 
 async def handle_output(state, frame, context, interpreter) -> dict[str, Any] | None:
+    """Emit a transcript entry and optionally dispatch a notification activity.
+
+    Interpolates the output message against *context* and appends it to
+    the interpreter's transcript.  If the channel is not ``"transcript"``
+    the handler also dispatches a ``notify`` Temporal activity for
+    external delivery (email, SMS, etc.).  Transcript length is capped at
+    ``interpreter.MAX_TRANSCRIPT_LENGTH``.
+
+    An OTEL span ``interpreter.OutputState`` is emitted with channel,
+    template, and notification outcome attributes.
+
+    Args:
+        state: The ``OutputState`` model for the current step.
+        frame: The active ``StackFrame`` (mutated: ``state_id``).
+        context: Deterministic step context dict.
+        interpreter: The ``SFSMInterpreter`` instance providing the
+            transcript list, step counter, tracer, and transcript length
+            limit.
+
+    Returns:
+        ``None`` to continue the interpreter loop.
+    """
     with interpreter.tracer.start_as_current_span(
         "interpreter.OutputState",
         attributes={

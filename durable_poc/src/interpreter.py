@@ -32,9 +32,24 @@ _tracer = otel_trace.get_tracer(__name__)
 
 @workflow.defn
 class SFSMInterpreter:
+    """Deterministic finite-state-machine interpreter running inside Temporal.
+
+    Accepts a JSON workflow definition (``SFSMDefinition``) and executes it
+    step-by-step across nested process call stacks, suspending at
+    human-in-the-loop input states and resuming when structured input is
+    submitted via Temporal Updates.
+
+    Attributes:
+        MAX_TRANSCRIPT_LENGTH: Hard cap on retained transcript entries.
+        state: The mutable runtime execution state.
+        definition: The parsed workflow definition, set during ``run()``.
+        tracer: OpenTelemetry tracer shared with extracted state handlers.
+    """
+
     MAX_TRANSCRIPT_LENGTH = 100
 
     def __init__(self) -> None:
+        """Initialise interpreter signals and empty runtime state."""
         self.state = InterpreterState()
         self.definition: SFSMDefinition | None = None
         self.tracer = _tracer
@@ -51,6 +66,26 @@ class SFSMInterpreter:
         definition_dict: dict[str, Any],
         initial_state: InterpreterState | None = None,
     ) -> Any:
+        """Execute the workflow definition to completion.
+
+        Validates the definition, initialises (or resumes) the call stack,
+        then loops through states by dispatching to the handler registered
+        for each state type until the stack is empty or an ``EndState``
+        returns a result.
+
+        Args:
+            definition_dict: Raw JSON-serialisable workflow definition.
+            initial_state: Optional checkpoint to resume from (used after
+                Temporal Continue-As-New).
+
+        Returns:
+            The result dict produced by the root ``EndState``, or ``None``
+            if the stack empties without an explicit end.
+
+        Raises:
+            DefinitionError: If the definition fails Pydantic validation or
+                a referenced process/state is missing.
+        """
         try:
             self.definition = SFSMDefinition.model_validate(definition_dict)
         except pydantic.ValidationError as e:
@@ -140,6 +175,7 @@ class SFSMInterpreter:
 
     @workflow.update
     async def submit_input(self, msg: InputSubmission) -> None:
+        """Accept a validated input submission and unblock the waiting handler."""
         workflow.logger.info(f"📩 Input submitted via update: val={msg.value}")
         self._received_input = msg.value
         self._input_ready_event.set()
@@ -189,6 +225,20 @@ class SFSMInterpreter:
 
     @submit_input.validator
     def _validate_input(self, msg: InputSubmission) -> None:
+        """Synchronously validate an input submission before it reaches the handler.
+
+        Checks are performed in order: awaiting state, token match, then
+        type- and kind-specific constraints (boolean, string with optional
+        regex pattern, select_one/select_many option membership, and
+        file_ref structure).
+
+        Args:
+            msg: The candidate input containing a token and value.
+
+        Raises:
+            InputValidationError: If any check fails, via
+                ``_raise_input_validation_error``.
+        """
         if not self._awaiting_input:
             self._raise_input_validation_error(
                 msg, code="not_awaiting_input", message="Not awaiting input"
@@ -344,14 +394,22 @@ class SFSMInterpreter:
 
     @workflow.query
     def awaiting(self) -> AwaitingInput | None:
+        """Return the current awaiting-input descriptor, or ``None``."""
         return self._awaiting_input
 
     @workflow.query
     def transcript(self) -> list[TranscriptEntry]:
+        """Return the current transcript entries."""
         return self.state.transcript
 
     @workflow.query
     def current_state_info(self) -> dict[str, Any] | None:
+        """Return a summary of the top-of-stack state for polling consumers.
+
+        Returns:
+            A dict with ``process_id``, ``state_id``, ``state_type``, and
+            ``step``, or ``None`` if no frames remain.
+        """
         if not self.state.frames:
             return None
         frame = self.state.frames[-1]

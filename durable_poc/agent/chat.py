@@ -114,6 +114,15 @@ def get_options_from_state(state: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def create_agent() -> WorkflowAgent:
+    """Create a ``WorkflowAgent`` configured from environment variables.
+
+    Reads ``WORKFLOW_SERVER_URL``, ``BEDROCK_MODEL_ID``, ``AWS_REGION``,
+    and ``TEMPORAL_ADDRESS`` from the environment, falling back to local
+    development defaults when unset.
+
+    Returns:
+        A fully-configured ``WorkflowAgent`` ready for tool invocation.
+    """
     workflow_server_url = os.environ.get(
         "WORKFLOW_SERVER_URL",
         "http://localhost:8080",
@@ -412,11 +421,30 @@ HTML_TEMPLATE = """
 
 @app.get("/")
 async def get_index() -> HTMLResponse:
+    """Serve the GOV.UK-styled single-page chat interface."""
     return HTMLResponse(HTML_TEMPLATE)
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
+    """Handle a WebSocket session for the split-screen chat UI.
+
+    Creates a per-connection ``WorkflowAgent``, sets up OTEL trace context
+    with a unique session ID, and runs two concurrent loops:
+
+    * **Foreground** — reads user messages, forwards them to the agent's
+      ``respond()`` method, and routes the agent's tool-call trace events
+      to the sidebar.
+    * **Background** (``stream_background_events``) — polls Temporal for
+      transcript updates, dynamic option buttons, timeouts, and workflow
+      completion banners, streaming them to the chat panel.
+
+    Handles ``resume:<workflow_id>`` messages to re-attach to a running
+    execution and ``option:<value>`` messages for button-click input.
+
+    Args:
+        websocket: The Starlette/FastAPI ``WebSocket`` connection.
+    """
     await websocket.accept()
 
     agent = create_agent()

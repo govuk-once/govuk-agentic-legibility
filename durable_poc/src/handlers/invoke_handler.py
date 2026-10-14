@@ -10,6 +10,24 @@ from src.paths import resolve_dict
 
 
 async def handle_invoke(state, frame, context, interpreter) -> dict[str, Any] | None:
+    """Invokes a sub-process.
+    
+    The process definition is retrieved from the workflow definition. The handler creates
+    a new frame within the stack, populates any required input variables, and moves to the 
+    next state. 
+    
+    Args:
+        state: The ``WaitState`` model for the current step.
+        frame: The active ``StackFrame`` (mutated: ``state_id``, ``vars``).
+        context: Deterministic step context dict.
+        interpreter: The ``SFSMInterpreter`` instance (used for logging).
+
+    Returns:
+        ``None`` to continue the interpreter loop.
+
+    Raises:
+        DefinitionError: If the process is not found.
+    """
     target_proc = interpreter.definition.processes.get(state.process)
     if not target_proc:
         raise DefinitionError(

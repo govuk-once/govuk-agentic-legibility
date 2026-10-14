@@ -21,6 +21,12 @@ session_id_var = contextvars.ContextVar("session_id", default="")
 workflow_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("workflow_id", default=None)
 
 def get_logger() -> logging.Logger:
+    """Create or retrieve the module-level logger with a stdout handler.
+
+    Returns:
+        A ``logging.Logger`` configured at DEBUG level with a formatted
+        ``StreamHandler`` attached (added only once).
+    """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     if not logger.handlers:
@@ -37,7 +43,10 @@ logger = get_logger()
 
 
 class SessionSpanProcessor(SpanProcessor):
+    """Stamps ``session_id`` and ``temporalWorkflowID`` on every span from context vars."""
+
     def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        """Set session and workflow attributes from context variables."""
         session_id = session_id_var.get()
         if session_id:
             span.set_attribute("session_id", session_id)
@@ -46,16 +55,21 @@ class SessionSpanProcessor(SpanProcessor):
             span.set_attribute("temporalWorkflowID", workflow_id)
 
     def on_end(self, span: ReadableSpan) -> None:
+        """No-op end hook."""
         pass
 
 
 class BaggageSpanProcessor(SpanProcessor):
+    """Extracts ``session_id`` from W3C Baggage and applies it as a span attribute."""
+
     def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        """Read ``session_id`` from baggage and set it on the span."""
         session_id = baggage.get_baggage("session_id", parent_context)
         if session_id is not None:
             span.set_attribute("session_id", str(session_id))
 
     def on_end(self, span: ReadableSpan) -> None:
+        """No-op end hook."""
         pass
 
 
@@ -63,6 +77,7 @@ class TemporalContextSpanProcessor(SpanProcessor):
     """Extracts workflow_id from Temporal's native context and applies it to all spans."""
     
     def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+        """Stamp ``temporalWorkflowID`` from the native workflow or activity context."""
         try:
             if workflow.in_workflow():
                 wf_id = workflow.info().workflow_id
@@ -76,14 +91,27 @@ class TemporalContextSpanProcessor(SpanProcessor):
             pass
 
     def on_end(self, span: ReadableSpan) -> None:
+        """No-op end hook."""
         pass
-    
+
 
 class FileSpanExporter(SpanExporter):
+    """Appends completed spans as JSONL to a local file."""
+
     def __init__(self, path: Path):
+        """Open *path* in append mode for span output."""
         self._file = open(path, 'a')
 
     def export(self, spans: Sequence[ReadableSpan]):
+        """Serialise each span to JSON and write one line per span.
+
+        Args:
+            spans: Completed spans to export.
+
+        Returns:
+            ``SpanExportResult.SUCCESS`` on success, or
+            ``SpanExportResult.FAILURE`` if any span lacks a context.
+        """
         num_spans = len(spans)
         logger.info(f'There are {num_spans} spans to be exported to file')
         span_counter = 0
@@ -113,17 +141,37 @@ class FileSpanExporter(SpanExporter):
         return SpanExportResult.SUCCESS
 
     def shutdown(self):
+        """Close the output file."""
         self._file.close()
 
 
 class S3SpanExporter(SpanExporter):
+    """Batches spans in memory and flushes them to S3 as Hive-partitioned JSONL."""
+
     def __init__(self, bucket: str, region: str, prefix: str):
+        """Initialise the S3 client and empty trace buffer.
+
+        Args:
+            bucket: Target S3 bucket name.
+            region: AWS region for the S3 client.
+            prefix: Key prefix prepended to each Hive-partitioned object key.
+        """
         self.s3 = boto3.client("s3", region_name=region)
         self.bucket = bucket
         self.prefix = prefix
         self.traces = []
 
     def export(self, spans: Sequence[ReadableSpan]):
+        """Serialise spans to JSON, buffer them, and flush to S3.
+
+        Args:
+            spans: Completed spans to export.
+
+        Returns:
+            ``SpanExportResult.SUCCESS`` if the flush succeeds, or
+            ``SpanExportResult.FAILURE`` if any span lacks a context or
+            the S3 write fails.
+        """
         num_spans = len(spans)
         result = False
         logger.info(f'There are {num_spans} spans to be exported to S3')
@@ -153,6 +201,14 @@ class S3SpanExporter(SpanExporter):
         return SpanExportResult.SUCCESS if result else SpanExportResult.FAILURE
 
     def flush_traces(self):
+        """Write buffered trace lines to S3 as a single JSONL object.
+
+        Uses a Hive-style partitioned key:
+        ``{prefix}/year={y}/month={m}/day={d}/hour={h}/trace-{ts}.jsonl``.
+
+        Returns:
+            ``True`` on success, ``False`` on any S3 or unexpected error.
+        """
         if not self.traces:
             return True
 

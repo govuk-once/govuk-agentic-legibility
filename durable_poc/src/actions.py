@@ -80,7 +80,24 @@ def operation(
     schema: str | dict[str, Any],
     example: dict[str, Any] | None = None,
 ):
+    """Decorator that registers a function as a named operation in the global REGISTRY.
+
+    The operation name is derived from the decorated function's ``__name__``.
+    A schema template key (string) is resolved from ``SCHEMA_TEMPLATES``;
+    alternatively a raw JSON Schema dict may be passed directly.
+
+    Args:
+        description: Human-readable one-line summary of the operation.
+        schema: A key into ``SCHEMA_TEMPLATES`` or a raw JSON Schema dict
+            describing the operation's spec shape.
+        example: Optional example spec dict shown in discovery APIs.
+
+    Returns:
+        A decorator that registers the wrapped function and returns it
+        unchanged.
+    """
     def decorator(fn):
+        """Register *fn* as an OperationSpec and return it unchanged."""
         resolved = SCHEMA_TEMPLATES[schema] if isinstance(schema, str) else schema
         REGISTRY.register(OperationSpec(
             name=fn.__name__,
@@ -104,6 +121,16 @@ def operation(
     example={"op": "add", "path": "retry_count", "value": 1},
 )
 def add(spec: dict, context: dict) -> int | float | None:
+    """Sum two numeric values resolved from *spec* and *context*.
+
+    Args:
+        spec: Operation spec with ``path`` and either ``value`` or
+            ``value_path``.
+        context: Runtime variable context.
+
+    Returns:
+        The sum, or ``None`` if either operand is missing.
+    """
     val1 = resolve_path(context, spec.get("path", ""))
     val2 = (
         resolve_path(context, spec["value_path"])
@@ -121,6 +148,16 @@ def add(spec: dict, context: dict) -> int | float | None:
     example={"op": "subtract", "path": "balance", "value": 50},
 )
 def subtract(spec: dict, context: dict) -> int | float | None:
+    """Subtract two numeric values resolved from *spec* and *context*.
+
+    Args:
+        spec: Operation spec with ``path`` and either ``value`` or
+            ``value_path``.
+        context: Runtime variable context.
+
+    Returns:
+        The difference, or ``None`` if either operand is missing.
+    """
     val1 = resolve_path(context, spec.get("path", ""))
     val2 = (
         resolve_path(context, spec["value_path"])
@@ -138,6 +175,16 @@ def subtract(spec: dict, context: dict) -> int | float | None:
     example={"op": "multiply", "path": "quantity", "value": 2},
 )
 def multiply(spec: dict, context: dict) -> int | float | None:
+    """Multiply two numeric values resolved from *spec* and *context*.
+
+    Args:
+        spec: Operation spec with ``path`` and either ``value`` or
+            ``value_path``.
+        context: Runtime variable context.
+
+    Returns:
+        The product, or ``None`` if either operand is missing.
+    """
     val1 = resolve_path(context, spec.get("path", ""))
     val2 = (
         resolve_path(context, spec["value_path"])
@@ -155,6 +202,20 @@ def multiply(spec: dict, context: dict) -> int | float | None:
     example={"op": "now_plus", "value_path": "reminder_offset"},
 )
 def now_plus(spec: dict, context: dict) -> str | None:
+    """Add an ISO 8601 duration to the current workflow time.
+
+    Reads ``__now__`` from *context* (ISO string or ``datetime``) and a
+    duration string from the path given by ``spec["value_path"]``.
+
+    Args:
+        spec: Operation spec with ``value_path`` pointing to a duration
+            string (e.g. ``"PT30M"``).
+        context: Runtime variable context containing ``__now__``.
+
+    Returns:
+        The resulting datetime as an ISO 8601 string, or ``None`` if
+        ``__now__`` or the duration is missing.
+    """
     now_raw = context.get("__now__")
     if now_raw is None:
         return None
@@ -173,6 +234,7 @@ def now_plus(spec: dict, context: dict) -> str | None:
     example={"op": "date_add", "path": "start_date", "value": "14 days"},
 )
 def date_add(spec: dict, context: dict) -> str | None:
+    """Add a human-readable offset to a date string."""
     base_date = resolve_path(context, spec.get("path", ""))
     offset_str = spec.get("value")
     return apply_date_math(base_date, offset_str, op_type="add")
@@ -184,6 +246,7 @@ def date_add(spec: dict, context: dict) -> str | None:
     example={"op": "date_subtract", "path": "due_date", "value": "7 days"},
 )
 def date_subtract(spec: dict, context: dict) -> str | None:
+    """Subtract a human-readable offset from a date string."""
     base_date = resolve_path(context, spec.get("path", ""))
     offset_str = spec.get("value")
     return apply_date_math(base_date, offset_str, op_type="subtract")
@@ -195,6 +258,25 @@ def date_subtract(spec: dict, context: dict) -> str | None:
     example={"op": "append", "path": "selected_items", "value": "photo_update"},
 )
 def append(spec: dict, context: dict) -> list:
+    """Append a value to a list, returning the new list without mutation.
+
+    Reads the current list from ``spec["path"]`` in *context* and appends
+    the value resolved from ``spec["value"]`` or ``spec["value_path"]``.
+    Rejects non-list targets and ``None`` values to match the safety
+    guarantees of ``append_path``.
+
+    Args:
+        spec: Operation spec with ``path`` and either ``value`` or
+            ``value_path``.
+        context: Runtime variable context.
+
+    Returns:
+        A new list containing the existing elements plus the appended value.
+
+    Raises:
+        ValueError: If the target is not a list or the resolved value is
+            ``None``.
+    """
     path = spec.get("path", "")
     existing = resolve_path(context, path)
     if existing is not None and not isinstance(existing, list):
@@ -227,7 +309,9 @@ _PREDICATE_OPS = [
 
 for _name, _desc in _PREDICATE_OPS:
     def _make_pred(op_name):
+        """Build a predicate operation function bound to *op_name*."""
         def pred(spec: dict, context: dict) -> bool:
+            """Evaluate a predicate condition against *context*."""
             return evaluate(spec, context)
         pred.__name__ = op_name
         return pred
@@ -301,6 +385,16 @@ def apply_date_math(
 
 
 def _parse_date(val: Any) -> datetime | None:
+    """Parse a date value into a ``datetime``, trying several common formats.
+
+    Args:
+        val: A ``datetime`` instance or a string in ``YYYY-MM-DD``,
+            ``DD/MM/YYYY``, or ISO 8601 datetime format.
+
+    Returns:
+        The parsed ``datetime``, or ``None`` if *val* is falsy or no
+        format matches.
+    """
     if not val:
         return None
     if isinstance(val, datetime):

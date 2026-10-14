@@ -13,6 +13,33 @@ from src.paths import interpolate, resolve_dict, resolve_path, set_path
 
 
 async def handle_input(state, frame, context, interpreter) -> dict[str, Any] | None:
+    """Suspend execution and await structured human input.
+
+    Publishes an ``AwaitingInput`` descriptor via the interpreter, then
+    blocks on ``workflow.wait_condition`` until input is submitted through
+    the Temporal Update handler or an optional timeout fires.  On receipt
+    the raw value is resolved against the schema's option list (for
+    ``select_one`` / ``select_many`` kinds), normalised, and assigned into
+    the frame variables.
+
+    An OTEL span ``interpreter.InputState`` is emitted with prompt,
+    schema, timeout, and outcome attributes.
+
+    Args:
+        state: The ``InputState`` model for the current step.
+        frame: The active ``StackFrame`` (mutated: ``state_id``, ``vars``).
+        context: Deterministic step context dict.
+        interpreter: The ``SFSMInterpreter`` instance providing access to
+            signals (``_awaiting_input``, ``_input_ready_event``), tracer,
+            and workflow state.
+
+    Returns:
+        ``None`` to continue the interpreter loop.
+
+    Raises:
+        DefinitionError: If a timeout fires without a ``next`` route or
+            the timeout duration string is invalid.
+    """
     with interpreter.tracer.start_as_current_span(
         "interpreter.InputState",
         attributes={

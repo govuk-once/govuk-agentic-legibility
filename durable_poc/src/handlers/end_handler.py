@@ -9,6 +9,22 @@ from src.paths import resolve_dict, set_path
 
 
 async def handle_end(state, frame, context, interpreter) -> dict[str, Any] | None:
+    """Terminates the current process.
+    
+    Pops the current frame. If the current frame was invoked by another process, returns
+    any required value to the invoker. Otherwise, returns a result disctionary to the interpreter.
+    
+    Args:
+        state: The ``WaitState`` model for the current step.
+        frame: The active ``StackFrame`` (mutated: ``state_id``, ``vars``).
+        context: Deterministic step context dict.
+        interpreter: The ``SFSMInterpreter`` instance (used for logging).
+
+    Returns:
+        dict containing status, outcome and a possibly null return value if there is no parent process 
+        calling the current frame or ``None`` to continue the interpreter loop.
+
+    """
     workflow.logger.info(
         f"🏁 Reached EndState '{frame.state_id}' in process '{frame.process_id}' "
         f"(status={state.status}, outcome={state.outcome}) | Final vars: {frame.vars}"

@@ -12,6 +12,28 @@ from src.paths import interpolate, resolve_dict, set_path
 
 
 async def handle_call(state, frame, context, interpreter) -> dict[str, Any] | None:
+    """Dispatch an HTTP API call via a Temporal activity and capture the response.
+
+    Resolves the request body, URL, headers, and optional idempotency key
+    from *context*, then executes the ``http_call`` activity.  Successful
+    responses are projected through ``state.capture`` and assigned into
+    frame variables.  On failure the handler evaluates ``state.catch``
+    rules; unmatched errors are re-raised.
+
+    Two transcript entries are appended: one on dispatch and one on
+    completion.  An OTEL span ``interpreter.CallState`` is emitted with
+    service, HTTP method/URL, outcome, and error-handling attributes.
+
+    Args:
+        state: The ``CallState`` model for the current step.
+        frame: The active ``StackFrame`` (mutated: ``state_id``, ``vars``).
+        context: Deterministic step context dict.
+        interpreter: The ``SFSMInterpreter`` instance providing the
+            transcript list, step counter, and tracer.
+
+    Returns:
+        ``None`` to continue the interpreter loop.
+    """
     body = resolve_dict(state.body or {}, context)
     headers = state.headers or {}
     url = interpolate(state.url, context=context)
