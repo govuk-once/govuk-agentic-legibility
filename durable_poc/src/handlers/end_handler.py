@@ -55,7 +55,7 @@ async def handle_end(state, frame, context, interpreter) -> dict[str, Any] | Non
                     )
                     if rule_on == state.outcome or rule_on == "any":
                         parent_frame.state_id = rule_next
-                        handled = True
+                        handled = True #noqa F841
                         break
     else:
         return {
