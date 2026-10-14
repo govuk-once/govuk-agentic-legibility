@@ -617,4 +617,253 @@
         
     </bpmn:process>
 
+    <bpmndi:BPMNDiagram id="BPMNDiagram_change_address"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+
+  <bpmndi:BPMNPlane
+      id="BPMNPlane_change_address"
+      bpmnElement="change_address">
+
+    <!-- Events -->
+
+    <bpmndi:BPMNShape bpmnElement="start" id="start_di">
+      <dc:Bounds x="100" y="220" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="end_success" id="end_success_di">
+      <dc:Bounds x="2470" y="220" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="end_cancelled" id="end_cancelled_di">
+      <dc:Bounds x="320" y="60" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="end_postal_required" id="end_postal_required_di">
+      <dc:Bounds x="620" y="60" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="end_rejected" id="end_rejected_di">
+      <dc:Bounds x="1600" y="420" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="end_exception" id="end_exception_di">
+      <dc:Bounds x="1800" y="560" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <!-- Call Activities -->
+
+    <bpmndi:BPMNShape bpmnElement="run_confirm_intent" id="run_confirm_intent_di">
+      <dc:Bounds x="180" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_name_change_check" id="run_name_change_check_di">
+      <dc:Bounds x="420" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_driver_lookup" id="run_driver_lookup_di">
+      <dc:Bounds x="660" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_photo_update" id="run_photo_update_di">
+      <dc:Bounds x="900" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_signature_update" id="run_signature_update_di">
+      <dc:Bounds x="1140" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_organ_donation" id="run_organ_donation_di">
+      <dc:Bounds x="1380" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_address_selection" id="run_address_selection_di">
+      <dc:Bounds x="1620" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_address_update" id="run_address_update_di">
+      <dc:Bounds x="1860" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="run_finalisation" id="run_finalisation_di">
+      <dc:Bounds x="2100" y="180" width="120" height="80"/>
+    </bpmndi:BPMNShape>
+
+    <!-- Boundary Events -->
+
+    <bpmndi:BPMNShape bpmnElement="confirm_cancelled" id="confirm_cancelled_di">
+      <dc:Bounds x="272" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="postal_required" id="postal_required_di">
+      <dc:Bounds x="512" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="driver_lookup_error" id="driver_lookup_error_di">
+      <dc:Bounds x="752" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="photo_invalid" id="photo_invalid_di">
+      <dc:Bounds x="960" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="photo_api_error" id="photo_api_error_di">
+      <dc:Bounds x="996" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="signature_invalid" id="signature_invalid_di">
+      <dc:Bounds x="1200" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="signature_api_error" id="signature_api_error_di">
+      <dc:Bounds x="1236" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="address_selection_error" id="address_selection_error_di">
+      <dc:Bounds x="1712" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="address_invalid" id="address_invalid_di">
+      <dc:Bounds x="1920" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="address_update_error" id="address_update_error_di">
+      <dc:Bounds x="1956" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <bpmndi:BPMNShape bpmnElement="finalisation_error" id="finalisation_error_di">
+      <dc:Bounds x="2192" y="242" width="36" height="36"/>
+    </bpmndi:BPMNShape>
+
+    <!-- Happy Path Flows -->
+
+    <bpmndi:BPMNEdge bpmnElement="f1">
+      <di:waypoint x="136" y="238"/>
+      <di:waypoint x="180" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f2">
+      <di:waypoint x="300" y="220"/>
+      <di:waypoint x="420" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f3">
+      <di:waypoint x="540" y="220"/>
+      <di:waypoint x="660" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f4">
+      <di:waypoint x="780" y="220"/>
+      <di:waypoint x="900" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f5">
+      <di:waypoint x="1020" y="220"/>
+      <di:waypoint x="1140" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f6">
+      <di:waypoint x="1260" y="220"/>
+      <di:waypoint x="1380" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f7">
+      <di:waypoint x="1500" y="220"/>
+      <di:waypoint x="1620" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f8">
+      <di:waypoint x="1740" y="220"/>
+      <di:waypoint x="1860" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f9">
+      <di:waypoint x="1980" y="220"/>
+      <di:waypoint x="2100" y="220"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f10">
+      <di:waypoint x="2220" y="220"/>
+      <di:waypoint x="2470" y="238"/>
+    </bpmndi:BPMNEdge>
+
+    <!-- Cancel -->
+
+    <bpmndi:BPMNEdge bpmnElement="f_cancel">
+      <di:waypoint x="290" y="242"/>
+      <di:waypoint x="290" y="78"/>
+      <di:waypoint x="320" y="78"/>
+    </bpmndi:BPMNEdge>
+
+    <!-- Postal -->
+
+    <bpmndi:BPMNEdge bpmnElement="f_postal_required">
+      <di:waypoint x="530" y="242"/>
+      <di:waypoint x="530" y="78"/>
+      <di:waypoint x="620" y="78"/>
+    </bpmndi:BPMNEdge>
+
+    <!-- Rejections -->
+
+    <bpmndi:BPMNEdge bpmnElement="f_rejected_1">
+      <di:waypoint x="1218" y="260"/>
+      <di:waypoint x="1218" y="438"/>
+      <di:waypoint x="1600" y="438"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_rejected_2">
+      <di:waypoint x="978" y="260"/>
+      <di:waypoint x="978" y="438"/>
+      <di:waypoint x="1600" y="438"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_rejected_3">
+      <di:waypoint x="1938" y="260"/>
+      <di:waypoint x="1938" y="438"/>
+      <di:waypoint x="1600" y="438"/>
+    </bpmndi:BPMNEdge>
+
+    <!-- Exceptions -->
+
+    <bpmndi:BPMNEdge bpmnElement="f_exception_1">
+      <di:waypoint x="770" y="260"/>
+      <di:waypoint x="770" y="578"/>
+      <di:waypoint x="1800" y="578"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_exception_2">
+      <di:waypoint x="1014" y="260"/>
+      <di:waypoint x="1014" y="578"/>
+      <di:waypoint x="1800" y="578"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_exception_3">
+      <di:waypoint x="1254" y="260"/>
+      <di:waypoint x="1254" y="578"/>
+      <di:waypoint x="1800" y="578"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_exception_4">
+      <di:waypoint x="1730" y="260"/>
+      <di:waypoint x="1730" y="578"/>
+      <di:waypoint x="1800" y="578"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_exception_5">
+      <di:waypoint x="1974" y="260"/>
+      <di:waypoint x="1974" y="578"/>
+      <di:waypoint x="1800" y="578"/>
+    </bpmndi:BPMNEdge>
+
+    <bpmndi:BPMNEdge bpmnElement="f_exception_6">
+      <di:waypoint x="2210" y="260"/>
+      <di:waypoint x="2210" y="578"/>
+      <di:waypoint x="1800" y="578"/>
+    </bpmndi:BPMNEdge>
+
+  </bpmndi:BPMNPlane>
+
+</bpmndi:BPMNDiagram>
+
 </bpmn:definitions>
