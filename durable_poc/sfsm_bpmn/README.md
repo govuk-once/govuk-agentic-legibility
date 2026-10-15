@@ -123,3 +123,24 @@ BPMN 2.0 XSDs distributed with `bpmn-moddle` and rendered with bpmn-js in Chromi
 with no import warnings. Browser checks covered all six planes, call navigation,
 return to caller, process-local question lists, API metadata, reports, finite fit
 and byte-identical downloads, alongside the existing Forms browser regressions.
+
+## Section introductions
+
+By default, a transcript output named `announce_sectionN` is folded into its
+immediately following call to `sectionN_...`, when that call has no other entry.
+This narrowly recognises explicit section-introduction states; it does not
+summarise arbitrary output messages or guidance. The main Maternity Allowance
+diagram therefore shows one call box per section, rather than an announcement
+box followed by the call.
+
+The full announcement, original state ID and source JSON remain under
+`sfsm:announcement` on the call activity and in the unchanged source sidecar.
+Selection displays the section introduction. Report lists folded state IDs.
+Incoming flows keep their IDs and conditions and target the call; the introduction's
+own unconditional flow is represented by that metadata. No interpreter or source
+journey is changed. Use `--show-announcements` to render every introduction as a
+separate task for detailed comparison.
+
+Regenerate existing BPMN/sidecars with the same command above to use this compact
+representation. Viewer-only label placement and background changes do not require
+regeneration.

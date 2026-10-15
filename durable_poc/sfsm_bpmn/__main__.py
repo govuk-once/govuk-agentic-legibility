@@ -14,6 +14,11 @@ def main():
     parser.add_argument(
         "--output", type=Path, required=True, help="destination .bpmn file"
     )
+    parser.add_argument(
+        "--show-announcements",
+        action="store_true",
+        help="draw section-announcement output states as separate tasks",
+    )
     args = parser.parse_args()
     if args.output.suffix != ".bpmn":
         parser.error("output must end in .bpmn")
@@ -26,7 +31,11 @@ def main():
         parser.error("output must not overwrite source")
     try:
         source = json.loads(args.input.read_text(encoding="utf-8"))
-        result = convert_sfsm(source, question_file=paths[1].name)
+        result = convert_sfsm(
+            source,
+            question_file=paths[1].name,
+            fold_announcements=not args.show_announcements,
+        )
         validate_bpmn(result.xml, result.questions)
     except (ValueError, KeyError, TypeError) as exc:
         parser.exit(1, f"UNSUPPORTED: {exc}\n")

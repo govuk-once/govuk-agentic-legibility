@@ -277,6 +277,7 @@ function renderSelection(node) {
     panel.append(target?.type==='process' ? button('Open process: '+target.name,()=>openCalledProcess(node)) : note('Called process is not included in this BPMN file.'));
   }
   if(state.regions.some(r=>r.id===node.id))panel.append(button(`${state.collapsed.has(node.id) ? 'Expand' : 'Collapse'} ${node.decomposition?.reason==='explicit is_repeatable' ? 'collection' : 'region'}`,()=>toggleRegion(node.id)));
+  for(const announcement of node.announcements || [])panel.append(section('Section introduction · '+announcement.stateId,dom('p',announcement.state?.message,'prose')));
   if (node.stateId) panel.append(dom('p','Source state: '+node.stateId,'identifier'));
   const { question, issue }=resolveQuestion(node.questionRef,state.payload.questions,state.payload.filename.replace(/\.bpmn$/,'.questions.json'));
   if (issue) panel.append(note(issue));
@@ -327,7 +328,7 @@ function renderReport(report) {
   else {
     panel.append(fields([['Journey',report.model_id],['Form',report.form_id],['Representation',report.mode],['Source questions',report.question_count],['Linked processes',report.processes?.length],['Groups',report.processes ? undefined : report.decomposition?.length ?? 0]]));
     for (const warning of report.warnings || []) panel.append(note(warning));
-    for(const p of report.processes || []){const card=dom('div',null,'group-card');card.append(dom('h3',p.name),dom('p',`${p.state_count} states · ${p.question_count} questions`));if(p.unreachable?.length)card.append(note('Unreachable source states: '+p.unreachable.join(', ')));card.append(button('Open '+p.name,()=>{state.processTrail=[];openForm(state.form,state.variant,null,p.bpmn_id);}));panel.append(card);}
+    for(const p of report.processes || []){const card=dom('div',null,'group-card');card.append(dom('h3',p.name),dom('p',`${p.state_count} states · ${p.question_count} questions`));if(Object.keys(p.folded_announcements || {}).length)card.append(dom('p',Object.keys(p.folded_announcements).length+' section introductions included with their call activities.'));if(p.unreachable?.length)card.append(note('Unreachable source states: '+p.unreachable.join(', ')));card.append(button('Open '+p.name,()=>{state.processTrail=[];openForm(state.form,state.variant,null,p.bpmn_id);}));panel.append(card);}
     if (!report.processes && !report.decomposition?.length) panel.append(section('Decomposition',dom('p','No subprocess grouping was inferred. A linear form may be best kept flat.','prose')));
     for (const group of report.decomposition || []) { const card=dom('div',null,'group-card'); card.append(dom('h3',state.model?.nodes.get(group.id)?.name || 'Subprocess'),dom('p',group.reason,'prose'),dom('p','Questions: '+(group.question_ids || []).join(', '),'identifier')); if (state.model?.nodes.has(group.id)) card.append(button('Show group in diagram',() => selectElement(group.id,true))); panel.append(card); }
     panel.append(details('Raw conversion report',report));

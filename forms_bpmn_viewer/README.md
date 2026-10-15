@@ -234,3 +234,17 @@ Chromium comparisons against patch 0011 measured canvas-height increases from
 covered main and child processes, Details/Parent calls, Escape, shared-parent
 navigation, linked-task styling and finite fit, alongside the Forms regressions.
 These changes affect the viewer only; no BPMN regeneration is required.
+
+## Label placement and linked-process background
+
+External labels are rewrapped at the requested font size and then nudged within a
+bounded neighbourhood. Candidate positions favour avoiding task/event/gateway
+boxes, other labels and connecting lines. This is a deterministic, best-effort
+viewer adjustment, not a full layout engine: dense junctions may still need zoom
+or manual inspection. Task geometry, routing and downloaded BPMN remain unchanged.
+The adjustment runs again on font changes without accumulating drift.
+
+Entering a linked process tints the whole drawing surface light purple, matching
+its call box. Returning to the main process restores the normal background.
+Folded section introductions in newly generated SFSM BPMN appear in the call
+activity's Selection panel; other source output tasks remain explicit.

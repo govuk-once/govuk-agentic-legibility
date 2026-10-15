@@ -238,11 +238,44 @@ def check_source(source):
         visit(pid)
 
 
-def build_process(pid, process):
+def section_announcements(pid, process):
+    """Only explicit, singly-entered announce_sectionN -> sectionN calls fold.
+
+    This is a visual summary, not deletion of a source output instruction.
+    Other messages, channels, branching and shared-entry calls remain explicit.
+    """
+    states = process["states"]
+    incoming = {sid: [] for sid in states}
+    for sid, state in states.items():
+        targets = [state["next"]] if "next" in state else []
+        targets += [r["next"] for r in state.get("rules", [])]
+        targets += [r["next"] for r in state.get("catch", [])]
+        targets += [state["default"]] if "default" in state else []
+        for target in targets:
+            incoming[target].append(sid)
+    folded = {}
+    for sid, state in states.items():
+        match = re.fullmatch(r"announce_section(\d+)", sid)
+        target = states.get(state.get("next"), {})
+        if (
+            match
+            and state["type"] == "output"
+            and state.get("channel") == "transcript"
+            and target.get("type") == "invoke"
+            and re.match(r"section" + match[1] + r"(?:_|$)", target["process"])
+            and incoming[state["next"]] == [sid]
+            and process["start"] != state["next"]
+        ):
+            folded[sid] = state["next"]
+    return folded
+
+
+def build_process(pid, process, *, fold_announcements=True):
     nodes = {}
     edges = []
     attachments = {}
     states = process["states"]
+    folded = section_announcements(pid, process) if fold_announcements else {}
     start = xml_id("start", pid)
     nodes[start] = Node(start, "startEvent", "Start")
     edges.append(Edge(xml_id("entry", pid), start, sid_id(pid, process["start"])))
@@ -321,6 +354,14 @@ def build_process(pid, process):
             )
             attachments[event] = nid
             flow(sid, "error", event, s["catch"][0]["next"], "API failed")
+    # Redirect incoming flows to the call while retaining their IDs/guards.
+    for edge in edges:
+        for announcement, call in folded.items():
+            if edge.target == sid_id(pid, announcement):
+                edge.target = sid_id(pid, call)
+    edges = [e for e in edges if e.source not in {sid_id(pid, sid) for sid in folded}]
+    for sid in folded:
+        del nodes[sid_id(pid, sid)]
     graph = Graph(nodes, edges, start)
     # Invisible layout-only links keep error-handler paths ranked with their
     # tasks. They are removed before XML/DI is written: boundary events have no
@@ -373,11 +414,13 @@ def build_process(pid, process):
         seen.add(n)
         queue.extend(e.target for e in edges if e.source == n)
         queue.extend(event for event, task in attachments.items() if task == n)
-    unreachable = [sid for sid in states if sid_id(pid, sid) not in seen]
-    return graph, unreachable
+    unreachable = [
+        sid for sid in states if sid_id(pid, folded.get(sid, sid)) not in seen
+    ]
+    return graph, unreachable, folded
 
 
-def write_process(root, pid, process, graph, question_file):
+def write_process(root, pid, process, graph, question_file, folded):
     owner = el(
         root,
         "bpmn:process",
@@ -409,6 +452,15 @@ def write_process(root, pid, process, graph, question_file):
         if n.state_id:
             el(ext, "sfsm:stateRef", processId=pid, stateId=n.state_id)
         el(ext, "sfsm:state", json.dumps(n.state, ensure_ascii=False))
+        for sid, call in folded.items():
+            if call == n.state_id:
+                announcement = el(ext, "sfsm:announcement", id=sid_id(pid, sid))
+                el(announcement, "sfsm:stateRef", processId=pid, stateId=sid)
+                el(
+                    announcement,
+                    "sfsm:state",
+                    json.dumps(process["states"][sid], ensure_ascii=False),
+                )
         if n.kind == "userTask":
             el(
                 ext,
@@ -446,7 +498,9 @@ def write_process(root, pid, process, graph, question_file):
     return owner
 
 
-def convert_sfsm(source, *, question_file="journey.questions.json"):
+def convert_sfsm(
+    source, *, question_file="journey.questions.json", fold_announcements=True
+):
     check_source(source)
     source = copy.deepcopy(source)
     root = ET.Element(
@@ -465,9 +519,11 @@ def convert_sfsm(source, *, question_file="journey.questions.json"):
     order = [source["entry"]] + [p for p in source["processes"] if p != source["entry"]]
     for pid in order:
         p = source["processes"][pid]
-        g, unreachable = build_process(pid, p)
+        g, unreachable, folded = build_process(
+            pid, p, fold_announcements=fold_announcements
+        )
         graphs[pid] = g
-        write_process(root, pid, p, g, question_file)
+        write_process(root, pid, p, g, question_file, folded)
         reports.append(
             {
                 "id": pid,
@@ -478,6 +534,7 @@ def convert_sfsm(source, *, question_file="journey.questions.json"):
                     s["type"] == "input" for s in p["states"].values()
                 ),
                 "unreachable": unreachable,
+                "folded_announcements": folded,
             }
         )
         if unreachable:

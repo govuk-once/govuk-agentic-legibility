@@ -1,3 +1,4 @@
+import {nudgeLabels} from './label-placement.js';
 export function preferredFontSize(value) {const number=Number(value);return Number.isFinite(number)&&number>=12&&number<=24 ? Math.round(number) : 18;}
 
 // Reuse bpmn-js's text layout/renderer, rewrapping full labels at each size.
@@ -41,4 +42,5 @@ export function resizeLabels(viewer,requestedSize) {
   }
  }
  style.fontSize=base;external.fontSize=base;
+ nudgeLabels(viewer);
 }

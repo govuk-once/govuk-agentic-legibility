@@ -5,7 +5,13 @@ from xml.etree import ElementTree as ET
 
 import pytest
 from forms_bpmn.converter import NS, xml_id
-from sfsm_bpmn.converter import UnsupportedSFSM, convert_sfsm, guarded, sid_id
+from sfsm_bpmn.converter import (
+    UnsupportedSFSM,
+    convert_sfsm,
+    guarded,
+    section_announcements,
+    sid_id,
+)
 from sfsm_bpmn.validate import validate_bpmn
 
 SOURCE = Path(__file__).resolve().parents[2] / "dwp_ma1_schema.json"
@@ -34,7 +40,14 @@ def test_full_ma1_processes_and_state_metadata(source, result):
         for s, state in process["states"].items():
             element = root.find(f'.//*[@id="{sid_id(p, s)}"]')
             assert (
-                json.loads(element.find("bpmn:extensionElements/sfsm:state", NS).text)
+                json.loads(
+                    (
+                        element.find("bpmn:extensionElements/sfsm:state", NS)
+                        if element.tag.endswith("callActivity")
+                        or element.tag.startswith("{" + NS["bpmn"] + "}")
+                        else element.find("sfsm:state", NS)
+                    ).text
+                )
                 == state
             )
     assert result.questions["source_sfsm"] == source
@@ -44,13 +57,21 @@ def test_full_ma1_processes_and_state_metadata(source, result):
 def test_every_transition_and_catch_is_preserved(source, result):
     for pid, process in source["processes"].items():
         graph = result.graphs[pid]
+        folded = section_announcements(pid, process)
+
+        def target_id(sid, pid=pid, folded=folded):
+            return sid_id(pid, folded.get(sid, sid))
+
         for sid, state in process["states"].items():
             nid = sid_id(pid, sid)
+            if sid in folded:
+                assert nid not in graph.nodes
+                continue
             if state["type"] == "choice":
                 outgoing = [e for e in graph.edges if e.source == nid]
                 assert [e.target for e in outgoing] == [
-                    sid_id(pid, r["next"]) for r in state["rules"]
-                ] + [sid_id(pid, state["default"])]
+                    target_id(r["next"]) for r in state["rules"]
+                ] + [target_id(state["default"])]
                 previous = []
                 for edge, rule in zip(outgoing, state["rules"]):
                     assert edge.predicate == guarded(rule["when"], previous)
@@ -61,13 +82,13 @@ def test_every_transition_and_catch_is_preserved(source, result):
                 outgoing = [e for e in graph.edges if e.source == gateway]
                 assert [e.target for e in outgoing] == [
                     sid_id(pid, c["next"]) for c in state["catch"]
-                ] + [sid_id(pid, state["next"])]
+                ] + [target_id(state["next"])]
                 assert [e.predicate["op"] for e in outgoing[:-1]] == [
                     "returned_outcome"
                 ] + ["and"] * (len(state["catch"]) - 1)
             elif state["type"] != "end":
                 assert [e.target for e in graph.edges if e.source == nid] == [
-                    sid_id(pid, state["next"])
+                    target_id(state["next"])
                 ]
             if state["type"] == "call" and state.get("catch"):
                 event = next(
@@ -190,3 +211,34 @@ def test_cli_fails_without_replacing_existing_outputs(tmp_path):
     ):
         main()
     assert out.read_text() == "previous output"
+
+
+def test_section_announcements_fold_without_losing_source_or_other_outputs(
+    source, result
+):
+    folded = next(p for p in result.report["processes"] if p["id"] == "main")[
+        "folded_announcements"
+    ]
+    assert len(folded) == 4
+    root = ET.fromstring(result.xml)
+    for sid, call in folded.items():
+        assert sid_id("main", sid) not in result.graphs["main"].nodes
+        activity = root.find(f'.//*[@id="{sid_id("main", call)}"]')
+        announcement = activity.find("bpmn:extensionElements/sfsm:announcement", NS)
+        assert (
+            json.loads(announcement.find("sfsm:state", NS).text)
+            == source["processes"]["main"]["states"][sid]
+        )
+    assert sid_id("main", "say_cancelled") in result.graphs["main"].nodes
+    expanded = convert_sfsm(source, fold_announcements=False)
+    assert sid_id("main", "announce_section1") in expanded.graphs["main"].nodes
+    validate_bpmn(expanded.xml, expanded.questions)
+
+
+def test_shared_or_mismatched_calls_do_not_fold(source):
+    changed = copy.deepcopy(source)
+    process = changed["processes"]["main"]
+    process["states"]["branch_intent"]["default"] = "invoke_section1_about_you"
+    assert "announce_section1" not in section_announcements("main", process)
+    process["states"]["announce_section2"]["next"] = "invoke_section3_about_work"
+    assert "announce_section2" not in section_announcements("main", process)
