@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Studio: one executor, three channels</title>
+<!--
+	A self contained animation of one executor serving three channels from the same schema, with every channel
+	following the steps of the service in the same order. Everything it needs is in this one file, so it can
+	be shared or opened on its own. To change what is shown, edit the CHANNELS and STEP_COUNT in the script at
+	the bottom and the run() timeline.
+-->
+<style>
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--muted: #737373;
+		--border: #d8d8d3;
+		--blue: #1d70b8;
+		--green: #00703c;
+		--green-tint: #cce2d8;
+		--divider: #ecece8;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: 20px;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: #ffffff;
+		color: var(--text);
+		font-family: arial, sans-serif;
+	}
+
+	.wrap {
+		width: min(100%, 1440px);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* The stage is drawn at a fixed 1440 by 900 and scaled to fit, so every position below is in the same
+		simple coordinates whatever size the page is viewed at. */
+	.viewport {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 1440 / 900;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.stage {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 1440px;
+		height: 900px;
+		transform-origin: 0 0;
+		transition: opacity 0.7s ease;
+	}
+
+	.stage.fade {
+		opacity: 0;
+	}
+
+	/* Anything that arrives during the story starts hidden and slightly low, then settles into place. */
+	.arrive {
+		opacity: 0;
+		transform: translateY(8px);
+		transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.arrive.show {
+		opacity: 1;
+		transform: none;
+	}
+
+	.card {
+		position: absolute;
+		display: flex;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+	}
+
+	.file-name {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		font-weight: 700;
+		line-height: 16px;
+	}
+
+	.schema-card {
+		left: 72px;
+		top: 330px;
+		width: 250px;
+		height: 150px;
+		padding: 20px;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.mono {
+		font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+		font-size: 12px;
+		line-height: 19px;
+	}
+
+	.mono .grey { color: var(--muted); }
+	.mono .blue { color: var(--blue); }
+
+	.schema-note {
+		font-size: 12px;
+		line-height: 16px;
+		color: var(--secondary-text);
+	}
+
+	/* The dotted arrows are uncovered from the left, so they seem to be drawn towards their heads. */
+	.arrow {
+		position: absolute;
+		clip-path: inset(0 100% 0 0);
+	}
+
+	.executor-card {
+		left: 422px;
+		top: 285px;
+		width: 300px;
+		height: 240px;
+		padding: 24px;
+		flex-direction: column;
+		gap: 18px;
+	}
+
+	.executor-head {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+
+	.play {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 46px;
+		height: 46px;
+		border: 1.5px solid var(--blue);
+		border-radius: 50%;
+	}
+
+	.executor-title {
+		font-size: 21px;
+		font-weight: 700;
+		line-height: 26px;
+	}
+
+	.executor-sub {
+		margin-top: 2px;
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.executor-body {
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
+		justify-content: space-between;
+		padding-top: 16px;
+		border-top: 1px solid var(--divider);
+		font-size: 14px;
+		line-height: 21px;
+		color: var(--secondary-text);
+	}
+
+	/* The steps of the service, in order, as a row of dots joined by lines. A step lights up when it is reached. */
+	.steps {
+		display: flex;
+		align-items: center;
+	}
+
+	.dot {
+		flex-shrink: 0;
+		width: 10px;
+		height: 10px;
+		background: #ffffff;
+		border: 1.5px solid #b1b4b6;
+		border-radius: 50%;
+		transition: background-color 0.25s ease, border-color 0.25s ease;
+	}
+
+	.join {
+		width: 16px;
+		height: 2px;
+		background: var(--border);
+		transition: background-color 0.25s ease;
+	}
+
+	.dot.lit {
+		background: var(--blue);
+		border-color: var(--blue);
+	}
+
+	.join.lit {
+		background: var(--blue);
+	}
+
+	.pill {
+		position: absolute;
+		left: 870px;
+		top: 391px;
+		width: 110px;
+		padding: 4px 0;
+		text-align: center;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		font-size: 12px;
+		line-height: 16px;
+		z-index: 2;
+	}
+
+	.channel-card {
+		left: 1032px;
+		width: 336px;
+		height: 100px;
+		align-items: center;
+		padding: 18px 20px;
+		gap: 16px;
+	}
+
+	.channel-icon {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 56px;
+	}
+
+	.channel-text {
+		flex-grow: 1;
+	}
+
+	.channel-name {
+		font-size: 18px;
+		font-weight: 700;
+		line-height: 22px;
+	}
+
+	.channel-sub {
+		margin-top: 2px;
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.channel-text .steps {
+		margin-top: 8px;
+	}
+
+	.tick-slot {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: var(--green-tint);
+		opacity: 0;
+		transition: opacity 0.3s ease;
+	}
+
+	.tick-slot.show {
+		opacity: 1;
+	}
+
+	/* The small dot that carries each step from the executor out to the channels. */
+	.packet {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 12px;
+		height: 12px;
+		background: var(--blue);
+		border: 2px solid #ffffff;
+		border-radius: 50%;
+		box-shadow: 0 0 0 1px var(--blue);
+		opacity: 0;
+		z-index: 3;
+	}
+
+	.caption {
+		position: absolute;
+		left: 72px;
+		top: 690px;
+		width: 760px;
+		display: flex;
+		gap: 14px;
+		opacity: 0.35;
+		transition: opacity 0.4s ease;
+	}
+
+	.caption.active,
+	.caption.done {
+		opacity: 1;
+	}
+
+	.badge {
+		position: relative;
+		flex-shrink: 0;
+		width: 30px;
+		height: 30px;
+		border-radius: 50%;
+		background: #d8d8d3;
+		transition: background-color 0.3s ease;
+	}
+
+	.caption.active .badge {
+		background: var(--blue);
+	}
+
+	.caption.done .badge {
+		background: var(--green-tint);
+	}
+
+	.badge .num,
+	.badge .tick {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		transition: opacity 0.25s ease;
+	}
+
+	.badge .num {
+		color: #ffffff;
+		font-size: 14px;
+		font-weight: 700;
+	}
+
+	.badge .tick {
+		opacity: 0;
+	}
+
+	.caption.done .num {
+		opacity: 0;
+	}
+
+	.caption.done .tick {
+		opacity: 1;
+	}
+
+	.caption-title {
+		font-size: 18px;
+		font-weight: 700;
+		line-height: 24px;
+	}
+
+	.caption-sub {
+		margin-top: 3px;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--secondary-text);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.arrive,
+		.dot,
+		.join,
+		.tick-slot,
+		.caption,
+		.badge,
+		.stage {
+			transition: none;
+		}
+	}
+</style>
+</head>
+<body>
+<main class="wrap">
+	<h1 class="sr-only">How one executor serves the app, the web and the agent from the same schema</h1>
+
+	<div class="viewport" id="viewport">
+		<!-- The drawing is for sight only. What is happening is repeated in plain text just below for screen readers. -->
+		<div class="stage" id="stage" aria-hidden="true">
+
+			<div class="card schema-card arrive" id="schema-card">
+				<div class="file-name">
+					<svg width="14" height="16" viewBox="0 0 14 16"><path d="M2 1 H9 L12 4 V15 H2 Z" fill="none" stroke="#505a5f" stroke-width="1.4" stroke-linejoin="round" /></svg>
+					journey.schema.json
+				</div>
+				<div>
+					<div class="mono grey">{ "steps": [ … ] }</div>
+					<div class="mono blue">"version": "v1"</div>
+				</div>
+				<div class="schema-note">One schema, published once</div>
+			</div>
+
+			<svg class="arrow" id="arrow-in" style="left: 322px; top: 385px;" width="100" height="40" viewBox="0 0 100 40">
+				<path d="M6 20 H84" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M82 13 L92 20 L82 27" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+
+			<div class="card executor-card arrive" id="executor-card">
+				<div class="executor-head">
+					<div class="play"><svg width="16" height="18" viewBox="0 0 16 18"><path d="M3 2 L14 9 L3 16 Z" fill="#1d70b8" /></svg></div>
+					<div>
+						<div class="executor-title">Executor</div>
+						<div class="executor-sub">Reads the schema</div>
+					</div>
+				</div>
+				<div class="executor-body">
+					<div>Runs each step, applies the conditions and passes the result to any channel.</div>
+					<div class="steps" id="executor-steps"></div>
+				</div>
+			</div>
+
+			<!-- Each line out to a channel is its own graphic, so each can be uncovered in turn. -->
+			<svg class="arrow" id="line-app" style="left: 722px; top: 240px;" width="310" height="320" viewBox="0 0 310 320">
+				<path id="path-app" d="M0 165 H50 Q70 165 70 145 V55 Q70 35 90 35 H300" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M290 28 L300 35 L290 42" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+			<svg class="arrow" id="line-web" style="left: 722px; top: 240px;" width="310" height="320" viewBox="0 0 310 320">
+				<path id="path-web" d="M0 165 H300" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M290 158 L300 165 L290 172" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+			<svg class="arrow" id="line-agent" style="left: 722px; top: 240px;" width="310" height="320" viewBox="0 0 310 320">
+				<path id="path-agent" d="M0 165 H50 Q70 165 70 185 V275 Q70 295 90 295 H300" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M290 288 L300 295 L290 302" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+			<div class="pill arrive" id="pill-same">Same schema</div>
+
+			<div class="card channel-card arrive" id="card-app" style="top: 225px;">
+				<div class="channel-icon">
+					<div style="width: 46px; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1.5px solid #505a5f; border-radius: 9px;">
+						<div style="width: 20px; height: 4px; border-radius: 2px; background: #c9cac6;"></div>
+						<div style="width: 20px; height: 4px; border-radius: 2px; background: #c9cac6;"></div>
+						<div style="width: 12px; height: 4px; border-radius: 2px; background: #1d70b8;"></div>
+					</div>
+				</div>
+				<div class="channel-text">
+					<div class="channel-name">App</div>
+					<div class="channel-sub">Native mobile screens</div>
+					<div class="steps"></div>
+				</div>
+				<div class="tick-slot"></div>
+			</div>
+			<div class="card channel-card arrive" id="card-web" style="top: 355px;">
+				<div class="channel-icon">
+					<div style="width: 56px; height: 46px; border: 1.5px solid #505a5f; border-radius: 7px; overflow: hidden;">
+						<div style="height: 11px; display: flex; align-items: center; padding-left: 4px; gap: 3px; border-bottom: 1.5px solid #505a5f;">
+							<div style="width: 4px; height: 4px; border-radius: 2px; background: #c9cac6;"></div>
+							<div style="width: 4px; height: 4px; border-radius: 2px; background: #c9cac6;"></div>
+						</div>
+						<div style="margin: 6px 6px 0; height: 4px; border-radius: 2px; background: #c9cac6;"></div>
+						<div style="margin: 4px 6px 0; width: 20px; height: 4px; border-radius: 2px; background: #1d70b8;"></div>
+					</div>
+				</div>
+				<div class="channel-text">
+					<div class="channel-name">Web</div>
+					<div class="channel-sub">GOV.UK pages in a browser</div>
+					<div class="steps"></div>
+				</div>
+				<div class="tick-slot"></div>
+			</div>
+			<div class="card channel-card arrive" id="card-agent" style="top: 485px;">
+				<div class="channel-icon">
+					<svg width="56" height="46" viewBox="0 0 56 46"><path d="M4 6 H44 Q50 6 50 12 V26 Q50 32 44 32 H20 L10 40 V32 H10 Q4 32 4 26 Z" fill="none" stroke="#505a5f" stroke-width="1.5" stroke-linejoin="round" /><path d="M14 19 H18 M23 14 V24 M28 11 V27 M33 15 V23 M38 19 H40" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" /></svg>
+				</div>
+				<div class="channel-text">
+					<div class="channel-name">Agent</div>
+					<div class="channel-sub">Guided by owner rules</div>
+					<div class="steps"></div>
+				</div>
+				<div class="tick-slot"></div>
+			</div>
+
+			<div class="packet" id="packet-app"></div>
+			<div class="packet" id="packet-web"></div>
+			<div class="packet" id="packet-agent"></div>
+
+			<div class="caption" id="caption"></div>
+		</div>
+	</div>
+	<p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+	// The channels the executor serves. The path says which dotted line out of the executor leads to each.
+	const CHANNELS = [
+		{ id: 'app', label: 'App' },
+		{ id: 'web', label: 'Web' },
+		{ id: 'agent', label: 'Agent' }
+	];
+
+	// How many steps the service has. Each is run in turn and arrives at every channel together, so the
+	// order of the service is the same wherever it is used.
+	const STEP_COUNT = 4;
+
+	const CAPTION = {
+		title: 'One executor, three channels',
+		sub: 'The same schema powers the app, the web service and the agent, with every step in the same order.'
+	};
+
+	const TICK = '<svg width="11" height="9" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.6"/></svg>';
+	const $ = (id) => document.getElementById(id);
+
+	const stage = $('stage');
+	const viewport = $('viewport');
+	const caption = $('caption');
+
+	// Every row of dots on the stage: the executor's own first, then one for each channel.
+	let executorSteps;
+	const channelSteps = {};
+
+	/**
+	 * Builds a row of dots joined by lines, one dot for each step of the service. Returns the dots and the
+	 * lines so they can be lit as each step is reached.
+	 */
+	function buildSteps(container) {
+		const dots = [];
+		const joins = [];
+		for (let i = 0; i < STEP_COUNT; i++) {
+			if (i > 0) {
+				const join = document.createElement('span');
+				join.className = 'join';
+				container.appendChild(join);
+				joins.push(join);
+			}
+			const dot = document.createElement('span');
+			dot.className = 'dot';
+			container.appendChild(dot);
+			dots.push(dot);
+		}
+		return { dots, joins };
+	}
+
+	/**
+	 * Lights the step with the given number in a row of dots, and the line leading into it.
+	 */
+	function lightStep(row, index) {
+		row.dots[index].classList.add('lit');
+		if (index > 0) row.joins[index - 1].classList.add('lit');
+	}
+
+	/**
+	 * Draws the parts of the stage that come from the lists above. The timeline only ever shows and changes
+	 * these, it never creates them.
+	 */
+	function build() {
+		executorSteps = buildSteps($('executor-steps'));
+		for (const channel of CHANNELS) {
+			const card = $(`card-${channel.id}`);
+			card.querySelector('.tick-slot').innerHTML = TICK;
+			channelSteps[channel.id] = buildSteps(card.querySelector('.steps'));
+		}
+		caption.innerHTML = `
+			<div class="badge"><span class="num">4</span><span class="tick"><svg width="13" height="10" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.4"/></svg></span></div>
+			<div><div class="caption-title">${CAPTION.title}</div><div class="caption-sub">${CAPTION.sub}</div></div>`;
+	}
+
+	/**
+	 * Scales the fixed size stage to the width it has been given.
+	 */
+	function fit() {
+		stage.style.transform = `scale(${viewport.clientWidth / 1440})`;
+	}
+
+	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+	const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+	/**
+	 * Runs onFrame with a 0 to 1 progress value over the given milliseconds, and resolves when it is done.
+	 */
+	function tween(ms, onFrame, ease = easeInOut) {
+		return new Promise((resolve) => {
+			const start = performance.now();
+			function frame(now) {
+				const t = clamp((now - start) / ms, 0, 1);
+				onFrame(ease(t));
+				if (t < 1) requestAnimationFrame(frame);
+				else resolve();
+			}
+			requestAnimationFrame(frame);
+		});
+	}
+
+	const wait = (ms) => tween(ms, () => {}, (t) => t);
+
+	/**
+	 * Fades in a part of the stage that arrives.
+	 */
+	function show(...els) {
+		for (const el of els) el.classList.add('show');
+	}
+
+	/**
+	 * Uncovers a dotted arrow from the left, so it seems to be drawn towards its head.
+	 */
+	function uncover(id, ms) {
+		const el = $(id);
+		return tween(ms, (e) => (el.style.clipPath = `inset(0 ${(1 - e) * 100}% 0 0)`));
+	}
+
+	/**
+	 * Sends a small dot along each of the lines out to the channels at the same moment, and resolves when
+	 * they have all arrived.
+	 */
+	function sendPackets(ms) {
+		return Promise.all(
+			CHANNELS.map((channel) => {
+				const path = $(`path-${channel.id}`);
+				const packet = $(`packet-${channel.id}`);
+				const length = path.getTotalLength();
+				packet.style.opacity = '1';
+				// The line is drawn in a graphic placed at 722, 240 on the stage, so its points are shifted to match.
+				return tween(ms, (e) => {
+					const point = path.getPointAtLength(e * length);
+					packet.style.transform = `translate(${722 + point.x - 6}px, ${240 + point.y - 6}px)`;
+				}).then(() => (packet.style.opacity = '0'));
+			})
+		);
+	}
+
+	/**
+	 * Tells screen readers what is happening, in plain words.
+	 */
+	function say(text) {
+		$('live').textContent = text;
+	}
+
+	/**
+	 * Puts everything back to the start, with nothing drawn yet.
+	 */
+	function reset() {
+		stage.classList.remove('fade');
+		document.querySelectorAll('.arrive, .tick-slot').forEach((el) => el.classList.remove('show'));
+		document.querySelectorAll('.arrow').forEach((el) => (el.style.clipPath = 'inset(0 100% 0 0)'));
+		document.querySelectorAll('.dot, .join').forEach((el) => el.classList.remove('lit'));
+		document.querySelectorAll('.packet').forEach((el) => (el.style.opacity = '0'));
+		caption.classList.remove('active', 'done');
+	}
+
+	/**
+	 * The whole story, in order: the schema reaches the executor, which is connected to three channels, and
+	 * then each step of the service is run in turn and arrives at every channel together.
+	 */
+	async function run() {
+		reset();
+		caption.classList.add('active');
+		say('One schema is read by the executor');
+		await wait(500);
+
+		show($('schema-card'));
+		await wait(600);
+		await uncover('arrow-in', 700);
+		show($('executor-card'));
+		await wait(800);
+
+		// The executor is connected to each channel in turn.
+		say('The executor is connected to the app, the web and the agent');
+		await uncover('line-app', 650);
+		show($('card-app'));
+		await uncover('line-web', 500);
+		show($('card-web'), $('pill-same'));
+		await uncover('line-agent', 650);
+		show($('card-agent'));
+		await wait(900);
+
+		// Each step is run in the executor first, then handed to all three channels at once.
+		say('Each step is run in order and reaches every channel together');
+		for (let step = 0; step < STEP_COUNT; step++) {
+			lightStep(executorSteps, step);
+			await wait(350);
+			await sendPackets(800);
+			for (const channel of CHANNELS) lightStep(channelSteps[channel.id], step);
+			await wait(450);
+		}
+
+		for (const channel of CHANNELS) {
+			show($(`card-${channel.id}`).querySelector('.tick-slot'));
+			await wait(250);
+		}
+		caption.classList.remove('active');
+		caption.classList.add('done');
+		await wait(3200);
+
+		stage.classList.add('fade');
+		await wait(900);
+	}
+
+	/**
+	 * Runs the story over and over.
+	 */
+	async function loop() {
+		while (true) await run();
+	}
+
+	/**
+	 * Shows the finished picture straight away, with nothing moving, for anyone who has asked their device
+	 * to reduce motion.
+	 */
+	function showFinal() {
+		reset();
+		document.querySelectorAll('.arrive, .tick-slot').forEach((el) => el.classList.add('show'));
+		document.querySelectorAll('.arrow').forEach((el) => (el.style.clipPath = 'inset(0)'));
+		document.querySelectorAll('.dot, .join').forEach((el) => el.classList.add('lit'));
+		caption.classList.add('done');
+		say('One executor serves the app, the web and the agent from the same schema, with every step in the same order');
+	}
+
+	build();
+	fit();
+	new ResizeObserver(fit).observe(viewport);
+
+	if (matchMedia('(prefers-reduced-motion: reduce)').matches) showFinal();
+	else loop();
+</script>
+</body>
+</html>
