@@ -10,6 +10,7 @@ import uuid
 import httpx
 
 from src.context import InputSubmission
+from src.activities import load_workflow_definition
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,7 @@ async def start_workflow(
     task_queue: str,
 ) -> str:
     """Fetch a workflow definition and start it on Temporal."""
-    definition = await get_workflow_definition(
+    definition = await load_workflow_definition(
         workflow_id=workflow_id, http_client=http_client, base_url=base_url
     )
 

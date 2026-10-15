@@ -1,0 +1,45 @@
+{
+  "workflow_id": 1,
+  "schema": "sfsm/0.2",
+  "id": "dvla.change_of_address",
+  "version": "0.1.0",
+  "entry": "change_of_address",
+  "executor": {
+    "workflow_id_template": "coa-adv-{{input.licence_no}}",
+    "run_timeout": "PT14D"
+  },
+  "processes": [
+    {
+      "process_id": "change_of_address",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "driver_details",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "photo_update",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "signature_update",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "select_address",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "organ_donation",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "address_update",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "finalisation",
+      "version": "0.1.0"
+    }
+  ]
+}
