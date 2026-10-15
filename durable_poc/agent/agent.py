@@ -185,6 +185,17 @@ class WorkflowAgent:
         task_queue: str = "sfsm-queue",
         conversation_history: list[dict[str, Any]] | None = None,
     ) -> None:
+        """Initialise the agent with connection parameters and build tool closures.
+
+        Args:
+            workflow_server_url: Base URL of the workflow definition server.
+            model_id: AWS Bedrock model identifier for the LLM backend.
+            region_name: AWS region for Bedrock API calls.
+            temporal_address: Host and port of the Temporal frontend service.
+            task_queue: Temporal task queue the interpreter worker polls.
+            conversation_history: Optional prior message list to seed the agent
+                conversation context for resumption.
+        """
         self._workflow_server_url = workflow_server_url
         self._temporal_address = temporal_address
         self._task_queue = task_queue
@@ -223,6 +234,11 @@ class WorkflowAgent:
             self._http_client = None
 
     async def _get_temporal_client(self) -> TemporalClient:
+        """Return the shared Temporal client, connecting lazily on first call.
+
+        Returns:
+            A connected ``TemporalClient`` with OTEL tracing interceptor attached.
+        """
         if self._temporal_client is None:
             logger.info("Connecting to Temporal at %s", self._temporal_address)
             self._temporal_client = await TemporalClient.connect(
@@ -233,12 +249,20 @@ class WorkflowAgent:
         return self._temporal_client
 
     async def _get_http_client(self) -> httpx.AsyncClient:
+        """Return the shared HTTP client, creating it lazily on first call."""
         if self._http_client is None:
             logger.info("Creating HTTP client for %s", self._workflow_server_url)
             self._http_client = httpx.AsyncClient()
         return self._http_client
 
     async def _trace(self, category: str, summary: str, detail: Any = None) -> None:
+        """Emit a structured trace event to the active callback, if one is set.
+
+        Args:
+            category: Trace channel label (e.g. ``"AGENT"``, ``"SYSTEM"``).
+            summary: Short human-readable description of the event.
+            detail: Optional payload with additional structured data.
+        """
         if self._active_trace_callback:
             try:
                 await self._active_trace_callback(category, summary, detail)
@@ -306,6 +330,13 @@ class WorkflowAgent:
                 self._active_trace_callback = None
 
     def _update_session_state(self, workflow_id: str, state: dict[str, Any]) -> None:
+        """Refresh the HATEOAS continuation snapshot from the latest engine state.
+
+        Args:
+            workflow_id: Temporal workflow execution identifier.
+            state: State dict returned by a ``get_workflow_state`` tool call,
+                containing ``status``, ``awaiting``, and ``transcript`` keys.
+        """
         self._session_state = {
             "workflow_id": workflow_id,
             "status": state.get("status", "RUNNING"),
@@ -314,6 +345,15 @@ class WorkflowAgent:
         }
 
     def _build_tools(self) -> list[Any]:
+        """Construct Strands ``@tool`` closures bound to this agent instance.
+
+        Each closure captures ``self`` (as ``owner``) so it can access the
+        shared Temporal and HTTP clients, emit trace events, and update the
+        HATEOAS session state after every tool execution.
+
+        Returns:
+            A list of async tool functions ready for the Strands ``Agent``.
+        """
         owner = self
 
         @tool

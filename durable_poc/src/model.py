@@ -1,16 +1,82 @@
 """Pydantic models for the FSM schema."""
 
-from typing import Any, Literal
+from typing import Any, Literal, Callable
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class OperationSpec(BaseModel):
+    """Metadata and callable for a single registered operation."""
+
+    name: str
+    fn: Callable[[dict, dict], Any]
+    description: str
+    spec_schema: dict[str, Any]
+    example: dict[str, Any] | None = None
+
+
+class InvalidSpecNameException(Exception):
+    """Raised when an operation name is not found or already registered."""
+
+
+class OperationsRegistry:
+    """Registry of named operations available to the AssignState handler.
+
+    Operations are registered at import time via the ``@operation`` decorator
+    in ``src/actions.py`` and looked up by name during workflow execution.
+    """
+
+    def __init__(self):
+        self.registry: list[OperationSpec] = []
+
+    def register(self, op_spec: OperationSpec):
+        """Add an operation to the registry.
+
+        Args:
+            op_spec: The operation specification to register.
+
+        Raises:
+            InvalidSpecNameException: If an operation with the same name
+                is already registered.
+        """
+        existing_names = [spec for spec in self.registry if spec.name == op_spec.name]
+        if len(existing_names) > 0:
+            raise InvalidSpecNameException("A spec with this name already exists in the registry")
+        else:
+            self.registry.append(op_spec)
+
+    def execute(self, name: str, spec: dict, context: dict) -> Any:
+        """Look up an operation by name and invoke it."""
+        op_spec = self.get_op(name)
+        return op_spec.fn(spec, context)
+
+    def list_ops(self) -> list[OperationSpec]:
+        """Return all registered operation specs."""
+        return self.registry
+
+    def get_op(self, name: str) -> OperationSpec:
+        """Return a single operation spec by name."""
+        try:
+            return [op for op in self.registry if op.name == name][0]
+        except IndexError:
+            raise InvalidSpecNameException(f"There is no operation spec with the name {name}")
+
+
 class OptionItem(BaseModel):
+    """A selectable option with a machine value and human-readable label."""
+
     value: str
     label: str
 
 
 class SchemaDefinition(BaseModel):
+    """Schema describing the expected shape and constraints of an InputState value.
+
+    The ``kind`` field determines validation behaviour (e.g. ``"string"``,
+    ``"boolean"``, ``"select_one"``).  Optional fields such as ``pattern``,
+    ``options``, and ``normalise`` refine the validation and presentation.
+    """
+
     model_config = ConfigDict(extra="allow")
     kind: str
     pattern: str | None = None
@@ -28,10 +94,18 @@ class SchemaDefinition(BaseModel):
 
 
 class BaseState(BaseModel):
+    """Abstract base for all FSM state types."""
     type: str
 
 
 class InputState(BaseState):
+    """Suspends execution and awaits structured human input.
+
+    Exposes a prompt, an input schema, and optional timeout/retry
+    configuration.  The received value is written to the variable
+    named by ``assign``.
+    """
+
     type: Literal["input"] = "input"
     prompt: str
     schema_: SchemaDefinition = Field(alias="schema")
@@ -42,6 +116,13 @@ class InputState(BaseState):
 
 
 class OutputState(BaseState):
+    """Emits a transcript entry or dispatches an external notification.
+
+    When ``channel`` is ``"transcript"`` the message is appended to the
+    audit log.  Other channels trigger a ``notify`` activity for
+    external delivery (email, SMS, etc.).
+    """
+
     type: Literal["output"] = "output"
     channel: str
     message: str | None = None
@@ -54,6 +135,13 @@ class OutputState(BaseState):
 
 
 class CallState(BaseState):
+    """Dispatches an HTTP API request via a Temporal activity.
+
+    The response is projected through ``capture`` rules and assigned
+    into the frame variable named by ``assign``.  Error routes are
+    defined in ``catch``.
+    """
+
     type: Literal["call"] = "call"
     method: str
     url: str
@@ -72,28 +160,34 @@ class CallState(BaseState):
 
 
 class ChoiceRule(BaseModel):
+    """A single predicate-guarded transition in a ChoiceState."""
+
     when: dict[str, Any]
     next: str
 
 
 class ChoiceState(BaseState):
+    """Presents one of more choices in a workflow."""
     type: Literal["choice"] = "choice"
     rules: list[ChoiceRule]
     default: str
 
 
 class AssignState(BaseState):
+    """Populates or calculates required values within a workflow."""
     type: Literal["assign"] = "assign"
     set: dict[str, Any]
     next: str
 
 
 class InvokeCatch(BaseModel):
+    """Defines behaviour for given events or exceptions."""
     on: str
     next: str
 
 
 class InvokeState(BaseState):
+    """Calls a sub-process."""
     type: Literal["invoke"] = "invoke"
     process: str
     assign: str | None = None
@@ -103,12 +197,14 @@ class InvokeState(BaseState):
 
 
 class WaitState(BaseState):
+    """Causes the workflow to pause for a specified duration."""
     type: Literal["wait"] = "wait"
     duration: str | dict[str, str]
     next: str
 
 
 class EndState(BaseState):
+    """Ends a workflow or sub-process."""
     type: Literal["end"] = "end"
     status: str
     outcome: str | None = None

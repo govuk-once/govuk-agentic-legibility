@@ -191,7 +191,8 @@ async def test_tool_list_active_workflows_creates_span(otel_provider) -> None:
     class ListableTemporalClient(FakeTemporalClient):
         async def list_workflows(self, query: str):
             return
-            yield  # noqa: makes this an async generator
+        # Add a yield to make this an async generator
+            yield # noqa
 
     agent = _make_agent(ListableTemporalClient())
     await agent.call_tool("list_active_workflows")
