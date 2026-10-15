@@ -1,0 +1,101 @@
+{
+    "process_id": "calculate_deadlines",
+    "version": "0.1.0",
+    "start": "compute_dates",
+    "vars": {
+        "smp_qualifying_week": null,
+        "earliest_signing_date": null,
+        "matb1_issue_date": null,
+        "test_period_start": null,
+        "is_too_early": null,
+        "is_claim_backdated_over_3_months": false
+    },
+    "states": {
+        "compute_dates": {
+            "type": "assign",
+            "set": {
+                "test_period_start": {
+                    "op": "date_subtract",
+                    "path": "input.due_date",
+                    "value": "66 weeks"
+                },
+                "smp_qualifying_week": {
+                    "op": "date_subtract",
+                    "path": "input.due_date",
+                    "value": "15 weeks"
+                },
+                "earliest_signing_date": {
+                    "op": "date_subtract",
+                    "path": "input.due_date",
+                    "value": "14 weeks"
+                },
+                "matb1_issue_date": {
+                    "op": "date_subtract",
+                    "path": "input.due_date",
+                    "value": "20 weeks"
+                }
+            },
+            "next": "evaluate_if_too_early"
+        },
+        "evaluate_if_too_early": {
+            "type": "assign",
+            "set": {
+                "is_too_early": {
+                    "op": "date_before",
+                    "path": "__now__",
+                    "value_path": "earliest_signing_date"
+                }
+            },
+            "next": "branch_check_backdating"
+        },
+        "branch_check_backdating": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "input.is_baby_born"
+                    },
+                    "next": "evaluate_backdating"
+                }
+            ],
+            "default": "end_dates_computed"
+        },
+        "evaluate_backdating": {
+            "type": "assign",
+            "set": {
+                "is_claim_backdated_over_3_months": {
+                    "op": "date_diff_greater_than",
+                    "path": "input.actual_birth_date",
+                    "value": "3 months"
+                }
+            },
+            "next": "end_dates_computed"
+        },
+        "end_dates_computed": {
+            "type": "end",
+            "status": "success",
+            "outcome": "dates_calculated",
+            "return": {
+                "smp_qualifying_week": {
+                    "$": "smp_qualifying_week"
+                },
+                "earliest_signing_date": {
+                    "$": "earliest_signing_date"
+                },
+                "matb1_issue_date": {
+                    "$": "matb1_issue_date"
+                },
+                "test_period_start": {
+                    "$": "test_period_start"
+                },
+                "is_too_early": {
+                    "$": "is_too_early"
+                },
+                "is_claim_backdated_over_3_months": {
+                    "$": "is_claim_backdated_over_3_months"
+                }
+            }
+        }
+    }
+}
