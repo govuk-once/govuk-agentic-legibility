@@ -1,0 +1,190 @@
+{
+    "process_id": "finalisation",
+    "version": "0.1.0",
+    "start": "set_deadline",
+    "vars": {
+        "poll_interval": "PT2S",
+        "poll_window": "PT24H",
+        "reminder_after": "PT5S",
+        "delivery_wait": "PT10S",
+        "deadline": null,
+        "job": null,
+        "received": null
+    },
+    "states": {
+        "set_deadline": {
+            "type": "assign",
+            "set": {
+                "deadline": {
+                    "op": "now_plus",
+                    "value_path": "poll_window"
+                }
+            },
+            "next": "wait"
+        },
+        "wait": {
+            "type": "wait",
+            "duration": {
+                "$": "poll_interval"
+            },
+            "next": "poll"
+        },
+        "poll": {
+            "type": "call",
+            "method": "GET",
+            "service": "dvla",
+            "url": "/app/dvla/v1/jobs/{{input.job_id}}",
+            "idempotency_key": "{{workflow_id}}:poll_job_{{step}}",
+            "assign": "job",
+            "capture": {
+                "state": "body.state"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "branch_deadline"
+                }
+            ],
+            "next": "branch_job"
+        },
+        "branch_job": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "eq",
+                        "path": "job.state",
+                        "value": "COMPLETED"
+                    },
+                    "next": "send_confirmation_email"
+                },
+                {
+                    "when": {
+                        "op": "eq",
+                        "path": "job.state",
+                        "value": "REJECTED"
+                    },
+                    "next": "say_job_rejected"
+                }
+            ],
+            "default": "branch_deadline"
+        },
+        "branch_deadline": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "before_now",
+                        "path": "deadline"
+                    },
+                    "next": "say_timeout"
+                }
+            ],
+            "default": "wait"
+        },
+        "send_confirmation_email": {
+            "type": "output",
+            "channel": "email",
+            "to": {
+                "$": "input.email"
+            },
+            "template": "coa_application_submitted",
+            "params": {
+                "postcode": {
+                    "$": "input.address.postcode"
+                },
+                "email": {
+                    "$": "input.email"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:confirmation_email",
+            "next": "say_completion_summary"
+        },
+        "say_completion_summary": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your update has been processed successfully and a new driving licence has been dispatched.\nHere is the summary of completed actions:\n• Driver details confirmed for licence: {{input.driver_id}}\n• Photocard photo & signature updated\n• NHS Organ Donation preferences updated\n• New address set to: {{input.address.single_line}}, {{input.address.postcode}}\n\nA confirmation email has been sent to {{input.email}}.",
+            "next": "wait_for_delivery"
+        },
+        "wait_for_delivery": {
+            "type": "wait",
+            "duration": {
+                "$": "delivery_wait"
+            },
+            "next": "await_receipt"
+        },
+        "await_receipt": {
+            "type": "input",
+            "prompt": "It has now been a week since your new driving licence was sent out to {{input.address.single_line}}, {{input.address.postcode}}.\nCan you please confirm you have received your new photocard driving licence in the post?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "received",
+            "timeout": {
+                "after": {
+                    "$": "reminder_after"
+                },
+                "next": "say_no_response"
+            },
+            "next": "branch_receipt"
+        },
+        "branch_receipt": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "received"
+                    },
+                    "next": "suggest_v5c_update"
+                }
+            ],
+            "default": "say_not_received"
+        },
+        "suggest_v5c_update": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Thank you for confirming! If you own a vehicle, please remember to update the address on your V5C logbook online via GOV.UK.",
+            "next": "end_ok"
+        },
+        "say_timeout": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your update is taking longer than expected. We've logged this case for manual review.",
+            "next": "end_rejected"
+        },
+        "say_not_received": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Sorry to hear that. We've opened a tracking case with Royal Mail.",
+            "next": "end_exception"
+        },
+        "say_no_response": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "We haven't heard from you about your new licence. We've logged this case for follow-up.",
+            "next": "end_exception"
+        },
+        "say_job_rejected": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your address update was rejected. Please contact DVLA customer support.",
+            "next": "end_rejected"
+        },
+        "end_ok": {
+            "type": "end",
+            "status": "success",
+            "outcome": "delivery_confirmed"
+        },
+        "end_exception": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "delivery_exception"
+        },
+        "end_rejected": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "delivery_rejected"
+        }
+    }
+}

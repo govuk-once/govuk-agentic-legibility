@@ -1,0 +1,237 @@
+{
+    "process_id": "change_of_address",
+    "version": "0.1.0",
+    "start": "confirm_intent",
+    "vars": {
+        "address": null,
+        "photo_id": null,
+        "signature_id": null,
+        "driver_id": null,
+        "email": null,
+        "job_id": null,
+        "organ_consent": null,
+        "driver_info": null
+    },
+    "states": {
+        "confirm_intent": {
+            "type": "input",
+            "prompt": "Would you like to proceed with changing the address on your driving licence?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "confirmed",
+            "next": "branch_intent"
+        },
+        "branch_intent": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "confirmed"
+                    },
+                    "next": "check_name_change"
+                }
+            ],
+            "default": "say_cancelled"
+        },
+        "say_cancelled": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Service cancelled. No changes have been made to your driver record.",
+            "next": "end_cancelled"
+        },
+        "check_name_change": {
+            "type": "input",
+            "prompt": "Do you also need to change your legal name on your licence?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "name_change_needed",
+            "next": "branch_name_change"
+        },
+        "branch_name_change": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "name_change_needed"
+                    },
+                    "next": "say_postal_only"
+                }
+            ],
+            "default": "run_driver_details"
+        },
+        "say_postal_only": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Name changes cannot be processed online. You must apply by post using a D1 application form with original identity documents.",
+            "next": "end_postal_required"
+        },
+        "run_driver_details": {
+            "type": "invoke",
+            "process": "driver_details",
+            "assign": "driver_info",
+            "catch": [
+                {
+                    "on": "api_failure",
+                    "next": "end_exception"
+                }
+            ],
+            "next": "assign_driver_vars"
+        },
+        "assign_driver_vars": {
+            "type": "assign",
+            "set": {
+                "driver_id": {
+                    "$": "driver_info.driver_id"
+                },
+                "email": {
+                    "$": "driver_info.email"
+                }
+            },
+            "next": "run_photo_update"
+        },
+        "run_photo_update": {
+            "type": "invoke",
+            "process": "photo_update",
+            "input": {
+                "driver_id": {
+                    "$": "driver_id"
+                }
+            },
+            "assign": "photo_id",
+            "catch": [
+                {
+                    "on": "invalid_photo",
+                    "next": "end_rejected"
+                },
+                {
+                    "on": "api_failure",
+                    "next": "end_exception"
+                }
+            ],
+            "next": "run_signature_update"
+        },
+        "run_signature_update": {
+            "type": "invoke",
+            "process": "signature_update",
+            "input": {
+                "driver_id": {
+                    "$": "driver_id"
+                }
+            },
+            "assign": "signature_id",
+            "catch": [
+                {
+                    "on": "invalid_signature",
+                    "next": "end_rejected"
+                },
+                {
+                    "on": "api_failure",
+                    "next": "end_exception"
+                }
+            ],
+            "next": "run_organ_donation"
+        },
+        "run_organ_donation": {
+            "type": "invoke",
+            "process": "organ_donation",
+            "input": {
+                "driver_id": {
+                    "$": "driver_id"
+                }
+            },
+            "assign": "organ_consent",
+            "next": "run_select_address"
+        },
+        "run_select_address": {
+            "type": "invoke",
+            "process": "select_address",
+            "assign": "address",
+            "catch": [
+                {
+                    "on": "api_failure",
+                    "next": "end_exception"
+                }
+            ],
+            "next": "run_address_update"
+        },
+        "run_address_update": {
+            "type": "invoke",
+            "process": "address_update",
+            "input": {
+                "address": {
+                    "$": "address"
+                },
+                "photo_id": {
+                    "$": "photo_id"
+                }
+            },
+            "assign": "job_id",
+            "catch": [
+                {
+                    "on": "rejected",
+                    "next": "end_rejected"
+                }
+            ],
+            "next": "run_finalisation"
+        },
+        "run_finalisation": {
+            "type": "invoke",
+            "process": "finalisation",
+            "input": {
+                "address": {
+                    "$": "address"
+                },
+                "job_id": {
+                    "$": "job_id"
+                },
+                "driver_id": {
+                    "$": "driver_id"
+                },
+                "email": {
+                    "$": "email"
+                }
+            },
+            "catch": [
+                {
+                    "on": "delivery_exception",
+                    "next": "end_exception"
+                }
+            ],
+            "next": "end_complete"
+        },
+        "end_complete": {
+            "type": "end",
+            "status": "success",
+            "outcome": "licence_renewed_and_updated"
+        },
+        "end_cancelled": {
+            "type": "end",
+            "status": "cancelled",
+            "outcome": "user_cancelled"
+        },
+        "end_postal_required": {
+            "type": "end",
+            "status": "cancelled",
+            "outcome": "postal_application_required"
+        },
+        "end_ineligible": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "user_ineligible"
+        },
+        "end_rejected": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "update_rejected"
+        },
+        "end_exception": {
+            "type": "end",
+            "status": "needs_attention",
+            "outcome": "system_exception"
+        }
+    }
+}

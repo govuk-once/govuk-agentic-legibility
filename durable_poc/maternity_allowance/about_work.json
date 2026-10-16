@@ -1,0 +1,493 @@
+{
+    "process_id": "about_work",
+    "version": "0.1.0",
+    "start": "prompt_test_period_employments",
+    "vars": {
+        "nino": null,
+        "selected_employments": [],
+        "worked_in_15th_week": null,
+        "rti_history": null,
+        "rti_data_confirmed": null,
+        "smp1_upload_ref": null,
+        "smp1_upload_attempts": 0,
+        "se_utr": null,
+        "partner_nino": null,
+        "partner_utr": null,
+        "marriage_cert_upload_ref": null,
+        "marriage_cert_upload_attempts": 0
+    },
+    "states": {
+        "prompt_test_period_employments": {
+            "type": "input",
+            "prompt": "Tell us all types of employment you have had during your 66-week Test Period.",
+            "schema": {
+                "kind": "select_many",
+                "options": [
+                    {
+                        "value": "employed",
+                        "label": "Employed (including agency work)"
+                    },
+                    {
+                        "value": "self_employed",
+                        "label": "Self-employed"
+                    },
+                    {
+                        "value": "unpaid_partner_work",
+                        "label": "Unpaid work for your partner's business"
+                    },
+                    {
+                        "value": "worked_outside_uk",
+                        "label": "Working outside the UK"
+                    }
+                ]
+            },
+            "assign": "selected_employments",
+            "next": "branch_foreign_work_check"
+        },
+        "branch_foreign_work_check": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "contains",
+                        "path": "selected_employments",
+                        "value": "worked_outside_uk"
+                    },
+                    "next": "say_offramp_paper_foreign_work"
+                }
+            ],
+            "default": "branch_employed_check"
+        },
+        "say_offramp_paper_foreign_work": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Because you worked outside the UK during your Test Period, you cannot complete your claim online.",
+            "next": "end_offramp_paper"
+        },
+        "branch_employed_check": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "contains",
+                        "path": "selected_employments",
+                        "value": "employed"
+                    },
+                    "next": "lookup_hmrc_rti_details"
+                }
+            ],
+            "default": "branch_self_employed_check"
+        },
+        "lookup_hmrc_rti_details": {
+            "type": "call",
+            "method": "POST",
+            "service": "hmrc",
+            "url": "/app/hmrc/v1/employment-and-earnings",
+            "body": {
+                "nino": {
+                    "$": "input.nino"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:hmrc_rti_{{input.nino}}",
+            "assign": "rti_history",
+            "capture": {
+                "has_active_employment": "body.has_active_employment",
+                "employers": "body.employers",
+                "highest_13_weeks": "body.highest_13_weeks",
+                "monthly_earnings": "body.monthly_earnings",
+                "average_weekly_earnings": "body.average_weekly_earnings",
+                "average_monthly_earnings": "body.average_monthly_earnings"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "end_rti_disputed"
+                }
+            ],
+            "next": "confirm_hmrc_rti_details"
+        },
+        "confirm_hmrc_rti_details": {
+            "type": "input",
+            "prompt": "We retrieved your employment records from HMRC for National Insurance number {{input.nino}}:\n\n• Employers Found: {{rti_history.employers}}\n• Average Monthly Earnings: £{{rti_history.average_monthly_earnings}}\n• Average Weekly Earnings (Top 13 Weeks): £{{rti_history.average_weekly_earnings}}\n\nAre these details correct?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "rti_data_confirmed",
+            "next": "branch_confirm_hmrc_rti"
+        },
+        "branch_confirm_hmrc_rti": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "rti_data_confirmed"
+                    },
+                    "next": "prompt_worked_in_15th_week"
+                }
+            ],
+            "default": "end_rti_disputed"
+        },
+        "prompt_worked_in_15th_week": {
+            "type": "input",
+            "prompt": "Were you working in any of these employments during the 15th week before your due week (the week starting {{input.calculated_dates.smp_qualifying_week}})?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "worked_in_15th_week",
+            "next": "branch_worked_in_15th_week"
+        },
+        "branch_worked_in_15th_week": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "worked_in_15th_week"
+                    },
+                    "next": "say_smp1_notice"
+                }
+            ],
+            "default": "branch_self_employed_check"
+        },
+        "say_smp1_notice": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Because you worked as an employee during the 15th week before your due week, statutory rules require proof that your employer cannot pay you Statutory Maternity Pay (SMP).",
+            "next": "upload_smp1_form"
+        },
+        "upload_smp1_form": {
+            "type": "input",
+            "prompt": "Please upload a SMP1 form for each employer you worked for in the 15th week before your due week (JPEG, PNG, or PDF).",
+            "schema": {
+                "kind": "file_ref",
+                "accept": [
+                    "image/jpeg",
+                    "image/png",
+                    "application/pdf"
+                ],
+                "allow_skip": false
+            },
+            "assign": "smp1_file",
+            "next": "upload_smp1_api"
+        },
+        "upload_smp1_api": {
+            "type": "call",
+            "method": "POST",
+            "service": "dwp",
+            "url": "/app/dwp/v1/upload",
+            "body": {
+                "document_type": "SMP1",
+                "filename": {
+                    "$": "smp1_file.ref"
+                },
+                "content_type": {
+                    "$": "smp1_file.content_type"
+                },
+                "file_bytes_approx": {
+                    "$": "smp1_file.bytes"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:upload_smp1_{{step}}",
+            "assign": "upload_res",
+            "capture": {
+                "smp1_upload_ref": "body.upload_ref",
+                "smp1_upload_status": "body.status"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "increment_smp1_attempts"
+                }
+            ],
+            "next": "check_smp1_upload"
+        },
+        "check_smp1_upload": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "not_empty",
+                        "path": "upload_res.smp1_upload_ref"
+                    },
+                    "next": "branch_self_employed_check"
+                }
+            ],
+            "default": "increment_smp1_attempts"
+        },
+        "increment_smp1_attempts": {
+            "type": "assign",
+            "set": {
+                "smp1_upload_attempts": {
+                    "op": "add",
+                    "path": "smp1_upload_attempts",
+                    "value": 1
+                }
+            },
+            "next": "evaluate_smp1_attempts"
+        },
+        "evaluate_smp1_attempts": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "gte",
+                        "path": "smp1_upload_attempts",
+                        "value": 3
+                    },
+                    "next": "end_offramp_paper"
+                }
+            ],
+            "default": "prompt_retry_smp1"
+        },
+        "prompt_retry_smp1": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Upload failed or missing. Please try uploading your SMP1 form again (Attempt {{smp1_upload_attempts}} of 3).",
+            "next": "upload_smp1_form"
+        },
+        "branch_self_employed_check": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "contains",
+                        "path": "selected_employments",
+                        "value": "self_employed"
+                    },
+                    "next": "say_self_employed_notice"
+                }
+            ],
+            "default": "branch_unpaid_partner_check"
+        },
+        "say_self_employed_notice": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Because you selected self-employment, we must verify your Class 2 National Insurance record with HMRC.",
+            "next": "prompt_se_utr"
+        },
+        "prompt_se_utr": {
+            "type": "input",
+            "prompt": "Please enter your 10-digit Unique Taxpayer Reference (UTR) for self-employment:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[0-9]{10}$",
+                "invalid_message": "Unique Taxpayer Reference must be exactly 10 digits."
+            },
+            "assign": "se_utr",
+            "next": "branch_se_utr"
+        },
+        "branch_se_utr": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "not_empty",
+                        "path": "se_utr"
+                    },
+                    "next": "branch_unpaid_partner_check"
+                }
+            ],
+            "default": "end_offramp_paper"
+        },
+        "branch_unpaid_partner_check": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "contains",
+                        "path": "selected_employments",
+                        "value": "unpaid_partner_work"
+                    },
+                    "next": "say_unpaid_partner_notice"
+                }
+            ],
+            "default": "end_section3"
+        },
+        "say_unpaid_partner_notice": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Because you selected unpaid work for your spouse or civil partner's business, statutory rules require proof of your partner's business and your relationship to evaluate your eligibility for Maternity Allowance.",
+            "next": "prompt_partner_nino"
+        },
+        "prompt_partner_nino": {
+            "type": "input",
+            "prompt": "Please enter your partner's National Insurance Number:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[A-CEGHJ-PR-TW-Z]{1}[A-CEGHJ-NPR-TW-Z]{1}[0-9]{6}[A-D]{1}$",
+                "normalise": "upper_trim",
+                "invalid_message": "Please enter a valid UK National Insurance number."
+            },
+            "assign": "partner_nino",
+            "next": "branch_partner_nino"
+        },
+        "branch_partner_nino": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "not_empty",
+                        "path": "partner_nino"
+                    },
+                    "next": "prompt_partner_utr"
+                }
+            ],
+            "default": "end_offramp_paper"
+        },
+        "prompt_partner_utr": {
+            "type": "input",
+            "prompt": "Please enter your partner's 10-digit Unique Taxpayer Reference (UTR):",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[0-9]{10}$",
+                "invalid_message": "Partner's Unique Taxpayer Reference must be exactly 10 digits."
+            },
+            "assign": "partner_utr",
+            "next": "branch_partner_utr"
+        },
+        "branch_partner_utr": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "not_empty",
+                        "path": "partner_utr"
+                    },
+                    "next": "upload_marriage_cert"
+                }
+            ],
+            "default": "end_offramp_paper"
+        },
+        "upload_marriage_cert": {
+            "type": "input",
+            "prompt": "Please upload a digital copy of your Marriage or Civil Partnership Certificate (JPEG, PNG, or PDF).",
+            "schema": {
+                "kind": "file_ref",
+                "accept": [
+                    "image/jpeg",
+                    "image/png",
+                    "application/pdf"
+                ],
+                "allow_skip": false
+            },
+            "assign": "marriage_cert_file",
+            "next": "upload_marriage_cert_api"
+        },
+        "upload_marriage_cert_api": {
+            "type": "call",
+            "method": "POST",
+            "service": "dwp",
+            "url": "/app/dwp/v1/upload",
+            "body": {
+                "document_type": "MARRIAGE_CERT",
+                "filename": {
+                    "$": "marriage_cert_file.ref"
+                },
+                "content_type": {
+                    "$": "marriage_cert_file.content_type"
+                },
+                "file_bytes_approx": {
+                    "$": "marriage_cert_file.bytes"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:upload_marriage_cert_{{step}}",
+            "assign": "upload_res",
+            "capture": {
+                "marriage_cert_upload_ref": "body.upload_ref",
+                "marriage_cert_upload_status": "body.status"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "increment_marriage_cert_attempts"
+                }
+            ],
+            "next": "check_marriage_cert_upload"
+        },
+        "check_marriage_cert_upload": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "not_empty",
+                        "path": "upload_res.marriage_cert_upload_ref"
+                    },
+                    "next": "end_section3"
+                }
+            ],
+            "default": "increment_marriage_cert_attempts"
+        },
+        "increment_marriage_cert_attempts": {
+            "type": "assign",
+            "set": {
+                "marriage_cert_upload_attempts": {
+                    "op": "add",
+                    "path": "marriage_cert_upload_attempts",
+                    "value": 1
+                }
+            },
+            "next": "evaluate_marriage_cert_attempts"
+        },
+        "evaluate_marriage_cert_attempts": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "gte",
+                        "path": "marriage_cert_upload_attempts",
+                        "value": 3
+                    },
+                    "next": "end_offramp_paper"
+                }
+            ],
+            "default": "prompt_retry_marriage_cert"
+        },
+        "prompt_retry_marriage_cert": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Upload failed or missing. Please try uploading your Marriage or Civil Partnership Certificate again (Attempt {{marriage_cert_upload_attempts}} of 3).",
+            "next": "upload_marriage_cert"
+        },
+        "end_rti_disputed": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "rti_disputed"
+        },
+        "end_offramp_paper": {
+            "type": "end",
+            "status": "offramp",
+            "outcome": "offramp_paper"
+        },
+        "end_section3": {
+            "type": "end",
+            "status": "success",
+            "return": {
+                "selected_employments": {
+                    "$": "selected_employments"
+                },
+                "worked_in_15th_week": {
+                    "$": "worked_in_15th_week"
+                },
+                "rti_history": {
+                    "$": "rti_history"
+                },
+                "smp1_upload_ref": {
+                    "$": "upload_res.smp1_upload_ref"
+                },
+                "se_utr": {
+                    "$": "se_utr"
+                },
+                "partner_nino": {
+                    "$": "partner_nino"
+                },
+                "partner_utr": {
+                    "$": "partner_utr"
+                },
+                "marriage_cert_upload_ref": {
+                    "$": "upload_res.marriage_cert_upload_ref"
+                }
+            }
+        }
+    }
+}

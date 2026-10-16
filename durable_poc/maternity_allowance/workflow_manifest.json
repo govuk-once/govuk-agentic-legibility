@@ -1,0 +1,40 @@
+{
+  "workflow_id": 2,
+  "schema": "sfsm/0.2",
+  "id": "dwp.maternity_allowance_ma1_claim",
+  "version": "0.1.0",
+
+  "entry": "maternity_allowance",
+
+  "executor": {
+    "workflow_id_template": "ma1-claim-{{input.nino}}",
+    "run_timeout": "P90D"
+  },
+
+  "processes": [
+    {
+      "process_id": "maternity_allowance",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_you",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_baby",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_work",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_payment",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "calculate_deadlines",
+      "version": "0.1.0"
+    }
+  ]
+}
