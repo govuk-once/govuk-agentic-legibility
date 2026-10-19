@@ -95,7 +95,7 @@ async def http_call(params: CallParams) -> dict[str, Any]:
     if response.headers.get("Content-Type", "").startswith("application/json"):
         try:
             body = response.json()
-        except Exception:
+        except ValueError:
             pass
 
     full_context = {
@@ -163,7 +163,6 @@ async def notify(params: NotifyParams) -> None:
 @activity.defn
 async def load_workflow_definition(
     workflow_id: int,
-    http_client: httpx.AsyncClient | None = None,
     base_url: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -194,12 +193,8 @@ async def load_workflow_definition(
         raise ValidationError(
             "WORKFLOW_SERVER_URL environment variable is not configured"
         )
-
-    close_client = False
-
-    if http_client is None:
-        http_client = httpx.AsyncClient()
-        close_client = True
+    http_client = httpx.AsyncClient()
+    close_client = True
 
     try:
         workflow_response = await http_client.get(
