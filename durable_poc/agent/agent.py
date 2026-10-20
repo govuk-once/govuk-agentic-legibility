@@ -472,7 +472,6 @@ class WorkflowAgent:
             ):
                 logger.info("Tool start_workflow called: workflow_id=%s", workflow_id)
                 try:
-                    http_client = await owner._get_http_client()
                     temporal_client = await owner._get_temporal_client()
                     temporal_workflow_id = await tool_functions.start_workflow(
                         workflow_id=workflow_id,
