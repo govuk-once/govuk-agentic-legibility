@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
@@ -223,20 +224,18 @@ async def test_start_workflow_fetches_definition_and_starts() -> None:
         "processes": {},
     }
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert str(request.url) == "http://localhost:8080/api/v1/workflows/1"
-        return httpx.Response(200, json=definition)
-
-    transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport) as client:
+    with patch(
+        "agent.tools.load_workflow_definition",
+        new=AsyncMock(return_value=definition),
+    ) as mock_load:
         workflow_id = await start_workflow(
             workflow_id=1,
-            http_client=client,
             base_url="http://localhost:8080",
             temporal_client=temporal_client,
             task_queue="sfsm-queue",
         )
 
+    mock_load.assert_awaited_once_with(workflow_id=1, base_url="http://localhost:8080")
     assert workflow_id.startswith("sfsm-dvla.change_of_address-")
     assert len(temporal_client.started_workflows) == 1
     started = temporal_client.started_workflows[0]

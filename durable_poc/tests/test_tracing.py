@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 import pytest
+from unittest.mock import AsyncMock, patch
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -173,10 +174,13 @@ async def test_tool_start_workflow_creates_span(otel_provider) -> None:
     }
     agent = _make_agent(
         temporal_client,
-        http_handler=lambda r: httpx.Response(200, json=definition),
     )
 
-    await agent.call_tool("start_workflow", workflow_id=1)
+    with patch(
+        "agent.tools.load_workflow_definition",
+        new=AsyncMock(return_value=definition),
+    ):
+        await agent.call_tool("start_workflow", workflow_id=1)
 
     spans = _spans_by_name(otel_provider)
     assert "tool.start_workflow" in spans
