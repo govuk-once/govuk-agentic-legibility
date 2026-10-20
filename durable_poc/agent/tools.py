@@ -10,6 +10,7 @@ import uuid
 import httpx
 
 from src.context import InputSubmission
+from src.activities import load_workflow_definition
 
 logger = logging.getLogger(__name__)
 
@@ -157,14 +158,13 @@ async def get_workflow_definition(
 async def start_workflow(
     *,
     workflow_id: int | str,
-    http_client: httpx.AsyncClient,
     base_url: str,
     temporal_client: Any,
     task_queue: str,
 ) -> str:
     """Fetch a workflow definition and start it on Temporal."""
-    definition = await get_workflow_definition(
-        workflow_id=workflow_id, http_client=http_client, base_url=base_url
+    definition = await load_workflow_definition(
+        workflow_id=workflow_id, base_url=base_url
     )
 
     # Append unique execution token to prevent duplicate workflow ID errors

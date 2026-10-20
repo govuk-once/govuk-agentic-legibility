@@ -1,0 +1,124 @@
+{
+    "process_id": "signature_update",
+    "version": "0.1.0",
+    "start": "prompt_new_signature",
+    "vars": {
+        "upload_attempts": 0,
+        "new_signature": null,
+        "signature_accepted": null
+    },
+    "states": {
+        "prompt_new_signature": {
+            "type": "input",
+            "prompt": "Please add a digital signature:",
+            "schema": {
+                "kind": "string"
+            },
+            "assign": "new_signature",
+            "next": "add_signature_api"
+        },
+        "add_signature_api": {
+            "type": "call",
+            "method": "POST",
+            "service": "dvla",
+            "url": "/app/dvla/v1/signature",
+            "body": {
+                "driver_id": {
+                    "$": "input.driver_id"
+                },
+                "digital_signature": {
+                    "$": "new_signature"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:add_signature_api_{{upload_attempts}}",
+            "assign": "signature_accepted",
+            "capture": {
+                "status": "status",
+                "signature_id": "body.signature_id",
+                "detail": "body.detail"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "increment_attempt_counter"
+                }
+            ],
+            "next": "branch_sig_validation"
+        },
+        "branch_sig_validation": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "eq",
+                        "path": "signature_accepted.status",
+                        "value": 202
+                    },
+                    "next": "say_sig_accepted"
+                }
+            ],
+            "default": "increment_attempt_counter"
+        },
+        "say_sig_accepted": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your signature has been accepted.",
+            "next": "end_new_sig"
+        },
+        "increment_attempt_counter": {
+            "type": "assign",
+            "set": {
+                "upload_attempts": {
+                    "op": "add",
+                    "path": "upload_attempts",
+                    "value": 1
+                }
+            },
+            "next": "check_retry_limit"
+        },
+        "check_retry_limit": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "gte",
+                        "path": "upload_attempts",
+                        "value": 3
+                    },
+                    "next": "say_max_attempts_exceeded"
+                }
+            ],
+            "default": "say_invalid_sig_retry"
+        },
+        "say_invalid_sig_retry": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "The signature was not accepted. Please try again (Attempt {{upload_attempts}} of 3).",
+            "next": "prompt_new_signature"
+        },
+        "say_max_attempts_exceeded": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Maximum attempts exceeded. Please try again later.",
+            "next": "end_invalid_sig"
+        },
+        "end_new_sig": {
+            "type": "end",
+            "status": "success",
+            "outcome": "signature_added",
+            "return": {
+                "$": "signature_accepted.signature_id"
+            }
+        },
+        "end_invalid_sig": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "invalid_signature"
+        },
+        "end_api_failure": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "api_failure"
+        }
+    }
+}
