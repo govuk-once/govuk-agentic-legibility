@@ -7,8 +7,69 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 import src.activities as activities
+from src.actions import parse_duration
 from src.context import TranscriptEntry
 from src.paths import interpolate, resolve_dict, set_path
+from src.model import ActivityDefaults, RetryPolicy as SchemaRetryPolicy
+
+
+def _get_call_defaults(interpreter) -> ActivityDefaults | None:
+    """Return workflow-level call defaults."""
+    if not interpreter.definition:
+        return None
+    return interpreter.definition.defaults.get("call")
+
+
+def _resolve_start_to_close_timeout(state, interpreter) -> timedelta:
+    """Resolve effective activity timeout."""
+    if state.timeouts and state.timeouts.start_to_close:
+        timeout = state.timeouts.start_to_close
+    else:
+        defaults = _get_call_defaults(interpreter)
+        timeout = (
+            defaults.timeouts.start_to_close
+            if defaults
+            and defaults.timeouts
+            and defaults.timeouts.start_to_close
+            else "PT15S"
+        )
+    return parse_duration(timeout)
+
+
+def _resolve_http_timeout_seconds(state, interpreter) -> float:
+    """Resolve timeout passed to httpx."""
+    td = _resolve_start_to_close_timeout(
+        state,
+        interpreter,
+    )
+    return td.total_seconds()
+
+
+def _resolve_retry_policy(state, interpreter) -> RetryPolicy:
+    """Build Temporal retry policy."""
+    retry_cfg = None
+    if state.retry:
+        retry_cfg = state.retry
+    else:
+        defaults = _get_call_defaults(interpreter)
+        if defaults:
+            retry_cfg = defaults.retry
+    if retry_cfg is None:
+        return RetryPolicy(
+            maximum_attempts=3,
+            non_retryable_error_types=["ValidationError"],
+        )
+    kwargs = {
+        "maximum_attempts": retry_cfg.max_attempts,
+        "non_retryable_error_types": ["ValidationError"],
+    }
+    if retry_cfg.initial_interval:
+        kwargs["initial_interval"] = parse_duration(retry_cfg.initial_interval)
+    if retry_cfg.backoff_coefficient:
+        kwargs["backoff_coefficient"] = ( retry_cfg.backoff_coefficient)
+    if retry_cfg.max_interval:
+        kwargs["maximum_interval"] = parse_duration(retry_cfg.max_interval)
+    return RetryPolicy(**kwargs)
 
 
 async def handle_call(state, frame, context, interpreter) -> dict[str, Any] | None:
@@ -55,7 +116,7 @@ async def handle_call(state, frame, context, interpreter) -> dict[str, Any] | No
             "http.url": url,
             "has_idempotency_key": bool(idempotency_key),
             "assign_target": state.assign,
-            "capture_keys": ", ".join(state.capture.keys()),
+            "capture_keys": ", ".join(state.capture.keys()) if state.capture else "",
             "has_catch": bool(state.catch),
             "next_state": state.next,
         },
@@ -68,6 +129,10 @@ async def handle_call(state, frame, context, interpreter) -> dict[str, Any] | No
             capture=state.capture or {},
             service=service_name,
             idempotency_key=idempotency_key,
+            timeout_seconds=_resolve_http_timeout_seconds(
+                state,
+                interpreter,
+            ),
         )
 
         workflow.logger.info(
@@ -82,17 +147,18 @@ async def handle_call(state, frame, context, interpreter) -> dict[str, Any] | No
             )
         )
 
-        retry_pol = RetryPolicy(
-            maximum_attempts=3,
-            non_retryable_error_types=["ValidationError"],
-        )
-
         try:
             result = await workflow.execute_activity(
                 activities.http_call,
                 call_params,
-                start_to_close_timeout=timedelta(seconds=30),
-                retry_policy=retry_pol,
+                start_to_close_timeout=_resolve_start_to_close_timeout(
+                    state,
+                    interpreter,
+                ),
+                retry_policy=_resolve_retry_policy(
+                    state,
+                    interpreter,
+                ),
             )
             call_span.set_attribute("outcome", "success")
             call_span.set_attribute(
@@ -115,9 +181,9 @@ async def handle_call(state, frame, context, interpreter) -> dict[str, Any] | No
             handled = False
             if state.catch:
                 for c in state.catch:
-                    if c["on"] == "any":
-                        call_span.set_attribute("error_handled_by", c["next"])
-                        frame.state_id = c["next"]
+                    if c.on == "any":
+                        call_span.set_attribute("error_handled_by", c.next)
+                        frame.state_id = c.next
                         handled = True
                         break
             if not handled:

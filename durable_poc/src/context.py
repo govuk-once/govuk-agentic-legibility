@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from typing import Any
+from src.model import SchemaDefinition
 
 
 @dataclass
@@ -31,7 +32,7 @@ class InterpreterState:
 class AwaitingInput:
     token: str
     prompt: str
-    schema: dict[str, Any]
+    schema: SchemaDefinition
     options: Any | None = None
     timeout_seconds: float | None = None
     state_id: str | None = None

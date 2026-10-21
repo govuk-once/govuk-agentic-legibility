@@ -4,18 +4,19 @@ from datetime import datetime
 import re
 from typing import Any
 
+from src.model import Condition
 from src.paths import resolve_path
 
 
-def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
-    """Evaluate a JSON-serialised predicate against the runtime context."""
-    op = condition.get("op")
+def evaluate(condition: Condition, context: dict[str, Any]) -> bool:
+    """Evaluate a Condition against runtime context."""
+    op = condition.op
     if not op:
         raise ValueError("Condition missing 'op' key.")
 
     # Equals / Strict / Case-Insensitive String Equality
-    if op in ["eq", "equals"]:
-        path_val = resolve_path(context, condition["path"])
+    if op == "eq":
+        path_val = resolve_path(context, condition.path or "")
         cmp_val = _resolve_value(condition, context)
         if path_val is None or cmp_val is None:
             return path_val == cmp_val
@@ -24,32 +25,32 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         return str(path_val).strip().lower() == str(cmp_val).strip().lower()
 
     # Numeric Comparisons (Less Than / Less Than or Equal)
-    elif op in ["lt", "lte", "less_than", "less_than_or_equal"]:
-        path_val = resolve_path(context, condition["path"])
+    elif op in ("lt", "lte"):
+        path_val = resolve_path(context, condition.path or "")
         cmp_val = _resolve_value(condition, context)
         if path_val is None or cmp_val is None:
             return False
         try:
             p_num, c_num = float(path_val), float(cmp_val)
-            return p_num < c_num if op in ["lt", "less_than"] else p_num <= c_num
+            return p_num < c_num if op in ["lt"] else p_num <= c_num
         except (ValueError, TypeError):
             return False
 
     # Numeric Comparisons (Greater Than / Greater Than or Equal)
-    elif op in ["gt", "gte", "greater_than", "greater_than_or_equal"]:
-        path_val = resolve_path(context, condition["path"])
+    elif op in ("gt", "gte"):
+        path_val = resolve_path(context, condition.path or "")
         cmp_val = _resolve_value(condition, context)
         if path_val is None or cmp_val is None:
             return False
         try:
             p_num, c_num = float(path_val), float(cmp_val)
-            return p_num > c_num if op in ["gt", "greater_than"] else p_num >= c_num
+            return p_num > c_num if op in ["gt"] else p_num >= c_num
         except (ValueError, TypeError):
             return False
 
     # Boolean Checks
     elif op == "is_true":
-        val = resolve_path(context, condition["path"])
+        val = resolve_path(context,condition.path or "")
         if isinstance(val, bool):
             return val is True
         if isinstance(val, str):
@@ -57,7 +58,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         return bool(val)
 
     elif op == "is_false":
-        val = resolve_path(context, condition["path"])
+        val = resolve_path(context, condition.path or "")
         if isinstance(val, bool):
             return val is False
         if isinstance(val, str):
@@ -66,27 +67,31 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
 
     # Emptiness Checks
     elif op == "not_empty":
-        val = resolve_path(context, condition["path"])
-        return bool(val) and val != ""
+        val = resolve_path(context, condition.path or "")
+        if val is None:
+            return False
+        if val == "":
+            return False
+        if isinstance(val, (list, dict)):
+            return len(val) > 0
+        return True
 
     # Logical Combinators
     elif op == "and":
-        subs = condition.get("all") or condition.get("rules") or []
-        return all(evaluate(sub, context) for sub in subs)
+        return all(evaluate(child, context) for child in (condition.all or []))
 
     elif op == "or":
-        subs = condition.get("any") or condition.get("rules") or []
-        return any(evaluate(sub, context) for sub in subs)
+        return any(evaluate(child, context) for child in (condition.any or []))
 
     elif op == "not":
-        sub = condition.get("condition") or condition.get("rule")
-        if not sub:
-            raise ValueError("Operator 'not' requires a 'condition' or 'rule' key.")
-        return not evaluate(sub, context)
+        conditions = condition.all or []
+        if len(conditions) != 1:
+            raise ValueError("Operator 'not' requires exactly one child 'condition'")
+        return not evaluate(conditions[0], context)
 
     # Date Evaluation Operations (Strictly Deterministic via context['__now__'])
     elif op == "date_before":
-        val1 = resolve_path(context, condition.get("path", "")) or resolve_path(
+        val1 = resolve_path(context, condition.path or "") or resolve_path(
             context, "__now__"
         )
         val2 = _resolve_value(condition, context)
@@ -103,7 +108,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         if not now_ts:
             raise KeyError("Runtime context missing deterministic '__now__' key")
 
-        target_ts = resolve_path(context, condition["path"])
+        target_ts = resolve_path(context, condition.path or "")
         if target_ts is None:
             return False
 
@@ -115,7 +120,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         return bool(target_dt < now_dt)
 
     elif op == "date_diff_greater_than":
-        target_ts = resolve_path(context, condition["path"])
+        target_ts = resolve_path(context, condition.path or "")
         now_ts = resolve_path(context, "__now__")
         if target_ts is None or now_ts is None:
             return False
@@ -127,7 +132,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
             return False
 
         diff_days = abs((now_dt - target_dt).days)
-        val_str = str(condition.get("value", "")).lower()
+        val_str = str(condition.value or "").lower()
 
         match = re.search(r"\d+", val_str)
         num = int(match.group()) if match else 1
@@ -141,8 +146,8 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         return False
 
     # Substring & Array Membership Checks
-    elif op in ["contains", "in", "includes"]:
-        path_val = resolve_path(context, condition["path"])
+    elif op == "contains":
+        path_val = resolve_path(context, condition.path or "")
         cmp_val = _resolve_value(condition, context)
         if path_val is None or cmp_val is None:
             return False
@@ -158,17 +163,18 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
     raise ValueError(f"Unrecognised operator: {op}")
 
 
-def _resolve_value(condition: dict[str, Any], context: dict[str, Any]) -> Any:
+def _resolve_value(condition: Condition, context: dict[str, Any]) -> Any:
     """Extract direct literals or resolve dynamic path values."""
-    if "value" in condition:
-        return condition["value"]
-    if "value_path" in condition:
-        return resolve_path(context, condition["value_path"])
+    if condition.value is not None:
+        return condition.value
+
+    if condition.value_path:
+        return resolve_path(context, condition.value_path)
     return None
 
 
 def _parse_date(val: Any) -> datetime | None:
-    """Attempt parsing ISO or UK DD/MM/YYYY date strings into datetime objects."""
+    """Parse ISO or UK DD/MM/YYYY date strings into datetime objects."""
     if not val:
         return None
     if isinstance(val, datetime):

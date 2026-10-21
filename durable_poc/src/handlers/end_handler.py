@@ -49,13 +49,10 @@ async def handle_end(state, frame, context, interpreter) -> dict[str, Any] | Non
             handled = False
             if invoker.catch:
                 for c in invoker.catch:
-                    rule_on = c.on if hasattr(c, "on") else c.get("on")
-                    rule_next = (
-                        c.next if hasattr(c, "next") else c.get("next")
-                    )
+                    rule_on = c.on
+                    rule_next = c.next
                     if rule_on == state.outcome or rule_on == "any":
                         parent_frame.state_id = rule_next
-                        handled = True #noqa F841
                         break
     else:
         return {

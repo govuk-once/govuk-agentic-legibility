@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import re
 from typing import Any
 
-from src.model import OperationSpec, OperationsRegistry
+from src.model import Condition, OperationSpec, OperationsRegistry
 from src.paths import resolve_path
 from src.predicates import evaluate
 
@@ -52,8 +52,10 @@ SCHEMA_TEMPLATES: dict[str, dict[str, Any]] = {
             "path": {"type": "string", "description": "Dot-path to the value to test"},
             "value": {"description": "Literal comparison value"},
             "value_path": {"type": "string", "description": "Dot-path to the comparison value"},
+            "all": {"type": "array", "description": "Child conditions for 'and' and 'not' operators"},
+            "any": {"type": "array", "description": "Child conditions for 'or' operators"},
         },
-        "required": ["op", "path"],
+        "required": ["op"],
     },
     "list_append": {
         "type": "object",
@@ -226,6 +228,7 @@ def now_plus(spec: dict, context: dict) -> str | None:
         if dur_str:
             dt = now + parse_duration(dur_str)
             return dt.isoformat()
+    return None
 
 
 @operation(
@@ -300,19 +303,28 @@ def append(spec: dict, context: dict) -> list:
 _PREDICATE_OPS = [
     ("eq", "Test equality of two values."),
     ("lt", "Test whether a value is less than another."),
+    ("lte", "Test whether a value is less than or equal to another."),
     ("gt", "Test whether a value is greater than another."),
+    ("gte", "Test whether a value is greater than or equal to another."),
     ("is_true", "Test whether a value is truthy."),
     ("is_false", "Test whether a value is falsy."),
+    ("not_empty", "Test whether a value is populated."),
+    ("contains", "Test whether a value contains another value."),
+    ("and", "Logical AND across multiple conditions."),
+    ("or", "Logical OR across multiple conditions."),
+    ("not", "Logical negation of a condition."),
     ("date_before", "Test whether a date is before another date."),
     ("before_now", "Test whether a date is before the current time."),
+    ("date_diff_greater_than", "Test whether a date difference exceeds a threshold."),
 ]
 
 for _name, _desc in _PREDICATE_OPS:
-    def _make_pred(op_name):
+    def _make_pred(op_name: str):
         """Build a predicate operation function bound to *op_name*."""
-        def pred(spec: dict, context: dict) -> bool:
+        def pred(spec: dict[str, Any], context: dict[str, Any]) -> bool:
             """Evaluate a predicate condition against *context*."""
-            return evaluate(spec, context)
+            condition = Condition.model_validate(spec)
+            return evaluate(condition=condition, context=context)
         pred.__name__ = op_name
         return pred
 

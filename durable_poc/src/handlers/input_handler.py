@@ -121,7 +121,7 @@ async def handle_input(state, frame, context, interpreter) -> dict[str, Any] | N
                 )
             except asyncio.TimeoutError:
                 interpreter._timeout_triggered = True
-                workflow.logger.warn(
+                workflow.logger.warning(
                     f"⚠️ Input timed out at state '{frame.state_id}'"
                 )
         else:

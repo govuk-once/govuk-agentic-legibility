@@ -1,8 +1,13 @@
 """Pydantic models for the FSM schema."""
 
-from typing import Any, Literal, Callable
+from typing import Any, Literal, Callable, Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+# ============================================================================
+# Registry
+# ============================================================================
 
 
 class OperationSpec(BaseModel):
@@ -62,11 +67,132 @@ class OperationsRegistry:
             raise InvalidSpecNameException(f"There is no operation spec with the name {name}")
 
 
+# ============================================================================
+# Type aliases
+# ============================================================================
+
+
+SchemaKind = Literal[
+    "boolean",
+    "string",
+    "select_one",
+    "select_many",
+    "file_ref",
+]
+
+Channel = Literal[
+    "transcript",
+    "email",
+    "sms",
+]
+
+HttpMethod = Literal[
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+]
+
+CompletionStatus = Literal[
+    "success",
+    "cancelled",
+    "failed",
+    "offramp",
+    "needs_attention",
+]
+
+WorkflowState = Literal[
+    "draft",
+    "live",
+    "deprecated",
+    "retired",
+]
+
+
+# ============================================================================
+# Supporting Models
+# ============================================================================
+
+
 class OptionItem(BaseModel):
     """A selectable option with a machine value and human-readable label."""
 
     value: str
     label: str
+
+
+class DynamicRef(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    path: str = Field(alias="$")
+
+
+class FieldDefinition(BaseModel):
+    name: str
+    label: str | None = None
+    schema: "SchemaDefinition"
+
+
+class TimeoutConfig(BaseModel):
+    after: str | dict[str, str]
+    next: str
+
+
+class Timeouts(BaseModel):
+    start_to_close: str | None = None
+    schedule_to_close: str | None = None
+    heartbeat: str | None = None
+
+
+class RetryPolicy(BaseModel):
+    max_attempts: int
+    initial_interval: str | None = None
+    backoff_coefficient: float | None = None
+    max_interval: str | None = None
+    retry_on: list[str] = Field(default_factory=list)
+
+
+class ActivityDefaults(BaseModel):
+    timeouts: Timeouts | None = None
+    retry: RetryPolicy | None = None
+
+
+class CatchClause(BaseModel):
+    """Defines behaviour for given events or exceptions."""
+    on: str
+    next: str
+
+
+class CaptureSpec(BaseModel):
+    from_: str = Field(alias="from")
+    pick: list[str] | None = None
+    max_items: int | None = None
+    max_length: int | None = None
+
+
+class Condition(BaseModel):
+    op: str
+    path: str | None = None
+    value: Any | None = None
+    value_path: str | None = None
+    all: list["Condition"] | None = None
+    any: list["Condition"] | None = None
+
+
+class ChoiceRule(BaseModel):
+    """A single predicate-guarded transition in a ChoiceState."""
+    when: Condition
+    next: str
+
+
+class Metadata(BaseModel):
+    """Extensible metadata attached to workflows, processes and states."""
+    model_config = ConfigDict(extra="allow")
+
+
+# ============================================================================
+# Schema Definition
+# ============================================================================
 
 
 class SchemaDefinition(BaseModel):
@@ -78,24 +204,33 @@ class SchemaDefinition(BaseModel):
     """
 
     model_config = ConfigDict(extra="allow")
-    kind: str
+    kind: SchemaKind
     pattern: str | None = None
     normalise: str | None = None
     max_length: int | None = None
     invalid_message: str | None = None
-    fields: list[dict[str, Any]] | None = None
-    options: list[OptionItem | str | dict[str, Any]] | None = None
+    fields: list[FieldDefinition] | None = None
+    options: list[OptionItem] | None = None
     options_from: str | None = None
     value_key: str | None = None
     label_key: str | None = None
     default: Any | None = None
     accept: list[str] | None = None
     allow_skip: bool | None = False
+    max_bytes: int | None = None
+    declared_only: bool | None = None
+
+
+# ============================================================================
+# States
+# ============================================================================
 
 
 class BaseState(BaseModel):
     """Abstract base for all FSM state types."""
     type: str
+    name: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class InputState(BaseState):
@@ -111,7 +246,7 @@ class InputState(BaseState):
     schema_: SchemaDefinition = Field(alias="schema")
     assign: str
     on_invalid: str | None = None
-    timeout: dict[str, Any] | None = None
+    timeout: TimeoutConfig | None = None
     next: str
 
 
@@ -124,7 +259,7 @@ class OutputState(BaseState):
     """
 
     type: Literal["output"] = "output"
-    channel: str
+    channel: Channel
     message: str | None = None
     template: str | None = None
     params: dict[str, Any] | None = None
@@ -143,7 +278,7 @@ class CallState(BaseState):
     """
 
     type: Literal["call"] = "call"
-    method: str
+    method: HttpMethod
     url: str
     service: str
     headers: dict[str, str] | None = None
@@ -151,18 +286,11 @@ class CallState(BaseState):
     source_ref: dict[str, Any] | None = None
     encoding: str | None = None
     idempotency_key: str | None = None
-    timeouts: dict[str, str] | None = None
-    retry: dict[str, Any] | None = None
+    timeouts: Timeouts | None = None
+    retry: RetryPolicy | None = None
     assign: str
-    capture: dict[str, Any] | None = None
-    catch: list[dict[str, str]] | None = None
-    next: str
-
-
-class ChoiceRule(BaseModel):
-    """A single predicate-guarded transition in a ChoiceState."""
-
-    when: dict[str, Any]
+    capture: dict[str, str | CaptureSpec] | None = None
+    catch: list[CatchClause] | None = None
     next: str
 
 
@@ -177,12 +305,7 @@ class AssignState(BaseState):
     """Populates or calculates required values within a workflow."""
     type: Literal["assign"] = "assign"
     set: dict[str, Any]
-    next: str
 
-
-class InvokeCatch(BaseModel):
-    """Defines behaviour for given events or exceptions."""
-    on: str
     next: str
 
 
@@ -192,7 +315,7 @@ class InvokeState(BaseState):
     process: str
     assign: str | None = None
     input: dict[str, Any] | None = None
-    catch: list[InvokeCatch] | None = None
+    catch: list[CatchClause] | None = None
     next: str
 
 
@@ -206,27 +329,48 @@ class WaitState(BaseState):
 class EndState(BaseState):
     """Ends a workflow or sub-process."""
     type: Literal["end"] = "end"
-    status: str
+    status: CompletionStatus
     outcome: str | None = None
-    return_: Any | None = Field(default=None, alias="return")
+    return_: dict[str, Any] | None = Field(
+        default=None,
+        alias="return",
+    )
 
 
-State = (
-    InputState
-    | OutputState
-    | CallState
-    | ChoiceState
-    | AssignState
-    | InvokeState
-    | WaitState
-    | EndState
-)
+State = Annotated[
+    (
+        InputState
+        | OutputState
+        | CallState
+        | ChoiceState
+        | AssignState
+        | InvokeState
+        | WaitState
+        | EndState
+    ),
+    Field(discriminator="type"),
+]
+
+
+# ============================================================================
+# Processes
+# ============================================================================
 
 
 class Process(BaseModel):
     start: str
     vars: dict[str, Any] = Field(default_factory=dict)
     states: dict[str, State]
+    performer: str | None = None
+    parent_process: str | None = None
+    source: list[str] = Field(default_factory=list)
+    window: dict[str, str] | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+# ============================================================================
+# Workflow
+# ============================================================================
 
 
 class WorkflowExecutorConfig(BaseModel):
@@ -244,5 +388,10 @@ class SFSMDefinition(BaseModel):
     version: str
     entry: str
     executor: WorkflowExecutorConfig
-    defaults: dict[str, Any] = Field(default_factory=dict)
+    defaults: dict[str, ActivityDefaults] = Field(default_factory=dict)
     processes: dict[str, Process]
+    owner: str | None = None
+    contact: str | None = None
+    description: str | None = None
+    state: WorkflowState = "draft"
+    metadata: dict[str, Any] = Field(default_factory=dict)

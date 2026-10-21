@@ -168,7 +168,11 @@ class SFSMInterpreter:
             }
             context.update(frame.vars)
 
-            handler = STATE_HANDLERS[type(current_state)]
+            handler = STATE_HANDLERS.get(type(current_state))
+            if handler is None:
+                raise DefinitionError(
+                    f"No handler registered for {type(current_state).__name__}"
+                )
             result = await handler(current_state, frame, context, self)
             if result is not None:
                 return result
@@ -189,8 +193,8 @@ class SFSMInterpreter:
 
         process_id = frame.process_id if frame else None
         state_id = awaiting.state_id if awaiting else (frame.state_id if frame else None)
-        schema = awaiting.schema if awaiting else {}
-        schema_kind = schema.get("kind") if isinstance(schema, dict) else None
+        schema = awaiting.schema if awaiting else None
+        schema_kind = schema.kind if schema else None
 
         assign_target = None
         if frame is not None and self.definition is not None:
@@ -218,7 +222,7 @@ class SFSMInterpreter:
         ):
             pass
 
-        workflow.logger.warn(
+        workflow.logger.warning(
             f"❌ Rejected update ({code}): token={msg.token} value={msg.value!r}: {message}"
         )
         raise InputValidationError(message)
@@ -251,11 +255,7 @@ class SFSMInterpreter:
             )
 
         schema = self._awaiting_input.schema
-        kind = (
-            schema.get("kind")
-            if isinstance(schema, dict)
-            else getattr(schema, "kind", None)
-        )
+        kind = schema.kind
         val = msg.value
 
         if kind == "boolean" and not isinstance(val, bool):
@@ -270,21 +270,16 @@ class SFSMInterpreter:
                 code="expected_string",
                 message=f"Expected string, received {type(val).__name__}",
             )
-        if kind == "string" and "pattern" in schema:
-            if not re.match(str(schema["pattern"]), str(val)):
-                self._raise_input_validation_error(
-                    msg,
-                    code="invalid_format",
-                    message=schema.get("invalid_message", "Invalid format"),
-                )
+        if (kind == "string" and schema.pattern and not re.match(schema.pattern, str(val))):
+            self._raise_input_validation_error(
+                msg,
+                code="invalid_format",
+                message=schema.invalid_message or "Invalid format",
+            )
 
-        if kind in ["select_one", "select_many"]:
+        if kind in ("select_one", "select_many"):
             options = (
-                (
-                    schema.get("options")
-                    if isinstance(schema, dict)
-                    else getattr(schema, "options", None)
-                )
+                schema.options
                 or self._awaiting_input.options
                 or []
             )
@@ -295,12 +290,8 @@ class SFSMInterpreter:
                 if 0 <= idx < len(options):
                     return
 
-            v_key = (
-                schema.get("value_key", "value")
-                if isinstance(schema, dict)
-                else getattr(schema, "value_key", "value")
-            )
-            valid_values = []
+            v_key = schema.value_key or "value"
+            valid_values: list[Any] = []
             for opt in options:
                 if isinstance(opt, dict):
                     valid_values.append(
@@ -339,7 +330,7 @@ class SFSMInterpreter:
         if kind == "file_ref":
             # A supplied optional file is still a native file reference; only
             # the explicit optional skip is represented by null.
-            if val is None and schema.get("allow_skip") is True:
+            if val is None and schema.allow_skip is True:
                 return
             if not isinstance(val, dict) or "error" in val:
                 self._raise_input_validation_error(
@@ -420,6 +411,8 @@ class SFSMInterpreter:
         return {
             "process_id": frame.process_id,
             "state_id": frame.state_id,
+            "state_name": state.name if state else None,
+            "state_metadata": state.metadata if state else {},
             "state_type": type(state).__name__ if state else None,
             "step": self.state.step_counter,
         }
@@ -449,7 +442,7 @@ class SFSMInterpreter:
             awaiting = {
                 "token": self._awaiting_input.token,
                 "prompt": self._awaiting_input.prompt,
-                "schema": deepcopy(self._awaiting_input.schema),
+                "schema": self._awaiting_input.schema.model_dump(by_alias=True, exclude_none=True),
                 "options": deepcopy(self._awaiting_input.options),
                 "timeout_seconds": self._awaiting_input.timeout_seconds,
                 "state_id": self._awaiting_input.state_id,
