@@ -130,7 +130,7 @@
             "schema": {
                 "kind": "string",
                 "pattern": "^[a-zA-Z0-9\\s,.'-]{3,100}$",
-                "normalise": "trim",
+                "normalise": "upper_trim",
                 "invalid_message": "Please enter a valid street address (between 3 and 100 characters)."
             },
             "assign": "manual_address",

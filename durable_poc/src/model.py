@@ -130,7 +130,9 @@ class DynamicRef(BaseModel):
 class FieldDefinition(BaseModel):
     name: str
     label: str | None = None
-    schema: "SchemaDefinition"
+    schema_: "SchemaDefinition" = Field(
+        alias="schema"
+    )
 
 
 class TimeoutConfig(BaseModel):

@@ -105,7 +105,8 @@
             "type": "input",
             "prompt": "Please enter your Driving Licence Number:",
             "schema": {
-                "kind": "string"
+                "kind": "string",
+                "normalise": "upper_trim"
             },
             "assign": "manual_licence_no",
             "next": "confirm_manual_summary"

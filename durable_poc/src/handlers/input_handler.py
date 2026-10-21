@@ -131,9 +131,9 @@ async def handle_input(state, frame, context, interpreter) -> dict[str, Any] | N
 
         if interpreter._timeout_triggered:
             input_span.set_attribute("outcome", "timeout")
-            if state.timeout and "next" in state.timeout:
+            if state.timeout:
                 workflow.logger.info(
-                    f"➡️ Timeout transition to '{state.timeout['next']}'"
+                    f"➡️ Timeout transition to '{state.timeout.next}'"
                 )
                 frame.state_id = state.timeout.next
                 return None
