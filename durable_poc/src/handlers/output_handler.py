@@ -5,6 +5,7 @@ from typing import Any
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError
 
 import src.activities as activities
 from src.context import TranscriptEntry
@@ -83,7 +84,7 @@ async def handle_output(state, frame, context, interpreter) -> dict[str, Any] | 
                     retry_policy=RetryPolicy(maximum_attempts=5),
                 )
                 output_span.set_attribute("notification_outcome", "success")
-            except Exception as e:
+            except ActivityError as e:
                 output_span.set_attribute("notification_outcome", "failed")
                 workflow.logger.error(f"Notification activity failed: {e}")
                 if state.on_error != "continue":

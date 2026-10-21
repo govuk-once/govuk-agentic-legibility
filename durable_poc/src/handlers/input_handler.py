@@ -74,8 +74,8 @@ async def handle_input(state, frame, context, interpreter) -> dict[str, Any] | N
                 for opt in static_options
             ]
 
-        if state.timeout and "after" in state.timeout:
-            timeout_val = resolve_dict(state.timeout["after"], context)
+        if state.timeout:
+            timeout_val = resolve_dict(state.timeout.after, context)
             if isinstance(timeout_val, str):
                 timeout_duration = parse_duration(timeout_val)
                 input_span.set_attribute("timeout_seconds", timeout_duration.total_seconds())
@@ -87,16 +87,14 @@ async def handle_input(state, frame, context, interpreter) -> dict[str, Any] | N
         prompt_text = interpolate(state.prompt, context)
         input_span.set_attribute("prompt_resolved", prompt_text)
 
-        schema_dict = state.schema_.model_dump(
-            by_alias=True, exclude_none=True
-        )
+        schema = state.schema_.model_copy(deep=True)
         if options is not None:
-            schema_dict["options"] = options
+            schema.options = options
 
         interpreter._awaiting_input = AwaitingInput(
             token=token,
             prompt=prompt_text,
-            schema=schema_dict,
+            schema=state.schema_,
             options=options,
             timeout_seconds=timeout_duration.total_seconds()
             if timeout_duration
@@ -137,7 +135,7 @@ async def handle_input(state, frame, context, interpreter) -> dict[str, Any] | N
                 workflow.logger.info(
                     f"➡️ Timeout transition to '{state.timeout['next']}'"
                 )
-                frame.state_id = state.timeout["next"]
+                frame.state_id = state.timeout.next
                 return None
             raise DefinitionError(
                 f"Timeout triggered without 'next' route in state '{frame.state_id}'"
