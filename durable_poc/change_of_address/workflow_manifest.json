@@ -3,10 +3,36 @@
   "schema": "sfsm/0.2",
   "id": "dvla.change_of_address",
   "version": "0.1.0",
+  "owner": "DVLA",
+  "contact": "change-of-address@dvla.gov.uk",
+  "description": "DVLA driving licence change of address journey.",
+  "state": "draft",
+  "metadata": {},
   "entry": "change_of_address",
   "executor": {
     "workflow_id_template": "coa-adv-{{input.licence_no}}",
-    "run_timeout": "PT14D"
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P14D",
+    "search_attributes": {}
+  },
+  "defaults": {
+    "call": {
+      "timeouts": {
+        "start_to_close": "PT15S"
+      },
+      "retry": {
+        "max_attempts": 3,
+        "initial_interval": "PT1S",
+        "backoff_coefficient": 2.0,
+        "max_interval": "PT30S",
+        "retry_on": [
+          "5xx",
+          "429",
+          "timeout",
+          "connection"
+        ]
+      }
+    }
   },
   "processes": [
     {

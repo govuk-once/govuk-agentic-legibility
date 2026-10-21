@@ -85,9 +85,6 @@
         "send_confirmation_email": {
             "type": "output",
             "channel": "email",
-            "to": {
-                "$": "input.email"
-            },
             "template": "coa_application_submitted",
             "params": {
                 "postcode": {
@@ -103,7 +100,7 @@
         "say_completion_summary": {
             "type": "output",
             "channel": "transcript",
-            "message": "Your update has been processed successfully and a new driving licence has been dispatched.\nHere is the summary of completed actions:\n• Driver details confirmed for licence: {{input.driver_id}}\n• Photocard photo & signature updated\n• NHS Organ Donation preferences updated\n• New address set to: {{input.address.single_line}}, {{input.address.postcode}}\n\nA confirmation email has been sent to {{input.email}}.",
+            "message": "Your update has been processed successfully and a new driving licence has been dispatched.\nHere is the summary of completed actions:\n• Driver details confirmed for licence: {{input.driver_id}}\n• Photocard photo & signature updated\n• NHS Organ Donation preferences reviewed\n• New address set to: {{input.address.single_line}}, {{input.address.postcode}}\n\nA confirmation email has been sent to {{input.email}}.",
             "next": "wait_for_delivery"
         },
         "wait_for_delivery": {

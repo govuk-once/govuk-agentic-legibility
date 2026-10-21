@@ -106,6 +106,10 @@
             },
             "catch": [
                 {
+                    "on": "api_failure",
+                    "next": "end_api_failure"
+                },
+                {
                     "on": "any",
                     "next": "increment_attempt_counter"
                 }

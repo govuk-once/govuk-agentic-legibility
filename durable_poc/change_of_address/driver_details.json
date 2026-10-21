@@ -63,7 +63,8 @@
             "type": "input",
             "prompt": "Please enter your correct First Name:",
             "schema": {
-                "kind": "string"
+                "kind": "string",
+                "normalise": "upper_trim"
             },
             "assign": "manual_first_name",
             "next": "prompt_manual_last_name"
@@ -72,7 +73,8 @@
             "type": "input",
             "prompt": "Please enter your correct Last Name:",
             "schema": {
-                "kind": "string"
+                "kind": "string",
+                "normalise": "upper_trim"
             },
             "assign": "manual_last_name",
             "next": "prompt_manual_dob"

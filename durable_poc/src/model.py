@@ -327,11 +327,14 @@ class WaitState(BaseState):
 
 
 class EndState(BaseState):
-    """Ends a workflow or sub-process."""
+    """Ends a workflow or sub-process. Optional value returned to the invoking process.
+
+    May be a scalar, object, list, or dynamically resolved reference.
+    """
     type: Literal["end"] = "end"
     status: CompletionStatus
     outcome: str | None = None
-    return_: dict[str, Any] | None = Field(
+    return_: Any | None = Field(
         default=None,
         alias="return",
     )

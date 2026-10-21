@@ -41,30 +41,6 @@
                         "value": "2"
                     },
                     "next": "prompt_manual_address"
-                },
-                {
-                    "when": {
-                        "op": "eq",
-                        "path": "entry_method",
-                        "value": 2
-                    },
-                    "next": "prompt_manual_address"
-                },
-                {
-                    "when": {
-                        "op": "contains",
-                        "path": "entry_method",
-                        "value": "2"
-                    },
-                    "next": "prompt_manual_address"
-                },
-                {
-                    "when": {
-                        "op": "contains",
-                        "path": "entry_method",
-                        "value": "manual"
-                    },
-                    "next": "prompt_manual_address"
                 }
             ],
             "default": "prompt_postcode"
@@ -74,7 +50,7 @@
             "prompt": "Enter your new UK postcode:",
             "schema": {
                 "kind": "string",
-                "pattern": "[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}",
+                "pattern": "^[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}$",
                 "normalise": "upper_trim",
                 "invalid_message": "That doesn't look like a UK postcode."
             },
@@ -142,7 +118,7 @@
             "schema": {
                 "kind": "select_one",
                 "options_from": "addresses.addresses",
-                "value_key": "uprn",
+                "value_key": "single_line",
                 "label_key": "single_line"
             },
             "assign": "selected_address",
@@ -165,7 +141,7 @@
             "prompt": "Enter your UK postcode:",
             "schema": {
                 "kind": "string",
-                "pattern": "[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}",
+                "pattern": "^[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}$",
                 "normalise": "upper_trim",
                 "invalid_message": "That doesn't look like a valid UK postcode."
             },

@@ -12,7 +12,7 @@
             "type": "input",
             "prompt": "Please add a digital signature:",
             "schema": {
-                "kind": "string"
+                "kind": "file_ref"
             },
             "assign": "new_signature",
             "next": "add_signature_api"
@@ -38,6 +38,10 @@
                 "detail": "body.detail"
             },
             "catch": [
+                {
+                    "on": "api_failure",
+                    "next": "end_api_failure"
+                },
                 {
                     "on": "any",
                     "next": "increment_attempt_counter"

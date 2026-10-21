@@ -27,6 +27,10 @@
             },
             "catch": [
                 {
+                    "on": "api_failure",
+                    "next": "end_api_failure"
+                },
+                {
                     "on": "any",
                     "next": "end_rejected"
                 }
@@ -71,6 +75,11 @@
             "type": "end",
             "status": "failed",
             "outcome": "rejected"
+        },
+        "end_api_failure": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "api_failure"
         }
     }
 }
