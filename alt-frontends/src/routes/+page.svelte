@@ -1,7 +1,8 @@
 <h1 class="govuk-heading-l">Alternative Frontends</h1>
 
+<!-- MVI: "Four" became "Five" and a /mvi card was added to the list below. -->
 <p class="govuk-body">
-  Four interaction styles, one Temporal-backed workflow contract. <code>/web</code> is
+  Five interaction styles, one Temporal-backed workflow contract. <code>/web</code> is
   the deterministic mode — Temporal stays authoritative, with an optional LLM
   suggesting field values from notes you provide.
 </p>
@@ -11,7 +12,8 @@
     { href: '/web', name: '/web', description: 'Form-driven, LLM-assisted pre-fill' },
     { href: '/chat', name: '/chat', description: 'Natural-language, agent-mediated' },
     { href: '/agentic', name: '/agentic', description: 'Autonomous, profile-driven' },
-    { href: '/voice', name: '/voice', description: 'Speech in, speech out, agent-mediated' }
+    { href: '/voice', name: '/voice', description: 'Speech in, speech out, agent-mediated' },
+    { href: '/mvi', name: '/mvi', description: 'Phone-style, answered on a keypad' }
   ] as door (door.href)}
     <div class="ss-panel front-doors__card">
       <h2 class="govuk-heading-m govuk-!-margin-bottom-2"><code>{door.name}</code></h2>
