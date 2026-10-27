@@ -2,7 +2,8 @@
   import { goto } from '$app/navigation';
   import { DurableApiError, listProfiles, listWorkflows, setAutonomy, startRun } from '$lib/api/client';
   import type { PreseedExample } from '$lib/agentic/preseed-examples';
-  import PreseedField from '$lib/components/PreseedField.svelte';
+  import AgentCard from '$lib/components/agentic/AgentCard.svelte';
+  import AgentFactsField from '$lib/components/agentic/AgentFactsField.svelte';
   import type { AutonomyPolicy, ProfileSummary, WorkflowSummary } from '$lib/types';
 
   let workflows: WorkflowSummary[] = $state([]);
@@ -69,81 +70,161 @@
   }
 </script>
 
-<h1 class="govuk-heading-l">Start an autonomous run</h1>
+<div class="agent-page">
+  <h1 class="govuk-heading-l">Start an autonomous run</h1>
 
-<p class="govuk-body">
-  Seed a run with a profile bundle, facts of your own, or both, and let the autonomous answerer drive it. It
-  escalates to a human only when it can't confidently resolve a field, or the field is in a category you've
-  asked to be told about.
-</p>
+  {#if loadError}
+    <p class="govuk-error-message">{loadError}</p>
+  {/if}
 
-{#if loadError}
-  <p class="govuk-error-message">{loadError}</p>
-{/if}
+  {#if startError}
+    <p class="govuk-error-message">{startError}</p>
+  {/if}
 
-{#if startError}
-  <p class="govuk-error-message">{startError}</p>
-{/if}
+  <div class="agent-page__columns">
+    <AgentCard title="Facts for this run">
+      {#snippet aside()}
+        <label class="govuk-visually-hidden" for="workflow">Journey</label>
+        <select class="govuk-select agent-page__journey" id="workflow" bind:value={selectedWorkflowId}>
+          {#each workflows as workflow (workflow.id)}
+            <option value={workflow.id}>{workflow.name ?? workflow.id}</option>
+          {/each}
+        </select>
+      {/snippet}
 
-<div class="ss-panel govuk-!-margin-top-4">
-  <div class="govuk-form-group">
-    <label class="govuk-label" for="workflow">Workflow</label>
-    <select class="govuk-select" id="workflow" bind:value={selectedWorkflowId}>
-      {#each workflows as workflow (workflow.id)}
-        <option value={workflow.id}>{workflow.name ?? workflow.id}</option>
-      {/each}
-    </select>
-  </div>
-
-  <div class="govuk-form-group">
-    <label class="govuk-label" for="profile">Profile bundle</label>
-    <select class="govuk-select" id="profile" bind:value={selectedProfileFixture}>
-      <option value="">None: use pre-seeded facts only</option>
-      {#each profiles as profile (profile.fixture)}
-        <option value={profile.fixture}>{profile.title}</option>
-      {/each}
-    </select>
-  </div>
-
-  <PreseedField workflowId={selectedWorkflowId} bind:value={preseed} onexample={applyExample} />
-
-  <div class="govuk-form-group">
-    <label class="govuk-label" for="autonomy-level">Autonomy level</label>
-    <select class="govuk-select" id="autonomy-level" bind:value={autonomyLevel}>
-      <option value="cautious">Cautious &mdash; escalates readily</option>
-      <option value="balanced">Balanced</option>
-      <option value="assertive">Assertive &mdash; infers readily</option>
-    </select>
-  </div>
-
-  <fieldset class="govuk-fieldset govuk-!-margin-bottom-4">
-    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Ask me before answering</legend>
-    <div class="govuk-checkboxes govuk-checkboxes--small">
-      {#each [['identity', 'Identity'], ['payment', 'Payment'], ['irreversible', 'Irreversible actions']] as [value, label] (value)}
-        <div class="govuk-checkboxes__item">
-          <input
-            class="govuk-checkboxes__input"
-            id="notify-{value}"
-            type="checkbox"
-            {value}
-            bind:group={notifyCategories}
-          />
-          <label class="govuk-label govuk-checkboxes__label" for="notify-{value}">{label}</label>
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="profile">Profile bundle</label>
+        <div id="profile-hint" class="govuk-hint govuk-!-font-size-16">
+          A bundle gives the agent a ready-made set of answers. Choose one or leave it empty.
         </div>
-      {/each}
-    </div>
-  </fieldset>
+        <select class="govuk-select" id="profile" aria-describedby="profile-hint" bind:value={selectedProfileFixture}>
+          <option value="">None: use pre-seeded facts only</option>
+          {#each profiles as profile (profile.fixture)}
+            <option value={profile.fixture}>{profile.title}</option>
+          {/each}
+        </select>
+      </div>
 
-  <div class="govuk-checkboxes govuk-checkboxes--small">
-    <div class="govuk-checkboxes__item">
-      <input class="govuk-checkboxes__input" id="run-immediately" type="checkbox" bind:checked={runImmediately} />
-      <label class="govuk-label govuk-checkboxes__label" for="run-immediately">
-        Start answering straight away
-      </label>
+      <AgentFactsField workflowId={selectedWorkflowId} bind:value={preseed} onexample={applyExample} />
+    </AgentCard>
+
+    <div class="agent-page__side">
+      <AgentCard title="Agent control">
+        <div class="govuk-form-group">
+          <label class="govuk-label govuk-label--s" for="autonomy-level">Autonomy level</label>
+          <select class="govuk-select agent-page__full-width" id="autonomy-level" bind:value={autonomyLevel}>
+            <option value="cautious">Cautious &mdash; escalates readily</option>
+            <option value="balanced">Balanced</option>
+            <option value="assertive">Assertive &mdash; infers readily</option>
+          </select>
+        </div>
+
+        <fieldset class="govuk-fieldset govuk-!-margin-bottom-4">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Ask me before answering</legend>
+          <div class="govuk-checkboxes govuk-checkboxes--small agent-chips">
+            {#each [['identity', 'Identity'], ['payment', 'Payment'], ['irreversible', 'Irreversible actions']] as [value, label] (value)}
+              <div class="govuk-checkboxes__item">
+                <input
+                  class="govuk-checkboxes__input"
+                  id="notify-{value}"
+                  type="checkbox"
+                  {value}
+                  bind:group={notifyCategories}
+                />
+                <label class="govuk-label govuk-checkboxes__label" for="notify-{value}">{label}</label>
+              </div>
+            {/each}
+          </div>
+        </fieldset>
+
+        <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-bottom-4">
+          <div class="govuk-checkboxes__item">
+            <input class="govuk-checkboxes__input" id="run-immediately" type="checkbox" bind:checked={runImmediately} />
+            <label class="govuk-label govuk-checkboxes__label" for="run-immediately">
+              Start answering straight away
+            </label>
+          </div>
+        </div>
+
+        <button
+          class="govuk-button govuk-!-margin-bottom-0 agent-page__full-width"
+          type="button"
+          disabled={starting || !canStart}
+          onclick={start}
+        >
+          {starting ? 'Starting…' : 'Start run'}
+        </button>
+      </AgentCard>
     </div>
   </div>
 </div>
 
-<button class="govuk-button ss-cta govuk-!-margin-top-4" type="button" disabled={starting || !canStart} onclick={start}>
-  {starting ? 'Starting…' : 'Start'}
-</button>
+<style>
+  /* The page is wider than the 960px GOV.UK container it sits in, centred on the same line, and
+     shrinks to fit narrow windows. The design is laid out for a wide screen. */
+  .agent-page {
+    width: min(1360px, 100vw - 80px);
+    margin-left: calc(50% - min(680px, 50vw - 40px));
+  }
+
+  /* Drop-downs and buttons have softly rounded corners and the buttons have no bottom edge, as in
+     the design. */
+  .agent-page :global(.govuk-select) {
+    border-radius: 8px;
+  }
+
+  .agent-page :global(.govuk-button) {
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  /* The journey drop-down in the card header is smaller than a normal one. */
+  .agent-page__journey {
+    min-width: 0;
+    max-width: 260px;
+    height: 36px;
+  }
+
+  .agent-page__full-width {
+    width: 100%;
+  }
+
+  /* The cards on the right are stacked with a gap between them. */
+  .agent-page__side {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* The "Ask me before answering" choices sit side by side and drop to a second line if they run
+     out of room. */
+  .agent-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 20px;
+  }
+
+  .agent-chips :global(.govuk-checkboxes__item) {
+    float: none;
+    margin: 0;
+  }
+
+  .agent-chips :global(.govuk-checkboxes__label) {
+    max-width: none;
+    white-space: nowrap;
+  }
+
+  /* The cards sit in two columns: the facts on the left, and the agent's controls on the right. */
+  .agent-page__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 900fr) minmax(0, 420fr);
+    gap: 40px;
+    align-items: start;
+  }
+
+  @media (max-width: 64em) {
+    .agent-page__columns {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
