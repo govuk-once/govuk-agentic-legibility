@@ -146,13 +146,17 @@
   onDestroy(() => stopWatching?.());
 </script>
 
+<div class="chat-layout">
+  <aside class="chat-layout__runs">
+    <RunPicker workflows={activeWorkflows} onresume={resume} />
+  </aside>
+
+  <div class="chat-layout__main">
 <h1 class="govuk-heading-l">Chat</h1>
 
 {#if error}
   <p class="govuk-error-message">{error}</p>
 {/if}
-
-<RunPicker workflows={activeWorkflows} onresume={resume} />
 
 <TranscriptView lines={transcript} />
 
@@ -213,5 +217,65 @@
   </div>
   <button class="govuk-button" type="submit" disabled={!!status || sending}>Send</button>
 </form>
+  </div>
 
-<TraceSidebar {traces} />
+  <aside class="chat-layout__trace">
+    <TraceSidebar {traces} />
+  </aside>
+</div>
+
+<style>
+  /* Three columns (runs, chat, trace) that run the full width of the window, with the dividers
+     meeting the header. The page sits inside a 960px container that also has a gap under the
+     header, so both are undone here for this route only. */
+  .chat-layout {
+    display: flex;
+    flex-direction: column;
+    margin: -25px calc(50% - 50vw) 0;
+    min-height: calc(100vh - 67px);
+  }
+
+  .chat-layout__runs,
+  .chat-layout__trace {
+    box-sizing: border-box;
+    padding: 24px 20px;
+    border-bottom: 1px solid #b1b4b6;
+  }
+
+  .chat-layout__main {
+    flex: 1 1 auto;
+    padding: 24px 20px;
+  }
+
+  @media (min-width: 40.0625em) {
+    .chat-layout {
+      margin-top: -40px;
+    }
+  }
+
+  @media (min-width: 64em) {
+    .chat-layout {
+      flex-direction: row;
+    }
+
+    .chat-layout__runs,
+    .chat-layout__trace {
+      flex: 0 0 auto;
+      border-bottom: 0;
+    }
+
+    .chat-layout__runs {
+      width: 300px;
+      border-right: 1px solid #b1b4b6;
+    }
+
+    .chat-layout__trace {
+      width: 340px;
+      border-left: 1px solid #b1b4b6;
+    }
+
+    .chat-layout__main {
+      padding: 24px 40px;
+    }
+  }
+</style>
