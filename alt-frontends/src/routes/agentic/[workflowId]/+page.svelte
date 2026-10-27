@@ -21,6 +21,7 @@
   import AgentRunProgress from '$lib/components/agentic/AgentRunProgress.svelte';
   import AgentRunStepList from '$lib/components/agentic/AgentRunStepList.svelte';
   import AgentTabs from '$lib/components/agentic/AgentTabs.svelte';
+  import AgentWidePage from '$lib/components/agentic/AgentWidePage.svelte';
   // Shared (src/lib/mvi/format.ts): turns a journey id such as "dvla.change_of_address" into a readable name
   import { describeWorkflow } from '$lib/mvi/format';
   // Shared (src/lib/mvi02/answers.ts): turns a submitted answer into readable text, for example an option number into its label
@@ -431,7 +432,7 @@
   }
 </script>
 
-<div class="agent-run-page">
+<AgentWidePage>
 <AgentRunHeader
   runId={workflowId}
   statusLabel={runStatus.label}
@@ -493,39 +494,13 @@
     {/if}
   {/snippet}
 </AgentTabs>
-</div>
+</AgentWidePage>
 
 <style>
-  /* The page is wider than the 960px GOV.UK container it sits in, centred on the same line, and
-     shrinks to fit narrow windows. The design is laid out for a wide screen. */
-  .agent-run-page {
-    width: min(1360px, 100vw - 80px);
-    margin-left: calc(50% - min(680px, 50vw - 40px));
-  }
-
   /* The "Show technical detail" switch in the tab bar stays on one line. */
   .agent-run-page__technical :global(.govuk-checkboxes__label) {
     max-width: none;
     white-space: nowrap;
-  }
-
-  /* Text boxes and buttons have softly rounded corners, and buttons have no line under them, as on
-     the other redesigned pages. */
-  .agent-run-page :global(.govuk-input),
-  .agent-run-page :global(.govuk-select),
-  .agent-run-page :global(.govuk-textarea) {
-    border-radius: 8px;
-  }
-
-  .agent-run-page :global(.govuk-button) {
-    border-radius: 8px;
-    box-shadow: none;
-  }
-
-  /* gov.css gives a focused button a black line under it. That is removed too; the yellow fill
-     stays as the sign of focus. */
-  .agent-run-page :global(.govuk-button:focus:not(:active):not(:hover)) {
-    box-shadow: none;
   }
 
   /* The Trace tab has the list of steps on the left and the controls and activity on the right, with
@@ -539,5 +514,17 @@
   .agentic-dashboard__panel {
     padding: 20px;
     border-left: 1px solid #b1b4b6;
+  }
+
+  /* On a narrow window the panel goes under the steps, with the line above it instead. */
+  @media (max-width: 64em) {
+    .agentic-dashboard {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .agentic-dashboard__panel {
+      border-top: 1px solid #b1b4b6;
+      border-left: none;
+    }
   }
 </style>

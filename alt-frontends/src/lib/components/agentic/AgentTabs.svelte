@@ -66,8 +66,9 @@
   .agent-tabs__bar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: 16px;
+    gap: 8px 16px;
     padding: 12px 20px;
     border-bottom: 1px solid #b1b4b6;
   }
@@ -86,6 +87,7 @@
     color: #505a5f;
     font-family: 'GDS Transport', arial, sans-serif;
     font-size: 1.1875rem;
+    white-space: nowrap;
     cursor: pointer;
   }
 

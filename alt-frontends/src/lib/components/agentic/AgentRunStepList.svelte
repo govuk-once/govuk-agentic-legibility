@@ -170,4 +170,17 @@
     font-family: ui-monospace, 'IBM Plex Mono', monospace;
     text-align: right;
   }
+
+  /* On a phone there is no room for the timeline, so only the text and the time are shown. */
+  @media (max-width: 40em) {
+    .agent-run-steps__track,
+    .agent-run-steps__heading-track {
+      display: none;
+    }
+
+    .agent-run-steps__text,
+    .agent-run-steps__heading-text {
+      flex: 1 1 0;
+    }
+  }
 </style>

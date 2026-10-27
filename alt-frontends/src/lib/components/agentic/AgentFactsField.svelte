@@ -79,6 +79,12 @@
     min-width: 0;
   }
 
+  /* The "Load example" button stays on one line. */
+  .agent-facts__examples :global(button) {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   /* The facts are set in a fixed-width typeface, one per line, in a softly rounded grey box. */
   .agent-facts__text {
     margin-bottom: 10px;

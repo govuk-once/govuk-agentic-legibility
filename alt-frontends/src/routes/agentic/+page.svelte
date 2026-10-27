@@ -5,6 +5,7 @@
   import AgentCard from '$lib/components/agentic/AgentCard.svelte';
   import AgentFactsField from '$lib/components/agentic/AgentFactsField.svelte';
   import AgentRunSummaryCard from '$lib/components/agentic/AgentRunSummaryCard.svelte';
+  import AgentWidePage from '$lib/components/agentic/AgentWidePage.svelte';
   import type { AutonomyPolicy, ProfileSummary, WorkflowSummary } from '$lib/types';
 
   let workflows: WorkflowSummary[] = $state([]);
@@ -92,7 +93,7 @@
   }
 </script>
 
-<div class="agent-page">
+<AgentWidePage>
   <h1 class="govuk-visually-hidden">Start an autonomous run</h1>
 
   {#if loadError}
@@ -169,33 +170,9 @@
       />
     </div>
   </div>
-</div>
+</AgentWidePage>
 
 <style>
-  /* The page is wider than the 960px GOV.UK container it sits in, centred on the same line, and
-     shrinks to fit narrow windows. The design is laid out for a wide screen. */
-  .agent-page {
-    width: min(1360px, 100vw - 80px);
-    margin-left: calc(50% - min(680px, 50vw - 40px));
-  }
-
-  /* Drop-downs and buttons have softly rounded corners and the buttons have no bottom edge, as in
-     the design. */
-  .agent-page :global(.govuk-select) {
-    border-radius: 8px;
-  }
-
-  .agent-page :global(.govuk-button) {
-    border-radius: 8px;
-    box-shadow: none;
-  }
-
-  /* gov.css gives a focused button, one that was just clicked or reached with the keyboard, a
-     black line under it. That is removed too. The yellow fill stays as the sign of focus. */
-  .agent-page :global(.govuk-button:focus:not(:active):not(:hover)) {
-    box-shadow: none;
-  }
-
   /* The journey drop-down in the card header is smaller than a normal one. */
   .agent-page__journey {
     min-width: 0;

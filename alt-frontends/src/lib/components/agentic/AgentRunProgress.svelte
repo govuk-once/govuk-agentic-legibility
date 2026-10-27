@@ -51,12 +51,13 @@
 <style>
   .agent-progress__figures {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
   }
 
   .agent-progress__figure {
     display: flex;
-    flex: 1 1 0;
+    flex: 1 1 110px;
     flex-direction: column;
     gap: 2px;
     padding: 10px 14px;
