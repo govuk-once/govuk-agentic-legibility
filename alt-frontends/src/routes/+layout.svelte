@@ -7,6 +7,7 @@
 
 <ServiceHeader />
 
-<main class="govuk-width-container">
+<!-- Spacing unit 7 keeps the page content clear of the header's bottom border. -->
+<main class="govuk-width-container govuk-!-margin-top-7">
   {@render children()}
 </main>
