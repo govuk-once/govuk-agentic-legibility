@@ -1,11 +1,9 @@
 <script lang="ts">
-  interface ActivityLine {
-    category?: string;
-    summary?: string;
-  }
+  // Shared (src/lib/agentic/event-tags.ts): how each kind of event is labelled and coloured
+  import { awaitingToken, categoryText, tagColour, type RunEventLine } from '$lib/agentic/event-tags';
 
   interface Props {
-    events: ActivityLine[];
+    events: RunEventLine[];
   }
 
   let { events }: Props = $props();
@@ -13,28 +11,6 @@
   // Only the latest few events are shown here, to keep the side column short.
   const SHOWN = 8;
   const latest = $derived(events.slice(-SHOWN));
-
-  // "AGENT" becomes "Agent".
-  function categoryText(category: string | undefined): string {
-    const text = category ?? 'Event';
-    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-  }
-
-  // The engine reports a question waiting for an answer as "Awaiting InputState [tkn_5]". That line is
-  // picked out with a yellow tag, and its token is shown apart from the words.
-  function awaitingToken(summary: string | undefined): string | null {
-    return /^Awaiting InputState \[(.+)\]$/.exec(summary ?? '')?.[1] ?? null;
-  }
-
-  // Yellow marks a question waiting for an answer. Blue is for a person. The agent is purple, so it
-  // stands apart from the engine and the system, which are grey.
-  function tagColour(line: ActivityLine): string {
-    if (awaitingToken(line.summary)) return 'govuk-tag--yellow';
-    const category = line.category?.toLowerCase();
-    if (category === 'user') return 'govuk-tag--blue';
-    if (category === 'agent') return 'govuk-tag--purple';
-    return 'govuk-tag--grey';
-  }
 </script>
 
 <section aria-labelledby="agent-activity-title">

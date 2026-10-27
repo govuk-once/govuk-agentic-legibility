@@ -14,8 +14,10 @@
   import { watchRun } from '$lib/api/sse';
   import KindField from '$lib/components/forms/KindField.svelte';
   import AgentActivityList from '$lib/components/agentic/AgentActivityList.svelte';
+  import AgentEventLog from '$lib/components/agentic/AgentEventLog.svelte';
   import AgentNeedsYouCard from '$lib/components/agentic/AgentNeedsYouCard.svelte';
   import AgentRunHeader from '$lib/components/agentic/AgentRunHeader.svelte';
+  import AgentRunMetrics from '$lib/components/agentic/AgentRunMetrics.svelte';
   import AgentRunProgress from '$lib/components/agentic/AgentRunProgress.svelte';
   import AgentRunStepList from '$lib/components/agentic/AgentRunStepList.svelte';
   import AgentTabs from '$lib/components/agentic/AgentTabs.svelte';
@@ -30,6 +32,8 @@
   interface LogLine {
     category?: string;
     summary?: string;
+    /** The raw detail the event came with, shown in the Event log's technical column. */
+    detail?: unknown;
   }
 
   let status: string | null = $state(null);
@@ -118,13 +122,71 @@
     return prompt.split('\n').find((line) => line.trim() !== '')?.trim() ?? prompt;
   }
 
+  // When the run's timeline ends: when the latest step ended, or now if a question is waiting for you.
+  const timelineEnd = $derived(
+    Math.max(0, ...answers.map((answer) => answer.endedAt), waitingSince === null ? 0 : now)
+  );
+
+  // How the run's measured time splits between the agent working and you answering.
+  const timeSplit = $derived.by(() => {
+    const agentMs = answers
+      .filter((answer) => answer.source === 'agent')
+      .reduce((sum, answer) => sum + (answer.endedAt - answer.startedAt), 0);
+    const yourMs =
+      answers.filter((answer) => answer.source === 'you').reduce((sum, answer) => sum + (answer.endedAt - answer.startedAt), 0) +
+      (waitingSince === null ? 0 : now - waitingSince);
+    return { agentMs, yourMs };
+  });
+
+  // How many times the agent decided something: each question it answered from your facts, and each
+  // time it stopped to ask you. Each of these took at least one call to the model, so this is a lower
+  // bound on the number of model calls, which the run doesn't report.
+  const agentDecisions = $derived(
+    answers.filter((answer) => answer.source === 'agent').length +
+      log.filter((line) => line.summary?.startsWith('Escalated to human') || line.summary?.startsWith('No progress made')).length
+  );
+
+  // The figures for the top of the Event log.
+  const runFigures = $derived([
+    { label: 'Events logged', value: String(log.length) },
+    { label: 'Agent decisions', value: String(agentDecisions) },
+    { label: 'Answered by agent', value: `${answers.filter((answer) => answer.source === 'agent').length} of ${answers.length}` },
+    { label: 'Waiting on you', value: formatDuration(timeSplit.yourMs) },
+    { label: 'Run time', value: timelineStart === null ? '—' : formatDuration(timelineEnd - timelineStart) }
+  ]);
+
+  // The bar under them splits the events in the log by who produced them: the engine (and the system),
+  // the agent, and you. Each part is shown as a percentage of all the events. It stays empty until
+  // there is an event.
+  const runSplit = $derived.by((): { label: string; share: number; colour: 'engine' | 'agent' | 'you' }[] => {
+    const counts = { engine: 0, agent: 0, you: 0 };
+    for (const line of log) {
+      const category = line.category?.toLowerCase();
+      if (category === 'agent') counts.agent += 1;
+      else if (category === 'user') counts.you += 1;
+      else counts.engine += 1;
+    }
+    const total = log.length;
+    if (total === 0) return [];
+    // The last share takes whatever is left, so the three always add up to 100.
+    const engineShare = Math.round((counts.engine / total) * 100);
+    const agentShare = Math.min(Math.round((counts.agent / total) * 100), 100 - engineShare);
+    return [
+      { label: 'Engine', share: engineShare, colour: 'engine' },
+      { label: 'Agent', share: agentShare, colour: 'agent' },
+      { label: 'You', share: 100 - engineShare - agentShare, colour: 'you' }
+    ];
+  });
+
+  // Whether the Event log shows the raw detail of each event.
+  let showTechnical = $state(false);
+
   // One row for each answered question, then a row for the question waiting for you, if there is one.
   // Each row has its time and a bar: how far along the run the step began, and how much of the run
   // it took. A bar is never thinner than 1.5% so a very quick step can still be seen.
   const stepRows = $derived.by(() => {
     const start = timelineStart;
-    const lastEnd = Math.max(0, ...answers.map((answer) => answer.endedAt), waitingSince === null ? 0 : now);
-    const total = start === null ? 0 : Math.max(lastEnd - start, 1);
+    const total = start === null ? 0 : Math.max(timelineEnd - start, 1);
 
     function timing(from: number, to: number) {
       if (start === null) return {};
@@ -234,13 +296,16 @@
 
   function handleEvent(event: RunEvent) {
     if (event.type === 'trace') {
-      log = [...log, { category: event.category, summary: event.summary }];
+      log = [...log, { category: event.category, summary: event.summary, detail: event.detail }];
       // The live feed reports each question as "Awaiting InputState [token]" with its text.
       const token = /^Awaiting InputState \[(.+)\]$/.exec(event.summary ?? '')?.[1];
       const detail = event.detail as { prompt?: string; schema?: unknown } | undefined;
       if (token && detail?.prompt) questions[token] = { prompt: detail.prompt, schema: detail.schema };
     } else if (event.type === 'completed') {
       status = event.status ?? 'COMPLETED';
+      // The server closes the feed when the run ends. A browser reconnects to a closed feed by itself,
+      // and each reconnect replays the whole run, so the feed is closed here to stop that.
+      stopWatching();
     }
   }
 
@@ -288,7 +353,7 @@
             const detail = event.detail as { token?: string; value?: unknown } | undefined;
             const summary =
               detail && 'value' in detail ? `${event.summary}: ${describeValue(detail.value)}` : event.summary;
-            log = [...log, { category: event.category, summary }];
+            log = [...log, { category: event.category, summary, detail: event.detail }];
             if (event.summary?.startsWith('Autonomously resolved field') && detail?.token) {
               const endedAt = Date.now();
               answers = [
@@ -298,7 +363,7 @@
               stepStartedAt = endedAt;
             }
           } else if (event.type === 'escalation') {
-            log = [...log, { category: event.category ?? 'AGENT', summary: event.summary }];
+            log = [...log, { category: event.category ?? 'AGENT', summary: event.summary, detail: event.detail }];
             if (event.detail?.token) {
               questions[event.detail.token] = { prompt: event.detail.prompt ?? '', schema: event.detail.schema };
             }
@@ -348,6 +413,12 @@
       answers = [
         ...answers,
         { token: escalation.token, source: 'you', value, startedAt: waitingSince ?? endedAt, endedAt }
+      ];
+      // Your answer is an event in the log too, labelled "You".
+      const answerText = displayValue(escalation.schema as SchemaDefinition | undefined, value);
+      log = [
+        ...log,
+        { category: 'USER', summary: `You answered "${questionText(escalation.token)}": ${answerText}`, detail: { token: escalation.token, value } }
       ];
       waitingSince = null;
       stepStartedAt = endedAt;
@@ -406,7 +477,19 @@
   </div>
 </div>
     {:else}
-      <p class="govuk-body ss-muted agent-run-page__empty">The event log is built in a later step.</p>
+      <AgentRunMetrics figures={runFigures} split={runSplit} />
+      <AgentEventLog events={log} {showTechnical} />
+    {/if}
+  {/snippet}
+
+  {#snippet aside()}
+    {#if selectedTab === 'events'}
+      <div class="govuk-checkboxes govuk-checkboxes--small agent-run-page__technical">
+        <div class="govuk-checkboxes__item">
+          <input class="govuk-checkboxes__input" id="show-technical" type="checkbox" bind:checked={showTechnical} />
+          <label class="govuk-label govuk-checkboxes__label" for="show-technical">Show technical detail</label>
+        </div>
+      </div>
     {/if}
   {/snippet}
 </AgentTabs>
@@ -418,6 +501,12 @@
   .agent-run-page {
     width: min(1360px, 100vw - 80px);
     margin-left: calc(50% - min(680px, 50vw - 40px));
+  }
+
+  /* The "Show technical detail" switch in the tab bar stays on one line. */
+  .agent-run-page__technical :global(.govuk-checkboxes__label) {
+    max-width: none;
+    white-space: nowrap;
   }
 
   /* Text boxes and buttons have softly rounded corners, and buttons have no line under them, as on
@@ -437,11 +526,6 @@
      stays as the sign of focus. */
   .agent-run-page :global(.govuk-button:focus:not(:active):not(:hover)) {
     box-shadow: none;
-  }
-
-  .agent-run-page__empty {
-    padding: 20px;
-    margin: 0;
   }
 
   /* The Trace tab has the list of steps on the left and the controls and activity on the right, with

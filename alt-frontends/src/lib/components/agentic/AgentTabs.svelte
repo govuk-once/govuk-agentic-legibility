@@ -77,7 +77,7 @@
     gap: 4px;
   }
 
-  /* A tab is plain text. The one that is showing has a grey background and bold text. */
+  /* A tab is plain text. The one that is showing has a grey background and darker text. */
   .agent-tabs__tab {
     padding: 8px 16px;
     border: 0;
@@ -92,7 +92,7 @@
   .agent-tabs__tab--selected {
     background-color: #f3f2f1;
     color: #0b0c0c;
-    font-weight: 700;
+    font-weight: 400;
   }
 
   .agent-tabs__tab:focus-visible {
