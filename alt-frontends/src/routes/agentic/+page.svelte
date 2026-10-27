@@ -4,6 +4,7 @@
   import type { PreseedExample } from '$lib/agentic/preseed-examples';
   import AgentCard from '$lib/components/agentic/AgentCard.svelte';
   import AgentFactsField from '$lib/components/agentic/AgentFactsField.svelte';
+  import AgentRunSummaryCard from '$lib/components/agentic/AgentRunSummaryCard.svelte';
   import type { AutonomyPolicy, ProfileSummary, WorkflowSummary } from '$lib/types';
 
   let workflows: WorkflowSummary[] = $state([]);
@@ -19,6 +20,27 @@
 
   let starting = $state(false);
   let startError: string | null = $state(null);
+
+  // The choices made so far, as rows for the run summary.
+  const askLabels: Record<string, string> = {
+    identity: 'Identity',
+    payment: 'Payment',
+    irreversible: 'Irreversible actions'
+  };
+  const factLines = $derived(preseed.split('\n').filter((line) => line.trim() !== '').length);
+  const summaryDetails = $derived([
+    { label: 'Workflow', value: workflows.find((workflow) => workflow.id === selectedWorkflowId)?.name ?? '' },
+    {
+      label: 'Profile bundle',
+      value: profiles.find((profile) => profile.fixture === selectedProfileFixture)?.title ?? 'None'
+    },
+    { label: 'Facts', value: factLines === 0 ? 'None' : factLines === 1 ? '1 line' : `${factLines} lines` },
+    { label: 'Autonomy', value: autonomyLevel.charAt(0).toUpperCase() + autonomyLevel.slice(1) },
+    {
+      label: 'Ask before',
+      value: notifyCategories.length === 0 ? 'Nothing selected' : notifyCategories.map((value) => askLabels[value] ?? value).join(', ')
+    }
+  ]);
 
   let canStart = $derived(!!selectedWorkflowId && (!!selectedProfileFixture || !!preseed.trim()));
 
@@ -136,25 +158,15 @@
             {/each}
           </div>
         </fieldset>
-
-        <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-bottom-4">
-          <div class="govuk-checkboxes__item">
-            <input class="govuk-checkboxes__input" id="run-immediately" type="checkbox" bind:checked={runImmediately} />
-            <label class="govuk-label govuk-checkboxes__label" for="run-immediately">
-              Start answering straight away
-            </label>
-          </div>
-        </div>
-
-        <button
-          class="govuk-button govuk-!-margin-bottom-0 agent-page__full-width"
-          type="button"
-          disabled={starting || !canStart}
-          onclick={start}
-        >
-          {starting ? 'Starting…' : 'Start run'}
-        </button>
       </AgentCard>
+
+      <AgentRunSummaryCard
+        details={summaryDetails}
+        bind:runImmediately
+        {starting}
+        {canStart}
+        onstart={start}
+      />
     </div>
   </div>
 </div>
@@ -175,6 +187,12 @@
 
   .agent-page :global(.govuk-button) {
     border-radius: 8px;
+    box-shadow: none;
+  }
+
+  /* gov.css gives a focused button, one that was just clicked or reached with the keyboard, a
+     black line under it. That is removed too. The yellow fill stays as the sign of focus. */
+  .agent-page :global(.govuk-button:focus:not(:active):not(:hover)) {
     box-shadow: none;
   }
 
