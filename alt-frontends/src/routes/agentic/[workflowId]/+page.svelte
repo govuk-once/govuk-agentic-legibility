@@ -85,7 +85,31 @@
 
   // The questions answered on this page, in order, and who answered each: the agent from your facts,
   // or you. This starts empty when the page is reloaded, because the run doesn't send that history back.
-  let answers: { token: string; source: 'agent' | 'you'; value: unknown }[] = $state([]);
+  // Each answer also records when its step started and ended, in milliseconds, as measured on this page.
+  let answers: { token: string; source: 'agent' | 'you'; value: unknown; startedAt: number; endedAt: number }[] =
+    $state([]);
+
+  // Timing, measured on this page as events arrive. The run doesn't send times for questions and
+  // answers, so these are the page's own clock: when the first step began, when the step now under
+  // way began, and when the question waiting for you appeared.
+  let timelineStart: number | null = $state(null);
+  let stepStartedAt: number | null = null;
+  let waitingSince: number | null = $state(null);
+
+  // The clock for the question that is waiting, so its time counts up while you read it.
+  let now = $state(Date.now());
+  $effect(() => {
+    if (waitingSince === null) return;
+    const timer = setInterval(() => (now = Date.now()), 250);
+    return () => clearInterval(timer);
+  });
+
+  // "2.7s", or "1m 12s" for a long wait.
+  function formatDuration(milliseconds: number): string {
+    const seconds = milliseconds / 1000;
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+  }
   let stepsDone = $derived(answers.length);
 
   // The first line of a question is the question itself; the rest is explanation.
@@ -95,24 +119,48 @@
   }
 
   // One row for each answered question, then a row for the question waiting for you, if there is one.
+  // Each row has its time and a bar: how far along the run the step began, and how much of the run
+  // it took. A bar is never thinner than 1.5% so a very quick step can still be seen.
   const stepRows = $derived.by(() => {
-    const rows: { key: string; state: 'done' | 'waiting'; title: string; detail: string }[] = answers.map(
-      (answer) => {
-        const text = displayValue(questions[answer.token]?.schema as SchemaDefinition | undefined, answer.value);
-        return {
-          key: answer.token,
-          state: 'done',
-          title: `Asked: ${questionText(answer.token)}`,
-          detail: answer.source === 'agent' ? `The agent answered ${text} from your facts` : `You answered ${text}`
-        };
-      }
-    );
+    const start = timelineStart;
+    const lastEnd = Math.max(0, ...answers.map((answer) => answer.endedAt), waitingSince === null ? 0 : now);
+    const total = start === null ? 0 : Math.max(lastEnd - start, 1);
+
+    function timing(from: number, to: number) {
+      if (start === null) return {};
+      return {
+        time: formatDuration(to - from),
+        bar: {
+          left: Math.min(((from - start) / total) * 100, 98.5),
+          width: Math.max(((to - from) / total) * 100, 1.5)
+        }
+      };
+    }
+
+    const rows: {
+      key: string;
+      state: 'done' | 'waiting';
+      title: string;
+      detail: string;
+      time?: string;
+      bar?: { left: number; width: number };
+    }[] = answers.map((answer) => {
+      const text = displayValue(questions[answer.token]?.schema as SchemaDefinition | undefined, answer.value);
+      return {
+        key: answer.token,
+        state: 'done',
+        title: `Asked: ${questionText(answer.token)}`,
+        detail: answer.source === 'agent' ? `The agent answered ${text} from your facts` : `You answered ${text}`,
+        ...timing(answer.startedAt, answer.endedAt)
+      };
+    });
     if (escalation) {
       rows.push({
         key: escalation.token,
         state: 'waiting',
         title: `Waiting for you: ${questionText(escalation.token)}`,
-        detail: escalation.reason ?? 'The agent needs your answer.'
+        detail: escalation.reason ?? 'The agent needs your answer.',
+        ...(waitingSince === null ? {} : timing(waitingSince, now))
       });
     }
     return rows;
@@ -228,6 +276,8 @@
     escalation = null;
     // Save first so edits to the facts or policy apply without a separate click.
     if (!(await savePolicy())) return;
+    stepStartedAt = Date.now();
+    timelineStart ??= stepStartedAt;
     resuming = true;
     resumeAbort = new AbortController();
     try {
@@ -240,13 +290,20 @@
               detail && 'value' in detail ? `${event.summary}: ${describeValue(detail.value)}` : event.summary;
             log = [...log, { category: event.category, summary }];
             if (event.summary?.startsWith('Autonomously resolved field') && detail?.token) {
-              answers = [...answers, { token: detail.token, source: 'agent', value: detail.value }];
+              const endedAt = Date.now();
+              answers = [
+                ...answers,
+                { token: detail.token, source: 'agent', value: detail.value, startedAt: stepStartedAt ?? endedAt, endedAt }
+              ];
+              stepStartedAt = endedAt;
             }
           } else if (event.type === 'escalation') {
             log = [...log, { category: event.category ?? 'AGENT', summary: event.summary }];
             if (event.detail?.token) {
               questions[event.detail.token] = { prompt: event.detail.prompt ?? '', schema: event.detail.schema };
             }
+            waitingSince = Date.now();
+            now = waitingSince;
             escalation = {
               token: event.detail?.token ?? '',
               prompt: event.detail?.prompt ?? 'Provide a value',
@@ -287,7 +344,13 @@
     if (!escalation) return;
     try {
       await submitRunInput(workflowId, escalation.token, value);
-      answers = [...answers, { token: escalation.token, source: 'you', value }];
+      const endedAt = Date.now();
+      answers = [
+        ...answers,
+        { token: escalation.token, source: 'you', value, startedAt: waitingSince ?? endedAt, endedAt }
+      ];
+      waitingSince = null;
+      stepStartedAt = endedAt;
       escalation = null;
       await refreshCurrentState();
       if (continueAfterAnswer && status !== 'COMPLETED') void resume();
