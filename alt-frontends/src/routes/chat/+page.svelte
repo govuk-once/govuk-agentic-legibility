@@ -21,7 +21,7 @@
   // Client-generated: chat sessions are keyed by conversation, not by
   // workflowId, since the workflowId is unknown until partway through a
   // conversation (see $lib/server/agent/conversation-store.ts).
-  const conversationId = crypto.randomUUID();
+  let conversationId = crypto.randomUUID();
 
   let transcript: TranscriptLine[] = $state([]);
   let traces: TraceLine[] = $state([]);
@@ -37,6 +37,8 @@
 
   let workflowId: string | null = null;
   let stopWatching: (() => void) | null = null;
+  // The run the chat is on, so the run list can highlight it.
+  let activeRunId: string | null = $state(null);
 
   // Passive background updates (engine trace, timeouts, completion) run
   // decoupled from user-driven turns, exactly like /web and /agentic —
@@ -45,7 +47,27 @@
     if (workflowId === id && stopWatching) return;
     stopWatching?.();
     workflowId = id;
+    activeRunId = id;
     stopWatching = watchRun(id, handleEvent);
+  }
+
+  // Starts a fresh conversation: a new conversation id and an empty screen. Nothing is sent to
+  // the server, and the run that was open keeps going where it is.
+  function newChat() {
+    stopWatching?.();
+    stopWatching = null;
+    workflowId = null;
+    activeRunId = null;
+    conversationId = crypto.randomUUID();
+    transcript = [];
+    traces = [];
+    options = [];
+    optionsKind = null;
+    selectedMulti = new Set();
+    timeoutSeconds = null;
+    status = null;
+    draft = '';
+    error = null;
   }
 
   function handleEvent(event: RunEvent) {
@@ -148,7 +170,14 @@
 
 <div class="chat-layout">
   <aside class="chat-layout__runs">
-    <RunPicker workflows={activeWorkflows} onresume={resume} />
+    <button
+      type="button"
+      class="govuk-button govuk-!-margin-bottom-4 chat-layout__new"
+      onclick={newChat}
+    >
+      New chat
+    </button>
+    <RunPicker workflows={activeWorkflows} selectedId={activeRunId} onresume={resume} />
   </aside>
 
   <div class="chat-layout__main">
@@ -245,6 +274,13 @@
   .chat-layout__main {
     flex: 1 1 auto;
     padding: 24px 20px;
+  }
+
+  /* The New chat button runs the width of the column, with rounder corners and no bottom edge. */
+  .chat-layout__new {
+    width: 100%;
+    border-radius: 10px;
+    box-shadow: none;
   }
 
   @media (min-width: 40.0625em) {
