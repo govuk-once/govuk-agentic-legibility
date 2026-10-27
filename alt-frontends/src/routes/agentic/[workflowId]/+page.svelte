@@ -17,6 +17,9 @@
   import { findProcessContaining } from '$lib/graph/run-to-graph';
   import RunGraph from '$lib/graph/RunGraph.svelte';
   import KindField from '$lib/components/forms/KindField.svelte';
+  import AgentRunHeader from '$lib/components/agentic/AgentRunHeader.svelte';
+  // Shared (src/lib/mvi/format.ts): turns a journey id such as "dvla.change_of_address" into a readable name
+  import { describeWorkflow } from '$lib/mvi/format';
   import PreseedField from '$lib/components/PreseedField.svelte';
   import type { PreseedExample } from '$lib/agentic/preseed-examples';
   import type { WorkflowDefinition } from '$lib/graph/fsm';
@@ -70,6 +73,37 @@
   let resuming = $state(false);
   let resumeError: string | null = $state(null);
   let resumeAbort: AbortController | null = null;
+
+  // A run id looks like "sfsm-dvla.change_of_address-8537ccb0": the journey id with a prefix and a
+  // short random ending. It is turned into "DVLA: Change of address" for the header.
+  const journeyName = (() => {
+    const journeyId = workflowId.replace(/^sfsm-/, '').replace(/-[0-9a-f]{8}$/, '');
+    if (!journeyId.includes('.')) return workflowId;
+    const { department, journey } = describeWorkflow(journeyId);
+    return `${department}: ${journey}`;
+  })();
+
+  // How many questions have been answered on this page: the ones the agent answered from the
+  // facts (each shows in the log as "Autonomously resolved field") and the ones you answered.
+  // Both start from zero when the page is reloaded, because the run doesn't send that history back.
+  let answeredByYou = $state(0);
+  let stepsDone = $derived(
+    log.filter((line) => line.summary?.startsWith('Autonomously resolved field')).length + answeredByYou
+  );
+
+  // What the run is doing, in words and as a tag colour.
+  const runStatus = $derived.by((): { label: string; colour: 'blue' | 'green' | 'grey' | 'yellow' } => {
+    if (escalation) return { label: 'Waiting for you', colour: 'yellow' };
+    if (status && status !== 'RUNNING') return { label: 'Complete', colour: 'green' };
+    if (resuming) return { label: 'Agent working', colour: 'blue' };
+    return { label: 'Paused', colour: 'grey' };
+  });
+
+  let headerSummary = $derived([
+    journeyName,
+    `${autonomyLevel.charAt(0).toUpperCase()}${autonomyLevel.slice(1)}`,
+    `${stepsDone === 1 ? '1 step' : `${stepsDone} steps`} done`
+  ]);
 
   let graphRef: RunGraph | undefined = $state(undefined);
 
@@ -225,6 +259,7 @@
     if (!escalation) return;
     try {
       await submitRunInput(workflowId, escalation.token, value);
+      answeredByYou += 1;
       escalation = null;
       await refreshCurrentState();
       if (continueAfterAnswer && status !== 'COMPLETED') void resume();
@@ -234,14 +269,17 @@
   }
 </script>
 
-<h1 class="govuk-heading-l">Autonomous run {workflowId}</h1>
+<AgentRunHeader
+  runId={workflowId}
+  statusLabel={runStatus.label}
+  statusColour={runStatus.colour}
+  summary={headerSummary}
+  canStop={resuming}
+  onstop={stopResume}
+/>
 
 {#if loadError}
   <p class="govuk-error-message">{loadError}</p>
-{/if}
-
-{#if status}
-  <p class="govuk-body">Status: <strong>{status}</strong></p>
 {/if}
 
 <div class="agentic-dashboard">

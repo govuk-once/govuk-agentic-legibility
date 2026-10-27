@@ -40,7 +40,7 @@
       disabled={starting || !canStart}
       onclick={onstart}
     >
-      {starting ? 'Starting…' : 'Start run'}
+      {starting ? 'Starting…' : 'Start autonomous run'}
     </button>
   </div>
 </AgentCard>

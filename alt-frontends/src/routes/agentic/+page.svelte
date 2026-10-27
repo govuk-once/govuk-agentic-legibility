@@ -93,7 +93,7 @@
 </script>
 
 <div class="agent-page">
-  <h1 class="govuk-heading-l">Start an autonomous run</h1>
+  <h1 class="govuk-visually-hidden">Start an autonomous run</h1>
 
   {#if loadError}
     <p class="govuk-error-message">{loadError}</p>
@@ -141,7 +141,7 @@
           </select>
         </div>
 
-        <fieldset class="govuk-fieldset govuk-!-margin-bottom-4">
+        <fieldset class="govuk-fieldset">
           <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Ask me before answering</legend>
           <div class="govuk-checkboxes govuk-checkboxes--small agent-chips">
             {#each [['identity', 'Identity'], ['payment', 'Payment'], ['irreversible', 'Irreversible actions']] as [value, label] (value)}
@@ -214,12 +214,12 @@
     gap: 20px;
   }
 
-  /* The "Ask me before answering" choices sit side by side and drop to a second line if they run
-     out of room. */
+  /* The "Ask me before answering" choices are set a little smaller than the other text so all
+     three fit side by side. They drop to a second line if the window is too narrow. */
   .agent-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 20px;
+    gap: 0 12px;
   }
 
   .agent-chips :global(.govuk-checkboxes__item) {
@@ -229,13 +229,15 @@
 
   .agent-chips :global(.govuk-checkboxes__label) {
     max-width: none;
+    padding-right: 8px;
+    font-size: 1rem;
     white-space: nowrap;
   }
 
   /* The cards sit in two columns: the facts on the left, and the agent's controls on the right. */
   .agent-page__columns {
     display: grid;
-    grid-template-columns: minmax(0, 900fr) minmax(0, 420fr);
+    grid-template-columns: minmax(0, 1fr) 450px;
     gap: 40px;
     align-items: start;
   }

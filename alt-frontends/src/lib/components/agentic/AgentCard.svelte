@@ -43,7 +43,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 16px 24px;
+    padding: 14px 20px;
     border-bottom: 1px solid #b1b4b6;
   }
 
@@ -54,6 +54,6 @@
   }
 
   .agent-card__body {
-    padding: 24px;
+    padding: 20px;
   }
 </style>
