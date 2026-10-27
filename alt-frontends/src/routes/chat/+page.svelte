@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { DurableApiError, listActiveRuns, resumeChatSession, sendChatMessage } from '$lib/api/client';
   import { watchRun } from '$lib/api/sse';
   import RunPicker from '$lib/components/RunPicker.svelte';
@@ -34,6 +34,9 @@
   let draft = $state('');
   let sending = $state(false);
   let error: string | null = $state(null);
+
+  // The scrolling area that holds the messages, so it can be kept scrolled to the newest one.
+  let messagesEl: HTMLElement | undefined = $state();
 
   let workflowId: string | null = null;
   let stopWatching: (() => void) | null = null;
@@ -165,6 +168,14 @@
     }
   }
 
+  // Whenever a message, a set of answer buttons or the finished notice appears, scroll to the bottom.
+  $effect(() => {
+    transcript.length;
+    options.length;
+    status;
+    tick().then(() => messagesEl?.scrollTo({ top: messagesEl.scrollHeight }));
+  });
+
   onDestroy(() => stopWatching?.());
 </script>
 
@@ -172,7 +183,7 @@
   <aside class="chat-layout__runs">
     <button
       type="button"
-      class="govuk-button govuk-!-margin-bottom-4 chat-layout__new"
+      class="govuk-button chat-layout__new"
       onclick={newChat}
     >
       New chat
@@ -181,7 +192,8 @@
   </aside>
 
   <div class="chat-layout__main">
-<h1 class="govuk-heading-l">Chat</h1>
+<div class="chat-layout__messages" bind:this={messagesEl}>
+<h1 class="govuk-visually-hidden">Chat</h1>
 
 {#if error}
   <p class="govuk-error-message">{error}</p>
@@ -203,7 +215,7 @@
       {#each options as option (option)}
         <button
           type="button"
-          class="govuk-button govuk-button--secondary govuk-!-margin-right-2"
+          class="govuk-button ss-cta govuk-!-margin-right-2 chat-option"
           aria-pressed={selectedMulti.has(option)}
           onclick={() => toggleMultiOption(option)}
         >
@@ -217,7 +229,7 @@
       {#each options as option (option)}
         <button
           type="button"
-          class="govuk-button govuk-button--secondary govuk-!-margin-right-2"
+          class="govuk-button ss-cta govuk-!-margin-right-2 chat-option"
           onclick={() => chooseOption(option)}
         >
           {option}
@@ -226,25 +238,32 @@
     {/if}
   </div>
 {/if}
+</div>
 
 <form
-  class="govuk-!-margin-bottom-6"
+  class="govuk-!-margin-bottom-6 chat-form"
   onsubmit={(event) => {
     event.preventDefault();
     submitDraft();
   }}
 >
-  <div class="govuk-form-group">
-    <label class="govuk-label" for="chat-input">Message</label>
+  <label class="govuk-label" for="chat-input">Message</label>
+  <div class="chat-form__row">
     <input
-      class="govuk-input"
+      class="govuk-input chat-form__input"
       id="chat-input"
       type="text"
       bind:value={draft}
       disabled={!!status || sending}
     />
+    <button
+      class="govuk-button govuk-!-margin-bottom-0 chat-form__send"
+      type="submit"
+      disabled={!!status || sending}
+    >
+      Send
+    </button>
   </div>
-  <button class="govuk-button" type="submit" disabled={!!status || sending}>Send</button>
 </form>
   </div>
 
@@ -276,9 +295,47 @@
     padding: 24px 20px;
   }
 
+  /* The answer buttons use the blue button from govuk-extras, with slightly rounded corners and no bottom edge. */
+  .chat-option {
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  /* The message box sits at the bottom of the chat column, with the input and Send side by side. */
+  .chat-layout__main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-form {
+    margin-top: auto;
+  }
+
+  .chat-form__row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .chat-form__input {
+    flex: 1 1 auto;
+    width: auto;
+    height: 52px;
+    border-radius: 10px;
+  }
+
+  .chat-form__send {
+    width: auto;
+    height: 52px;
+    padding-inline: 30px;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
   /* The New chat button runs the width of the column, with rounder corners and no bottom edge. */
   .chat-layout__new {
     width: 100%;
+    height: 52px;
+    margin: 2px 0 27px;
     border-radius: 10px;
     box-shadow: none;
   }
@@ -290,8 +347,27 @@
   }
 
   @media (min-width: 64em) {
+    /* The window doesn't scroll. The runs, the messages and the trace each scroll on their own. */
     .chat-layout {
       flex-direction: row;
+      height: calc(100dvh - 75px);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-layout__runs,
+    .chat-layout__trace,
+    .chat-layout__messages {
+      overflow-y: auto;
+    }
+
+    .chat-layout__main {
+      min-height: 0;
+    }
+
+    .chat-layout__messages {
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
     .chat-layout__runs,
@@ -301,12 +377,12 @@
     }
 
     .chat-layout__runs {
-      width: 300px;
+      width: 20%;
       border-right: 1px solid #b1b4b6;
     }
 
     .chat-layout__trace {
-      width: 340px;
+      width: 28%;
       border-left: 1px solid #b1b4b6;
     }
 

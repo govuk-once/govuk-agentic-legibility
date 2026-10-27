@@ -16,8 +16,13 @@
 
   // Only the first few runs show up front. The rest sit in a "Show more" details box.
   const VISIBLE_RUNS = 4;
-  const visible = $derived(workflows.slice(0, VISIBLE_RUNS));
-  const hidden = $derived(workflows.slice(VISIBLE_RUNS));
+  // The run the page is on goes first, as long as it is still running.
+  const ordered = $derived.by(() => {
+    const current = workflows.find((w) => w.id === selectedId && w.status.toUpperCase() === 'RUNNING');
+    return current ? [current, ...workflows.filter((w) => w !== current)] : workflows;
+  });
+  const visible = $derived(ordered.slice(0, VISIBLE_RUNS));
+  const hidden = $derived(ordered.slice(VISIBLE_RUNS));
 
   // A run id looks like "sfsm-dvla.change_of_address-8537ccb0": the journey id with a prefix and
   // a short random ending. Anything that doesn't look like that is shown as it is.
@@ -53,7 +58,7 @@
   <section aria-labelledby="run-picker-heading">
     <div class="run-picker__heading">
       <h2 id="run-picker-heading" class="govuk-body govuk-!-font-size-19 govuk-!-font-weight-bold govuk-!-margin-0">
-        Resume an active run
+        Resume an active chat
       </h2>
       <span class="govuk-body govuk-!-font-size-19 govuk-!-margin-0 ss-muted">{workflows.length}</span>
     </div>
