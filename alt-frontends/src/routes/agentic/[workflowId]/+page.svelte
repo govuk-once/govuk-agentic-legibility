@@ -7,23 +7,23 @@
     DurableApiError,
     getAutonomy,
     getRunState,
-    getWorkflowDefinition,
-    listProfiles,
     resumeAutonomy,
     setAutonomy,
     submitRunInput
   } from '$lib/api/client';
   import { watchRun } from '$lib/api/sse';
-  import { findProcessContaining } from '$lib/graph/run-to-graph';
-  import RunGraph from '$lib/graph/RunGraph.svelte';
   import KindField from '$lib/components/forms/KindField.svelte';
+  import AgentActivityList from '$lib/components/agentic/AgentActivityList.svelte';
+  import AgentNeedsYouCard from '$lib/components/agentic/AgentNeedsYouCard.svelte';
   import AgentRunHeader from '$lib/components/agentic/AgentRunHeader.svelte';
+  import AgentRunProgress from '$lib/components/agentic/AgentRunProgress.svelte';
+  import AgentRunStepList from '$lib/components/agentic/AgentRunStepList.svelte';
+  import AgentTabs from '$lib/components/agentic/AgentTabs.svelte';
   // Shared (src/lib/mvi/format.ts): turns a journey id such as "dvla.change_of_address" into a readable name
   import { describeWorkflow } from '$lib/mvi/format';
-  import PreseedField from '$lib/components/PreseedField.svelte';
-  import type { PreseedExample } from '$lib/agentic/preseed-examples';
-  import type { WorkflowDefinition } from '$lib/graph/fsm';
-  import type { AutonomyPolicy, AwaitingInput, ProfileSummary, RunEvent } from '$lib/types';
+  // Shared (src/lib/mvi02/answers.ts): turns a submitted answer into readable text, for example an option number into its label
+  import { displayValue } from '$lib/mvi02/answers';
+  import type { AutonomyPolicy, AwaitingInput, RunEvent, SchemaDefinition } from '$lib/types';
 
   const workflowId = page.params.workflowId!;
 
@@ -32,12 +32,7 @@
     summary?: string;
   }
 
-  let definition: WorkflowDefinition | null = $state(null);
-  let loadError: string | null = $state(null);
-
   let status: string | null = $state(null);
-  let currentStateId: string | null = $state(null);
-  let processId = $derived(definition ? findProcessContaining(definition, currentStateId) : '');
 
   interface Escalation {
     token: string;
@@ -59,7 +54,6 @@
   let escalation: Escalation | null = $state(null);
   let escalationAwaiting: AwaitingInput | null = $derived(toAwaiting(escalation));
 
-  let profiles: ProfileSummary[] = $state([]);
   let profileFixture = $state(page.url.searchParams.get('profile') ?? '');
   let preseed = $state('');
   let autonomyLevel: AutonomyPolicy['autonomy_level'] = $state('balanced');
@@ -67,7 +61,6 @@
   let pauseBeforeExternalCall = $state(true);
   let continueAfterAnswer = $state(true);
   let hasSeed = $derived(!!profileFixture || !!preseed.trim());
-  let policySaving = $state(false);
   let policyError: string | null = $state(null);
 
   let resuming = $state(false);
@@ -83,13 +76,63 @@
     return `${department}: ${journey}`;
   })();
 
-  // How many questions have been answered on this page: the ones the agent answered from the
-  // facts (each shows in the log as "Autonomously resolved field") and the ones you answered.
-  // Both start from zero when the page is reloaded, because the run doesn't send that history back.
-  let answeredByYou = $state(0);
-  let stepsDone = $derived(
-    log.filter((line) => line.summary?.startsWith('Autonomously resolved field')).length + answeredByYou
-  );
+  // Which tab of the run view is showing: the trace, or the event log.
+  let selectedTab = $state('trace');
+
+  // The text of each question the run has asked, by its token. It is filled in as the questions
+  // arrive on the live feed, and from the questions the agent hands to you.
+  let questions: Record<string, { prompt: string; schema: unknown }> = $state({});
+
+  // The questions answered on this page, in order, and who answered each: the agent from your facts,
+  // or you. This starts empty when the page is reloaded, because the run doesn't send that history back.
+  let answers: { token: string; source: 'agent' | 'you'; value: unknown }[] = $state([]);
+  let stepsDone = $derived(answers.length);
+
+  // The first line of a question is the question itself; the rest is explanation.
+  function questionText(token: string): string {
+    const prompt = questions[token]?.prompt ?? 'a question';
+    return prompt.split('\n').find((line) => line.trim() !== '')?.trim() ?? prompt;
+  }
+
+  // One row for each answered question, then a row for the question waiting for you, if there is one.
+  const stepRows = $derived.by(() => {
+    const rows: { key: string; state: 'done' | 'waiting'; title: string; detail: string }[] = answers.map(
+      (answer) => {
+        const text = displayValue(questions[answer.token]?.schema as SchemaDefinition | undefined, answer.value);
+        return {
+          key: answer.token,
+          state: 'done',
+          title: `Asked: ${questionText(answer.token)}`,
+          detail: answer.source === 'agent' ? `The agent answered ${text} from your facts` : `You answered ${text}`
+        };
+      }
+    );
+    if (escalation) {
+      rows.push({
+        key: escalation.token,
+        state: 'waiting',
+        title: `Waiting for you: ${questionText(escalation.token)}`,
+        detail: escalation.reason ?? 'The agent needs your answer.'
+      });
+    }
+    return rows;
+  });
+
+  let answeredByAgent = $derived(answers.filter((answer) => answer.source === 'agent').length);
+  let answeredByYou = $derived(answers.length - answeredByAgent);
+  let finished = $derived(!!status && status !== 'RUNNING');
+
+  // The agent can be started again when nothing is running, nothing is waiting for you and the run
+  // has not finished.
+  let canResume = $derived(!resuming && !escalation && !finished);
+
+  // One sentence on where the run stands.
+  let progressSummary = $derived.by(() => {
+    if (finished) return `The run is complete. The agent answered ${answeredByAgent} on its own and you answered ${answeredByYou}.`;
+    if (escalation) return `The agent has answered ${answeredByAgent} on its own. It has stopped because it needs your answer.`;
+    if (resuming) return 'The agent is working through the journey.';
+    return 'The agent is paused. Resume it to carry on.';
+  });
 
   // What the run is doing, in words and as a tag colour.
   const runStatus = $derived.by((): { label: string; colour: 'blue' | 'green' | 'grey' | 'yellow' } => {
@@ -105,28 +148,13 @@
     `${stepsDone === 1 ? '1 step' : `${stepsDone} steps`} done`
   ]);
 
-  let graphRef: RunGraph | undefined = $state(undefined);
-
   $effect(() => {
-    getWorkflowDefinition(workflowId)
-      .then((result) => (definition = result))
-      .catch((error: unknown) => {
-        loadError = error instanceof DurableApiError ? error.message : 'Failed to load workflow definition';
-      });
-
     getRunState(workflowId)
       .then((state) => {
         status = state.status;
-        currentStateId = state.awaiting?.state_id ?? null;
       })
       .catch(() => {
-        // Non-fatal: the graph still renders from the definition alone, just without a highlight.
-      });
-
-    listProfiles()
-      .then((result) => (profiles = result))
-      .catch(() => {
-        // Non-fatal: the policy panel just falls back to the profile carried in via the URL.
+        // Non-fatal: the status just stays blank until the live feed reports it.
       });
 
     getAutonomy(workflowId)
@@ -151,12 +179,6 @@
       });
   });
 
-  function applyExample(example: PreseedExample) {
-    autonomyLevel = example.policy.autonomy_level;
-    notifyCategories = [...example.policy.notify_categories];
-    profileFixture = '';
-  }
-
   function describeValue(value: unknown): string {
     const text = typeof value === 'string' ? value : JSON.stringify(value);
     return text.length > 60 ? `${text.slice(0, 57)}…` : text;
@@ -165,6 +187,10 @@
   function handleEvent(event: RunEvent) {
     if (event.type === 'trace') {
       log = [...log, { category: event.category, summary: event.summary }];
+      // The live feed reports each question as "Awaiting InputState [token]" with its text.
+      const token = /^Awaiting InputState \[(.+)\]$/.exec(event.summary ?? '')?.[1];
+      const detail = event.detail as { prompt?: string; schema?: unknown } | undefined;
+      if (token && detail?.prompt) questions[token] = { prompt: detail.prompt, schema: detail.schema };
     } else if (event.type === 'completed') {
       status = event.status ?? 'COMPLETED';
     }
@@ -180,7 +206,6 @@
   async function savePolicy(): Promise<boolean> {
     if (!hasSeed) return false;
     policyError = null;
-    policySaving = true;
     try {
       await setAutonomy(workflowId, {
         policy: {
@@ -195,8 +220,6 @@
     } catch (error) {
       policyError = error instanceof DurableApiError ? error.message : 'Failed to save policy';
       return false;
-    } finally {
-      policySaving = false;
     }
   }
 
@@ -212,12 +235,18 @@
         workflowId,
         (event) => {
           if (event.type === 'trace') {
-            const detail = event.detail as { value?: unknown } | undefined;
+            const detail = event.detail as { token?: string; value?: unknown } | undefined;
             const summary =
               detail && 'value' in detail ? `${event.summary}: ${describeValue(detail.value)}` : event.summary;
             log = [...log, { category: event.category, summary }];
+            if (event.summary?.startsWith('Autonomously resolved field') && detail?.token) {
+              answers = [...answers, { token: detail.token, source: 'agent', value: detail.value }];
+            }
           } else if (event.type === 'escalation') {
             log = [...log, { category: event.category ?? 'AGENT', summary: event.summary }];
+            if (event.detail?.token) {
+              questions[event.detail.token] = { prompt: event.detail.prompt ?? '', schema: event.detail.schema };
+            }
             escalation = {
               token: event.detail?.token ?? '',
               prompt: event.detail?.prompt ?? 'Provide a value',
@@ -249,7 +278,6 @@
     try {
       const state = await getRunState(workflowId);
       status = state.status;
-      currentStateId = state.awaiting?.state_id ?? null;
     } catch {
       // Best-effort refresh; the SSE feed will catch up if this fails.
     }
@@ -259,7 +287,7 @@
     if (!escalation) return;
     try {
       await submitRunInput(workflowId, escalation.token, value);
-      answeredByYou += 1;
+      answers = [...answers, { token: escalation.token, source: 'you', value }];
       escalation = null;
       await refreshCurrentState();
       if (continueAfterAnswer && status !== 'COMPLETED') void resume();
@@ -269,6 +297,7 @@
   }
 </script>
 
+<div class="agent-run-page">
 <AgentRunHeader
   runId={workflowId}
   statusLabel={runStatus.label}
@@ -278,193 +307,90 @@
   onstop={stopResume}
 />
 
-{#if loadError}
-  <p class="govuk-error-message">{loadError}</p>
-{/if}
-
+<AgentTabs
+  tabs={[
+    { id: 'trace', label: 'Trace' },
+    { id: 'events', label: 'Event log' }
+  ]}
+  bind:selected={selectedTab}
+>
+  {#snippet children(tabId)}
+    {#if tabId === 'trace'}
 <div class="agentic-dashboard">
-  <div class="agentic-dashboard__graph">
-    {#if definition}
-      <RunGraph bind:this={graphRef} {definition} {processId} {currentStateId} />
-      <div class="agentic-dashboard__graph-controls">
-        <button class="govuk-button govuk-button--secondary" type="button" onclick={() => graphRef?.fit()}>
-          Fit
-        </button>
-        <button
-          class="govuk-button govuk-button--secondary"
-          type="button"
-          onclick={() => graphRef?.zoomIn()}
-        >
-          Zoom in
-        </button>
-        <button
-          class="govuk-button govuk-button--secondary"
-          type="button"
-          onclick={() => graphRef?.zoomOut()}
-        >
-          Zoom out
-        </button>
-      </div>
-    {/if}
+  <div class="agentic-dashboard__steps">
+    <AgentRunStepList steps={stepRows} />
   </div>
 
   <div class="agentic-dashboard__panel">
     {#if escalationAwaiting}
-      <div class="govuk-inset-text">
-        <p class="govuk-body">
-          The autonomous answerer escalated{escalation?.reason ? `: ${escalation.reason}` : '.'}
-        </p>
+      <AgentNeedsYouCard step={stepsDone + 1} reason={escalation?.reason} bind:continueAfterAnswer>
         <KindField awaiting={escalationAwaiting} onsubmit={handleEscalationSubmit} />
-        <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-top-2">
-          <div class="govuk-checkboxes__item">
-            <input
-              class="govuk-checkboxes__input"
-              id="continue-after-answer"
-              type="checkbox"
-              bind:checked={continueAfterAnswer}
-            />
-            <label class="govuk-label govuk-checkboxes__label" for="continue-after-answer">
-              Carry on autonomously after I answer
-            </label>
-          </div>
-        </div>
-      </div>
-    {:else}
-      <div class="ss-panel govuk-!-margin-bottom-4">
-        <h2 class="govuk-heading-m">Autonomy policy</h2>
-
-        {#if policyError}
-          <p class="govuk-error-message">{policyError}</p>
-        {/if}
-
-        <div class="govuk-form-group">
-          <label class="govuk-label" for="profile">Profile bundle</label>
-          <select class="govuk-select" id="profile" bind:value={profileFixture}>
-            <option value="">None: use pre-seeded facts only</option>
-            {#if profileFixture && !profiles.some((profile) => profile.fixture === profileFixture)}
-              <option value={profileFixture}>{profileFixture}</option>
-            {/if}
-            {#each profiles as profile (profile.fixture)}
-              <option value={profile.fixture}>{profile.title}</option>
-            {/each}
-          </select>
-        </div>
-
-        <PreseedField workflowId={definition?.id ?? ''} bind:value={preseed} onexample={applyExample} />
-
-        <div class="govuk-form-group">
-          <label class="govuk-label" for="autonomy-level">Autonomy level</label>
-          <select class="govuk-select" id="autonomy-level" bind:value={autonomyLevel}>
-            <option value="cautious">Cautious</option>
-            <option value="balanced">Balanced</option>
-            <option value="assertive">Assertive</option>
-          </select>
-        </div>
-
-        <fieldset class="govuk-fieldset">
-          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Notify me on</legend>
-          <div class="govuk-checkboxes govuk-checkboxes--small">
-            {#each [['identity', 'Identity'], ['payment', 'Payment'], ['irreversible', 'Irreversible actions']] as [value, label] (value)}
-              <div class="govuk-checkboxes__item">
-                <input
-                  class="govuk-checkboxes__input"
-                  id="notify-{value}"
-                  type="checkbox"
-                  {value}
-                  bind:group={notifyCategories}
-                />
-                <label class="govuk-label govuk-checkboxes__label" for="notify-{value}">{label}</label>
-              </div>
-            {/each}
-          </div>
-        </fieldset>
-
-        <div class="govuk-checkboxes govuk-checkboxes--small">
-          <div class="govuk-checkboxes__item">
-            <input
-              class="govuk-checkboxes__input"
-              id="pause-before-external-call"
-              type="checkbox"
-              bind:checked={pauseBeforeExternalCall}
-            />
-            <label class="govuk-label govuk-checkboxes__label" for="pause-before-external-call">
-              Pause before external calls
-            </label>
-          </div>
-        </div>
-
-        <button
-          class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
-          type="button"
-          disabled={policySaving || !hasSeed}
-          onclick={() => savePolicy()}
-        >
-          {policySaving ? 'Saving…' : 'Save policy'}
-        </button>
-      </div>
-
-      <div class="ss-panel govuk-!-margin-bottom-4">
-        <h2 class="govuk-heading-m">Run it</h2>
-
-        {#if resumeError}
-          <p class="govuk-error-message">{resumeError}</p>
-        {/if}
-
-        {#if resuming}
-          <button class="govuk-button govuk-button--warning govuk-!-margin-bottom-0" type="button" onclick={stopResume}>
-            Stop
-          </button>
-        {:else}
-          <button class="govuk-button ss-cta govuk-!-margin-bottom-0" type="button" disabled={!hasSeed} onclick={resume}>
-            Resume autonomously
-          </button>
-        {/if}
-      </div>
+      </AgentNeedsYouCard>
     {/if}
 
-    <h2 class="govuk-heading-m">Activity</h2>
-    <div class="agentic-dashboard__log">
-      {#each log as line, index (index)}
-        <div class="ss-card agentic-dashboard__log-row">
-          <span class="govuk-!-font-weight-bold">{line.category}</span>
-          <span class="govuk-body-s govuk-!-margin-0">{line.summary}</span>
-        </div>
-      {:else}
-        <p class="govuk-body-s ss-muted">No activity yet.</p>
-      {/each}
+    <AgentRunProgress
+      summary={progressSummary}
+      done={stepsDone}
+      {answeredByYou}
+      needsYou={!!escalation}
+      onresume={canResume ? resume : undefined}
+      error={resumeError ?? policyError}
+    />
+
+    <div class="govuk-!-margin-top-6">
+      <AgentActivityList events={log} />
     </div>
   </div>
 </div>
+    {:else}
+      <p class="govuk-body ss-muted agent-run-page__empty">The event log is built in a later step.</p>
+    {/if}
+  {/snippet}
+</AgentTabs>
+</div>
 
 <style>
+  /* The page is wider than the 960px GOV.UK container it sits in, centred on the same line, and
+     shrinks to fit narrow windows. The design is laid out for a wide screen. */
+  .agent-run-page {
+    width: min(1360px, 100vw - 80px);
+    margin-left: calc(50% - min(680px, 50vw - 40px));
+  }
+
+  /* Text boxes and buttons have softly rounded corners, and buttons have no line under them, as on
+     the other redesigned pages. */
+  .agent-run-page :global(.govuk-input),
+  .agent-run-page :global(.govuk-select),
+  .agent-run-page :global(.govuk-textarea) {
+    border-radius: 8px;
+  }
+
+  .agent-run-page :global(.govuk-button) {
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  /* gov.css gives a focused button a black line under it. That is removed too; the yellow fill
+     stays as the sign of focus. */
+  .agent-run-page :global(.govuk-button:focus:not(:active):not(:hover)) {
+    box-shadow: none;
+  }
+
+  .agent-run-page__empty {
+    padding: 20px;
+    margin: 0;
+  }
+
+  /* The Trace tab has the list of steps on the left and the controls and activity on the right, with
+     a line between them. */
   .agentic-dashboard {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: stretch;
   }
 
-  .agentic-dashboard__graph {
-    position: relative;
-    height: 70vh;
-    border: 1px solid #b1b4b6;
-  }
-
-  .agentic-dashboard__graph-controls {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    display: flex;
-    gap: 8px;
-  }
-
-  .agentic-dashboard__log {
-    max-height: 240px;
-    overflow-y: auto;
-    border: 1px solid #b1b4b6;
-  }
-
-  .agentic-dashboard__log-row {
-    gap: 10px;
+  .agentic-dashboard__panel {
+    padding: 20px;
+    border-left: 1px solid #b1b4b6;
   }
 </style>
