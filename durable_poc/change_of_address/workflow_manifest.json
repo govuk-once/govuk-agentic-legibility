@@ -4,7 +4,7 @@
   "id": "dvla.change_of_address",
   "version": "0.1.0",
   "owner": "DVLA",
-  "contact": "change-of-address@dvla.gov.uk",
+  "contact": "test@gov.uk",
   "description": "DVLA driving licence change of address journey.",
   "state": "draft",
   "metadata": {},
