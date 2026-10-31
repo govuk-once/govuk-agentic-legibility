@@ -89,14 +89,15 @@ what the citizen says, each `search_service_journeys` request and response,
 and the orchestrator's decision (Execute, Clarify, Do not route, or no
 search). Search internals are left out because they are not part of the
 contract. Open it in a browser; it makes no requests. Link to a scenario
-with `#octopus`, `#clarify`, `#cartel`, `#passport` or `#travel`.
+with `#badge`, `#octopus`, `#clarify`, `#cartel`, `#passport` or `#travel`.
 
 Building it inlines GOV.UK Frontend's stylesheet from
 `forms_frontend/frontend/node_modules`, so run `npm install` there first.
 
 ```bash
-uv run python -m forms_search.demo.record_demo           # re-record (about 12 Claude calls) and rebuild
-uv run python -m forms_search.demo.record_demo --build   # rebuild from demo/demo_data.json after editing template.html
+uv run python -m forms_search.demo.record_demo           # re-record everything (about 14 Claude calls) and rebuild
+uv run python -m forms_search.demo.record_demo --only badge   # re-record one scenario, keep the rest
+uv run python -m forms_search.demo.record_demo --build   # rebuild from demo/demo_data.json after editing template.html or the scenario text in record_demo.py
 ```
 
 ## Enrichment

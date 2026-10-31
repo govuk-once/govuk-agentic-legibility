@@ -59,6 +59,10 @@
 		}
 	}
 
+	.govuk-link:visited {
+		color: var(--blue);
+	}
+
 	/* Side navigation, after the GOV.UK Design System website's own. */
 	.app-side-nav {
 		list-style: none;
@@ -279,6 +283,34 @@
 		padding-left: 20px;
 	}
 
+	.app-request {
+		margin-bottom: 30px;
+		font-size: 1.5rem;
+		line-height: 1.25;
+	}
+
+	.app-point {
+		margin-top: -10px;
+		margin-bottom: 30px;
+		color: var(--secondary-text);
+	}
+
+	.app-next .govuk-tag {
+		margin-right: 4px;
+	}
+
+	.app-next {
+		position: relative;
+		width: fit-content;
+		max-width: 100%;
+		margin: 4px auto 8px;
+		padding: 0 6px;
+		background: var(--white);
+		color: var(--secondary-text);
+		font-size: 1rem;
+		text-align: center;
+	}
+
 	.app-code {
 		margin: 0 0 10px;
 		padding: 15px;
@@ -343,7 +375,7 @@
 			<div class="govuk-grid-column-three-quarters">
 				<span class="govuk-caption-l" id="caption"></span>
 				<h1 class="govuk-heading-l" id="title"></h1>
-				<p class="govuk-body-l" id="point"></p>
+				<blockquote class="app-quote app-request" id="request"></blockquote>
 
 				<div class="app-stepper">
 					<button class="govuk-button govuk-button--secondary" type="button" id="previous">Previous</button>
@@ -353,6 +385,8 @@
 					</div>
 					<button class="govuk-button" type="button" id="next">Next</button>
 				</div>
+
+				<p class="govuk-body app-point" id="point"></p>
 
 				<div class="app-sequence" aria-hidden="true">
 					<div class="app-sequence__lanes">
@@ -433,16 +467,21 @@
 	const LANE = { citizen: 16.666, orchestrator: 50, search: 83.333 };
 
 	function arrow(from, to, label, reply = false) {
+		const full = escapeHtml(label);
 		const left = Math.min(LANE[from], LANE[to]);
 		const right = 100 - Math.max(LANE[from], LANE[to]);
 		const direction = LANE[to] > LANE[from] ? 'right' : 'left';
 		return `<div class="app-sequence__row"><div class="app-arrow app-arrow--${direction}${reply ? ' app-arrow--reply' : ''}" ` +
-			`style="left: ${left}%; right: ${right}%;"></div><div class="app-arrow__label" style="left: calc(${left}% + 6px); right: calc(${right}% + 6px);">${escapeHtml(label)}</div></div>`;
+			`style="left: ${left}%; right: ${right}%;"></div><div class="app-arrow__label" style="left: calc(${left}% + 6px); right: calc(${right}% + 6px);" title="${full}">${full}</div></div>`;
 	}
 
 	function note(decision) {
 		const d = DECISIONS[decision];
 		return `<div class="app-sequence__row"><div class="app-note"><strong class="govuk-tag ${d.tag}">${d.label}</strong></div></div>`;
+	}
+
+	function noteText(text) {
+		return `<div class="app-sequence__row"><div class="app-note">${escapeHtml(text)}</div></div>`;
 	}
 
 	/** The journey the reply names, if it names one of the candidates. */
@@ -459,15 +498,16 @@
 		let candidates = [];
 		let searchedThisTurn = false;
 		let turn = 0;
+		let responses = 0;
 
 		for (const event of scenario.events) {
 			if (event.kind === 'citizen') {
 				turn += 1;
 				searchedThisTurn = false;
 				steps.push({
-					rows: arrow('citizen', 'orchestrator', `“${truncate(event.text, 48)}”`),
-					title: turn === 1 ? 'The citizen describes a need' : 'The citizen answers',
-					body: `<blockquote class="app-quote">${escapeHtml(event.text)}</blockquote>` +
+					rows: arrow('citizen', 'orchestrator', `“${event.text}”`),
+					title: turn === 1 ? 'The citizen sends a message' : 'The citizen answers',
+					body: (turn === 1 ? '' : `<blockquote class="app-quote">${escapeHtml(event.text)}</blockquote>`) +
 						`<p class="govuk-body">The orchestrator owns the conversation. ${turn === 1
 							? 'It does not know in advance which service journeys exist, and decides for itself whether to search.'
 							: 'Journey Search is stateless and keeps nothing between calls, so anything from earlier is up to the orchestrator.'}</p>`,
@@ -475,13 +515,16 @@
 			}
 
 			if (event.kind === 'search_request') {
+				const again = searchedThisTurn;
 				searchedThisTurn = true;
 				const limitSet = event.input.limit !== undefined;
 				const limit = limitSet ? event.input.limit : 5;
 				steps.push({
-					rows: arrow('orchestrator', 'search', `Search: “${truncate(event.input.query, 40)}”`),
-					title: 'The orchestrator searches for service journeys',
-					body: `<p class="govuk-body">It writes the query itself, as a self-contained description of the citizen's need.</p>` +
+					rows: arrow('orchestrator', 'search', `Search: “${event.input.query}”`),
+					title: again ? 'The orchestrator searches again' : 'The orchestrator searches for service journeys',
+					body: (again
+						? `<p class="govuk-body">None of the first candidates fitted, so it tries a new query${limitSet ? ' and asks for more candidates' : ''}. Each search is independent: Journey Search keeps nothing from the last one.</p>`
+						: `<p class="govuk-body">It writes the query itself, as a self-contained description of the citizen's need.</p>`) +
 						`<pre class="app-code">search_service_journeys(\n    query: <span class="s">${escapeHtml(JSON.stringify(event.input.query))}</span>,\n    limit: <span class="n">${limit}</span>\n)</pre>` +
 						`<p class="govuk-body-s app-code-caption">${limitSet ? `The orchestrator set the limit to ${limit}.` : 'The orchestrator did not set a limit, so the default of 5 applies.'}</p>`,
 				});
@@ -489,10 +532,13 @@
 
 			if (event.kind === 'search_response') {
 				candidates = event.json.candidates;
+				responses += 1;
 				steps.push({
 					rows: arrow('search', 'orchestrator', `${candidates.length} candidates`, true),
 					title: `Journey Search returns ${candidates.length} candidates`,
 					body: `<p class="govuk-body">Ranked candidates, each with an ID, title and brief description. Search favours recall over precision: returning a candidate does not mean it is suitable.</p>` +
+						`<p class="govuk-body"><strong>The orchestrator must evaluate whether each candidate is suitable, even when only one is returned.</strong> A high ranking is not evidence that a journey is appropriate.</p>` +
+						(scenario.response_notes?.[responses - 1] ? `<div class="govuk-inset-text"><strong>In this run:</strong> ${escapeHtml(scenario.response_notes[responses - 1])}</div>` : '') +
 						`<pre class="app-code">${renderJson(event.json)}</pre>` +
 						`<p class="govuk-body-s app-code-caption">Added to the orchestrator's context: ${sizeOf(event.json)}.</p>`,
 				});
@@ -503,19 +549,31 @@
 				const chosen = namedCandidate(event.text, candidates);
 				const why = {
 					execute: chosen
-						? `It judges that <strong>${escapeHtml(chosen.title)}</strong> (workflow ${escapeHtml(chosen.workflow_id)}) fits.${!searchedThisTurn && candidates.length ? ' It chooses from the candidates it already has, without searching again.' : ''} It would start the journey through Legibility's separate execution interface, which is outside this contract and this demo.`
-						: 'It judges that one candidate fits.',
+						? `It judges that <strong>${escapeHtml(chosen.title)}</strong> (workflow ${escapeHtml(chosen.workflow_id)}) fits.${!searchedThisTurn && candidates.length ? ' It chooses from the candidates it already has, without searching again.' : ''} It does not start the journey yet. It replies first, offering the journey to the citizen.`
+						: 'It judges that one candidate fits. It does not start the journey yet. It replies first, offering the journey to the citizen.',
 					clarify: 'Several candidates could fit, so it asks the citizen. The citizen decides which service they want to use.',
 					do_not_route: 'It judges that none of the candidates fits. A high ranking is not evidence that a journey is appropriate.',
-					no_search: 'It decides a search is not appropriate. No request is made to Journey Search.',
+					no_search: 'It decides that searching for a service journey is not appropriate, so it makes no request to Journey Search.',
 				}[event.decision];
+				const handsOff = event.decision === 'do_not_route' || event.decision === 'no_search';
 				steps.push({
-					rows: note(event.decision) + arrow('orchestrator', 'citizen', 'Reply'),
-					title: `The orchestrator decides: ${d.label}`,
-					body: `<p class="govuk-body"><strong class="govuk-tag ${d.tag}">${d.label}</strong></p>` +
+					rows: {
+						execute: noteText('One candidate fits') + arrow('orchestrator', 'citizen', 'Offers the journey') +
+							`<div class="app-sequence__row"><p class="app-next"><strong class="govuk-tag ${d.tag}">${d.label}</strong> only if the citizen agrees, outside this contract</p></div>`,
+						clarify: note(event.decision) + arrow('orchestrator', 'citizen', 'Asks the citizen'),
+						do_not_route: note(event.decision) + '<div class="app-sequence__row"><p class="app-next">Next step outside this contract</p></div>',
+						no_search: note(event.decision) + '<div class="app-sequence__row"><p class="app-next">Next step outside this contract</p></div>',
+					}[event.decision],
+					title: event.decision === 'execute' ? 'The orchestrator offers the journey' : `The orchestrator decides: ${d.label}`,
+					body: (event.decision === 'execute' ? '' : `<p class="govuk-body"><strong class="govuk-tag ${d.tag}">${d.label}</strong></p>`) +
 						`<p class="govuk-body">${why}</p>` +
-						`<h3 class="govuk-heading-s">Reply to the citizen</h3>` +
-						`<div class="app-quote">${renderMarkdown(event.text)}</div>`,
+						(handsOff
+							? `<p class="govuk-body">What it does next is outside this contract. Legibility is one of several capabilities the orchestrator can use, so it might turn to another, such as question answering over GOV.UK${event.decision === 'do_not_route' ? ', or route the citizen to an onward journey with a department' : ''}.</p>`
+							: `<h3 class="govuk-heading-s">Reply to the citizen</h3><div class="app-quote">${renderMarkdown(event.text)}</div>`) +
+						(event.decision === 'execute'
+							? `<h3 class="govuk-heading-s">If the citizen agrees</h3><p class="govuk-body"><strong class="govuk-tag ${d.tag}">${d.label}</strong></p>` +
+								`<p class="govuk-body">Only then does the orchestrator start the journey, with a separate call to Legibility's execution interface. That call is outside this contract.</p>`
+							: ''),
 				});
 			}
 		}
@@ -560,6 +618,7 @@
 		$('caption').textContent = `Scenario ${index + 1} of ${DEMO.scenarios.length}`;
 		$('title').textContent = scenario.label;
 		$('point').textContent = scenario.point;
+		$('request').textContent = scenario.events.find((e) => e.kind === 'citizen').text;
 		document.querySelectorAll('.app-side-nav__item').forEach((item) => {
 			const isCurrent = item.dataset.id === scenario.id;
 			item.classList.toggle('app-side-nav__item--current', isCurrent);
@@ -575,7 +634,7 @@
 		$('scenario-nav').innerHTML = DEMO.scenarios.map((s) => {
 			const first = s.events.find((e) => e.kind === 'citizen').text;
 			return `<li class="app-side-nav__item" data-id="${s.id}"><a class="govuk-link" href="#${s.id}">${escapeHtml(s.label)}</a>` +
-				`<span class="app-side-nav__hint">“${escapeHtml(truncate(first, 60))}”</span></li>`;
+				`<span class="app-side-nav__hint" title="${escapeHtml(first)}">“${escapeHtml(truncate(first, 60))}”</span></li>`;
 		}).join('');
 		$('scenario-nav').addEventListener('click', (e) => {
 			const item = e.target.closest('.app-side-nav__item');
@@ -594,7 +653,7 @@
 		});
 
 		$('about').innerHTML =
-			`<p class="govuk-body">Each scenario is a real run, recorded on ${escapeHtml(DEMO.recorded_at)}. The orchestrator is a stand-in: a Strands agent using ${escapeHtml(DEMO.orchestrator_model)} on Amazon Bedrock, with the prototype <code>search_service_journeys</code> tool over a catalogue of ${DEMO.catalogue_size} GOV.UK Forms. Requests and responses are shown exactly as they crossed the boundary. The decision labels mark which RFC outcome each reply represents.</p>` +
+			`<p class="govuk-body">Each scenario is a real run, recorded on ${escapeHtml(DEMO.recorded_at)}. The orchestrator is a stand-in: a Strands agent using ${escapeHtml(DEMO.orchestrator_model)} on Amazon Bedrock, with the prototype <code>search_service_journeys</code> tool over a catalogue of ${DEMO.catalogue_size} GOV.UK Forms. Requests and responses are shown exactly as they crossed the boundary. The decision labels mark which RFC outcome each reply represents. The stand-in has no capabilities other than Journey Search, so where a real orchestrator might turn to another one, its replies are not shown.</p>` +
 			`<p class="govuk-body">How Journey Search finds and ranks candidates is internal to Legibility and is not part of the contract, so it is not shown.</p>` +
 			`<p class="govuk-body">The stand-in orchestrator was given this system prompt, based on the orchestrator's responsibilities in the RFC:</p>` +
 			`<pre class="app-footer-prompt">${escapeHtml(DEMO.system_prompt)}</pre>` +

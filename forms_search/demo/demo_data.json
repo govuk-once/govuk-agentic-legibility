@@ -2,12 +2,65 @@
   "recorded_at": "31 October 2026",
   "orchestrator_model": "eu.anthropic.claude-sonnet-5-5",
   "catalogue_size": 547,
-  "system_prompt": "You are the GOV.UK assistant. You help citizens use government services. Keep replies short.\nYou do not know in advance which service journeys exist. Search for them when the citizen may want to do something a government service could handle. Do not search for general information questions.\nSearch results are candidates, not matches. Judge each one yourself, even if only one is returned. Then:\n- if one journey fits, name it and offer to start it;\n- if several could fit, or you need more information, ask the citizen or let them choose;\n- if none fits, say you have not found a suitable service.\nIf the citizen's answer settles which journey they need, choose from the candidates you already have rather than searching again. You cannot start journeys in this demo.",
+  "system_prompt": "You are the GOV.UK assistant. You help citizens use government services. Keep replies short.\nYou do not know in advance which service journeys exist. Search for them when the citizen may want to do something a government service could handle. Do not search for general information questions.\nSearch results are candidates, not matches. Judge each one yourself, even if only one is returned. Then:\n- if one journey fits, name it and offer to start it, but do not start it until the citizen agrees;\n- if several could fit, or you need more information, ask the citizen or let them choose;\n- if none fits, say you have not found a suitable service.\nIf the citizen's answer settles which journey they need, choose from the candidates you already have rather than searching again.",
   "scenarios": [
     {
+      "id": "badge",
+      "recorded_at": "31 October 2026",
+      "events": [
+        {
+          "kind": "citizen",
+          "text": "I've lost my armed forces veterans badge. How do I get a new one?"
+        },
+        {
+          "kind": "search_request",
+          "input": {
+            "query": "replace lost armed forces veterans badge"
+          }
+        },
+        {
+          "kind": "search_response",
+          "status": "success",
+          "json": {
+            "candidates": [
+              {
+                "workflow_id": "656",
+                "title": "Apply for or replace an armed forces veterans badge",
+                "description": "Apply for a first or replacement armed forces veterans badge, either for yourself or for a deceased serviceperson if you receive a War Widow or Widower's Pension or SGIP. Collects service details, such as force and service number, and a UK or overseas postal address."
+              },
+              {
+                "workflow_id": "262838",
+                "title": "Give feedback on GOV.UK: Get a digital HM Armed Forces Veteran Card",
+                "description": "Give feedback on the Get a digital HM Armed Forces Veteran Card service by rating your satisfaction, suggesting improvements and optionally leaving an email address. It is for feedback only, not for reporting technical faults or for the Apply for a Veteran Card service."
+              },
+              {
+                "workflow_id": "263060",
+                "title": "Report a technical issue on GOV.UK: Apply for an HM Armed Forces Veteran Card",
+                "description": "Report a problem with the Apply for an HM Armed Forces Veteran Card service, such as an error while uploading a photograph. Describe what you were doing and what happened, and optionally give an email address for follow-up. It is not for feedback or the digital card service."
+              },
+              {
+                "workflow_id": "263059",
+                "title": "Report a technical issue on GOV.UK: Get a digital HM Armed Forces Veteran Card",
+                "description": "Report a problem with the Get a digital HM Armed Forces Veteran Card service, describing what you were doing, what happened and any error messages. An email address is optional, for follow-up contact. Not for the paper card application or for general feedback."
+              },
+              {
+                "workflow_id": "262835",
+                "title": "Give feedback on GOV.UK: Apply for an HM Armed Forces Veteran Card",
+                "description": "Give feedback on the Apply for an HM Armed Forces Veteran Card service by rating your satisfaction and optionally suggesting improvements and leaving an email address. It is not for reporting technical faults, which has a separate form."
+              }
+            ]
+          }
+        },
+        {
+          "kind": "reply",
+          "text": "I found a service that fits: **Apply for or replace an armed forces veterans badge**. You use it to apply for a first badge or a replacement. You'll be asked for your service details, such as your force and service number, and a UK or overseas postal address.\n\nWould you like me to start it?",
+          "decision": "execute"
+        }
+      ]
+    },
+    {
       "id": "octopus",
-      "label": "Unexpected service",
-      "point": "The citizen does not ask for a service, and nobody would expect one to exist. The orchestrator searches anyway, because it should not assume it knows which journeys exist.",
+      "recorded_at": "31 October 2026",
       "events": [
         {
           "kind": "citizen",
@@ -54,15 +107,14 @@
         },
         {
           "kind": "reply",
-          "text": "I found a service that fits: **\"Octopus sighting? Let us know!\"** It's run by the Marine Management Organisation. Divers can use it to report a sighting.\n\nYou'd give the date and location, say which species it was (common, curled/horned or unknown), and add any photos or details. Contact details are optional.\n\nI can't start it for you in this demo, but that's the form you need. Do you want any help working out what to enter?",
+          "text": "I found a service that fits: **\"Octopus sighting? Let us know!\"** It's a Marine Management Organisation form for divers and others to report octopus sightings. You'd give the date, the location, and the species (common, curled/horned or unknown). You can also add photos, other details and your contact details if you want to.\n\nDo you want me to start it?",
           "decision": "execute"
         }
       ]
     },
     {
       "id": "clarify",
-      "label": "Ambiguous need",
-      "point": "Several journeys could fit. The orchestrator asks the citizen, then chooses from the candidates it already has.",
+      "recorded_at": "31 October 2026",
       "events": [
         {
           "kind": "citizen",
@@ -109,7 +161,7 @@
         },
         {
           "kind": "reply",
-          "text": "What do you want to change on your claim? The options are:\n\n- **Unpaid wages**: amounts owed or unpaid dates\n- **Employment details**: weekly pay, start or end dates, or the date notice was given\n- **Personal details**: name, National Insurance number, date of birth, email, address or mobile number\n- **Holiday taken but not paid**: the holiday year start date, leave entitlement, or dates of unpaid holiday\n- **Accrued holiday pay**: leave year start date, days entitled, days taken or days carried over\n\nTell me which one applies and I can point you to the right form.",
+          "text": "Several options could fit. What do you want to change on your redundancy claim?\n\n- **Personal details**: name, National Insurance number, date of birth, email, address or mobile number\n- **Employment details**: weekly pay, start and end dates, or the date notice was given\n- **Unpaid wages**\n- **Holiday taken but not paid**\n- **Accrued holiday pay**\n\nTell me which one and I can start that form.",
           "decision": "clarify"
         },
         {
@@ -118,15 +170,14 @@
         },
         {
           "kind": "reply",
-          "text": "The form you need is **Amend my claim for holiday taken but not paid**. You can use it to change the holiday year start date, your leave entitlement in days, or the dates of unpaid holiday. You'll need your claim reference and National Insurance number to verify your identity.\n\nI can't start it from this demo.",
+          "text": "That's the \"Amend my claim for holiday taken but not paid\" form. You can use it to change the holiday year start date, your leave entitlement in days, or the dates of the unpaid holiday. You'll need your claim reference and National Insurance number to verify who you are.\n\nDo you want me to start it?",
           "decision": "execute"
         }
       ]
     },
     {
       "id": "cartel",
-      "label": "No obvious keywords",
-      "point": "The citizen's words do not match the journey's title. The orchestrator writes a self-contained query describing the need, and search finds the right journey.",
+      "recorded_at": "31 October 2026",
       "events": [
         {
           "kind": "citizen",
@@ -135,7 +186,7 @@
         {
           "kind": "search_request",
           "input": {
-            "query": "report suspected price fixing cartel between suppliers"
+            "query": "report suspected price fixing or cartel between suppliers"
           }
         },
         {
@@ -173,15 +224,14 @@
         },
         {
           "kind": "reply",
-          "text": "You can report this through **Report a cartel to the CMA**. It's the Competition and Markets Authority's form for suspected cartels and other competition concerns, which includes price-fixing. You give details of the issue, the businesses involved and the UK nation affected. You can also upload up to four evidence files. You can include your contact details or leave them out.\n\nWould you like to start it?",
+          "text": "The \"Report a cartel to the CMA\" service looks like the right one. You can use it to report suspected price-fixing or other competition concerns to the Competition and Markets Authority. You describe the issue and the businesses involved, and you can upload up to four evidence files. You can include your contact details or leave them out.\n\nDo you want me to start it?",
           "decision": "execute"
         }
       ]
     },
     {
       "id": "passport",
-      "label": "Not in the catalogue",
-      "point": "Search returns candidates even when none is right. The orchestrator must judge them, and here it finds none suitable.",
+      "recorded_at": "31 October 2026",
       "events": [
         {
           "kind": "citizen",
@@ -227,16 +277,80 @@
           }
         },
         {
+          "kind": "search_request",
+          "input": {
+            "query": "apply for or renew a UK adult British passport",
+            "limit": 10
+          }
+        },
+        {
+          "kind": "search_response",
+          "status": "success",
+          "json": {
+            "candidates": [
+              {
+                "workflow_id": "263326",
+                "title": "Report a change of contact details for a settled adult",
+                "description": "Report a change of mobile number or email address for an adult in a resettled family, on behalf of a local authority. Only for people in the 3-year Afghan scheme or 5-year UK Resettlement Scheme support period, and it needs your region's referral code."
+              },
+              {
+                "workflow_id": "3139",
+                "title": "Apply for an emergency travel document (first time applicant)",
+                "description": "Apply for an emergency travel document from abroad if you have never held a UK passport issued since 1 January 2006 and have an urgent, unplanned reason to travel. Collects applicant and contact details, location and a summary of exceptional circumstances, for yourself or someone else."
+              },
+              {
+                "workflow_id": "563",
+                "title": "Expression of interest to become authorised to issue Plant Passports",
+                "description": "Register interest in becoming authorised to issue UK Plant Passports. Collects the business trading name, head office address, the person responsible for plant passporting, contact phone and email, and an optional APHA customer reference number."
+              },
+              {
+                "workflow_id": "265578",
+                "title": "EU Alignment – Plant Passport EOI",
+                "description": "Register interest in additional 2026 growing season inspections for EU Plant Passport alignment, if you are already authorised to issue UK Plant Passports. Collects business and contact details, agreement to the EU alignment declaration, and which listed plants you grow or want to move to Northern Ireland or Ireland."
+              },
+              {
+                "workflow_id": "265949",
+                "title": "Request to restore and renew a registration (TM13)",
+                "description": "Request restoration and renewal of a lapsed UK trade mark whose renewal date was 6 to 12 months ago. Give the trade mark number, classes to renew and a statement explaining the missed renewal, then pay the restoration and renewal fees by card or deposit account."
+              },
+              {
+                "workflow_id": "264774",
+                "title": "Get help with your citizenship or certificate of entitlement application",
+                "description": "Contact the Home Office for help with a British citizenship application, certificate of entitlement application or renunciation of citizenship, such as updates, refunds, returns of documents or certificate corrections. Can be completed on behalf of someone else, with a letter of authority."
+              },
+              {
+                "workflow_id": "263055",
+                "title": "Apply to renew your authorisation to provide Driver CPC part 3a tests",
+                "description": "Renew DVSA authorisation to provide Driver CPC part 3a tests, as the organisation's responsible person. Collects organisation and contact details, plus the assessor's photo, examiner number, driving licence number, licence points and work site addresses."
+              },
+              {
+                "workflow_id": "5830",
+                "title": "Apply to renew annual Northern Ireland plant health label (NIPHL) scheme authorisation",
+                "description": "Renew an existing annual Northern Ireland plant health label (NIPHL) scheme authorisation. Collects business and contact details, the authorisation number, and declarations for any plants for planting, used agricultural and forestry machinery, or seed potatoes already authorised. Not for first-time applications."
+              },
+              {
+                "workflow_id": "264657",
+                "title": "Register for an account",
+                "description": "Register an account for yourself if you are aged 16 or over, giving your name, date of birth, address, phone number and National Insurance number, plus a Welsh language contact preference. One form per person; under-16s need a separate child account form."
+              },
+              {
+                "workflow_id": "6482",
+                "title": "Feedback on the Great British Insulation Scheme (GBIS)",
+                "description": "Give feedback on the Great British Insulation Scheme (GBIS) portal by rating your satisfaction from very satisfied to very dissatisfied, and optionally suggest how the scheme could be improved. Collects no payment or personal details."
+              }
+            ]
+          }
+        },
+        {
           "kind": "reply",
-          "text": "I searched but didn't find a service for renewing a personal passport. The results were unrelated: plant passports, trade marks and similar.\n\nTry the official GOV.UK passport renewal page, or tell me more about what you need and I'll search again.",
+          "text": "I couldn't find a service for renewing a standard UK passport. The catalogue I can search doesn't include it.\n\nThe closest match was an emergency travel document for first-time applicants abroad. That doesn't fit a renewal, so I haven't suggested it.\n\nPassport renewals are normally done on the official GOV.UK passport service. Search GOV.UK for \"renew adult passport\" to find it.\n\nIf you're abroad and urgently need to travel, tell me. I can look for emergency options.",
           "decision": "do_not_route"
         }
       ]
     },
     {
       "id": "travel",
-      "label": "Information question",
-      "point": "Deciding when to search belongs to the orchestrator. This is a question, not something a service journey does, so it answers without searching.",
+      "recorded_at": "31 October 2026",
       "events": [
         {
           "kind": "citizen",
@@ -244,7 +358,7 @@
         },
         {
           "kind": "reply",
-          "text": "I can't give you the current FCDO travel advice for Spain. It changes often, and I can only help you find forms to complete. You can read the latest advice on GOV.UK at **www.gov.uk/foreign-travel-advice/spain**. It covers safety and security, entry requirements, health, and local laws.\n\nIf you want to do something specific, like report a problem abroad or apply for a passport, tell me and I'll look for a service.",
+          "text": "I can't look up travel advice here, and it changes often. The current FCDO advice for Spain is on GOV.UK at **gov.uk/foreign-travel-advice/spain**. It covers entry requirements, safety and security, health, and local laws.\n\nI can also help you find a government form to complete, if you need one.",
           "decision": "no_search"
         }
       ]
