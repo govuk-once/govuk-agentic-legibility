@@ -29,7 +29,6 @@ starts a journey.
 
 ```json
 {
-  "query": "change my redundancy claim, I wasn't paid for holiday I took",
   "candidates": [
     {"workflow_id": "232", "title": "Amend my claim for holiday taken but not paid", "description": "…"},
     {"workflow_id": "6", "title": "Amend my claim for holiday pay accrued", "description": "…"}
@@ -80,6 +79,25 @@ services, paraphrases, ambiguous requests, unusual services, a misleading
 title, services not in the catalogue, and information questions. It is a
 smoke test for comparing settings, not a benchmark. Add queries to it as you
 find interesting cases.
+
+## Demo page
+
+`demo/index.html` is a single self-contained page, styled with GOV.UK Frontend,
+that illustrates the Journey Search Contract RFC. It replays recorded runs of
+a stand-in orchestrator and shows only what crosses the contract boundary:
+what the citizen says, each `search_service_journeys` request and response,
+and the orchestrator's decision (Execute, Clarify, Do not route, or no
+search). Search internals are left out because they are not part of the
+contract. Open it in a browser; it makes no requests. Link to a scenario
+with `#octopus`, `#clarify`, `#cartel`, `#passport` or `#travel`.
+
+Building it inlines GOV.UK Frontend's stylesheet from
+`forms_frontend/frontend/node_modules`, so run `npm install` there first.
+
+```bash
+uv run python -m forms_search.demo.record_demo           # re-record (about 12 Claude calls) and rebuild
+uv run python -m forms_search.demo.record_demo --build   # rebuild from demo/demo_data.json after editing template.html
+```
 
 ## Enrichment
 

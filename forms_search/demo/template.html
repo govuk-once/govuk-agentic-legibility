@@ -1,0 +1,608 @@
+<title>Journey Search Contract</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+	Replays recorded runs at the boundary set out in the RFC "Legibility Journey Search Contract": what the
+	citizen says, each search request and response between the orchestrator and Journey Search, and what the
+	orchestrator decides. How search works inside is left out on purpose. GOV.UK Frontend's stylesheet and the
+	recording are inlined by record_demo.py, so the built page can be opened or shared on its own. Edit this
+	file, then run: uv run python -m forms_search.demo.record_demo --build
+-->
+<style>
+/*__GOVUK_FRONTEND_CSS__*/
+</style>
+<style>
+	/* Layout: GOV.UK page with scenarios in a side navigation (one quarter) and the replay (three quarters):
+		heading, step slider, a three-lane sequence diagram like the RFC's, then the detail of the current step.
+		Light only, matching GOV.UK. Colours are GOV.UK palette values. */
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--border: #b1b4b6;
+		--light-grey: #f3f2f1;
+		--blue: #1d70b8;
+		--dark-blue: #003078;
+		--green: #00703c;
+		--purple: #4c2c92;
+		--white: #ffffff;
+		--font-mono: ui-monospace, "SF Mono", menlo, consolas, monospace;
+	}
+
+	html {
+		background: var(--white);
+	}
+
+	body {
+		margin: 0;
+		background: var(--white);
+		color: var(--text);
+		font-family: "GDS Transport", arial, sans-serif;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	/* GOV.UK's mobile margin is 15px; keep at least 16px and clear any side system bar. */
+	.govuk-width-container {
+		margin-left: max(16px, env(safe-area-inset-left, 0px));
+		margin-right: max(16px, env(safe-area-inset-right, 0px));
+	}
+
+	@media (min-width: 40.0625em) {
+		.govuk-width-container {
+			margin-left: max(30px, env(safe-area-inset-left, 0px));
+			margin-right: max(30px, env(safe-area-inset-right, 0px));
+		}
+	}
+
+	@media (min-width: 1020px) {
+		.govuk-width-container {
+			margin-left: auto;
+			margin-right: auto;
+		}
+	}
+
+	/* Side navigation, after the GOV.UK Design System website's own. */
+	.app-side-nav {
+		list-style: none;
+		margin: 0 0 30px;
+		padding: 0;
+	}
+
+	.app-side-nav__item {
+		padding: 8px 0 8px 12px;
+		border-left: 4px solid transparent;
+	}
+
+	.app-side-nav__item--current {
+		border-left-color: var(--blue);
+		background: var(--light-grey);
+	}
+
+	.app-side-nav__item a {
+		font-weight: 700;
+	}
+
+	.app-side-nav__item--current a {
+		color: var(--text);
+		text-decoration: none;
+	}
+
+	.app-side-nav__hint {
+		display: block;
+		margin-top: 2px;
+		color: var(--secondary-text);
+		font-size: 1rem;
+		line-height: 1.3;
+	}
+
+	/* Step slider */
+	.app-stepper {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 15px;
+		margin-bottom: 30px;
+	}
+
+	.app-stepper .govuk-button {
+		margin: 0;
+	}
+
+	.app-stepper__range {
+		display: grid;
+		gap: 5px;
+	}
+
+	.app-stepper__range .govuk-label {
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.app-stepper input[type="range"] {
+		width: 100%;
+		margin: 0;
+		accent-color: var(--blue);
+		cursor: pointer;
+	}
+
+	.app-stepper input[type="range"]:focus-visible {
+		outline: 3px solid #ffdd00;
+		outline-offset: 2px;
+	}
+
+	@media (max-width: 40.0525em) {
+		.app-stepper {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.app-stepper__range {
+			grid-column: 1 / -1;
+			grid-row: 1;
+		}
+	}
+
+	/* Sequence diagram: three lanes with dashed lifelines, as in the RFC. */
+	.app-sequence {
+		position: relative;
+		margin-bottom: 30px;
+		padding-bottom: 10px;
+		background-image:
+			linear-gradient(var(--border) 50%, transparent 50%),
+			linear-gradient(var(--border) 50%, transparent 50%),
+			linear-gradient(var(--border) 50%, transparent 50%);
+		background-size: 1px 8px;
+		background-repeat: repeat-y;
+		background-position: 16.666% 0, 50% 0, 83.333% 0;
+	}
+
+	.app-sequence__lanes {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 10px;
+		padding-bottom: 10px;
+		background: var(--white);
+	}
+
+	.app-sequence__lane {
+		padding: 8px 4px;
+		border: 2px solid var(--text);
+		background: var(--white);
+		font-weight: 700;
+		text-align: center;
+		overflow-wrap: anywhere;
+	}
+
+	.app-sequence__row {
+		position: relative;
+		min-height: 52px;
+	}
+
+	.app-sequence__row[hidden] {
+		display: none;
+	}
+
+	.app-arrow {
+		position: absolute;
+		bottom: 12px;
+		height: 0;
+		border-top: 2px solid currentColor;
+		color: var(--secondary-text);
+	}
+
+	.app-arrow--reply {
+		border-top-style: dashed;
+	}
+
+	.app-arrow::after {
+		content: "";
+		position: absolute;
+		top: -7px;
+		width: 0;
+		height: 0;
+		border-top: 6px solid transparent;
+		border-bottom: 6px solid transparent;
+	}
+
+	.app-arrow--right::after {
+		right: -2px;
+		border-left: 10px solid currentColor;
+	}
+
+	.app-arrow--left::after {
+		left: -2px;
+		border-right: 10px solid currentColor;
+	}
+
+	.app-arrow__label {
+		position: absolute;
+		bottom: 18px;
+		left: 6px;
+		right: 6px;
+		color: var(--text);
+		font-size: 1rem;
+		line-height: 1.25;
+		text-align: center;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.app-note {
+		position: relative;
+		left: 50%;
+		width: min(60%, 260px);
+		margin: 6px 0;
+		padding: 6px 10px;
+		transform: translateX(-50%);
+		border: 2px solid var(--secondary-text);
+		background: var(--white);
+		text-align: center;
+	}
+
+	.app-note .govuk-tag {
+		margin: 0;
+	}
+
+	.app-sequence__row.is-current .app-arrow,
+	.app-sequence__row.is-current .app-note {
+		color: var(--blue);
+		border-color: var(--blue);
+	}
+
+	.app-sequence__row.is-current .app-arrow__label {
+		color: var(--blue);
+		font-weight: 700;
+	}
+
+	/* Current step detail */
+	.app-step {
+		padding-top: 20px;
+		border-top: 1px solid var(--border);
+	}
+
+	.app-quote {
+		margin: 0 0 20px;
+		padding: 15px;
+		border-left: 10px solid var(--border);
+		font-size: 1.1875rem;
+		line-height: 1.3;
+	}
+
+	.app-quote p,
+	.app-quote ul {
+		margin: 0 0 10px;
+	}
+
+	.app-quote > :last-child {
+		margin-bottom: 0;
+	}
+
+	.app-quote ul {
+		padding-left: 20px;
+	}
+
+	.app-code {
+		margin: 0 0 10px;
+		padding: 15px;
+		max-height: 440px;
+		overflow: auto;
+		background: var(--light-grey);
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.app-code .k { color: var(--dark-blue); }
+	.app-code .s { color: var(--green); }
+	.app-code .n { color: var(--purple); }
+
+	.app-code-caption {
+		margin-bottom: 20px;
+		color: var(--secondary-text);
+	}
+
+	.app-footer-prompt {
+		margin: 0 0 15px;
+		padding: 15px;
+		background: var(--light-grey);
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
+		white-space: pre-wrap;
+	}
+
+</style>
+
+<section class="govuk-service-navigation" aria-label="Service information">
+	<div class="govuk-width-container">
+		<div class="govuk-service-navigation__container">
+			<span class="govuk-service-navigation__service-name">
+				<span class="govuk-service-navigation__text">Agentic Legibility: Journey Search</span>
+			</span>
+		</div>
+	</div>
+</section>
+
+<div class="govuk-width-container">
+	<div class="govuk-phase-banner">
+		<p class="govuk-phase-banner__content">
+			<strong class="govuk-tag govuk-phase-banner__content__tag">Prototype</strong>
+			<span class="govuk-phase-banner__text">This page replays recorded runs to illustrate the draft RFC,
+				Legibility Journey Search Contract.</span>
+		</p>
+	</div>
+
+	<main class="govuk-main-wrapper" id="main-content">
+		<div class="govuk-grid-row">
+			<div class="govuk-grid-column-one-quarter">
+				<nav aria-labelledby="scenarios-heading">
+					<h2 class="govuk-heading-s" id="scenarios-heading">Scenarios</h2>
+					<ul class="app-side-nav" id="scenario-nav"></ul>
+				</nav>
+			</div>
+
+			<div class="govuk-grid-column-three-quarters">
+				<span class="govuk-caption-l" id="caption"></span>
+				<h1 class="govuk-heading-l" id="title"></h1>
+				<p class="govuk-body-l" id="point"></p>
+
+				<div class="app-stepper">
+					<button class="govuk-button govuk-button--secondary" type="button" id="previous">Previous</button>
+					<div class="app-stepper__range">
+						<label class="govuk-label govuk-label--s" for="step" id="step-label"></label>
+						<input type="range" id="step" min="1" value="1" step="1">
+					</div>
+					<button class="govuk-button" type="button" id="next">Next</button>
+				</div>
+
+				<div class="app-sequence" aria-hidden="true">
+					<div class="app-sequence__lanes">
+						<div class="app-sequence__lane">Citizen</div>
+						<div class="app-sequence__lane">Orchestrator</div>
+						<div class="app-sequence__lane">Journey Search</div>
+					</div>
+					<div id="sequence"></div>
+				</div>
+
+				<div class="app-step" id="detail" aria-live="polite"></div>
+			</div>
+		</div>
+
+		<details class="govuk-details govuk-!-margin-top-6">
+			<summary class="govuk-details__summary">
+				<span class="govuk-details__summary-text">How this demo was made</span>
+			</summary>
+			<div class="govuk-details__text" id="about"></div>
+		</details>
+	</main>
+</div>
+
+<script>
+	// The recording, inlined by record_demo.py.
+	const DEMO = /*__DEMO_DATA__*/null;
+
+	const $ = (id) => document.getElementById(id);
+
+	// The orchestrator's possible decisions: the three outcomes in section 4 of the RFC, plus not searching.
+	const DECISIONS = {
+		execute: { label: 'Execute', tag: 'govuk-tag--green' },
+		clarify: { label: 'Clarify', tag: 'govuk-tag--yellow' },
+		do_not_route: { label: 'Do not route', tag: 'govuk-tag--red' },
+		no_search: { label: 'No search', tag: 'govuk-tag--grey' },
+	};
+
+	const escapeHtml = (text) => String(text)
+		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+	const truncate = (text, length) => text.length > length ? text.slice(0, length - 1) + '…' : text;
+
+	/** Pretty-printed JSON with keys, strings and numbers marked for colour. */
+	function renderJson(value) {
+		const json = JSON.stringify(value, null, 2);
+		const token = /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+		let html = '';
+		let last = 0;
+		for (const match of json.matchAll(token)) {
+			const [whole, str, colon, num] = match;
+			html += escapeHtml(json.slice(last, match.index));
+			if (num) html += `<span class="n">${num}</span>`;
+			else if (colon) html += `<span class="k">${escapeHtml(str)}</span>${colon}`;
+			else html += `<span class="s">${escapeHtml(str)}</span>`;
+			last = match.index + whole.length;
+		}
+		return html + escapeHtml(json.slice(last));
+	}
+
+	/** Enough Markdown for the orchestrator's replies: paragraphs, bullet lists and bold. */
+	function renderMarkdown(text) {
+		const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+		return text.trim().split(/\n{2,}/).map((block) => {
+			const lines = block.split('\n');
+			if (lines.every((l) => /^\s*[-*] /.test(l))) {
+				return '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ''))}</li>`).join('') + '</ul>';
+			}
+			return `<p>${lines.map(inline).join('<br>')}</p>`;
+		}).join('');
+	}
+
+	function sizeOf(value) {
+		const chars = JSON.stringify(value).length;
+		return `${chars.toLocaleString('en-GB')} characters, about ${Math.round(chars / 4).toLocaleString('en-GB')} tokens`;
+	}
+
+	// Lanes are at 1/6, 1/2 and 5/6 of the width.
+	const LANE = { citizen: 16.666, orchestrator: 50, search: 83.333 };
+
+	function arrow(from, to, label, reply = false) {
+		const left = Math.min(LANE[from], LANE[to]);
+		const right = 100 - Math.max(LANE[from], LANE[to]);
+		const direction = LANE[to] > LANE[from] ? 'right' : 'left';
+		return `<div class="app-sequence__row"><div class="app-arrow app-arrow--${direction}${reply ? ' app-arrow--reply' : ''}" ` +
+			`style="left: ${left}%; right: ${right}%;"></div><div class="app-arrow__label" style="left: calc(${left}% + 6px); right: calc(${right}% + 6px);">${escapeHtml(label)}</div></div>`;
+	}
+
+	function note(decision) {
+		const d = DECISIONS[decision];
+		return `<div class="app-sequence__row"><div class="app-note"><strong class="govuk-tag ${d.tag}">${d.label}</strong></div></div>`;
+	}
+
+	/** The journey the reply names, if it names one of the candidates. */
+	function namedCandidate(text, candidates) {
+		return candidates.find((c) => text.includes(c.title)) || null;
+	}
+
+	/**
+	 * Turns the recorded events into steps. Each step adds rows to the sequence diagram and has its own
+	 * detail, shown when the step is selected.
+	 */
+	function buildSteps(scenario) {
+		const steps = [];
+		let candidates = [];
+		let searchedThisTurn = false;
+		let turn = 0;
+
+		for (const event of scenario.events) {
+			if (event.kind === 'citizen') {
+				turn += 1;
+				searchedThisTurn = false;
+				steps.push({
+					rows: arrow('citizen', 'orchestrator', `“${truncate(event.text, 48)}”`),
+					title: turn === 1 ? 'The citizen describes a need' : 'The citizen answers',
+					body: `<blockquote class="app-quote">${escapeHtml(event.text)}</blockquote>` +
+						`<p class="govuk-body">The orchestrator owns the conversation. ${turn === 1
+							? 'It does not know in advance which service journeys exist, and decides for itself whether to search.'
+							: 'Journey Search is stateless and keeps nothing between calls, so anything from earlier is up to the orchestrator.'}</p>`,
+				});
+			}
+
+			if (event.kind === 'search_request') {
+				searchedThisTurn = true;
+				const limitSet = event.input.limit !== undefined;
+				const limit = limitSet ? event.input.limit : 5;
+				steps.push({
+					rows: arrow('orchestrator', 'search', `Search: “${truncate(event.input.query, 40)}”`),
+					title: 'The orchestrator searches for service journeys',
+					body: `<p class="govuk-body">It writes the query itself, as a self-contained description of the citizen's need.</p>` +
+						`<pre class="app-code">search_service_journeys(\n    query: <span class="s">${escapeHtml(JSON.stringify(event.input.query))}</span>,\n    limit: <span class="n">${limit}</span>\n)</pre>` +
+						`<p class="govuk-body-s app-code-caption">${limitSet ? `The orchestrator set the limit to ${limit}.` : 'The orchestrator did not set a limit, so the default of 5 applies.'}</p>`,
+				});
+			}
+
+			if (event.kind === 'search_response') {
+				candidates = event.json.candidates;
+				steps.push({
+					rows: arrow('search', 'orchestrator', `${candidates.length} candidates`, true),
+					title: `Journey Search returns ${candidates.length} candidates`,
+					body: `<p class="govuk-body">Ranked candidates, each with an ID, title and brief description. Search favours recall over precision: returning a candidate does not mean it is suitable.</p>` +
+						`<pre class="app-code">${renderJson(event.json)}</pre>` +
+						`<p class="govuk-body-s app-code-caption">Added to the orchestrator's context: ${sizeOf(event.json)}.</p>`,
+				});
+			}
+
+			if (event.kind === 'reply') {
+				const d = DECISIONS[event.decision];
+				const chosen = namedCandidate(event.text, candidates);
+				const why = {
+					execute: chosen
+						? `It judges that <strong>${escapeHtml(chosen.title)}</strong> (workflow ${escapeHtml(chosen.workflow_id)}) fits.${!searchedThisTurn && candidates.length ? ' It chooses from the candidates it already has, without searching again.' : ''} It would start the journey through Legibility's separate execution interface, which is outside this contract and this demo.`
+						: 'It judges that one candidate fits.',
+					clarify: 'Several candidates could fit, so it asks the citizen. The citizen decides which service they want to use.',
+					do_not_route: 'It judges that none of the candidates fits. A high ranking is not evidence that a journey is appropriate.',
+					no_search: 'It decides a search is not appropriate. No request is made to Journey Search.',
+				}[event.decision];
+				steps.push({
+					rows: note(event.decision) + arrow('orchestrator', 'citizen', 'Reply'),
+					title: `The orchestrator decides: ${d.label}`,
+					body: `<p class="govuk-body"><strong class="govuk-tag ${d.tag}">${d.label}</strong></p>` +
+						`<p class="govuk-body">${why}</p>` +
+						`<h3 class="govuk-heading-s">Reply to the citizen</h3>` +
+						`<div class="app-quote">${renderMarkdown(event.text)}</div>`,
+				});
+			}
+		}
+		return steps;
+	}
+
+	// --- State and rendering ---------------------------------------------------
+
+	let scenario = null;
+	let steps = [];
+	let current = 1;
+
+	function renderStep() {
+		const total = steps.length;
+		const range = $('step');
+		range.max = String(total);
+		range.value = String(current);
+		$('step-label').textContent = `Step ${current} of ${total}`;
+		range.setAttribute('aria-valuetext', `Step ${current} of ${total}: ${steps[current - 1].title}`);
+		$('previous').disabled = current <= 1;
+		$('next').disabled = current >= total;
+
+		$('sequence').innerHTML = steps.map((s, n) => {
+			const state = n + 1 === current ? ' is-current' : '';
+			return s.rows.replaceAll('class="app-sequence__row"', `class="app-sequence__row${state}"${n + 1 > current ? ' hidden' : ''}`);
+		}).join('');
+
+		const s = steps[current - 1];
+		$('detail').innerHTML = `<h2 class="govuk-heading-m">${s.title}</h2>${s.body}`;
+	}
+
+	function goTo(step) {
+		current = Math.max(1, Math.min(step, steps.length));
+		renderStep();
+	}
+
+	function selectScenario(id) {
+		scenario = DEMO.scenarios.find((s) => s.id === id) || DEMO.scenarios[0];
+		steps = buildSteps(scenario);
+		const index = DEMO.scenarios.indexOf(scenario);
+
+		$('caption').textContent = `Scenario ${index + 1} of ${DEMO.scenarios.length}`;
+		$('title').textContent = scenario.label;
+		$('point').textContent = scenario.point;
+		document.querySelectorAll('.app-side-nav__item').forEach((item) => {
+			const isCurrent = item.dataset.id === scenario.id;
+			item.classList.toggle('app-side-nav__item--current', isCurrent);
+			const link = item.querySelector('a');
+			if (isCurrent) link.setAttribute('aria-current', 'page');
+			else link.removeAttribute('aria-current');
+		});
+		try { history.replaceState(null, '', '#' + scenario.id); } catch (e) { /* the hash is only a convenience */ }
+		goTo(1);
+	}
+
+	function init() {
+		$('scenario-nav').innerHTML = DEMO.scenarios.map((s) => {
+			const first = s.events.find((e) => e.kind === 'citizen').text;
+			return `<li class="app-side-nav__item" data-id="${s.id}"><a class="govuk-link" href="#${s.id}">${escapeHtml(s.label)}</a>` +
+				`<span class="app-side-nav__hint">“${escapeHtml(truncate(first, 60))}”</span></li>`;
+		}).join('');
+		$('scenario-nav').addEventListener('click', (e) => {
+			const item = e.target.closest('.app-side-nav__item');
+			if (!item) return;
+			e.preventDefault();
+			selectScenario(item.dataset.id);
+		});
+
+		$('step').addEventListener('input', (e) => goTo(Number(e.target.value)));
+		$('previous').addEventListener('click', () => goTo(current - 1));
+		$('next').addEventListener('click', () => goTo(current + 1));
+		document.addEventListener('keydown', (e) => {
+			if (e.target.matches('input, textarea, select') || e.altKey || e.metaKey || e.ctrlKey) return;
+			if (e.key === 'ArrowRight') goTo(current + 1);
+			if (e.key === 'ArrowLeft') goTo(current - 1);
+		});
+
+		$('about').innerHTML =
+			`<p class="govuk-body">Each scenario is a real run, recorded on ${escapeHtml(DEMO.recorded_at)}. The orchestrator is a stand-in: a Strands agent using ${escapeHtml(DEMO.orchestrator_model)} on Amazon Bedrock, with the prototype <code>search_service_journeys</code> tool over a catalogue of ${DEMO.catalogue_size} GOV.UK Forms. Requests and responses are shown exactly as they crossed the boundary. The decision labels mark which RFC outcome each reply represents.</p>` +
+			`<p class="govuk-body">How Journey Search finds and ranks candidates is internal to Legibility and is not part of the contract, so it is not shown.</p>` +
+			`<p class="govuk-body">The stand-in orchestrator was given this system prompt, based on the orchestrator's responsibilities in the RFC:</p>` +
+			`<pre class="app-footer-prompt">${escapeHtml(DEMO.system_prompt)}</pre>` +
+			`<p class="govuk-body">Use the left and right arrow keys to move between steps.</p>`;
+
+		const fromHash = location.hash.slice(1);
+		selectScenario(DEMO.scenarios.some((s) => s.id === fromHash) ? fromHash : DEMO.scenarios[0].id);
+	}
+
+	init();
+</script>

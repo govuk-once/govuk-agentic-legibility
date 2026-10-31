@@ -197,7 +197,7 @@ def test_query_embedding_uses_search_query_input_type():
 
 def test_payload_contains_only_candidate_fields(index):
     payload = tool.search_payload("report an octopus", 2, index)
-    assert payload["query"] == "report an octopus"
+    assert set(payload) == {"candidates"}
     assert len(payload["candidates"]) == 2
     assert set(payload["candidates"][0]) == {"workflow_id", "title", "description"}
     assert payload["candidates"][0]["workflow_id"] == "265276"

@@ -49,8 +49,8 @@ def search_payload(
     """The JSON the orchestrator sees. Kept separate so its size can be inspected."""
     limit = max(1, min(int(limit), MAX_LIMIT))
     hits = (index or get_index()).search(query, limit, SEARCH_METHOD)
+    # Exactly the response shape in the Journey Search Contract RFC.
     return {
-        "query": query,
         "candidates": [
             {
                 "workflow_id": hit.journey.workflow_id,

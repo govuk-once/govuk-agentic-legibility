@@ -1,0 +1,253 @@
+{
+  "recorded_at": "31 October 2026",
+  "orchestrator_model": "eu.anthropic.claude-sonnet-5-5",
+  "catalogue_size": 547,
+  "system_prompt": "You are the GOV.UK assistant. You help citizens use government services. Keep replies short.\nYou do not know in advance which service journeys exist. Search for them when the citizen may want to do something a government service could handle. Do not search for general information questions.\nSearch results are candidates, not matches. Judge each one yourself, even if only one is returned. Then:\n- if one journey fits, name it and offer to start it;\n- if several could fit, or you need more information, ask the citizen or let them choose;\n- if none fits, say you have not found a suitable service.\nIf the citizen's answer settles which journey they need, choose from the candidates you already have rather than searching again. You cannot start journeys in this demo.",
+  "scenarios": [
+    {
+      "id": "octopus",
+      "label": "Unexpected service",
+      "point": "The citizen does not ask for a service, and nobody would expect one to exist. The orchestrator searches anyway, because it should not assume it knows which journeys exist.",
+      "events": [
+        {
+          "kind": "citizen",
+          "text": "I was diving near Plymouth yesterday and spotted an octopus!"
+        },
+        {
+          "kind": "search_request",
+          "input": {
+            "query": "report an octopus sighting while diving"
+          }
+        },
+        {
+          "kind": "search_response",
+          "status": "success",
+          "json": {
+            "candidates": [
+              {
+                "workflow_id": "265276",
+                "title": "Octopus sighting? Let us know!",
+                "description": "Report an octopus sighting to the Marine Management Organisation, for divers, recreational fishers and the public. Give the date and location, species (common, curled/horned or unknown), optional details and photos, and optional contact details."
+              },
+              {
+                "workflow_id": "264001",
+                "title": "Contact HSE about testing and monitoring",
+                "description": "Make an enquiry to HSE about its testing and monitoring services, such as explosive atmospheres, diving equipment, fire safety or proficiency testing. Collects contact details, the specific test or service of interest, enquiry details, and organisation industry and size."
+              },
+              {
+                "workflow_id": "3069",
+                "title": "Report a concern about a Poisons Act substance",
+                "description": "Report a concern about a person or business in connection with a substance defined in the Poisons Act, such as explosives precursors. Give details of who and where they are and what worries you; your own contact details are optional. Sent to the Home Office Chemical Reporting Team."
+              },
+              {
+                "workflow_id": "5371",
+                "title": "Report a suspected designated person",
+                "description": "Report to OFSI your knowledge or suspicion that a person or organisation is a designated person subject to financial sanctions, giving their Consolidated List group ID, your reasons and identifying details. Use a separate form for each person; frozen assets and suspected breaches have their own reports."
+              },
+              {
+                "workflow_id": "264758",
+                "title": "Immigration Enforcement – first reporting event: Middlesborough",
+                "description": "Provide personal, household, health, work and identity details before a first immigration reporting appointment at Middlesborough Reporting Centre, using a CEPR or UAN. Also lets you say whether you want voluntary return help and upload passport or ID."
+              }
+            ]
+          }
+        },
+        {
+          "kind": "reply",
+          "text": "I found a service that fits: **\"Octopus sighting? Let us know!\"** It's run by the Marine Management Organisation. Divers can use it to report a sighting.\n\nYou'd give the date and location, say which species it was (common, curled/horned or unknown), and add any photos or details. Contact details are optional.\n\nI can't start it for you in this demo, but that's the form you need. Do you want any help working out what to enter?",
+          "decision": "execute"
+        }
+      ]
+    },
+    {
+      "id": "clarify",
+      "label": "Ambiguous need",
+      "point": "Several journeys could fit. The orchestrator asks the citizen, then chooses from the candidates it already has.",
+      "events": [
+        {
+          "kind": "citizen",
+          "text": "I need to change something on my redundancy claim."
+        },
+        {
+          "kind": "search_request",
+          "input": {
+            "query": "change details on my redundancy claim"
+          }
+        },
+        {
+          "kind": "search_response",
+          "status": "success",
+          "json": {
+            "candidates": [
+              {
+                "workflow_id": "289",
+                "title": "Amend my claim for unpaid wages",
+                "description": "Amend an existing redundancy claim for unpaid wages made to the Insolvency Service. Confirm your identity with your claim reference and National Insurance number, then give corrected details of wages owed, unpaid dates, net or gross amounts and any attachment of earnings."
+              },
+              {
+                "workflow_id": "356",
+                "title": "Amend my employment details",
+                "description": "Amend employment details on an existing redundancy claim: gross weekly pay, employment start and end dates, and the date notice was given. Verify your identity with your claim reference and National Insurance number. Personal details are changed using a separate form."
+              },
+              {
+                "workflow_id": "358",
+                "title": "Amend my personal details",
+                "description": "Amend personal details on an existing redundancy payment claim, such as name, National Insurance number, date of birth, email, home address or mobile number. Verify identity with the claim reference and current details; employment details are covered by a separate form."
+              },
+              {
+                "workflow_id": "232",
+                "title": "Amend my claim for holiday taken but not paid",
+                "description": "Amend an existing redundancy claim for holidays taken but not paid, changing the holiday year start date, leave entitlement in days, or dates of unpaid holiday. Verify identity with your claim reference and National Insurance number first."
+              },
+              {
+                "workflow_id": "6",
+                "title": "Amend my claim for holiday pay accrued",
+                "description": "Amend an existing redundancy claim for accrued holiday pay by correcting the leave year start date, days entitled, days taken and days carried over. Verify identity with claim reference and National Insurance number. Does not cover holiday taken but not paid."
+              }
+            ]
+          }
+        },
+        {
+          "kind": "reply",
+          "text": "What do you want to change on your claim? The options are:\n\n- **Unpaid wages**: amounts owed or unpaid dates\n- **Employment details**: weekly pay, start or end dates, or the date notice was given\n- **Personal details**: name, National Insurance number, date of birth, email, address or mobile number\n- **Holiday taken but not paid**: the holiday year start date, leave entitlement, or dates of unpaid holiday\n- **Accrued holiday pay**: leave year start date, days entitled, days taken or days carried over\n\nTell me which one applies and I can point you to the right form.",
+          "decision": "clarify"
+        },
+        {
+          "kind": "citizen",
+          "text": "It's holiday I took but was never paid for."
+        },
+        {
+          "kind": "reply",
+          "text": "The form you need is **Amend my claim for holiday taken but not paid**. You can use it to change the holiday year start date, your leave entitlement in days, or the dates of unpaid holiday. You'll need your claim reference and National Insurance number to verify your identity.\n\nI can't start it from this demo.",
+          "decision": "execute"
+        }
+      ]
+    },
+    {
+      "id": "cartel",
+      "label": "No obvious keywords",
+      "point": "The citizen's words do not match the journey's title. The orchestrator writes a self-contained query describing the need, and search finds the right journey.",
+      "events": [
+        {
+          "kind": "citizen",
+          "text": "I run a small building firm and I think our timber suppliers are secretly agreeing prices."
+        },
+        {
+          "kind": "search_request",
+          "input": {
+            "query": "report suspected price fixing cartel between suppliers"
+          }
+        },
+        {
+          "kind": "search_response",
+          "status": "success",
+          "json": {
+            "candidates": [
+              {
+                "workflow_id": "4822",
+                "title": "Report a cartel to the CMA",
+                "description": "Report suspected cartels or other competition concerns to the CMA, including abuse of market power and bribery, fraud or corruption affecting competition. Give details of the issue, businesses involved and UK nation affected, and optionally upload up to four evidence files, with or without your contact details."
+              },
+              {
+                "workflow_id": "6375",
+                "title": "Oil Price Cap (OPC) suspected breach reporting form",
+                "description": "Report a suspected breach of the Russia oil price cap to OFSI, either as a final report or a pre-notification. Collects details of the reporter, suspected breachers, oil transaction, voyage, vessel and sanctions evasion red flags, with optional evidence uploads."
+              },
+              {
+                "workflow_id": "6771",
+                "title": "How to report a suspected breach of sanctions",
+                "description": "Work out which body to report a suspected UK sanctions breach to, by answering questions on financial, trade, Oil Price Cap, trade services, aircraft or shipping, and director disqualification sanctions. It directs you elsewhere rather than taking the report, and also collects technical problem comments."
+              },
+              {
+                "workflow_id": "6158",
+                "title": "Financial sanctions suspected breach reporting form",
+                "description": "Report a suspected breach of UK financial sanctions to OFSI, either as a self-report or for a third party. Collects details of up to three suspected breachers, the sanctions regime, transaction values, trust services, licence breaches, and supporting documents."
+              },
+              {
+                "workflow_id": "265386",
+                "title": "Report a food crime",
+                "description": "Report a suspected food crime to the Food Standards Agency's National Food Crime Unit, giving details of the businesses and people involved, how and when it happens, and optional files. Reports can be anonymous, and you can choose whether to share them with a local authority."
+              }
+            ]
+          }
+        },
+        {
+          "kind": "reply",
+          "text": "You can report this through **Report a cartel to the CMA**. It's the Competition and Markets Authority's form for suspected cartels and other competition concerns, which includes price-fixing. You give details of the issue, the businesses involved and the UK nation affected. You can also upload up to four evidence files. You can include your contact details or leave them out.\n\nWould you like to start it?",
+          "decision": "execute"
+        }
+      ]
+    },
+    {
+      "id": "passport",
+      "label": "Not in the catalogue",
+      "point": "Search returns candidates even when none is right. The orchestrator must judge them, and here it finds none suitable.",
+      "events": [
+        {
+          "kind": "citizen",
+          "text": "I need to renew my passport."
+        },
+        {
+          "kind": "search_request",
+          "input": {
+            "query": "renew my passport"
+          }
+        },
+        {
+          "kind": "search_response",
+          "status": "success",
+          "json": {
+            "candidates": [
+              {
+                "workflow_id": "265578",
+                "title": "EU Alignment – Plant Passport EOI",
+                "description": "Register interest in additional 2026 growing season inspections for EU Plant Passport alignment, if you are already authorised to issue UK Plant Passports. Collects business and contact details, agreement to the EU alignment declaration, and which listed plants you grow or want to move to Northern Ireland or Ireland."
+              },
+              {
+                "workflow_id": "267100",
+                "title": "New starter",
+                "description": "Request a building security pass for a new starter at Welsh Government offices or tenant organisations. Collects the starter's name, start date, organisation, optional HRIS reference and vetting clearance details, and an uploaded passport-style photo."
+              },
+              {
+                "workflow_id": "265949",
+                "title": "Request to restore and renew a registration (TM13)",
+                "description": "Request restoration and renewal of a lapsed UK trade mark whose renewal date was 6 to 12 months ago. Give the trade mark number, classes to renew and a statement explaining the missed renewal, then pay the restoration and renewal fees by card or deposit account."
+              },
+              {
+                "workflow_id": "264758",
+                "title": "Immigration Enforcement – first reporting event: Middlesborough",
+                "description": "Provide personal, household, health, work and identity details before a first immigration reporting appointment at Middlesborough Reporting Centre, using a CEPR or UAN. Also lets you say whether you want voluntary return help and upload passport or ID."
+              },
+              {
+                "workflow_id": "563",
+                "title": "Expression of interest to become authorised to issue Plant Passports",
+                "description": "Register interest in becoming authorised to issue UK Plant Passports. Collects the business trading name, head office address, the person responsible for plant passporting, contact phone and email, and an optional APHA customer reference number."
+              }
+            ]
+          }
+        },
+        {
+          "kind": "reply",
+          "text": "I searched but didn't find a service for renewing a personal passport. The results were unrelated: plant passports, trade marks and similar.\n\nTry the official GOV.UK passport renewal page, or tell me more about what you need and I'll search again.",
+          "decision": "do_not_route"
+        }
+      ]
+    },
+    {
+      "id": "travel",
+      "label": "Information question",
+      "point": "Deciding when to search belongs to the orchestrator. This is a question, not something a service journey does, so it answers without searching.",
+      "events": [
+        {
+          "kind": "citizen",
+          "text": "What's the FCDO travel advice for Spain?"
+        },
+        {
+          "kind": "reply",
+          "text": "I can't give you the current FCDO travel advice for Spain. It changes often, and I can only help you find forms to complete. You can read the latest advice on GOV.UK at **www.gov.uk/foreign-travel-advice/spain**. It covers safety and security, entry requirements, health, and local laws.\n\nIf you want to do something specific, like report a problem abroad or apply for a passport, tell me and I'll look for a service.",
+          "decision": "no_search"
+        }
+      ]
+    }
+  ]
+}
