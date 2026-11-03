@@ -6,7 +6,8 @@ import {
 	metadataSchema,
 	processRefSchema,
 	stateRefSchema,
-	variablePathSchema
+	variablePathSchema,
+	versionSchema
 } from './primitives';
 
 describe('variablePathSchema', () => {
@@ -66,6 +67,16 @@ describe('durationOrRefSchema', () => {
 	it('rejects anything else', () => {
 		expect(durationOrRefSchema.safeParse('soon').success).toBe(false);
 		expect(durationOrRefSchema.safeParse(10).success).toBe(false);
+	});
+});
+
+describe('versionSchema', () => {
+	it.each(['0.1.0', '1.0.0', '12.34.56', '1.0.0-beta.1'])('accepts %s', (version) => {
+		expect(versionSchema.safeParse(version).success).toBe(true);
+	});
+
+	it.each(['1', '1.0', 'v1.0.0', '1.0.0.0', '01.0.0', '', 1])('rejects %s', (version) => {
+		expect(versionSchema.safeParse(version).success).toBe(false);
 	});
 });
 

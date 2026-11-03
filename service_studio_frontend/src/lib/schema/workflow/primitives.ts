@@ -38,6 +38,18 @@ export const dynamicRefSchema = z.strictObject({ $: variablePathSchema });
 export const durationOrRefSchema = z.union([durationSchema, dynamicRefSchema]);
 
 /**
+ * A semantic version such as "0.1.0", used for a workflow and for each process in it. Checking the
+ * three numbers means a version can be compared and a mismatch between the manifest and a process
+ * file can be spotted.
+ */
+export const versionSchema = z
+	.string()
+	.regex(
+		/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
+		'Must be a version such as "0.1.0"'
+	);
+
+/**
  * The name of a state inside its own process, used wherever one state points at the next. The
  * check that the name belongs to a real state is made later, once the whole process is known.
  */
@@ -60,6 +72,7 @@ export type VariablePath = z.infer<typeof variablePathSchema>;
 export type Duration = z.infer<typeof durationSchema>;
 export type DynamicRef = z.infer<typeof dynamicRefSchema>;
 export type DurationOrRef = z.infer<typeof durationOrRefSchema>;
+export type Version = z.infer<typeof versionSchema>;
 export type StateRef = z.infer<typeof stateRefSchema>;
 export type ProcessRef = z.infer<typeof processRefSchema>;
 export type Metadata = z.infer<typeof metadataSchema>;
