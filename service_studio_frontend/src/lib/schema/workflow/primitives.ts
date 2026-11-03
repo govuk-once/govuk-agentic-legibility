@@ -38,6 +38,18 @@ export const dynamicRefSchema = z.strictObject({ $: variablePathSchema });
 export const durationOrRefSchema = z.union([durationSchema, dynamicRefSchema]);
 
 /**
+ * The name of a state inside its own process, used wherever one state points at the next. The
+ * check that the name belongs to a real state is made later, once the whole process is known.
+ */
+export const stateRefSchema = z.string().min(1, 'Give the name of a state');
+
+/**
+ * The name of a process, used where one state hands over to another process. The check that the
+ * process exists is made later, once every process in the workflow is known.
+ */
+export const processRefSchema = z.string().min(1, 'Give the name of a process');
+
+/**
  * Notes about a workflow, a process or a state, stored as text to text entries. Values are limited
  * to text because the executor ignores this map and only Service Studio and the channels read it,
  * so nested data would have no agreed meaning.
@@ -48,4 +60,6 @@ export type VariablePath = z.infer<typeof variablePathSchema>;
 export type Duration = z.infer<typeof durationSchema>;
 export type DynamicRef = z.infer<typeof dynamicRefSchema>;
 export type DurationOrRef = z.infer<typeof durationOrRefSchema>;
+export type StateRef = z.infer<typeof stateRefSchema>;
+export type ProcessRef = z.infer<typeof processRefSchema>;
 export type Metadata = z.infer<typeof metadataSchema>;

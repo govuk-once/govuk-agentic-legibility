@@ -4,6 +4,8 @@ import {
 	durationSchema,
 	dynamicRefSchema,
 	metadataSchema,
+	processRefSchema,
+	stateRefSchema,
 	variablePathSchema
 } from './primitives';
 
@@ -64,6 +66,28 @@ describe('durationOrRefSchema', () => {
 	it('rejects anything else', () => {
 		expect(durationOrRefSchema.safeParse('soon').success).toBe(false);
 		expect(durationOrRefSchema.safeParse(10).success).toBe(false);
+	});
+});
+
+describe('stateRefSchema', () => {
+	it('accepts the name of a state', () => {
+		expect(stateRefSchema.safeParse('confirm_intent').success).toBe(true);
+	});
+
+	it('rejects an empty name and a value that is not text', () => {
+		expect(stateRefSchema.safeParse('').success).toBe(false);
+		expect(stateRefSchema.safeParse(null).success).toBe(false);
+	});
+});
+
+describe('processRefSchema', () => {
+	it('accepts the name of a process', () => {
+		expect(processRefSchema.safeParse('driver_details').success).toBe(true);
+	});
+
+	it('rejects an empty name and a value that is not text', () => {
+		expect(processRefSchema.safeParse('').success).toBe(false);
+		expect(processRefSchema.safeParse(3).success).toBe(false);
 	});
 });
 
