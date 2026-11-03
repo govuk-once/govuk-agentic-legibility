@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { processSchema, type Process } from './process';
+import { reachableInOrder } from './journey-order';
 import { routesOf } from './routes';
 import { workflowSchema, type Workflow } from './workflow';
 
@@ -146,29 +147,11 @@ function checkWorkflow(workflow: Workflow): WorkflowIssue[] {
 }
 
 /**
- * Finds the states that can be reached by following routes from the start state. The checks above
- * have already proved every route leads to a real state, so each route can be followed safely.
- */
-function reachableStates(process: Process): Set<string> {
-	const reached = new Set<string>();
-	const waiting = [process.start];
-
-	while (waiting.length) {
-		const name = waiting.pop()!;
-		if (reached.has(name)) continue;
-		reached.add(name);
-		waiting.push(...routesOf(process.states[name]).map((route) => route.target));
-	}
-
-	return reached;
-}
-
-/**
  * Warns about each state in a process that no route leads to. Such a state is harmless but can
  * never run, which usually means a route was removed by mistake or a step was left behind.
  */
 function warnAboutProcess(process: Process, pathPrefix = ''): WorkflowIssue[] {
-	const reached = reachableStates(process);
+	const reached = new Set(reachableInOrder(process));
 
 	return Object.keys(process.states)
 		.filter((name) => !reached.has(name))
@@ -219,8 +202,7 @@ function warnAboutWorkflow(workflow: Workflow): WorkflowIssue[] {
 		used.add(id);
 
 		const process = processes[id];
-		const reached = reachableStates(process);
-		for (const name of reached) {
+		for (const name of reachableInOrder(process)) {
 			const state = process.states[name];
 			if (state.type === 'invoke') waiting.push(state.process);
 		}

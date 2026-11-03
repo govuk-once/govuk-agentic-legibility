@@ -1,0 +1,119 @@
+{
+    "process_id": "organ_donation",
+    "version": "0.1.0",
+    "start": "get_organ_status",
+    "vars": {
+        "organ_data": null,
+        "update_organ": false,
+        "decision": null,
+        "organ_options": [
+            {
+                "id": "1",
+                "label": "Donate all organs and tissue"
+            },
+            {
+                "id": "2",
+                "label": "Donate some organs and tissue"
+            },
+            {
+                "id": "3",
+                "label": "Do not donate"
+            }
+        ]
+    },
+    "states": {
+        "get_organ_status": {
+            "type": "call",
+            "method": "GET",
+            "service": "dvla",
+            "url": "/app/dvla/v1/organs/{{input.driver_id}}",
+            "idempotency_key": "{{workflow_id}}:get_organ_status",
+            "assign": "organ_data",
+            "capture": {
+                "anyOrgans": "body.organDonor.anyOrgans",
+                "kidneys": "body.organDonor.kidneys",
+                "liver": "body.organDonor.liver",
+                "heart": "body.organDonor.heart",
+                "pancreas": "body.organDonor.pancreas",
+                "cornea": "body.organDonor.cornea",
+                "lungs": "body.organDonor.lungs"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "prompt_organ_status_fallback"
+                }
+            ],
+            "next": "prompt_organ_status"
+        },
+        "prompt_organ_status": {
+            "type": "input",
+            "prompt": "Your current NHS Organ Donor preferences on file:\n• All Organs: {{organ_data.anyOrgans}}\n• Kidneys: {{organ_data.kidneys}}\n• Liver: {{organ_data.liver}}\n• Heart: {{organ_data.heart}}\n• Pancreas: {{organ_data.pancreas}}\n• Cornea: {{organ_data.cornea}}\n• Lungs: {{organ_data.lungs}}\n\nWould you like to update your preferences on the NHS Organ Donor Register?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "update_organ",
+            "next": "branch_organ"
+        },
+        "prompt_organ_status_fallback": {
+            "type": "input",
+            "prompt": "Would you like to register or update your preferences on the NHS Organ Donor Register?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "update_organ",
+            "next": "branch_organ"
+        },
+        "branch_organ": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "update_organ"
+                    },
+                    "next": "prompt_decision"
+                }
+            ],
+            "default": "say_no_change"
+        },
+        "prompt_decision": {
+            "type": "input",
+            "prompt": "Select your new NHS Organ Donation decision:",
+            "schema": {
+                "kind": "select_one",
+                "options_from": "organ_options",
+                "value_key": "id",
+                "label_key": "label"
+            },
+            "assign": "decision",
+            "next": "say_preference_submitted"
+        },
+        "say_preference_submitted": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your organ donation preference has been submitted to the NHS Organ Donor Register.",
+            "next": "end_updated"
+        },
+        "say_no_change": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "No changes have been made to your Organ Donation preferences.",
+            "next": "end_no_change"
+        },
+        "end_updated": {
+            "type": "end",
+            "status": "success",
+            "outcome": "organ_preference_updated",
+            "return": {
+                "$": "decision"
+            }
+        },
+        "end_no_change": {
+            "type": "end",
+            "status": "success",
+            "outcome": "organ_preference_unchanged",
+            "return": null
+        }
+    }
+}

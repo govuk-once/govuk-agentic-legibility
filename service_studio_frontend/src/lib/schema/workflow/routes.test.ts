@@ -12,7 +12,7 @@ describe('routesOf', () => {
 	});
 
 	it.each(['output', 'assign', 'wait'])('gives a %s state its next route only', (type) => {
-		expect(routesOf(state({ type, next: 'on' }))).toEqual([{ target: 'on', path: ['next'] }]);
+		expect(routesOf(state({ type, next: 'on' }))).toEqual([{ target: 'on', path: ['next'], kind: 'next' }]);
 	});
 
 	it('lists a choice rules in order, then the default', () => {
@@ -25,9 +25,9 @@ describe('routesOf', () => {
 			default: 'fallback'
 		});
 		expect(routesOf(choice)).toEqual([
-			{ target: 'first', path: ['rules', 0, 'next'] },
-			{ target: 'second', path: ['rules', 1, 'next'] },
-			{ target: 'fallback', path: ['default'] }
+			{ target: 'first', path: ['rules', 0, 'next'], kind: 'rule' },
+			{ target: 'second', path: ['rules', 1, 'next'], kind: 'rule' },
+			{ target: 'fallback', path: ['default'], kind: 'default' }
 		]);
 	});
 
@@ -39,9 +39,9 @@ describe('routesOf', () => {
 			timeout: { after: 'PT5S', next: 'give_up' }
 		});
 		expect(routesOf(input)).toEqual([
-			{ target: 'on', path: ['next'] },
-			{ target: 'again', path: ['on_invalid'] },
-			{ target: 'give_up', path: ['timeout', 'next'] }
+			{ target: 'on', path: ['next'], kind: 'next' },
+			{ target: 'again', path: ['on_invalid'], kind: 'on_invalid' },
+			{ target: 'give_up', path: ['timeout', 'next'], kind: 'timeout' }
 		]);
 	});
 
@@ -55,9 +55,9 @@ describe('routesOf', () => {
 			]
 		});
 		expect(routesOf(withCatch)).toEqual([
-			{ target: 'on', path: ['next'] },
-			{ target: 'failed', path: ['catch', 0, 'next'] },
-			{ target: 'retry', path: ['catch', 1, 'next'] }
+			{ target: 'on', path: ['next'], kind: 'next' },
+			{ target: 'failed', path: ['catch', 0, 'next'], kind: 'catch' },
+			{ target: 'retry', path: ['catch', 1, 'next'], kind: 'catch' }
 		]);
 	});
 

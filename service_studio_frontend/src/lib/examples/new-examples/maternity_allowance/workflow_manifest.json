@@ -1,0 +1,63 @@
+{
+  "workflow_id": 2,
+  "schema": "sfsm/0.2",
+  "id": "dwp.maternity_allowance_ma1_claim",
+  "version": "0.1.0",
+  "owner": "DWP",
+  "contact": "test@gov.uk",
+  "description": "DWP Maternity Allowance Claim journey.",
+  "state": "draft",
+  "metadata": {},
+  "entry": "maternity_allowance",
+  "executor": {
+    "workflow_id_template": "ma1-claim-{{input.nino}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P90D",
+    "search_attributes": {}
+  },
+  "defaults": {
+    "call": {
+      "timeouts": {
+        "start_to_close": "PT15S"
+      },
+      "retry": {
+        "max_attempts": 3,
+        "initial_interval": "PT1S",
+        "backoff_coefficient": 2.0,
+        "max_interval": "PT30S",
+        "retry_on": [
+          "5xx",
+          "429",
+          "timeout",
+          "connection"
+        ]
+      }
+    }
+  },
+  "processes": [
+    {
+      "process_id": "maternity_allowance",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_you",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_baby",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_work",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "about_payment",
+      "version": "0.1.0"
+    },
+    {
+      "process_id": "calculate_deadlines",
+      "version": "0.1.0"
+    }
+  ]
+}

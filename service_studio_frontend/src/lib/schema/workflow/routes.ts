@@ -8,9 +8,15 @@ import type { State } from './process';
 
 /**
  * One way out of a state. The target is the name of the state it leads to, and the path says where
- * in the state it was written, for example ["rules", 0, "next"], so an error can point at it.
+ * in the state it was written, for example ["rules", 0, "next"], so an error can point at it. The
+ * kind names the key the route belongs to, so the graph can tell a normal onward route from a
+ * timeout or an error route without reading the path.
  */
-export type Route = { target: string; path: (string | number)[] };
+export type Route = {
+	target: string;
+	path: (string | number)[];
+	kind: 'next' | 'rule' | 'default' | 'on_invalid' | 'timeout' | 'catch';
+};
 
 /**
  * Lists every route out of a state, in the order they are written. An end state has none. The
@@ -24,14 +30,14 @@ export function routesOf(state: State): Route[] {
 		case 'choice':
 			// Rules are listed first, in the order they are tested, and the default comes last.
 			return [
-				...state.rules.map((rule, index) => ({ target: rule.next, path: ['rules', index, 'next'] })),
-				{ target: state.default, path: ['default'] }
+				...state.rules.map((rule, index): Route => ({ target: rule.next, path: ['rules', index, 'next'], kind: 'rule' })),
+				{ target: state.default, path: ['default'], kind: 'default' }
 			];
 
 		case 'input': {
-			const routes: Route[] = [{ target: state.next, path: ['next'] }];
-			if (state.on_invalid) routes.push({ target: state.on_invalid, path: ['on_invalid'] });
-			if (state.timeout) routes.push({ target: state.timeout.next, path: ['timeout', 'next'] });
+			const routes: Route[] = [{ target: state.next, path: ['next'], kind: 'next' }];
+			if (state.on_invalid) routes.push({ target: state.on_invalid, path: ['on_invalid'], kind: 'on_invalid' });
+			if (state.timeout) routes.push({ target: state.timeout.next, path: ['timeout', 'next'], kind: 'timeout' });
 			return routes;
 		}
 
@@ -39,13 +45,15 @@ export function routesOf(state: State): Route[] {
 		case 'invoke':
 			// A call and an invoke both have a next state and can also route a named error elsewhere.
 			return [
-				{ target: state.next, path: ['next'] },
-				...(state.catch ?? []).map((clause, index) => ({ target: clause.next, path: ['catch', index, 'next'] }))
+				{ target: state.next, path: ['next'], kind: 'next' },
+				...(state.catch ?? []).map(
+					(clause, index): Route => ({ target: clause.next, path: ['catch', index, 'next'], kind: 'catch' })
+				)
 			];
 
 		case 'output':
 		case 'assign':
 		case 'wait':
-			return [{ target: state.next, path: ['next'] }];
+			return [{ target: state.next, path: ['next'], kind: 'next' }];
 	}
 }
