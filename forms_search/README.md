@@ -1,5 +1,11 @@
 # Forms search
 
+> **Looking for the hosted Journey Search service?** It lives in
+> [`journey_search/`](journey_search/README.md). Teams connecting to it from
+> their own agent should read
+> [`journey_search/CONNECTING.md`](journey_search/CONNECTING.md).
+> This README covers the earlier local prototype.
+
 Prototype discovery of GOV.UK service journeys for the orchestrating agent:
 
 1. **Enrichment** (`enrich.py`) — generates a short description for each

@@ -21,10 +21,6 @@ dev = [
     "pytest-testdox>=3.1.0",
     "ruff>=0.15.20",
 ]
-# For the example client only; not installed in the service container.
-client = [
-    "strands-agents>=1.50.2",
-]
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
