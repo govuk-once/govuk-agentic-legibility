@@ -86,8 +86,8 @@ export function layoutJourneyGraph<Node extends LayoutNode>(
 
 	// Dagre orders nodes within a rank purely to minimise edge crossings, with no notion of which branch
 	// "comes first": a gateway's own routes can just as easily land with the later step on the left as on
-	// the right. Reassigning the same set of x positions dagre already chose, in the original step order
-	// instead, keeps its spacing while making left to right on the canvas match the step numbers.
+	// the right. Putting those routes back in the original step order, within the space dagre gave them,
+	// makes left to right on the canvas match the step numbers without changing the spacing.
 	reorderBranchSiblings(positionedNodes, edges);
 
 	const graphSize = graph.graph();
@@ -100,43 +100,64 @@ export function layoutJourneyGraph<Node extends LayoutNode>(
 }
 
 /**
- * For every node with more than one outgoing edge (a gateway's branch routes), sorts those targets into
- * the same order they appear in the input, then hands out dagre's own x positions for that rank to them
- * in that order. Mutates the positioned nodes in place, since it only ever reassigns an x each node
- * already has from dagre, never its rank or the set of positions available within it.
+ * For every node with more than one outgoing edge (a gateway's branch routes), puts the targets in the
+ * same left to right order as they appear in the input. The targets keep the space dagre gave them as a
+ * group: the left most one still starts where it did, and the gaps between neighbours are kept, so boxes
+ * of different widths cannot end up on top of each other. Mutates the positioned nodes in place, since it
+ * only ever moves a node sideways within its own rank.
  */
 function reorderBranchSiblings<Node extends LayoutNode>(positionedNodes: Node[], edges: LayoutEdge[]): void {
 	const orderIndex = new Map(positionedNodes.map((node, index) => [node.id, index]));
 	const nodeById = new Map(positionedNodes.map((node) => [node.id, node]));
 
-	const childrenBySource = new Map<string, string[]>();
+	// A set is used because two routes can lead to the same target, such as an error route and a normal
+	// route to one end state, and a node must only be placed once.
+	const childrenBySource = new Map<string, Set<string>>();
 	for (const edge of edges) {
-		const list = childrenBySource.get(edge.source);
-		if (list) {
-			list.push(edge.target);
+		const targets = childrenBySource.get(edge.source);
+		if (targets) {
+			targets.add(edge.target);
 		} else {
-			childrenBySource.set(edge.source, [edge.target]);
+			childrenBySource.set(edge.source, new Set([edge.target]));
 		}
 	}
 
+	// Nodes on the same rank share a centre line, so comparing centres works even when their heights differ.
+	const centreY = (node: Node) => node.position.y + nodeSize(node).height / 2;
+
 	for (const childIds of childrenBySource.values()) {
-		if (childIds.length < 2) continue;
-		const children = childIds.map((id) => nodeById.get(id)).filter((node): node is Node => !!node);
+		if (childIds.size < 2) continue;
+		const children = [...childIds].map((id) => nodeById.get(id)).filter((node): node is Node => !!node);
 		if (children.length < 2) continue;
 
-		// Only ever reassigns positions among nodes dagre already placed on the same rank: anything else
-		// sharing one source but landing elsewhere, which does not happen for a gateway's own routes but
-		// could for a step with an unrelated pair of edges, is left exactly where dagre put it.
-		const rankY = children[0].position.y;
-		if (!children.every((child) => Math.abs(child.position.y - rankY) < 0.5)) continue;
+		// Only ever moves nodes dagre already placed on the same rank: anything else sharing one source but
+		// landing elsewhere is left exactly where dagre put it.
+		const rankCentre = centreY(children[0]);
+		if (!children.every((child) => Math.abs(centreY(child) - rankCentre) < 0.5)) continue;
 
-		const slots = children.map((child) => child.position.x).sort((a, b) => a - b);
-		const inStepOrder = [...children].sort(
-			(a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0)
+		// The targets as dagre placed them from left to right, and the gap it left after each one.
+		const placed = [...children].sort((a, b) => a.position.x - b.position.x);
+		const gaps = placed.slice(1).map((node, index) => node.position.x - (placed[index].position.x + nodeSize(placed[index]).width));
+
+		// Another node of the same rank between the targets would be overlapped by the move, so the
+		// order dagre chose is kept in that case.
+		const left = placed[0].position.x;
+		const right = placed[placed.length - 1].position.x + nodeSize(placed[placed.length - 1]).width;
+		const blocked = positionedNodes.some(
+			(other) =>
+				!childIds.has(other.id) &&
+				Math.abs(centreY(other) - rankCentre) < 0.5 &&
+				other.position.x < right &&
+				other.position.x + nodeSize(other).width > left
 		);
+		if (blocked) continue;
 
+		const inStepOrder = [...children].sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+
+		let nextLeft = left;
 		inStepOrder.forEach((child, index) => {
-			child.position = { ...child.position, x: slots[index] };
+			child.position = { ...child.position, x: nextLeft };
+			nextLeft += nodeSize(child).width + (gaps[index] ?? 0);
 		});
 	}
 }

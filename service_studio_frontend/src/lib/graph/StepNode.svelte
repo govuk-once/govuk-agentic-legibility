@@ -2,9 +2,9 @@
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 	import type { ProcessStepNode } from './process-graph-types';
 
-	// selected comes from Svelte Flow's own selection state now, driven by clicking the node; opening the
-	// step editor is handled centrally in JourneyGraph.svelte's onnodeclick, not from inside this
-	// component, so the same one place decides what a click on any node type means.
+	// selected is set by the graph that holds this node, so a click on the node and a choice in the list
+	// of states highlight it in the same way. What a click means is decided in one place, the graph's
+	// onnodeclick, and not inside this component.
 	let { data, selected }: NodeProps<ProcessStepNode> = $props();
 </script>
 
@@ -22,6 +22,7 @@
 <div
 	class="journey-step-node"
 	class:journey-step-node--selected={selected}
+	class:journey-step-node--opens-process={data.opensProcess}
 	role="button"
 	tabindex="-1"
 	aria-pressed={selected}
@@ -30,6 +31,10 @@
 	<h3 class="govuk-heading-s govuk-!-margin-bottom-0 journey-step-node__title">
 		{#if data.stepNumber}{data.stepNumber} &middot; {/if}{data.title}
 	</h3>
+	{#if data.opensProcess}
+		<!-- Clicking anywhere on the box opens the process, so this line only tells the person which one. -->
+		<p class="govuk-body govuk-!-margin-bottom-0 journey-step-node__action">Open {data.opensProcess.title}</p>
+	{/if}
 </div>
 
 <Handle type="source" position={Position.Bottom}>
@@ -40,7 +45,8 @@
 	.journey-step-node {
 		box-sizing: border-box;
 		display: flex;
-		align-items: center;
+		flex-direction: column;
+		justify-content: center;
 		width: 100%;
 		height: 100%;
 		margin: 0;
@@ -59,6 +65,16 @@
 		-webkit-box-orient: vertical;
 		line-clamp: 2;
 		-webkit-line-clamp: 2;
+	}
+
+	/* A box that opens another process looks like a link, so it is clear it can be clicked. */
+	.journey-step-node--opens-process {
+		cursor: pointer;
+	}
+
+	.journey-step-node__action {
+		color: #1d70b8;
+		text-decoration: underline;
 	}
 
 	.journey-step-node--selected {

@@ -18,6 +18,19 @@ export type Route = {
 	kind: 'next' | 'rule' | 'default' | 'on_invalid' | 'timeout' | 'catch';
 };
 
+// The kinds of route that deal with something going wrong or running late: a named error, a timeout
+// and an invalid answer. They are kept in one list so the graph and the step numbers treat them alike.
+const errorRouteKinds = new Set<string>(['catch', 'timeout', 'on_invalid']);
+
+/**
+ * Tells whether a kind of route is an error route. The graph hides these by default, and the step
+ * numbers follow the main journey first, because several steps often lead to the same few end states
+ * and the lines cross the main journey.
+ */
+export function isErrorKind(kind: string): boolean {
+	return errorRouteKinds.has(kind);
+}
+
 /**
  * Lists every route out of a state, in the order they are written. An end state has none. The
  * switch covers each state type, so adding a new type without handling it here fails to compile.

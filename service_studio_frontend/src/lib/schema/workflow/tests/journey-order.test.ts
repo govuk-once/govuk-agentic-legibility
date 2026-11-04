@@ -10,6 +10,32 @@ const isTrue = { op: 'is_true', path: 'a' };
 const build = (start: string, states: Record<string, unknown>) =>
 	({ process_id: 'p', version: '0.1.0', vars: {}, start, states }) as unknown as Process;
 
+describe('reachableInOrder with a test for which routes to follow', () => {
+	it('leaves out the states that only a route that fails the test leads to', () => {
+		const process = build('call', {
+			call: { type: 'call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'sorry' }] },
+			sorry: { type: 'wait', duration: 'PT1S', next: 'failed' },
+			failed: finish,
+			done: finish
+		});
+		expect(reachableInOrder(process, (route) => route.kind !== 'catch')).toEqual(['call', 'done']);
+	});
+});
+
+describe('journeyOrder puts the main journey before the error routes', () => {
+	it('numbers a state that only an error route reaches after every state on the main journey', () => {
+		const process = build('call', {
+			call: { type: 'call', method: 'GET', service: 's', url: '/u', next: 'middle', catch: [{ on: 'any', next: 'sorry' }] },
+			sorry: { type: 'wait', duration: 'PT1S', next: 'failed' },
+			failed: finish,
+			middle: { type: 'wait', duration: 'PT1S', next: 'done' },
+			done: finish
+		});
+		// Breadth first over every route would reach sorry before middle, so the order needs the main journey first.
+		expect(journeyOrder(process)).toEqual(['call', 'middle', 'done', 'sorry', 'failed']);
+	});
+});
+
 describe('reachableInOrder', () => {
 	it('follows a straight line of states in order', () => {
 		const process = build('a', {

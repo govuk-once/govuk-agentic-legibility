@@ -1,5 +1,5 @@
 import type { Process } from './process';
-import { routesOf } from './routes';
+import { isErrorKind, routesOf, type Route } from './routes';
 
 /*
 	A process stores its states as a map, which has no meaningful order. The journey order is worked
@@ -15,9 +15,10 @@ import { routesOf } from './routes';
  * they are written, so a choice's rules come before its default.
  *
  * A route to a state that does not exist is skipped, so the order can still be worked out while an
- * edit has left the process half finished.
+ * edit has left the process half finished. A caller can pass a test to follow only some routes, for
+ * example to leave out the error routes.
  */
-export function reachableInOrder(process: Process): string[] {
+export function reachableInOrder(process: Process, followRoute: (route: Route) => boolean = () => true): string[] {
 	const order: string[] = [];
 	const seen = new Set<string>();
 	const queue = [process.start];
@@ -28,20 +29,25 @@ export function reachableInOrder(process: Process): string[] {
 
 		seen.add(name);
 		order.push(name);
-		queue.push(...routesOf(process.states[name]).map((route) => route.target));
+		queue.push(...routesOf(process.states[name]).filter(followRoute).map((route) => route.target));
 	}
 
 	return order;
 }
 
 /**
- * Lists every state of a process in journey order. The states reached from the start come first,
- * then any state that nothing leads to, in the order the process file lists them, so a state left
- * behind still appears instead of vanishing from the graph.
+ * Lists every state of a process in journey order. The states on the main journey come first, which
+ * leaves out the error routes. Then come the states that only an error route reaches, then any state
+ * that nothing leads to, in the order the process file lists them, so a state left behind still
+ * appears instead of vanishing from the graph. Putting the main journey first means the steps that
+ * are shown when error routes are hidden are numbered one after another with no gaps.
  */
 export function journeyOrder(process: Process): string[] {
-	const reached = reachableInOrder(process);
-	const reachedSet = new Set(reached);
+	const ordered = [
+		...reachableInOrder(process, (route) => !isErrorKind(route.kind)),
+		...reachableInOrder(process),
+		...Object.keys(process.states)
+	];
 
-	return [...reached, ...Object.keys(process.states).filter((name) => !reachedSet.has(name))];
+	return [...new Set(ordered)];
 }

@@ -12,6 +12,8 @@ export type ProcessStepNodeData = {
 	stepNumber: number;
 	title: string;
 	stateType: State['type'];
+	// Set only on an invoke state. It names the process the state runs, so the box can offer to open it.
+	opensProcess?: { id: string; title: string };
 	// Worked out from the title, so each box fits its own title instead of sharing one fixed size.
 	width: number;
 	height: number;
@@ -35,6 +37,8 @@ export type ProcessTerminalNodeData = {
 	appearance: 'start' | 'end';
 	ariaLabel: string;
 	stateId?: string;
+	// The title of an end state, used by the list of states. The start dot has none.
+	title?: string;
 	status?: CompletionStatus;
 	// See ProcessDecisionNodeData.
 	draft?: boolean;

@@ -2,7 +2,7 @@
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 	import type { ProcessDecisionNode } from './process-graph-types';
 
-	let { data }: NodeProps<ProcessDecisionNode> = $props();
+	let { data, selected }: NodeProps<ProcessDecisionNode> = $props();
 </script>
 
 <!-- One shared source handle carries every branch route out of this gateway, dagre and
@@ -15,7 +15,11 @@
 <!-- A plain diamond, no text: the route it stands for is named on the step that owns it and edited in
 	the step editor's branch routes, so repeating that wording here only duplicated it. -->
 <div class="journey-condition-node" role="img" aria-label={data.ariaLabel}>
-	<div class="journey-condition-node__shape" class:journey-condition-node__shape--draft={data.draft}></div>
+	<div
+		class="journey-condition-node__shape"
+		class:journey-condition-node__shape--draft={data.draft}
+		class:journey-condition-node__shape--selected={selected}
+	></div>
 </div>
 
 <Handle type="source" position={Position.Bottom}>
@@ -46,5 +50,11 @@
 	.journey-condition-node__shape--draft {
 		opacity: 0.55;
 		border: 2px dashed #0b0c0c;
+	}
+
+	/* A ring around the diamond marks it as the selected state, in the same blue as a selected box. */
+	.journey-condition-node__shape--selected {
+		outline: 3px solid #1d70b8;
+		outline-offset: 3px;
 	}
 </style>

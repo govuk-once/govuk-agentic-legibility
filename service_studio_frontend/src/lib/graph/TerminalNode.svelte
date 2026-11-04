@@ -2,7 +2,7 @@
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 	import type { ProcessTerminalNode } from './process-graph-types';
 
-	let { data }: NodeProps<ProcessTerminalNode> = $props();
+	let { data, selected }: NodeProps<ProcessTerminalNode> = $props();
 </script>
 
 <!-- Start only ever leads somewhere, End only ever receives, so each gets just the one handle its own
@@ -25,6 +25,7 @@
 	<div
 		class="journey-terminal-node__circle journey-terminal-node__circle--{data.appearance}"
 		class:journey-terminal-node__circle--draft={data.draft}
+		class:journey-terminal-node__circle--selected={selected}
 	></div>
 	<span class="journey-terminal-node__label">{data.label}</span>
 </div>
@@ -60,6 +61,12 @@
 	.journey-terminal-node__circle--draft {
 		opacity: 0.55;
 		border: 2px dashed #0b0c0c;
+	}
+
+	/* A ring around the dot marks it as the selected state, in the same blue as a selected box. */
+	.journey-terminal-node__circle--selected {
+		outline: 3px solid #1d70b8;
+		outline-offset: 3px;
 	}
 
 	.journey-terminal-node__label {

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { workflowExamples } from '$lib/examples/workflows';
 import type { Process } from '$lib/schema/workflow/process';
+import type { ProcessEdge } from '../process-graph-types';
 import { routesOf } from '$lib/schema/workflow/routes';
-import { processToGraph, startNodeId } from '../process-to-graph';
+import { isErrorRoute, processToGraph, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
 
 const finish = { type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };
@@ -117,6 +118,24 @@ describe('processToGraph nodes', () => {
 		expect(node('check').data.ariaLabel).toBe('Decision, Address correct?');
 	});
 
+	it('lets an invoke box open the process it runs, in a taller box that says so', () => {
+		const graph = processToGraph(
+			build('run', {
+				run: { type: 'invoke', process: 'photo_update', next: 'later' },
+				later: { type: 'wait', duration: 'PT1S', next: 'done' },
+				done: finish
+			})
+		);
+		const [invoke, wait] = graph.nodes.slice(1);
+
+		expect(invoke.data).toMatchObject({
+			opensProcess: { id: 'photo_update', title: 'Photo update' },
+			ariaLabel: 'Step 1, Run, opens the Photo update process'
+		});
+		expect(wait.data).not.toHaveProperty('opensProcess', expect.anything());
+		expect(invoke.type === 'step' && wait.type === 'step' && invoke.data.height > wait.data.height).toBe(true);
+	});
+
 	it('lists a state that nothing leads to last, still numbered', () => {
 		const withOrphan = processToGraph(build('a', { a: { type: 'wait', duration: 'PT1S', next: 'done' }, orphan_step: { type: 'wait', duration: 'PT1S', next: 'done' }, done: finish }));
 		expect(withOrphan.nodes.map((candidate) => candidate.id)).toEqual([startNodeId, 'a', 'done', 'orphan_step']);
@@ -169,5 +188,106 @@ describe('processToGraph edges', () => {
 
 		const noStart = processToGraph(build('nowhere', { a: finish }));
 		expect(noStart.edges).toEqual([]);
+	});
+});
+
+describe('isErrorRoute', () => {
+	const edge = (kind: string) => ({ id: kind, source: 'a', target: 'b', data: { kind } }) as ProcessEdge;
+
+	it.each(['catch', 'timeout', 'on_invalid'])('treats a %s route as an error route', (kind) => {
+		expect(isErrorRoute(edge(kind))).toBe(true);
+	});
+
+	it.each(['start', 'next', 'rule', 'default'])('treats a %s route as part of the main journey', (kind) => {
+		expect(isErrorRoute(edge(kind))).toBe(false);
+	});
+
+	it('picks out only the error routes of a real process', () => {
+		const process = workflowExamples[0].workflow!.processes[workflowExamples[0].workflow!.manifest.entry];
+		const { edges } = processToGraph(process);
+		const errorCount = edges.filter(isErrorRoute).length;
+
+		expect(errorCount).toBeGreaterThan(0);
+		expect(errorCount).toBeLessThan(edges.length);
+	});
+});
+
+describe('stepCount', () => {
+	it('counts only the numbered boxes, not the diamonds or the dots', () => {
+		const graph = processToGraph(
+			build('ask', {
+				ask: { type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'check' },
+				check: { type: 'choice', rules: [{ when: isTrue, next: 'finish' }], default: 'finish' },
+				finish
+			})
+		);
+		expect(graph.nodes).toHaveLength(4);
+		expect(stepCount(graph)).toBe(1);
+	});
+});
+
+describe('visibleGraph', () => {
+	// A call whose error route leads to a recovery step and an end that nothing else reaches.
+	const process = build('call', {
+		call: { type: 'call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'sorry' }] },
+		sorry: { type: 'output', channel: 'transcript', message: 'Sorry.', next: 'failed' },
+		failed: { type: 'end', status: 'failed' },
+		done: finish,
+		unused: finish
+	});
+	const graph = processToGraph(process);
+
+	it('gives the whole graph when error routes are on', () => {
+		expect(visibleGraph(graph, true)).toBe(graph);
+	});
+
+	it('removes the error routes and every state only they lead to when error routes are off', () => {
+		const shown = visibleGraph(graph, false);
+
+		expect(shown.nodes.map((node) => node.id)).toEqual([startNodeId, 'call', 'done', 'unused']);
+		expect(shown.edges.map((edge) => edge.id)).toEqual([`${startNodeId}:start`, 'call:next']);
+	});
+
+	it('keeps a state that nothing leads to, because that is a problem worth seeing', () => {
+		expect(visibleGraph(graph, false).nodes.map((node) => node.id)).toContain('unused');
+	});
+
+	it('keeps a state that the main journey also reaches', () => {
+		const shared = processToGraph(
+			build('call', {
+				call: { type: 'call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'done' }] },
+				done: finish
+			})
+		);
+		expect(visibleGraph(shared, false).nodes.map((node) => node.id)).toEqual([startNodeId, 'call', 'done']);
+	});
+});
+
+describe('visibleGraph with the real examples', () => {
+	const processes = workflowExamples.flatMap((example) => Object.values(example.workflow?.processes ?? {}));
+
+	it('numbers the steps that are shown from 1 with no gaps, with error routes on or off', () => {
+		for (const process of processes) {
+			for (const showErrorRoutes of [true, false]) {
+				const numbers = visibleGraph(processToGraph(process), showErrorRoutes).nodes.flatMap((node) =>
+					node.type === 'step' ? [node.data.stepNumber] : []
+				);
+				expect(numbers, `${process.process_id} ${showErrorRoutes}`).toEqual(numbers.map((_, index) => index + 1));
+			}
+		}
+	});
+
+	it('leaves a dot floating on its own only when no route at all leads to it', () => {
+		for (const process of processes) {
+			const graph = processToGraph(process);
+			const shown = visibleGraph(graph, false);
+			const touched = new Set(shown.edges.flatMap((edge) => [edge.source, edge.target]));
+			const floating = shown.nodes.filter((node) => node.id !== startNodeId && !touched.has(node.id));
+
+			// A state with no route into it, even an error route, is a real problem in the example and is kept.
+			for (const node of floating) {
+				expect(graph.edges.some((edge) => edge.target === node.id), `${process.process_id}: ${node.id}`).toBe(false);
+			}
+		}
 	});
 });

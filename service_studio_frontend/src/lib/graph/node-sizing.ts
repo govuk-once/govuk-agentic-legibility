@@ -39,15 +39,16 @@ export function estimateStepNodeWidth(title: string): number {
 
 /**
  * Works out how tall a step's box needs to be for its own title at the given width. The node shows only
- * the title now, so a single line title lands on the minimum height and a wrapped title is a little
- * taller.
+ * the title, so a single line title lands on the minimum height and a wrapped title is a little
+ * taller. A box that shows extra lines below its title, such as the link that opens a sub process,
+ * passes how many so the box grows to hold them.
  */
-export function estimateStepNodeHeight(title: string, width: number): number {
+export function estimateStepNodeHeight(title: string, width: number, extraLines = 0): number {
 	const innerWidth = width - STEP_NODE_HORIZONTAL_PADDING;
 	const titleLines = estimateWrappedLineCount(title, innerWidth);
 
 	return Math.max(
 		STEP_NODE_MIN_HEIGHT,
-		STEP_NODE_VERTICAL_PADDING + titleLines * STEP_NODE_TITLE_LINE_HEIGHT
+		STEP_NODE_VERTICAL_PADDING + (titleLines + extraLines) * STEP_NODE_TITLE_LINE_HEIGHT
 	);
 }
