@@ -62,6 +62,37 @@ export function visibleGraph(graph: ProcessGraphElements, showErrorRoutes: boole
 }
 
 /**
+ * Gives every route into a shared end state its own end dot, drawn just below the step the route leaves
+ * from. An end state that many steps lead to would otherwise be one dot with long lines running to it from
+ * far away, and it can look as though it belongs to a step it is not under. Each copy stands for the same
+ * end state and carries the same state id, so choosing any of them selects the state. An end state with one
+ * route into it, or none, is left alone.
+ */
+export function separateEndDots(graph: ProcessGraphElements): ProcessGraphElements {
+	const routesInto = new Map<string, ProcessEdge[]>();
+	for (const edge of graph.edges) routesInto.set(edge.target, [...(routesInto.get(edge.target) ?? []), edge]);
+
+	const isShared = (node: ProcessNode) =>
+		node.type === 'terminal' && node.data.appearance === 'end' && (routesInto.get(node.id)?.length ?? 0) > 1;
+
+	// A copy is named after the end state and the step it sits under. Two routes from one step to the same
+	// end state, such as a next route and an error route, share one dot.
+	const copyId = (endId: string, source: string) => `${endId}#${source}`;
+
+	const nodes = graph.nodes.flatMap((node): ProcessNode[] => {
+		if (!isShared(node)) return [node];
+		const sources = [...new Set(routesInto.get(node.id)!.map((edge) => edge.source))];
+		return sources.map((source) => ({ ...node, id: copyId(node.id, source) }));
+	});
+	const sharedIds = new Set(graph.nodes.filter(isShared).map((node) => node.id));
+	const edges = graph.edges.map((edge) =>
+		sharedIds.has(edge.target) ? { ...edge, target: copyId(edge.target, edge.source) } : edge
+	);
+
+	return { nodes, edges };
+}
+
+/**
  * Counts the numbered boxes in a graph. This is the number of steps in a process. A decision diamond and
  * an end dot are not counted, so the count matches the last number on the graph and the length of the
  * list of steps.

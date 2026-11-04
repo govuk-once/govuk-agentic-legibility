@@ -4,6 +4,7 @@
 	import ProcessWorkspace from '$lib/components/ProcessWorkspace.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
+	import type { NodePositions } from '$lib/graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/graph/process-to-graph';
 	import { tidyCode } from '$lib/graph/tidy-code';
 	import type { PageData } from './$types';
@@ -15,6 +16,22 @@
 	let selectedProcessId = $derived(data.workflow.manifest.entry);
 	// The schema check has already confirmed that every listed process exists.
 	const selectedProcess = $derived(data.workflow.processes[selectedProcessId]);
+	// Where the person has dragged boxes to, kept for each process while the page is open. It is only how the
+	// graph is drawn, so it is not part of the workflow and is not saved.
+	let draggedPositions = $state<Record<string, NodePositions>>({});
+	const processKey = $derived(`${data.slug}:${selectedProcessId}`);
+	const positions = $derived(draggedPositions[processKey] ?? {});
+
+	function moveNodes(moved: NodePositions) {
+		draggedPositions = { ...draggedPositions, [processKey]: { ...positions, ...moved } };
+	}
+
+	// Puts every box of the process on the graph back where the layout placed it.
+	function tidyUp() {
+		const { [processKey]: _removed, ...others } = draggedPositions;
+		draggedPositions = others;
+	}
+
 	// Error routes are hidden at first so the main journey is easy to follow.
 	let showErrorRoutes = $state(false);
 
@@ -58,19 +75,28 @@
 
 		<div class="editor-page__toolbar-controls">
 			<label class="govuk-body govuk-!-margin-bottom-0 editor-page__toggle">
-				<input type="checkbox" bind:checked={showErrorRoutes} />
+				<!-- Showing or hiding the error routes arranges the graph again, so boxes dragged before are put back. -->
+				<input type="checkbox" bind:checked={showErrorRoutes} onchange={tidyUp} />
 				Show error routes
 			</label>
+			{#if Object.keys(positions).length > 0}
+				<button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" onclick={tidyUp}>
+					Tidy up
+				</button>
+			{/if}
 			<a class="govuk-link" href={resolve('/edit-unified')}>Choose a different service</a>
 		</div>
 	</div>
 
-	<!-- The workspace is shown afresh for each process, so the graph fits to the new process and no state
+	<!-- The workspace is shown afresh for each process, and again when the error routes are shown or hidden,
+		because the graph is arranged again then. Each time the view fits to the new graph and no state
 		stays selected from the one before. -->
-	{#key `${data.slug}:${selectedProcessId}`}
+	{#key `${processKey}:${showErrorRoutes}`}
 		<ProcessWorkspace
 			process={selectedProcess}
 			{showErrorRoutes}
+			{positions}
+			onMoveNodes={moveNodes}
 			onOpenProcess={(processId) => (selectedProcessId = processId)}
 		/>
 	{/key}

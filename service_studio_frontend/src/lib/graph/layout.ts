@@ -24,6 +24,21 @@ const NODE_GAP = 50;
 const RANK_GAP = 60;
 const MARGIN = 30;
 
+// The dagre settings that change how a graph is arranged. Both are optional, and leaving them out keeps
+// dagre's own defaults, which is how the original graph is laid out.
+export type LayoutOptions = {
+	// Which corner of a group of connected boxes the others line up with. A straight run of boxes then
+	// stays in one column instead of drifting sideways.
+	align?: 'UL' | 'UR' | 'DL' | 'DR';
+	// How boxes are put into rows. See the dagre documentation for what each one favours.
+	ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
+};
+
+// The settings used for the process graph. The tight tree ranker keeps each box close to the box it
+// follows, which measured about 17 percent less sideways drift on the real example processes than
+// dagre's default and made no graph wider. The original graph keeps dagre's defaults.
+export const processLayoutOptions: LayoutOptions = { ranker: 'tight-tree' };
+
 /**
  * Returns the width and height this node occupies, so a step's dynamic dimensions and every other node's
  * fixed dimensions are looked up the same way. Exported because the graph component reuses it to work out
@@ -46,12 +61,13 @@ export function nodeSize(node: LayoutNode): { width: number; height: number } {
  */
 export function layoutJourneyGraph<Node extends LayoutNode>(
 	nodes: Node[],
-	edges: LayoutEdge[]
+	edges: LayoutEdge[],
+	options: LayoutOptions = {}
 ): { nodes: Node[]; width: number; height: number } {
 	const graph = new dagre.graphlib.Graph();
 	// Dagre requires an edge label factory even though the graph does not attach layout metadata to connections.
 	graph.setDefaultEdgeLabel(() => ({}));
-	graph.setGraph({ rankdir: 'TB', nodesep: NODE_GAP, ranksep: RANK_GAP, marginx: MARGIN, marginy: MARGIN });
+	graph.setGraph({ rankdir: 'TB', nodesep: NODE_GAP, ranksep: RANK_GAP, marginx: MARGIN, marginy: MARGIN, ...options });
 
 	for (const node of nodes) {
 		// Spread into a fresh object for every node, including nodes of the same type that would otherwise
@@ -84,11 +100,10 @@ export function layoutJourneyGraph<Node extends LayoutNode>(
 		};
 	});
 
-	// Dagre orders nodes within a rank purely to minimise edge crossings, with no notion of which branch
-	// "comes first": a gateway's own routes can just as easily land with the later step on the left as on
-	// the right. Putting those routes back in the original step order, within the space dagre gave them,
-	// makes left to right on the canvas match the step numbers without changing the spacing.
-	reorderBranchSiblings(positionedNodes, edges);
+	// Dagre decides the order of the boxes in each row so that the fewest lines cross, and that order is kept.
+	// The two passes below only slide boxes sideways within their row to sit under the box they follow.
+	centreBranchesUnderParents(positionedNodes, edges);
+	centreEndDotsUnderParents(positionedNodes, edges);
 
 	const graphSize = graph.graph();
 
@@ -100,18 +115,18 @@ export function layoutJourneyGraph<Node extends LayoutNode>(
 }
 
 /**
- * For every node with more than one outgoing edge (a gateway's branch routes), puts the targets in the
- * same left to right order as they appear in the input. The targets keep the space dagre gave them as a
- * group: the left most one still starts where it did, and the gaps between neighbours are kept, so boxes
- * of different widths cannot end up on top of each other. Mutates the positioned nodes in place, since it
- * only ever moves a node sideways within its own rank.
+ * For every node with more than one outgoing edge, such as a decision, moves the boxes it leads to as a
+ * group so they sit evenly to its left and right and not far to one side. The order of the boxes is the
+ * order dagre chose, because dagre picks the order that crosses the fewest lines, and putting them back in
+ * step order would make the lines below them cross. A group is only moved when the boxes it would pass over
+ * or land beside on the same row leave a gap, so it never crowds another box. Mutates the positioned nodes
+ * in place, since it only ever moves a node sideways within its own row.
  */
-function reorderBranchSiblings<Node extends LayoutNode>(positionedNodes: Node[], edges: LayoutEdge[]): void {
-	const orderIndex = new Map(positionedNodes.map((node, index) => [node.id, index]));
+function centreBranchesUnderParents<Node extends LayoutNode>(positionedNodes: Node[], edges: LayoutEdge[]): void {
 	const nodeById = new Map(positionedNodes.map((node) => [node.id, node]));
 
 	// A set is used because two routes can lead to the same target, such as an error route and a normal
-	// route to one end state, and a node must only be placed once.
+	// route to one end state, and a node must only be moved once.
 	const childrenBySource = new Map<string, Set<string>>();
 	for (const edge of edges) {
 		const targets = childrenBySource.get(edge.source);
@@ -122,42 +137,78 @@ function reorderBranchSiblings<Node extends LayoutNode>(positionedNodes: Node[],
 		}
 	}
 
-	// Nodes on the same rank share a centre line, so comparing centres works even when their heights differ.
+	// Nodes on the same row share a centre line, so comparing centres works even when their heights differ.
 	const centreY = (node: Node) => node.position.y + nodeSize(node).height / 2;
 
-	for (const childIds of childrenBySource.values()) {
-		if (childIds.size < 2) continue;
+	for (const [sourceId, childIds] of childrenBySource) {
+		const source = nodeById.get(sourceId);
 		const children = [...childIds].map((id) => nodeById.get(id)).filter((node): node is Node => !!node);
-		if (children.length < 2) continue;
+		if (!source || children.length < 2) continue;
 
-		// Only ever moves nodes dagre already placed on the same rank: anything else sharing one source but
-		// landing elsewhere is left exactly where dagre put it.
-		const rankCentre = centreY(children[0]);
-		if (!children.every((child) => Math.abs(centreY(child) - rankCentre) < 0.5)) continue;
+		// Only moves boxes dagre already placed on the same row: anything else sharing one source but landing
+		// elsewhere is left exactly where dagre put it.
+		const rowCentre = centreY(children[0]);
+		if (!children.every((child) => Math.abs(centreY(child) - rowCentre) < 0.5)) continue;
 
-		// The targets as dagre placed them from left to right, and the gap it left after each one.
-		const placed = [...children].sort((a, b) => a.position.x - b.position.x);
-		const gaps = placed.slice(1).map((node, index) => node.position.x - (placed[index].position.x + nodeSize(placed[index]).width));
+		const left = Math.min(...children.map((child) => child.position.x));
+		const right = Math.max(...children.map((child) => child.position.x + nodeSize(child).width));
+		const shift = source.position.x + nodeSize(source).width / 2 - (left + right) / 2;
 
-		// Another node of the same rank between the targets would be overlapped by the move, so the
-		// order dagre chose is kept in that case.
-		const left = placed[0].position.x;
-		const right = placed[placed.length - 1].position.x + nodeSize(placed[placed.length - 1]).width;
-		const blocked = positionedNodes.some(
+		// The whole stretch the group covers, from where it is to where it would be, with a gap each side. Any
+		// other box of the row inside it would be crowded or jumped over, which changes the order of the row.
+		const from = Math.min(left, left + shift) - NODE_GAP;
+		const to = Math.max(right, right + shift) + NODE_GAP;
+		const crowded = positionedNodes.some(
 			(other) =>
 				!childIds.has(other.id) &&
-				Math.abs(centreY(other) - rankCentre) < 0.5 &&
-				other.position.x < right &&
-				other.position.x + nodeSize(other).width > left
+				Math.abs(centreY(other) - rowCentre) < 0.5 &&
+				other.position.x < to &&
+				other.position.x + nodeSize(other).width > from
 		);
-		if (blocked) continue;
+		if (!crowded) {
+			for (const child of children) child.position = { ...child.position, x: child.position.x + shift };
+		}
+	}
+}
 
-		const inStepOrder = [...children].sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+/**
+ * Puts each end dot directly under the step that leads to it. Dagre places a dot as it suits the rest of
+ * the graph, which can leave it to one side or far below and make it look as though it belongs to a
+ * neighbouring step. Nothing leaves an end dot, so moving it cannot disturb any other line. The dot is
+ * tried first just below its step, then at the depth dagre gave it. It is only moved to a place that is
+ * clear, both for the dot itself and for the line down to it, so it never lands on top of a box or hides a
+ * line behind one. Mutates the positioned nodes in place.
+ */
+function centreEndDotsUnderParents<Node extends LayoutNode>(positionedNodes: Node[], edges: LayoutEdge[]): void {
+	const nodeById = new Map(positionedNodes.map((node) => [node.id, node]));
 
-		let nextLeft = left;
-		inStepOrder.forEach((child, index) => {
-			child.position = { ...child.position, x: nextLeft };
-			nextLeft += nodeSize(child).width + (gaps[index] ?? 0);
-		});
+	for (const dot of positionedNodes) {
+		if (dot.type !== 'terminal' || dot.data.appearance !== 'end') continue;
+
+		// Only a dot with exactly one line into it has a single step to sit under.
+		const into = edges.filter((edge) => edge.target === dot.id);
+		const parent = into.length === 1 ? nodeById.get(into[0].source) : undefined;
+		if (!parent) continue;
+
+		const { width, height } = nodeSize(dot);
+		const left = parent.position.x + nodeSize(parent).width / 2 - width / 2;
+		const parentBottom = parent.position.y + nodeSize(parent).height;
+
+		// Whether any other box is in the columns of the dot, between the bottom of the step and the bottom
+		// of a dot placed at the given height. That covers the dot and the line down to it.
+		const isClear = (top: number) =>
+			!positionedNodes.some(
+				(other) =>
+					other !== dot &&
+					other !== parent &&
+					other.position.x < left + width + NODE_GAP / 2 &&
+					other.position.x + nodeSize(other).width > left - NODE_GAP / 2 &&
+					other.position.y < top + height &&
+					other.position.y + nodeSize(other).height > parentBottom
+			);
+
+		const justBelow = parentBottom + RANK_GAP;
+		const place = [justBelow, dot.position.y].find((top) => top >= justBelow - 0.5 && isClear(top));
+		if (place !== undefined) dot.position = { x: left, y: place };
 	}
 }

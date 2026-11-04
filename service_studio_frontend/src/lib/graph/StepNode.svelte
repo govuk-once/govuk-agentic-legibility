@@ -27,6 +27,7 @@
 	tabindex="-1"
 	aria-pressed={selected}
 	aria-label={data.ariaLabel}
+	title={data.title}
 >
 	<h3 class="govuk-heading-s govuk-!-margin-bottom-0 journey-step-node__title">
 		{#if data.stepNumber}{data.stepNumber} &middot; {/if}{data.title}

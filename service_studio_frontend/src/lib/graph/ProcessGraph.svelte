@@ -3,9 +3,9 @@
 	import StepNode from './StepNode.svelte';
 	import ConditionNode from './ConditionNode.svelte';
 	import TerminalNode from './TerminalNode.svelte';
-	import { layoutJourneyGraph } from './layout';
-	import { visibleGraph } from './process-to-graph';
-	import type { ProcessGraphElements } from './process-graph-types';
+	import { layoutJourneyGraph, processLayoutOptions } from './layout';
+	import { separateEndDots, visibleGraph } from './process-to-graph';
+	import type { NodePositions, ProcessGraphElements } from './process-graph-types';
 
 	interface Props {
 		// The nodes and edges of the process, built by the component that owns it so the list of states uses the same ones.
@@ -13,13 +13,24 @@
 		// The state highlighted on the graph, shared with the list of states. Null when nothing is selected.
 		selectedStateId?: string | null;
 		// Off by default, which hides the routes taken when something goes wrong or runs late, and the
-		// states that only those routes lead to.
+		// states that only those routes lead to. The graph is arranged again when this changes.
 		showErrorRoutes?: boolean;
+		// Where the person has dragged boxes to. A box that is not listed stays where the layout put it.
+		positions?: NodePositions;
+		// Called with the new position of every box that was just dragged, when the drag ends.
+		onMoveNodes?: (moved: NodePositions) => void;
 		// Called with the id of the process an invoke box runs, when the box is clicked.
 		onOpenProcess?: (processId: string) => void;
 	}
 
-	let { graph, selectedStateId = $bindable(null), showErrorRoutes = false, onOpenProcess }: Props = $props();
+	let {
+		graph,
+		selectedStateId = $bindable(null),
+		showErrorRoutes = false,
+		positions = {},
+		onMoveNodes,
+		onOpenProcess
+	}: Props = $props();
 
 	// The same three node components as the original graph, so a state looks the same in either.
 	const nodeTypes = { step: StepNode, condition: ConditionNode, terminal: TerminalNode };
@@ -30,22 +41,22 @@
 	const defaultEdgeOptions = { type: 'smoothstep' as const, markerEnd: { type: MarkerType.ArrowClosed } };
 	const proOptions = { hideAttribution: true };
 
-	// The graph for the chosen process, with every node given a position. It is worked out again when a
-	// different process is shown, so the whole canvas is laid out afresh each time. Every route is used
-	// for the layout, so switching the error routes on or off never moves a node.
-	const laidOut = $derived(layoutJourneyGraph(graph.nodes, graph.edges).nodes);
+	// What is shown, with the error routes on or off. Only this is laid out, so a hidden error route cannot
+	// pull a box sideways. Ticking Show error routes lays the graph out again with those routes in it.
+	// An end state that several steps lead to is drawn as one end dot under each step, so no line has to run
+	// a long way across the graph to reach it.
+	const shown = $derived(separateEndDots(visibleGraph(graph, showErrorRoutes)));
+	const laidOut = $derived(layoutJourneyGraph(shown.nodes, shown.edges, processLayoutOptions).nodes);
 
-	// Every state is placed first and then the hidden ones are taken away, so hiding the error routes only
-	// removes things and never moves a box.
-	const shown = $derived(visibleGraph(graph, showErrorRoutes));
-	const shownIds = $derived(new Set(shown.nodes.map((node) => node.id)));
-
-	// The selected flag is set here, not by Svelte Flow, so the list of steps and the graph always agree
-	// about which state is highlighted.
+	// A box the person has dragged keeps its place, and every other box stays where the layout put it. The
+	// selected flag is set here, not by Svelte Flow, so the list of steps and the graph always agree about
+	// which state is highlighted.
 	const nodes = $derived(
-		laidOut
-			.filter((node) => shownIds.has(node.id))
-			.map((node) => ({ ...node, selected: node.data.stateId === selectedStateId }))
+		laidOut.map((node) => ({
+			...node,
+			position: positions[node.id] ?? node.position,
+			selected: node.data.stateId === selectedStateId
+		}))
 	);
 </script>
 
@@ -60,7 +71,8 @@
 		maxZoom={1.5}
 		{defaultEdgeOptions}
 		{proOptions}
-		nodesDraggable={false}
+		nodesDraggable
+		onnodedragstop={({ nodes: dragged }) => onMoveNodes?.(Object.fromEntries(dragged.map((node) => [node.id, node.position])))}
 		nodesConnectable={false}
 		elementsSelectable={false}
 		deleteKey={null}

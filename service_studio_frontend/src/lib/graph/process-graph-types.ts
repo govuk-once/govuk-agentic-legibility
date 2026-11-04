@@ -55,6 +55,10 @@ export type ProcessNode = ProcessStepNode | ProcessDecisionNode | ProcessTermina
 export type ProcessEdgeData = { kind: Route['kind'] | 'start' };
 export type ProcessEdge = Edge<ProcessEdgeData>;
 
+// Where the person has dragged boxes to, by node id. A box that is not here stays where the layout put it.
+// These positions only describe how the graph is drawn, so they are not part of the workflow and are not saved.
+export type NodePositions = Record<string, { x: number; y: number }>;
+
 export type ProcessGraphElements = {
 	nodes: ProcessNode[];
 	edges: ProcessEdge[];

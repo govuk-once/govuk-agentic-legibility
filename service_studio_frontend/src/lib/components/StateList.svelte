@@ -28,12 +28,13 @@
 				class="state-list__item"
 				class:state-list__item--selected={row.stateId === selectedStateId}
 				aria-pressed={row.stateId === selectedStateId}
+				title={row.title}
 				onclick={() => (selectedStateId = row.stateId === selectedStateId ? null : row.stateId)}
 			>
 				<span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-list__number" aria-hidden="true">
 					{row.number}
 				</span>
-				<span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{row.title}</span>
+				<span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-list__title">{row.title}</span>
 			</button>
 		</li>
 	{/each}
@@ -73,6 +74,16 @@
 
 	.state-list__item--selected {
 		background-color: #e8f1f8;
+	}
+
+	/* A long title, such as a whole message, is cut after two lines so every row stays short. The full title is
+		in the hover text and in the details panel. */
+	.state-list__title {
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
 	}
 
 	.state-list__number {

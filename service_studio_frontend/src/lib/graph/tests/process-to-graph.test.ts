@@ -3,7 +3,7 @@ import { workflowExamples } from '$lib/examples/workflows';
 import type { Process } from '$lib/schema/workflow/process';
 import type { ProcessEdge } from '../process-graph-types';
 import { routesOf } from '$lib/schema/workflow/routes';
-import { isErrorRoute, processToGraph, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
+import { isErrorRoute, processToGraph, separateEndDots, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
 
 const finish = { type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };
@@ -289,5 +289,49 @@ describe('visibleGraph with the real examples', () => {
 				expect(graph.edges.some((edge) => edge.target === node.id), `${process.process_id}: ${node.id}`).toBe(false);
 			}
 		}
+	});
+});
+
+describe('separateEndDots', () => {
+	// Two steps lead to the same end state, and a third leads to an end state of its own.
+	const graph = processToGraph(
+		build('first', {
+			first: { type: 'wait', duration: 'PT1S', next: 'second' },
+			second: { type: 'choice', rules: [{ when: isTrue, next: 'shared' }], default: 'third' },
+			third: { type: 'call', method: 'GET', service: 's', url: '/u', next: 'shared', catch: [{ on: 'any', next: 'shared' }] },
+			shared: { type: 'end', status: 'success', outcome: 'done' },
+			alone: finish
+		})
+	);
+	const separated = separateEndDots(graph);
+
+	it('draws one end dot for each step that leads to a shared end state', () => {
+		const dots = separated.nodes.filter((node) => node.type === 'terminal' && node.data.stateId === 'shared');
+		expect(dots.map((dot) => dot.id)).toEqual(['shared#second', 'shared#third']);
+	});
+
+	it('points each route at the dot under the step it leaves, and shares a dot between two routes from one step', () => {
+		const targets = separated.edges.filter((edge) => edge.target.startsWith('shared')).map((edge) => [edge.source, edge.target]);
+		expect(targets).toEqual([
+			['second', 'shared#second'],
+			['third', 'shared#third'],
+			['third', 'shared#third']
+		]);
+	});
+
+	it('keeps the state id on every copy so choosing one selects the same state', () => {
+		const dots = separated.nodes.filter((node) => node.type === 'terminal' && node.data.stateId === 'shared');
+		for (const dot of dots) expect(dot.data).toMatchObject({ stateId: 'shared', status: 'success', appearance: 'end' });
+	});
+
+	it('leaves an end state with no route or one route into it as it is', () => {
+		expect(separated.nodes.some((node) => node.id === 'alone')).toBe(true);
+		const single = separateEndDots(processToGraph(build('a', { a: { type: 'wait', duration: 'PT1S', next: 'done' }, done: finish })));
+		expect(single.nodes.map((node) => node.id)).toEqual([startNodeId, 'a', 'done']);
+	});
+
+	it('gives the same number of boxes and lines and does not change the step count', () => {
+		expect(separated.edges).toHaveLength(graph.edges.length);
+		expect(stepCount(separated)).toBe(stepCount(graph));
 	});
 });

@@ -4,6 +4,7 @@
 	import { isErrorKind } from '$lib/schema/workflow/routes';
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/graph/process-to-graph';
 	import { stateRows } from '$lib/graph/state-rows';
+	import type { NodePositions } from '$lib/graph/process-graph-types';
 	import type { Process } from '$lib/schema/workflow/process';
 	import StateDetails from './StateDetails.svelte';
 	import StateList from './StateList.svelte';
@@ -11,11 +12,15 @@
 	interface Props {
 		process: Process;
 		showErrorRoutes: boolean;
+		// Where the person has dragged boxes to, and the call that records a drag. The page holds them, so
+		// they last while the page is open even after another process has been shown and this one comes back.
+		positions: NodePositions;
+		onMoveNodes: (moved: NodePositions) => void;
 		// Called with the id of the process an invoke box runs, when the box is clicked.
 		onOpenProcess: (processId: string) => void;
 	}
 
-	let { process, showErrorRoutes, onOpenProcess }: Props = $props();
+	let { process, showErrorRoutes, positions, onMoveNodes, onOpenProcess }: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and
 	// numbers.
@@ -52,7 +57,7 @@
 
 <div class="process-workspace">
 	<div class="process-workspace__canvas">
-		<ProcessGraph {graph} {showErrorRoutes} bind:selectedStateId {onOpenProcess} />
+		<ProcessGraph {graph} {showErrorRoutes} {positions} {onMoveNodes} bind:selectedStateId {onOpenProcess} />
 	</div>
 
 	<aside class="process-workspace__panel" aria-label="Steps">
