@@ -1,0 +1,39 @@
+[project]
+name = "journey-search"
+version = "0.1.0"
+description = "Journey Search: a stateless MCP tool for finding GOV.UK service journeys"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    # 1.43.64 is the first release with DynamoDB vector indexes (SearchVectors).
+    "boto3>=1.43.64",
+    "mcp>=1.30,<2",
+]
+
+[project.scripts]
+journey-search-server = "journey_search.server:main"
+journey-search-load = "journey_search.loader:main"
+journey-search = "journey_search.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-testdox>=3.1.0",
+    "ruff>=0.15.20",
+]
+# For the example client only; not installed in the service container.
+client = [
+    "strands-agents>=1.50.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# starlette.testclient still uses httpx; harmless here.
+filterwarnings = ["ignore::DeprecationWarning:starlette.testclient"]
+
+[tool.ruff]
+line-length = 110
