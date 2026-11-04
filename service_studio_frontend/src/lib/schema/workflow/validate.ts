@@ -9,13 +9,13 @@ import { workflowSchema, type Workflow } from './workflow';
 	checks here need to look across the whole of a process, for example whether a next state really
 	exists, which a single state schema cannot see.
 
-	Problems come in two kinds. An issue is an error that stops the workflow being saved or sent. A
+	There may be two kinds of problem. An issue is an error that stops the workflow being saved or sent. A
 	warning is something worth a look that does not stop it, for example a state that nothing leads
 	to. Warnings are only worked out when there are no errors, because they read routes that an
 	error may have left pointing nowhere.
 */
 
-// One problem found, flattened to a dotted path and a message so it can be listed directly in a
+// A problem found, flattened to a dotted path and a message so it can be listed directly in a
 // GOV.UK error summary. Errors and warnings share this shape.
 export type WorkflowIssue = { path: string; message: string };
 
@@ -40,7 +40,7 @@ function issuesFromZod(error: z.ZodError): WorkflowIssue[] {
 }
 
 /**
- * Checks that the states of one process hang together: the start state exists, every state it
+ * Checks that the states of one process stay together: the start state exists, every state it
  * points at exists, and the process has an end. The path prefix lets the same checks run on a
  * process inside a workflow, where the path needs to begin with the process name.
  *
@@ -219,7 +219,7 @@ function warnAboutWorkflow(workflow: Workflow): WorkflowIssue[] {
 
 /**
  * Validates one process file. The shape is checked first. The checks across its states only run
- * once the shape is sound, because they read keys that a malformed state may not have. Returns the
+ * once the shape is ok, because they read keys that a malformed state may not have. Returns the
  * typed process on success, or a flat list of path and message issues on failure.
  */
 export function parseProcess(input: unknown): ProcessValidation {
@@ -234,7 +234,7 @@ export function parseProcess(input: unknown): ProcessValidation {
 
 /**
  * Validates a manifest and its process files as one assembled workflow. The shape of every file is
- * checked first, and the checks across files only run once the shape is sound. Returns the typed
+ * checked first, and the checks across files only run once the shape is ok. Returns the typed
  * workflow on success, or a flat list of path and message issues on failure.
  */
 export function parseWorkflow(input: unknown): WorkflowValidation {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleWorkflows } from './example-states';
-import { manifestSchema, workflowSchema } from './workflow';
+import { manifestSchema, workflowSchema } from '../workflow';
 
 describe('workflowSchema with the real examples', () => {
 	const workflows = exampleWorkflows();

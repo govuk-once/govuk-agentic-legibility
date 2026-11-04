@@ -7,9 +7,8 @@ import { durationOrRefSchema, metadataSchema, stateRefSchema, variablePathSchema
 	document: output, assign, wait and end. Each is a strict object, so a key the document does not
 	list is rejected.
 
-	1. Every state accepts an optional name and metadata, as agreed with the executor team. The name
-	   is the title shown to a person, and the metadata holds notes that only Service Studio and the
-	   channels read.
+	1. Every state accepts an optional name and metadata. The name
+	   is the title shown to a person, and the metadata holds notes that only Service Studio reads at this time (future iterations of the executor may use some metadata).
 	2. The document does not say which keys are required. A key is required here only when every
 	   real example state includes it and the document gives no default for it.
 	3. An output on the transcript channel needs a message, and an output on email or sms needs a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assembleWorkflow, exampleFolders, workflowExamples } from './workflows';
+import { assembleWorkflow, exampleFolders, workflowExamples } from '../workflows';
 
 describe('assembleWorkflow', () => {
 	const manifest = { id: 'a.b' };

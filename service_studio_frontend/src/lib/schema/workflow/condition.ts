@@ -13,7 +13,7 @@ import { variablePathSchema } from './primitives';
 	2. A comparison takes either value or value_path, never both, because the document calls
 	   value_path the alternative to value.
 	3. not reuses the all list, as the document names no other field for it. It must hold exactly
-	   one condition. This is an assumption to confirm with the executor team.
+	   one condition.
 */
 
 // The date operators have their own list because section 2.8 also allows them as an expression, so

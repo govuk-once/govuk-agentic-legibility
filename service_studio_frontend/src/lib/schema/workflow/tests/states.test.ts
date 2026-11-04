@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleStatesOfType } from './example-states';
-import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema } from './states';
+import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema } from '../states';
 
 describe('simple states with the real examples', () => {
 	const schemas = {

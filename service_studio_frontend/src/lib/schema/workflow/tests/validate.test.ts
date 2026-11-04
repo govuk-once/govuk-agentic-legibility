@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles, exampleWorkflows } from './example-states';
-import { parseProcess, parseWorkflow } from './validate';
+import { parseProcess, parseWorkflow } from '../validate';
 
 // A small valid process that each test copies and then breaks in one way.
 const process = {

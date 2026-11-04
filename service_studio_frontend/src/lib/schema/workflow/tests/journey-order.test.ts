@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles } from './example-states';
-import { journeyOrder, reachableInOrder } from './journey-order';
-import { processSchema, type Process } from './process';
+import { journeyOrder, reachableInOrder } from '../journey-order';
+import { processSchema, type Process } from '../process';
 
 const finish = { type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };

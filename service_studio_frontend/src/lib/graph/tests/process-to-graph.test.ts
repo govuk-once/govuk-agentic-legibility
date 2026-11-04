@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { workflowExamples } from '$lib/examples/workflows';
 import type { Process } from '$lib/schema/workflow/process';
 import { routesOf } from '$lib/schema/workflow/routes';
-import { processToGraph, startNodeId } from './process-to-graph';
+import { processToGraph, startNodeId } from '../process-to-graph';
 
 const finish = { type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };

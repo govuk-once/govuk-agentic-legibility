@@ -7,8 +7,8 @@ import {
 	placeholderOwner,
 	undecidedRule,
 	unconnectedCallDetails
-} from './placeholders';
-import { parseProcess, parseWorkflow } from './validate';
+} from '../placeholders';
+import { parseProcess, parseWorkflow } from '../validate';
 
 describe('placeholders pass validation', () => {
 	// A process that uses every placeholder: an unconnected call, then a decision with the

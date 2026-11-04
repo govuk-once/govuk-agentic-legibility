@@ -1,8 +1,8 @@
-import { assembleWorkflow, exampleFolders } from '../../examples/workflows';
+import { assembleWorkflow, exampleFolders } from '../../../examples/workflows';
 
 /*
 	Test helper that reads the two example services so each state schema can be checked against
-	every real state of its type. It lives beside the schema tests and is never imported by app code.
+	every real state of its type. It lives in the tests folder with the schema tests and is never imported by app code.
 */
 
 type ExampleState = { type: string; [key: string]: unknown };

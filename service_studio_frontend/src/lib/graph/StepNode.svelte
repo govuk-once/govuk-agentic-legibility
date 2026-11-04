@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import type { StepNode } from './types';
+	import type { ProcessStepNode } from './process-graph-types';
 
 	// selected comes from Svelte Flow's own selection state now, driven by clicking the node; opening the
 	// step editor is handled centrally in JourneyGraph.svelte's onnodeclick, not from inside this
 	// component, so the same one place decides what a click on any node type means.
-	let { data, selected }: NodeProps<StepNode> = $props();
+	let { data, selected }: NodeProps<ProcessStepNode> = $props();
 </script>
 
 <!-- Handles sit top and bottom only: target on top, source on bottom, in the strict pairing Svelte Flow

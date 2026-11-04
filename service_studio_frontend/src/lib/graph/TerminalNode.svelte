@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import type { TerminalNode } from './types';
+	import type { ProcessTerminalNode } from './process-graph-types';
 
-	let { data }: NodeProps<TerminalNode> = $props();
+	let { data }: NodeProps<ProcessTerminalNode> = $props();
 </script>
 
 <!-- Start only ever leads somewhere, End only ever receives, so each gets just the one handle its own

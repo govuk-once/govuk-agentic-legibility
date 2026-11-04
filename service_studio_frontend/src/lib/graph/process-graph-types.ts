@@ -23,6 +23,9 @@ export type ProcessDecisionNodeData = {
 	stateId: string;
 	title: string;
 	ariaLabel: string;
+	// Marks a shape placed from the toolbar that is not yet joined to a state. The node components
+	// already draw it dashed, and nothing sets it until the editing commits.
+	draft?: boolean;
 };
 
 // The dot for the start of the journey or for an end state. An end dot also carries the status of the
@@ -33,6 +36,8 @@ export type ProcessTerminalNodeData = {
 	ariaLabel: string;
 	stateId?: string;
 	status?: CompletionStatus;
+	// See ProcessDecisionNodeData.
+	draft?: boolean;
 };
 
 export type ProcessStepNode = Node<ProcessStepNodeData, 'step'>;

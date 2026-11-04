@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles } from './example-states';
-import { processSchema, stateSchema } from './process';
+import { processSchema, stateSchema } from '../process';
 
 describe('processSchema with the real examples', () => {
 	it('accepts every process file in the example services', () => {

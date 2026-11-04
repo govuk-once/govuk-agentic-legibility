@@ -8,7 +8,7 @@ import {
 	stateRefSchema,
 	variablePathSchema,
 	versionSchema
-} from './primitives';
+} from '../primitives';
 
 describe('variablePathSchema', () => {
 	// Paths copied from the change of address and maternity allowance examples.

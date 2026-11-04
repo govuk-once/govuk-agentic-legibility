@@ -10,7 +10,7 @@ import { dynamicRefSchema, variablePathSchema } from './primitives';
 
 	1. now_plus is not in the document, but the change of address example uses it to set a deadline
 	   from the current time plus a duration held in a variable. It is accepted so the examples
-	   validate, and should be confirmed with the executor team.
+	   validate.
 	2. The document says a literal object has no special keys. An object with a $ key or an op key
 	   is therefore never treated as a literal, so a mistyped reference or operation fails instead
 	   of being saved as data.

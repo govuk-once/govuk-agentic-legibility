@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choiceStateSchema } from './choice-state';
+import { choiceStateSchema } from '../choice-state';
 import { exampleStatesOfType } from './example-states';
 
 describe('choiceStateSchema with the real examples', () => {

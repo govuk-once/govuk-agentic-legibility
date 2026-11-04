@@ -16,8 +16,7 @@ import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema }
 	2. vars is required because every example process has it, even though the document does not say.
 	   A process with no variables writes an empty object.
 	3. The document says window is a map holding a start and an end date, but names no keys. The keys
-	   start and end are assumed, and a date or a date and time are both accepted. No example uses
-	   window, performer or source yet, so this is a question for the executor team.
+	   start and end are assumed, and a date or a date and time are both accepted.
 */
 
 // Any one of the eight states, picked by its type. The type decides which keys are allowed.

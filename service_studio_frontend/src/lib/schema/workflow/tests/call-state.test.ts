@@ -5,14 +5,14 @@ import {
 	catchClauseSchema,
 	retryPolicySchema,
 	timeoutsSchema
-} from './call-state';
+} from '../call-state';
 import { exampleStatesOfType } from './example-states';
 
 type ExampleManifest = { defaults?: { call?: { timeouts?: unknown; retry?: unknown } } };
 
 // The workflow manifest of each example service, which holds the default timeouts and retry policy.
 const manifests = Object.values(
-	import.meta.glob('../../examples/new-examples/*/workflow_manifest.json', {
+	import.meta.glob('../../../examples/new-examples/*/workflow_manifest.json', {
 		eager: true,
 		import: 'default'
 	})

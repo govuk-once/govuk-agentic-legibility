@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleStatesOfType } from './example-states';
-import { answerDefinitionSchema, inputStateSchema, inputTimeoutSchema } from './input-state';
+import { answerDefinitionSchema, inputStateSchema, inputTimeoutSchema } from '../input-state';
 
 describe('inputStateSchema with the real examples', () => {
 	it('accepts every input state in the example files', () => {

@@ -1,5 +1,12 @@
 import dagre from '@dagrejs/dagre';
-import type { JourneyEdge, JourneyNode } from './types';
+import type { ProcessNode } from './process-graph-types';
+import type { JourneyNode } from './types';
+
+// The layout reads only the type, the id and the step size of a node, and only the two ends of an edge.
+// The original graph and the process graph both have the same three node kinds with those fields, so one
+// layout serves both and is not copied. The original graph is removed when the editor is replaced.
+type LayoutNode = JourneyNode | ProcessNode;
+type LayoutEdge = { source: string; target: string };
 
 // Condition and terminal nodes keep fixed dimensions, but a step's width and height are worked out per
 // node from its own title (see node-sizing.ts), rather than every step sharing one fixed size that
@@ -22,7 +29,7 @@ const MARGIN = 30;
  * fixed dimensions are looked up the same way. Exported because the graph component reuses it to work out
  * where each edge should meet a node.
  */
-export function nodeSize(node: JourneyNode): { width: number; height: number } {
+export function nodeSize(node: LayoutNode): { width: number; height: number } {
 	if (node.type === 'step') {
 		return { width: node.data.width, height: node.data.height };
 	}
@@ -37,10 +44,10 @@ export function nodeSize(node: JourneyNode): { width: number; height: number } {
  * on rendering or dragging, it only computes positions, so this stays a pure function: it builds a fresh
  * graph from its arguments on every call and never mutates the nodes or edges it is given.
  */
-export function layoutJourneyGraph(
-	nodes: JourneyNode[],
-	edges: JourneyEdge[]
-): { nodes: JourneyNode[]; width: number; height: number } {
+export function layoutJourneyGraph<Node extends LayoutNode>(
+	nodes: Node[],
+	edges: LayoutEdge[]
+): { nodes: Node[]; width: number; height: number } {
 	const graph = new dagre.graphlib.Graph();
 	// Dagre requires an edge label factory even though the graph does not attach layout metadata to connections.
 	graph.setDefaultEdgeLabel(() => ({}));
@@ -98,7 +105,7 @@ export function layoutJourneyGraph(
  * in that order. Mutates the positioned nodes in place, since it only ever reassigns an x each node
  * already has from dagre, never its rank or the set of positions available within it.
  */
-function reorderBranchSiblings(positionedNodes: JourneyNode[], edges: JourneyEdge[]): void {
+function reorderBranchSiblings<Node extends LayoutNode>(positionedNodes: Node[], edges: LayoutEdge[]): void {
 	const orderIndex = new Map(positionedNodes.map((node, index) => [node.id, index]));
 	const nodeById = new Map(positionedNodes.map((node) => [node.id, node]));
 
@@ -114,7 +121,7 @@ function reorderBranchSiblings(positionedNodes: JourneyNode[], edges: JourneyEdg
 
 	for (const childIds of childrenBySource.values()) {
 		if (childIds.length < 2) continue;
-		const children = childIds.map((id) => nodeById.get(id)).filter((node): node is JourneyNode => !!node);
+		const children = childIds.map((id) => nodeById.get(id)).filter((node): node is Node => !!node);
 		if (children.length < 2) continue;
 
 		// Only ever reassigns positions among nodes dagre already placed on the same rank: anything else

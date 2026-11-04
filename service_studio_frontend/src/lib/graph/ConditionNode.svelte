@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-	import type { ConditionNode } from './types';
+	import type { ProcessDecisionNode } from './process-graph-types';
 
-	let { data }: NodeProps<ConditionNode> = $props();
+	let { data }: NodeProps<ProcessDecisionNode> = $props();
 </script>
 
 <!-- One shared source handle carries every branch route out of this gateway, dagre and
