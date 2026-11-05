@@ -56,3 +56,35 @@ export function isUndecidedRule(condition: Condition): boolean {
  * in a later step, and until then it counts as a normal finish.
  */
 export const defaultEndStatus: CompletionStatus = 'success';
+
+/**
+ * The question given to an input that is made from another kind of step, when the old step had no words
+ * to carry over. A person writes the real question after the type is changed.
+ */
+export const placeholderQuestion = 'Question to be confirmed';
+
+/**
+ * The message given to an output that is made from another kind of step, when the old step had no words
+ * to carry over. A person writes the real message after the type is changed.
+ */
+export const placeholderMessage = 'Message to be confirmed';
+
+/**
+ * The answer type given to an input made from another kind of step. Text is the most general answer, so
+ * the step is valid straight away and the person picks the right type later.
+ */
+export const placeholderAnswerKind = 'string';
+
+/**
+ * How long a wait made from another kind of step lasts until a person sets it. One minute is a guess and
+ * is not from the unified document, so it is kept here to be easy to change.
+ */
+export const placeholderWaitDuration = 'PT1M';
+
+/**
+ * The name of the variable that holds the answer of an input made from another kind of step. It is built
+ * from the code of the state so it is unique, and any character a variable name cannot hold is replaced.
+ */
+export function placeholderAnswerVariable(stateCode: string): string {
+	return `answer_${stateCode.replace(/[^A-Za-z0-9_]/g, '_')}`;
+}

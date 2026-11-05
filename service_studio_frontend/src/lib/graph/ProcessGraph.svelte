@@ -4,7 +4,7 @@
 	import ConditionNode from './ConditionNode.svelte';
 	import TerminalNode from './TerminalNode.svelte';
 	import { layoutJourneyGraph, processLayoutOptions } from './layout';
-	import { separateEndDots, visibleGraph } from './process-to-graph';
+	import { graphShape, separateEndDots, visibleGraph } from './process-to-graph';
 	import type { NodePositions, ProcessGraphElements } from './process-graph-types';
 
 	interface Props {
@@ -46,7 +46,22 @@
 	// An end state that several steps lead to is drawn as one end dot under each step, so no line has to run
 	// a long way across the graph to reach it.
 	const shown = $derived(separateEndDots(visibleGraph(graph, showErrorRoutes)));
-	const laidOut = $derived(layoutJourneyGraph(shown.nodes, shown.edges, processLayoutOptions).nodes);
+
+	// Where the layout put each box, and the shape of the graph it was worked out for. An edit that leaves the
+	// shape as it was, such as a new title, reuses these places, so a rename never moves a box. The graph is
+	// arranged again only when a box or a line is added, removed or moved. This is plain bookkeeping and not
+	// state, because nothing needs to react to it changing.
+	let lastLayout: { shape: string; places: Map<string, { x: number; y: number }> } | undefined;
+
+	const laidOut = $derived.by(() => {
+		const shape = graphShape(shown);
+		const places = lastLayout?.shape === shape ? lastLayout.places : undefined;
+		if (places) return shown.nodes.map((node) => ({ ...node, position: places.get(node.id) ?? node.position }));
+
+		const nodes = layoutJourneyGraph(shown.nodes, shown.edges, processLayoutOptions).nodes;
+		lastLayout = { shape, places: new Map(nodes.map((node) => [node.id, node.position])) };
+		return nodes;
+	});
 
 	// A box the person has dragged keeps its place, and every other box stays where the layout put it. The
 	// selected flag is set here, not by Svelte Flow, so the list of steps and the graph always agree about

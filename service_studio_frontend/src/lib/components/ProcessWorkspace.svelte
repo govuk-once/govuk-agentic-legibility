@@ -3,9 +3,12 @@
 	import { describeState } from '$lib/graph/describe-state';
 	import { isErrorKind } from '$lib/schema/workflow/routes';
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/graph/process-to-graph';
-	import { stateRows } from '$lib/graph/state-rows';
+	import { stateRows, targetOptions } from '$lib/graph/state-rows';
 	import type { NodePositions } from '$lib/graph/process-graph-types';
-	import type { Process } from '$lib/schema/workflow/process';
+	import { replaceState } from '$lib/schema/workflow/edit-state';
+	import { reachableInOrder } from '$lib/schema/workflow/journey-order';
+	import type { Process, State } from '$lib/schema/workflow/process';
+	import type { WorkflowIssue } from '$lib/schema/workflow/validate';
 	import StateDetails from './StateDetails.svelte';
 	import StateList from './StateList.svelte';
 
@@ -16,11 +19,14 @@
 		// they last while the page is open even after another process has been shown and this one comes back.
 		positions: NodePositions;
 		onMoveNodes: (moved: NodePositions) => void;
+		// Called with the whole process after one of its states is changed. It returns any problems the schema
+		// found, and an empty list when the change was accepted, so the page can refuse a change that breaks it.
+		onChangeProcess: (process: Process) => WorkflowIssue[];
 		// Called with the id of the process an invoke box runs, when the box is clicked.
 		onOpenProcess: (processId: string) => void;
 	}
 
-	let { process, showErrorRoutes, positions, onMoveNodes, onOpenProcess }: Props = $props();
+	let { process, showErrorRoutes, positions, onMoveNodes, onChangeProcess, onOpenProcess }: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and
 	// numbers.
@@ -28,6 +34,14 @@
 	// What is shown with the error routes on or off. The list and the details use it, so they never offer
 	// a step that is not on the graph.
 	const shown = $derived(visibleGraph(graph, showErrorRoutes));
+
+	// Every state a route could lead to, named for the lists of choices in the edit form. It uses the whole graph
+	// and not only what is shown, because a route can lead to a state that is hidden with the error routes.
+	const targets = $derived(targetOptions(graph.nodes));
+
+	// Every state that can be reached from the start by some route, error routes included. A state that is not
+	// here can never run, which is worth telling the person after a change leaves one behind.
+	const reachable = $derived(new Set(reachableInOrder(process)));
 
 	// The state highlighted on the graph and in the list. The page shows this component afresh for each
 	// process, so the selection starts empty every time a different process is opened.
@@ -65,18 +79,26 @@
 			<StateList rows={stateRows(shown.nodes)} bind:selectedStateId />
 		</div>
 
-		{#if selectedStateId && description}
+		{#if selectedStateId && selectedState && description}
+			{@const code = selectedStateId}
 			<div class="process-workspace__details">
-				<StateDetails
-					title={titleOf(selectedStateId) ?? selectedStateId}
-					{description}
-					onSelectState={(stateId) => {
-						// A route to a state that does not exist has nothing to show.
-						if (process.states[stateId]) selectedStateId = stateId;
-					}}
-					{onOpenProcess}
-					onClose={() => (selectedStateId = null)}
-				/>
+				<!-- Shown afresh for each state, so an open edit form never carries over to another state. -->
+				{#key selectedStateId}
+					<StateDetails
+						title={titleOf(code) ?? code}
+						{description}
+						currentState={selectedState}
+						{targets}
+						unreachable={!reachable.has(code)}
+						onApply={(updated: State) => onChangeProcess(replaceState(process, code, updated))}
+						onSelectState={(stateId) => {
+							// A route to a state that does not exist has nothing to show.
+							if (process.states[stateId]) selectedStateId = stateId;
+						}}
+						{onOpenProcess}
+						onClose={() => (selectedStateId = null)}
+					/>
+				{/key}
 			</div>
 		{/if}
 	</aside>

@@ -5,17 +5,38 @@
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
 	import type { NodePositions } from '$lib/graph/process-graph-types';
+	import type { Process } from '$lib/schema/workflow/process';
+	import { parseWorkflow, type WorkflowIssue } from '$lib/schema/workflow/validate';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/graph/process-to-graph';
 	import { tidyCode } from '$lib/graph/tidy-code';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
+	// The workflow being edited. It starts as the one that was loaded and is replaced by a new copy with every
+	// change. It starts again from the loaded one when another service is opened, and it is not saved.
+	let workingWorkflow = $derived(data.workflow);
+
 	// The id of the process on the graph. It starts on the entry process, which is the one the manifest
 	// says the workflow starts in, and it starts again from there when another service is opened.
 	let selectedProcessId = $derived(data.workflow.manifest.entry);
 	// The schema check has already confirmed that every listed process exists.
-	const selectedProcess = $derived(data.workflow.processes[selectedProcessId]);
+	const selectedProcess = $derived(workingWorkflow.processes[selectedProcessId]);
+	/**
+	 * Takes in a changed process. The whole workflow is checked against the schema first, so a change that
+	 * breaks it is refused and its problems are given back to be shown, and the workflow is left as it was.
+	 */
+	function changeProcess(updated: Process): WorkflowIssue[] {
+		const result = parseWorkflow({
+			manifest: workingWorkflow.manifest,
+			processes: { ...workingWorkflow.processes, [selectedProcessId]: updated }
+		});
+		if (!result.ok) return result.issues;
+
+		workingWorkflow = result.workflow;
+		return [];
+	}
+
 	// Where the person has dragged boxes to, kept for each process while the page is open. It is only how the
 	// graph is drawn, so it is not part of the workflow and is not saved.
 	let draggedPositions = $state<Record<string, NodePositions>>({});
@@ -56,9 +77,9 @@
 			<div class="editor-page__process-picker">
 				<label class="govuk-label govuk-!-margin-bottom-0" for="process-select">Process</label>
 				<select class="govuk-select" id="process-select" bind:value={selectedProcessId}>
-					{#each data.workflow.manifest.processes as listed (listed.process_id)}
+					{#each workingWorkflow.manifest.processes as listed (listed.process_id)}
 						<option value={listed.process_id}>
-							{tidyCode(listed.process_id)}{listed.process_id === data.workflow.manifest.entry
+							{tidyCode(listed.process_id)}{listed.process_id === workingWorkflow.manifest.entry
 								? ' (entry process)'
 								: ''}
 						</option>
@@ -97,6 +118,7 @@
 			{showErrorRoutes}
 			{positions}
 			onMoveNodes={moveNodes}
+			onChangeProcess={changeProcess}
 			onOpenProcess={(processId) => (selectedProcessId = processId)}
 		/>
 	{/key}

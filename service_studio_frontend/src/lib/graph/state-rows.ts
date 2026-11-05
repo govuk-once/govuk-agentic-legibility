@@ -22,3 +22,27 @@ export function stateRows(nodes: ProcessNode[]): StateRow[] {
 		node.type === 'step' ? [{ stateId: node.data.stateId, title: node.data.title, number: node.data.stepNumber }] : []
 	);
 }
+
+/**
+ * One state that a route can lead to, with the words that name it in a list of choices.
+ */
+export type TargetOption = { stateId: string; label: string };
+
+/**
+ * Lists every state that a route could lead to, in graph order, for a list of choices. A box is named by its
+ * number and title, so two boxes with the same title can still be told apart, and a diamond or an end dot is
+ * named by its shape and title. The start dot is left out because nothing leads back to it. Codes are not
+ * shown, because they are for the schema and not for the person.
+ */
+export function targetOptions(nodes: ProcessNode[]): TargetOption[] {
+	return nodes.flatMap((node): TargetOption[] => {
+		switch (node.type) {
+			case 'step':
+				return [{ stateId: node.data.stateId, label: `${node.data.stepNumber}. ${node.data.title}` }];
+			case 'condition':
+				return [{ stateId: node.data.stateId, label: `Decision: ${node.data.title}` }];
+			case 'terminal':
+				return node.data.stateId ? [{ stateId: node.data.stateId, label: `End: ${node.data.title ?? node.data.label}` }] : [];
+		}
+	});
+}

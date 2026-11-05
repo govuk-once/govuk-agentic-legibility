@@ -93,6 +93,18 @@ export function separateEndDots(graph: ProcessGraphElements): ProcessGraphElemen
 }
 
 /**
+ * Describes the shape of a graph as text: which boxes there are and which lines join them. Two graphs with
+ * the same description have the same shape even if a title is different, so the page can keep the boxes
+ * where they are when a step is only renamed, and arrange the graph again only when a box or a line is
+ * added, removed or moved to a different place.
+ */
+export function graphShape(graph: ProcessGraphElements): string {
+	const nodes = graph.nodes.map((node) => node.id).join(',');
+	const edges = graph.edges.map((edge) => `${edge.source}>${edge.target}`).join(',');
+	return `${nodes}|${edges}`;
+}
+
+/**
  * Counts the numbered boxes in a graph. This is the number of steps in a process. A decision diamond and
  * an end dot are not counted, so the count matches the last number on the graph and the length of the
  * list of steps.
