@@ -3,3 +3,6 @@ data/embeddings/
 
 # Body-only copy of the demo page, for publishing.
 demo/build/
+
+# Local evaluation runs (full agent transcripts).
+evals/results/

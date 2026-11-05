@@ -342,7 +342,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I recently applied for a deceased relative's military service record and want to give feedback on that application process.",
+          "user": "I want to give feedback to the Ministry of Defence itself, not GOV.UK, about applying for my late grandfather's Army service record.",
           "expect": "offer_journey",
           "workflow_id": "1296"
         }
@@ -774,7 +774,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "A family member had a conviction overturned in the Post Office Horizon scandal and we need to register for the compensation scheme.",
+          "user": "My late brother's conviction was quashed because of the Post Office Horizon scandal. As executor of his estate, I need to register him for the redress scheme for people whose convictions were overturned.",
           "expect": "offer_journey",
           "workflow_id": "3108"
         }
@@ -930,7 +930,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I let out a room in a shared property and need to give the Valuation Office Agency its rent details.",
+          "user": "I'm a tenant renting a room in a shared house, and the Valuation Office Agency has asked me for details of my rent.",
           "expect": "offer_journey",
           "workflow_id": "3872"
         }
@@ -1002,7 +1002,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "We need to refer a supplier for a national security debarment investigation under the Procurement Act.",
+          "user": "We need to raise a referral for a national security debarment investigation into a supplier. The circumstances are still continuing and the supplier provides critical services under our contracts.",
           "expect": "offer_journey",
           "workflow_id": "4119"
         }
@@ -1614,7 +1614,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I used the service for applying for a deceased relative's military record and want to rate the experience.",
+          "user": "I want to rate the GOV.UK online service I used to apply for my late father's military record.",
           "expect": "offer_journey",
           "workflow_id": "6117"
         }
@@ -1741,18 +1741,6 @@
       ]
     },
     {
-      "id": "catalogue_6261",
-      "category": "catalogue",
-      "search": "required",
-      "turns": [
-        {
-          "user": "Our team has just completed the logging pipeline project and I've been asked to share what I learned about TypeScript.",
-          "expect": "offer_journey",
-          "workflow_id": "6261"
-        }
-      ]
-    },
-    {
       "id": "catalogue_6275",
       "category": "catalogue",
       "search": "required",
@@ -1782,7 +1770,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "We have made payments permitted by an exception to the financial sanctions rules and need to notify OFSI.",
+          "user": "We relied on the exception for required payments under the UK financial sanctions rules and need to notify OFSI.",
           "expect": "offer_journey",
           "workflow_id": "6294"
         }
@@ -2262,7 +2250,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "A candidate already applied for our Civil Service vacancy and we need to add them through the recruitment request process.",
+          "user": "A candidate has already applied through Civil Service Jobs for a vacancy that's already listed there. We need the Government Recruitment Service to add them to that existing vacancy.",
           "expect": "offer_journey",
           "workflow_id": "7129"
         }
@@ -2370,7 +2358,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I've applied to the Criminal Injuries Compensation Authority and would like to volunteer for research on improving the application experience.",
+          "user": "I applied to the Criminal Injuries Compensation Authority after a violent assault and received an award. I'd like to volunteer for Ministry of Justice research on improving the application experience.",
           "expect": "offer_journey",
           "workflow_id": "7475"
         }
@@ -2430,7 +2418,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to submit a national security debarment referral about a supplier to the Cabinet Office.",
+          "user": "I need to refer a supplier's connected person to the Cabinet Office National Security Unit for Procurement for debarment under the Procurement Act 2023.",
           "expect": "offer_journey",
           "workflow_id": "7596"
         }
@@ -2610,7 +2598,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to submit identity evidence to Companies House after receiving a case reference by email.",
+          "user": "Companies House emailed me a case reference. I need to provide evidence of my identity, uploading a first and second ID and a supporting document, before my video call. I haven't been asked for my address history.",
           "expect": "offer_journey",
           "workflow_id": "8092"
         }
@@ -2970,7 +2958,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I want to ask the MOD a question or raise an issue about the EU Entry/Exit System (EES).",
+          "user": "I'm a civil servant posted overseas with the MOD and have a question about the EU Entry/Exit System (EES). I'd rather not give my email address, and I'm happy for the answer to go in the MOD's published EES guide.",
           "expect": "offer_journey",
           "workflow_id": "262398"
         }
@@ -3078,7 +3066,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I want to make a representation in the consultation and need to submit my comments.",
+          "user": "I'm a company director and couldn't file my identity verification statement with Companies House on time because I was in hospital. I want to explain the exceptional circumstances.",
           "expect": "offer_journey",
           "workflow_id": "262674"
         }
@@ -3270,7 +3258,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to provide personal, family, health, employment, housing and ID details before a first immigration reporting interview, using a CEPR or UAN reference.",
+          "user": "I need to provide personal, family, health, employment, housing and ID details before my first immigration reporting interview at Croydon, using a CEPR or UAN reference.",
           "expect": "offer_journey",
           "workflow_id": "263181"
         }
@@ -4134,7 +4122,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to submit identity documents to Companies House after receiving a case reference by email.",
+          "user": "Companies House emailed me a case reference to verify my identity. I need to send my identity documents and my address history before the video call with an examiner.",
           "expect": "offer_journey",
           "workflow_id": "264659"
         }
@@ -4182,7 +4170,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to provide personal, family, health, work, housing and identity details before a first immigration reporting interview, using a CEPR or UAN number.",
+          "user": "I need to provide personal, family, health, work, housing and identity details before my first immigration reporting interview at Eaton House, using a CEPR or UAN number.",
           "expect": "offer_journey",
           "workflow_id": "264754"
         }
@@ -4194,7 +4182,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to provide personal, family, health, employment, housing and identity details before a first reporting interview with Immigration Enforcement, using a CEPR or UAN reference.",
+          "user": "I need to provide personal, family, health, employment, housing and identity details before my first reporting interview with Immigration Enforcement in Loughborough, using a CEPR or UAN reference.",
           "expect": "offer_journey",
           "workflow_id": "264755"
         }
@@ -4278,7 +4266,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I need to provide personal, household, health, work and identity details before a first immigration reporting appointment, using a CEPR or UAN reference from bail paperwork.",
+          "user": "I need to provide personal, household, health, work and identity details before my first immigration reporting appointment at the Glasgow reporting centre, using a CEPR or UAN reference from my bail paperwork.",
           "expect": "offer_journey",
           "workflow_id": "264762"
         }
@@ -4590,7 +4578,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I'd be happy to tell Social Security Scotland about my experience of receiving a benefit.",
+          "user": "I'd like to share my story about receiving a Social Security Scotland payment with their communications team.",
           "expect": "offer_journey",
           "workflow_id": "265227"
         }
@@ -4713,18 +4701,6 @@
           "user": "I need to report a suspected food crime to the Food Standards Agency's National Food Crime Unit, giving details of the businesses and people involved, how and when it happens, and optional files.",
           "expect": "offer_journey",
           "workflow_id": "265386"
-        }
-      ]
-    },
-    {
-      "id": "catalogue_265395",
-      "category": "catalogue",
-      "search": "required",
-      "turns": [
-        {
-          "user": "I need to update visit information for a selected prison, such as social visit day and time slots, official video visits or official face to face visits.",
-          "expect": "offer_journey",
-          "workflow_id": "265395"
         }
       ]
     },
@@ -5238,7 +5214,7 @@
       "search": "required",
       "turns": [
         {
-          "user": "I want to give feedback on the Green Gas Support Scheme (GGSS) portal by rating my experience and suggesting improvements, with optional contact details for follow-up.",
+          "user": "I work on the Green Gas Support Scheme (GGSS) as an internal user and want to give internal feedback on the portal, rating my experience and suggesting improvements.",
           "expect": "offer_journey",
           "workflow_id": "266400"
         }
