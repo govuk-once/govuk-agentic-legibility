@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journey Search Handover</title>
+<!--
+	A short deck for the GOV.UK orchestration team: the Journey Search MCP server they can connect to, and the
+	evaluation suite they can run against their orchestrator. Example traces are real recordings from our
+	reference runs, inlined by build.py. Edit this file, then run from the repository root:
+	uv run python forms_search/demo_evals/build.py
+-->
+<style>
+	/* Light only, GOV.UK palette. One slide is visible at a time; each scrolls internally if it must. */
+	:root {
+		--text: #0b0c0c;
+		--secondary: #505a5f;
+		--border: #b1b4b6;
+		--grey: #f3f2f1;
+		--blue: #1d70b8;
+		--dark-blue: #003078;
+		--green: #00703c;
+		--green-bg: #cce2d8;
+		--yellow-bg: #fff7bf;
+		--red-bg: #f4cdc6;
+		--purple: #4c2c92;
+		--white: #ffffff;
+		--mono: ui-monospace, "SF Mono", menlo, consolas, monospace;
+	}
+
+	* { box-sizing: border-box; }
+
+	html, body { height: 100%; }
+
+	body {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		background: var(--white);
+		color: var(--text);
+		font-family: "GDS Transport", arial, sans-serif;
+		font-size: 19px;
+		line-height: 1.35;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	.bar {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px max(16px, env(safe-area-inset-left, 0px));
+		background: var(--text);
+		color: var(--white);
+		font-weight: 700;
+		font-size: 17px;
+	}
+
+	.bar__tag {
+		padding: 2px 8px;
+		background: var(--blue);
+		font-size: 14px;
+		font-weight: 400;
+	}
+
+	.bar__spacer { flex: 1; }
+	.bar__count { font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+	.progress { flex: none; height: 5px; background: var(--grey); }
+	.progress__fill { height: 100%; background: var(--blue); transition: width 0.2s; }
+
+	.deck { flex: 1; min-height: 0; position: relative; }
+
+	.slide {
+		position: absolute;
+		inset: 0;
+		overflow-y: auto;
+		padding: 24px max(16px, env(safe-area-inset-left, 0px)) 24px;
+	}
+
+	.slide[hidden] { display: none; }
+
+	.slide__inner {
+		max-width: 1100px;
+		min-height: 100%;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.controls {
+		flex: none;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 10px max(16px, env(safe-area-inset-left, 0px));
+		border-top: 1px solid var(--border);
+	}
+
+	.controls__hint { color: var(--secondary); font-size: 15px; text-align: center; }
+
+	.button {
+		padding: 8px 18px;
+		border: 0;
+		box-shadow: 0 2px 0 #002d18;
+		background: var(--green);
+		color: var(--white);
+		font: inherit;
+		font-size: 17px;
+		cursor: pointer;
+	}
+
+	.button--secondary { background: var(--grey); color: var(--text); box-shadow: 0 2px 0 #929191; }
+	.button:disabled { opacity: 0.5; cursor: default; }
+	.button:focus-visible, .tab:focus-visible { outline: 3px solid #ffdd00; outline-offset: 0; }
+
+	/* Type */
+	.eyebrow { margin: 0 0 10px; color: var(--secondary); font-size: 19px; }
+	h1 { margin: 0 0 20px; font-size: 48px; line-height: 1.1; }
+	h2 { margin: 0 0 20px; font-size: 34px; line-height: 1.15; }
+	h3 { margin: 0 0 10px; font-size: 22px; }
+	p { margin: 0 0 15px; }
+	.lede { font-size: 24px; line-height: 1.35; max-width: 860px; }
+	.muted { color: var(--secondary); }
+	.small { font-size: 16px; }
+	ul.plain { margin: 0; padding-left: 20px; }
+	ul.plain li { margin-bottom: 6px; }
+	code { font-family: var(--mono); font-size: 0.9em; }
+	a { color: var(--blue); }
+
+	.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 25px; }
+	.grid-2--wide-right { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); }
+
+	.card { padding: 20px 22px; background: var(--grey); border-top: 5px solid var(--blue); }
+	.card--purple { border-top-color: var(--purple); }
+	.card > :last-child { margin-bottom: 0; }
+
+	.big { display: block; margin-bottom: 8px; font-size: 56px; font-weight: 700; line-height: 1; }
+
+	.code {
+		margin: 0 0 15px;
+		padding: 15px 18px;
+		overflow: auto;
+		background: var(--grey);
+		font-family: var(--mono);
+		font-size: 13px;
+		line-height: 1.4;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.code .k { color: var(--dark-blue); }
+	.code .s { color: var(--green); }
+	.code .n { color: var(--purple); }
+	.code .c { color: var(--secondary); }
+
+	.callout { margin: 20px 0 0; padding: 12px 18px; border-left: 8px solid var(--blue); background: #e8f1f8; }
+
+	/* Architecture */
+	.flow { display: grid; grid-template-columns: 1fr auto 1.3fr auto 1.3fr; align-items: center; gap: 14px; margin-bottom: 30px; }
+
+	.node { padding: 18px; border: 3px solid var(--text); background: var(--white); }
+	.node h3 { margin-bottom: 6px; }
+	.node p { margin: 0; font-size: 16px; color: var(--secondary); }
+	.node--ours { border-color: var(--purple); }
+	.node--yours { border-color: var(--blue); }
+
+	.link { text-align: center; font-size: 15px; color: var(--secondary); }
+	.link__arrow { display: block; font-size: 28px; line-height: 1; color: var(--text); }
+	.link code { display: block; margin-top: 4px; color: var(--text); }
+
+	/* Outcomes and categories */
+	.tag { display: inline-block; padding: 2px 8px; font-size: 16px; font-weight: 700; white-space: nowrap; }
+	.tag--offer_journey { background: var(--green-bg); color: #005a30; }
+	.tag--clarify { background: var(--yellow-bg); color: #594d00; }
+	.tag--no_journey { background: var(--red-bg); color: #942514; }
+	.tag--grey { background: #e5e6e7; color: #383f43; font-weight: 400; }
+	.tag--pass { background: var(--green); color: var(--white); }
+	.tag--fail { background: #d4351c; color: var(--white); }
+
+	.cats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
+	.cat { padding: 10px 14px; background: var(--grey); border-left: 5px solid var(--blue); }
+	.cat strong { font-size: 24px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+	.outcomes { width: 100%; border-collapse: collapse; }
+	.outcomes td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+	.outcomes td:first-child { width: 1%; white-space: nowrap; }
+
+	.steps { margin: 0; padding-left: 26px; }
+	.steps li { margin-bottom: 12px; padding-left: 4px; }
+
+	/* Example explorer */
+	.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+
+	.tab {
+		padding: 8px 14px;
+		border: 0;
+		border-bottom: 4px solid transparent;
+		background: var(--grey);
+		color: var(--blue);
+		font: inherit;
+		font-size: 17px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.tab[aria-selected="true"] { border-bottom-color: var(--blue); background: var(--white); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+
+	.explorer { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 25px; align-items: start; }
+
+	.panel h3 { font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--secondary); }
+
+	.trace { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 420px); min-height: 220px; overflow-y: auto; }
+	.trace > li { position: relative; margin: 0 0 12px; padding: 10px 14px 10px 16px; border-left: 4px solid var(--border); background: var(--grey); font-size: 16px; }
+	.trace > li.citizen { border-left-color: var(--text); background: var(--white); box-shadow: inset 0 0 0 1px var(--border); font-size: 18px; }
+	.trace > li.search { border-left-color: var(--purple); font-family: var(--mono); font-size: 14px; }
+	.trace > li.result { border-left-color: var(--purple); }
+	.trace > li.decision { border-left-color: var(--blue); background: #e8f1f8; }
+	.trace__who { display: block; margin-bottom: 4px; color: var(--secondary); font-family: arial, sans-serif; font-size: 14px; font-weight: 700; }
+	.trace ol { margin: 0; padding-left: 22px; }
+	.trace ol li { margin-bottom: 2px; }
+	.trace .wid { color: var(--secondary); font-family: var(--mono); font-size: 13px; }
+	.trace .hit { font-weight: 700; color: #005a30; }
+	.reply p, .reply ul { margin: 6px 0 0; }
+	.reply ul { padding-left: 20px; }
+
+	.expect { margin: 0 0 12px; padding: 10px 14px; background: var(--grey); }
+	.expect q { display: block; margin-bottom: 8px; font-size: 18px; }
+
+	@media (max-width: 760px) {
+		body { font-size: 17px; }
+		h1 { font-size: 34px; }
+		h2 { font-size: 27px; }
+		.lede { font-size: 20px; }
+		.big { font-size: 42px; }
+		.slide { padding-top: 25px; padding-bottom: 25px; }
+		.slide__inner { justify-content: flex-start; }
+		.grid-2, .explorer { grid-template-columns: 1fr; }
+		.flow { grid-template-columns: 1fr; }
+		.link__arrow { transform: rotate(90deg); }
+		.controls__hint { display: none; }
+		.trace { max-height: none; }
+	}
+</style>
+</head>
+<body>
+
+<header class="bar">
+	<span>Agentic Legibility: Journey Search</span>
+	<span class="bar__tag">Prototype</span>
+	<span class="bar__spacer"></span>
+	<span class="bar__count" id="count"></span>
+</header>
+<div class="progress" aria-hidden="true"><div class="progress__fill" id="progress"></div></div>
+
+<main class="deck" id="deck">
+
+	<!-- 1 -->
+	<section class="slide" aria-label="Introduction">
+		<div class="slide__inner">
+			<p class="eyebrow">For the GOV.UK orchestration team</p>
+			<h1>Journey Search: an MCP server and an evaluation suite</h1>
+			<p class="lede">Two things you can use now, to see whether the orchestrator can find the right government
+				service for a citizen without already knowing the catalogue.</p>
+			<div class="grid-2" style="margin-top: 20px;">
+				<div class="card card--purple">
+					<span class="big">1 tool</span>
+					<h3>A hosted MCP server</h3>
+					<p><code>search_service_journeys</code> returns a shortlist of candidate GOV.UK Forms from a catalogue of
+						about 550. Connect with OAuth client credentials.</p>
+				</div>
+				<div class="card">
+					<span class="big" data-n="dataset.total"></span>
+					<h3>Evaluation scenarios</h3>
+					<p>Citizen messages with expected outcomes, for you to run against the orchestrator.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 2 -->
+	<section class="slide" aria-label="Where it fits">
+		<div class="slide__inner">
+			<p class="eyebrow">Where it fits</p>
+			<h2>Journey Search retrieves. The orchestrator decides.</h2>
+			<div class="flow">
+				<div class="node"><h3>Citizen</h3><p>Talks only to the orchestrator.</p></div>
+				<div class="link"><span class="link__arrow">⇄</span>conversation</div>
+				<div class="node node--yours"><h3>GOV.UK orchestrator</h3><p>The agent. Owns the conversation, has other tools,
+					and decides whether to search, what to search for, and what to do with the results.</p></div>
+				<div class="link"><span class="link__arrow">⇄</span>MCP<code>search_service_journeys</code></div>
+				<div class="node node--ours"><h3>Journey Search</h3><p>Our MCP server. Stateless. Returns ranked candidates, each with
+					an ID, title and description.</p></div>
+			</div>
+			<div class="grid-2">
+				<div>
+					<h3>After a search, the orchestrator can…</h3>
+					<ul class="plain">
+						<li>offer the one journey that fits</li>
+						<li>ask the citizen which of several applies</li>
+						<li>search again with a better query</li>
+						<li>decide none fits and use another capability</li>
+					</ul>
+				</div>
+				<div>
+					<h3>Things to know</h3>
+					<ul class="plain">
+						<li><strong>Candidates are not matches.</strong> It always returns up to <code>limit</code>, even when nothing fits.</li>
+						<li><strong>Searching doesn't start anything.</strong> Starting a journey is a separate call, after the citizen agrees.</li>
+						<li><strong>No state between calls.</strong> Put what matters from the conversation in the query.</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 3 -->
+	<section class="slide" aria-label="The tool">
+		<div class="slide__inner">
+			<p class="eyebrow">The MCP tool</p>
+			<h2>One call: a plain-language query in, candidates out</h2>
+			<div class="grid-2 grid-2--wide-right">
+				<div>
+					<pre class="code"><span class="k">search_service_journeys</span>(
+    query: <span class="k">str</span>,      <span class="c"># plain words</span>
+    limit: <span class="k">int</span> = <span class="n">5</span>,  <span class="c"># up to 20</span>
+)</pre>
+					<ul class="plain">
+						<li>The citizen doesn't need to know the service's name.</li>
+						<li>Don't put personal details in the query.</li>
+						<li>The tool description, which the model sees, explains how to judge results.</li>
+						<li>About 300 ms per search on an open connection.</li>
+					</ul>
+				</div>
+				<div>
+					<pre class="code" id="tool-sample"></pre>
+					<p class="small muted" id="tool-sample-caption"></p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 4 -->
+	<section class="slide" aria-label="Connecting">
+		<div class="slide__inner">
+			<p class="eyebrow">Connecting</p>
+			<h2>Five settings, then add it to the agent's tools</h2>
+			<div class="grid-2">
+				<div>
+					<h3>1. Get credentials from us</h3>
+					<pre class="code">JOURNEY_SEARCH_MCP_URL
+JOURNEY_SEARCH_TOKEN_URL
+JOURNEY_SEARCH_CLIENT_ID
+JOURNEY_SEARCH_CLIENT_SECRET  <span class="c"># sent separately</span>
+JOURNEY_SEARCH_SCOPE</pre>
+					<p class="small muted">OAuth client credentials. You don't need access to our AWS account.</p>
+					<h3>2. Check access</h3>
+					<pre class="code">uv run strands_client.py tools
+uv run strands_client.py search <span class="s">"report a mosquito"</span></pre>
+				</div>
+				<div>
+					<h3>3. Use it from Strands (or any MCP client)</h3>
+					<pre class="code">journey_search = MCPClient(
+    url=os.environ[<span class="s">"JOURNEY_SEARCH_MCP_URL"</span>],
+    auth_provider=JourneySearchAuth(),  <span class="c"># bearer token</span>
+)
+
+<span class="k">with</span> journey_search:
+    agent = Agent(
+        model=your_model,
+        tools=journey_search.list_tools_sync()
+              + your_other_tools,
+    )</pre>
+					<p class="small muted">Streamable HTTP with <code>Authorization: Bearer &lt;token&gt;</code>. The full
+						auth class, a <code>curl</code> example and error codes are in
+						<code>forms_search/journey_search/CONNECTING.md</code>.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 5 -->
+	<section class="slide" aria-label="The evaluation suite">
+		<div class="slide__inner">
+			<p class="eyebrow">The evaluation suite</p>
+			<h2><span data-n="dataset.total"></span> scenarios, each with one expected outcome</h2>
+			<div class="cats" id="cats"></div>
+			<div class="grid-2">
+				<table class="outcomes">
+					<tr><td><span class="tag tag--offer_journey">offer_journey</span></td><td>The agent offers <strong>this specific</strong> workflow ID. Merely being returned by search doesn't count.</td></tr>
+					<tr><td><span class="tag tag--clarify">clarify</span></td><td>The agent asks a relevant question instead of committing to a journey.</td></tr>
+					<tr><td><span class="tag tag--no_journey">no_journey</span></td><td>The agent offers no Form. Answering normally or using another tool is fine.</td></tr>
+				</table>
+				<div>
+					<p>Each scenario also says whether search is <strong>required</strong> or <strong>forbidden</strong>,
+						at any point in the conversation.</p>
+					<p><span data-n="dataset.by_turns.2"></span> scenarios have two turns: the first is ambiguous, and a scripted second message
+						resolves it.</p>
+					<p class="small muted">Synthetic, for checking the architecture. Not a sample of real citizen traffic.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 6 -->
+	<section class="slide" aria-label="A scenario">
+		<div class="slide__inner">
+			<p class="eyebrow">The evaluation suite</p>
+			<h2>What a scenario looks like</h2>
+			<div class="grid-2">
+				<div>
+					<h3>Single turn</h3>
+					<pre class="code" id="sample-0"></pre>
+				</div>
+				<div>
+					<h3>Clarification: two turns</h3>
+					<pre class="code" id="sample-1"></pre>
+					<p class="small muted">If the agent asks a relevant question, send the second <code>user</code> message
+						verbatim. It's a fixed script, not a simulated citizen.</p>
+				</div>
+			</div>
+			<p class="small muted">All in one file: <code>forms_search/evals/scenarios.json</code>. Check it with
+				<code>uv run python -m forms_search.evals.validate</code>.</p>
+		</div>
+	</section>
+
+	<!-- 7 -->
+	<section class="slide" aria-label="Running it">
+		<div class="slide__inner">
+			<p class="eyebrow">The evaluation suite</p>
+			<h2>Running it against the orchestrator</h2>
+			<div class="grid-2">
+				<ol class="steps">
+					<li>Start a <strong>fresh conversation</strong> per scenario and send only the <code>user</code> text. Never show the agent the expected outcome.</li>
+					<li>Let it decide whether to search, what for, and how many times.</li>
+					<li>Record <strong>which workflow ID it offered</strong>, for example a structured decision or an unconfirmed "start journey" call, plus every search and its candidates.</li>
+					<li>For two-turn scenarios, send the second message only if it clarified.</li>
+					<li>Score each turn and the search rule. Pass only if all hold.</li>
+				</ol>
+				<div>
+					<div class="card">
+						<h3>What we'd like back</h3>
+						<ul class="plain">
+							<li>Pass rates <strong>by category</strong>, so the large catalogue group doesn't hide the rest</li>
+							<li>Traces, so each failure can be put down to the dataset, the search tool or the orchestrator</li>
+							<li>Whether the expected ID was retrieved at all, separately from whether it was offered</li>
+						</ul>
+					</div>
+					<p class="small muted" style="margin-top: 15px;">Scoring rules and output format:
+						<code>forms_search/evals/README.md</code>. Our reference runner, <code>run_evals.py</code>, is one example.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 8 -->
+	<section class="slide" aria-label="Example traces">
+		<div class="slide__inner">
+			<p class="eyebrow">Example traces</p>
+			<h2>How a plain agent used it</h2>
+			<div class="tabs" role="tablist" id="tabs"></div>
+			<div class="explorer" role="tabpanel" id="explorer"></div>
+		</div>
+	</section>
+
+	<!-- 9 -->
+	<section class="slide" aria-label="Sanity check">
+		<div class="slide__inner">
+			<p class="eyebrow">Sanity check</p>
+			<h2>The suite is solvable with nothing but this tool</h2>
+			<div class="grid-2">
+				<div class="card card--purple">
+					<span class="big" id="ref-score"></span>
+					<p>A plain Strands agent (<code id="ref-model"></code>) with a short prompt and <strong>only</strong> Journey
+						Search as its tool, after we fixed the scenarios it exposed as ambiguous.</p>
+				</div>
+				<div>
+					<p class="lede" style="font-size: 22px;">That only shows the scenarios work and the tool is usable. It tells us
+						nothing about the orchestrator.</p>
+					<p>The other tools, instructions, context and guardrails could change when it searches, what it searches
+						for and how it judges candidates. That's what we'd like to find out with you.</p>
+					<pre class="code">uv run forms_search/evals/run_evals.py run --run smoke \
+  --ids unusual_octopus cancelled_test_theory</pre>
+					<p class="small muted">Our reference runner, if you want to see it working end to end first.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+</main>
+
+<nav class="controls" aria-label="Slides">
+	<button class="button button--secondary" type="button" id="prev">Previous</button>
+	<span class="controls__hint">← → or space to move between slides</span>
+	<button class="button" type="button" id="next">Next</button>
+</nav>
+
+<script>
+	// Dataset counts, a recorded tool response, sample scenarios and recorded traces, inlined by build.py.
+	const DEMO = {"dataset": {"total": 519, "by_category": {"catalogue": 462, "clarification": 15, "no_search": 12, "not_in_catalogue": 10, "similar_services": 10, "paraphrase": 4, "named_service": 3, "unusual": 3}, "by_turns": {"1": 504, "2": 15}}, "reference": {"passed": 518, "total": 519, "model_id": "eu.anthropic.claude-sonnet-5-5"}, "tool_sample": {"input": {"query": "correct wrong mileage on MOT record"}, "candidates": [{"workflow_id": "1994", "title": "Fix mistakes on a vehicle's MOT record", "description": "Request DVSA to correct errors on a vehicle's MOT record, including wrong mileage backed by uploaded evidence, or details such as make, model, colour, fuel type, registration country or MOT centre. Collects vehicle, keeper or trade details and MOT test numbers."}, {"workflow_id": "264164", "title": "Request a correction to your immigration status record", "description": "Ask the Home Office to correct an immigration status record you believe is wrong after being stopped from working, renting, claiming benefits, driving or banking. Collects evidence, an explanation and personal details, and can be sent on behalf of someone else with a letter of authority."}], "of": 5}, "scenario_samples": [{"id": "catalogue_1994", "category": "catalogue", "search": "required", "turns": [{"user": "The MOT record for my car has the wrong mileage on it. How can I get that fixed?", "expect": "offer_journey", "workflow_id": "1994"}]}, {"id": "cancelled_test_theory", "category": "clarification", "search": "required", "turns": [{"user": "I want to claim expenses because my test was cancelled.", "expect": "clarify"}, {"user": "It was my car theory test, not the practical test.", "expect": "offer_journey", "workflow_id": "6770"}]}], "examples": [{"id": "unusual_octopus", "label": "Unexpected service", "point": "The agent doesn't know the catalogue, but searches anyway and finds a niche Form.", "scenario": {"id": "unusual_octopus", "category": "unusual", "search": "required", "turns": [{"user": "I saw an octopus while diving off Cornwall. Is there anywhere official to report it?", "expect": "offer_journey", "workflow_id": "265276"}]}, "passed": true, "events": [{"kind": "citizen", "text": "I saw an octopus while diving off Cornwall. Is there anywhere official to report it?"}, {"kind": "search", "input": {"query": "report an octopus sighting"}}, {"kind": "result", "json": {"candidates": [{"workflow_id": "265276", "title": "Octopus sighting? Let us know!", "description": "Report an octopus sighting to the Marine Management Organisation, for divers, recreational fishers and the public. Give the date and location, species (common, curled/horned or unknown), optional details and photos, and optional contact details."}, {"workflow_id": "5396", "title": "Marine Mammal Reporting", "description": "Report a fishing vessel's interaction with a marine mammal that was killed, injured or bycaught. Collects the vessel name and PLN, date, time and location, species, number of animals, gear type, target species, observer presence and action taken. One form per vessel."}, {"workflow_id": "6375", "title": "Oil Price Cap (OPC) suspected breach reporting form", "description": "Report a suspected breach of the Russia oil price cap to OFSI, either as a final report or a pre-notification. Collects details of the reporter, suspected breachers, oil transaction, voyage, vessel and sanctions evasion red flags, with optional evidence uploads."}, {"workflow_id": "6784", "title": "KHM - Report an Incident or Dangerous Occurrence", "description": "Report a marine incident or dangerous occurrence, such as a collision, fire, grounding, pollution or man overboard, to the King's Harbour Master. Collects vessel details, location, time, weather and sea conditions, and actions taken. Not for rail or road dangerous goods incidents."}, {"workflow_id": "6275", "title": "Report a concern of malpractice, qualification fraud or wrongdoing (whistleblowing)", "description": "Report a concern to Ofqual about malpractice, qualification fraud or wrongdoing, including as a whistleblower. Give details of what happened, who is involved and any awarding organisation, upload up to four documents, and choose whether to stay anonymous."}]}}, {"kind": "decision", "outcome": "offer_journey", "workflow_ids": ["265276"], "reply": "Yes. The Marine Management Organisation has a form for octopus sightings, and it's open to divers. You give the date, location and species (common, curled/horned or unknown). Photos and contact details are optional. Would you like to start it?"}]}, {"id": "cancelled_test_theory", "label": "Clarification", "point": "Two Forms fit, so it asks. The scripted second message is sent verbatim.", "scenario": {"id": "cancelled_test_theory", "category": "clarification", "search": "required", "turns": [{"user": "I want to claim expenses because my test was cancelled.", "expect": "clarify"}, {"user": "It was my car theory test, not the practical test.", "expect": "offer_journey", "workflow_id": "6770"}]}, "passed": true, "events": [{"kind": "citizen", "text": "I want to claim expenses because my test was cancelled."}, {"kind": "search", "input": {"query": "claim expenses because my test was cancelled"}}, {"kind": "result", "json": {"candidates": [{"workflow_id": "5123", "title": "Apply to claim expenses for a cancelled driving test", "description": "Claim out-of-pocket expenses when DVSA cancelled a car driving test at short notice. Collects licence and test details, plus costs for instructor lessons, vehicle hire, mileage, lost pay or other expenses, with receipts. Not for theory tests or other vehicle types."}, {"workflow_id": "6770", "title": "Apply to claim expenses for a cancelled theory test", "description": "Claim a refund from DVSA for expenses after a cancelled theory test (car, motorcycle, lorry, bus and coach, Driver CPC or ADI Part 1), within 6 months of the test date. Covers travel, parking, lost pay and other costs, with receipts or employer evidence uploaded."}, {"workflow_id": "266079", "title": "Test live form", "description": "Test form for a Home Office-style complaints journey, not for real submissions. It covers new or existing complaints, reasons such as application decisions, visa errors, appointments, lost documents, refunds and staff behaviour, plus evidence upload and details of any representative."}, {"workflow_id": "920", "title": "Apply for a refund of MOT slot payments", "description": "Request a refund for unused MOT testing service slots bought by an authorised examiner. Collects the examiner number, trading name, number of slots to refund and current slot balance, with refunds returned to the card or sent by cheque."}, {"workflow_id": "3184", "title": "SG test", "description": "Test form for internal use, not for real submissions. Collects whether the person was affected by the infected blood scandal, their passport issue date, the start of the tax year and their country of origin, with no payment taken."}]}}, {"kind": "decision", "outcome": "clarify", "workflow_ids": ["5123", "6770"], "reply": "Which test was cancelled?\n\n- A car driving test (practical test)\n- A theory test (car, motorcycle, lorry, bus and coach, Driver CPC or ADI Part 1)\n\nTell me which one and I'll point you to the right claim form."}, {"kind": "citizen", "text": "It was my car theory test, not the practical test."}, {"kind": "decision", "outcome": "offer_journey", "workflow_ids": ["6770"], "reply": "You can use \"Apply to claim expenses for a cancelled theory test\". It covers car theory tests. You can claim for travel, parking, lost pay and other costs. You'll need receipts, or evidence from your employer. You must claim within 6 months of the test date.\n\nWould you like to start it?"}]}, {"id": "similar_holiday_taken", "label": "Similar Forms", "point": "Near-identical redundancy-claim Forms. The request is specific enough to pick one.", "scenario": {"id": "similar_holiday_taken", "category": "similar_services", "search": "required", "turns": [{"user": "My redundancy claim has the wrong amount for holiday I actually took but was not paid for.", "expect": "offer_journey", "workflow_id": "232"}]}, "passed": true, "events": [{"kind": "citizen", "text": "My redundancy claim has the wrong amount for holiday I actually took but was not paid for."}, {"kind": "search", "input": {"query": "change my redundancy claim, wrong amount for unpaid holiday pay"}}, {"kind": "result", "json": {"candidates": [{"workflow_id": "6", "title": "Amend my claim for holiday pay accrued", "description": "Amend an existing redundancy claim for accrued holiday pay by correcting the leave year start date, days entitled, days taken and days carried over. Verify identity with claim reference and National Insurance number. Does not cover holiday taken but not paid."}, {"workflow_id": "232", "title": "Amend my claim for holiday taken but not paid", "description": "Amend an existing redundancy claim for holidays taken but not paid, changing the holiday year start date, leave entitlement in days, or dates of unpaid holiday. Verify identity with your claim reference and National Insurance number first."}, {"workflow_id": "289", "title": "Amend my claim for unpaid wages", "description": "Amend an existing redundancy claim for unpaid wages made to the Insolvency Service. Confirm your identity with your claim reference and National Insurance number, then give corrected details of wages owed, unpaid dates, net or gross amounts and any attachment of earnings."}, {"workflow_id": "356", "title": "Amend my employment details", "description": "Amend employment details on an existing redundancy claim: gross weekly pay, employment start and end dates, and the date notice was given. Verify your identity with your claim reference and National Insurance number. Personal details are changed using a separate form."}, {"workflow_id": "358", "title": "Amend my personal details", "description": "Amend personal details on an existing redundancy payment claim, such as name, National Insurance number, date of birth, email, home address or mobile number. Verify identity with the claim reference and current details; employment details are covered by a separate form."}]}}, {"kind": "decision", "outcome": "offer_journey", "workflow_ids": ["232"], "reply": "The best fit is \"Amend my claim for holiday taken but not paid\". You can use it to correct the holiday year start date, your leave entitlement in days, or the dates of unpaid holiday. You'll need your claim reference and National Insurance number to verify your identity. Would you like to start it?"}]}, {"id": "outside_passport_renewal", "label": "Nothing fits", "point": "Search always returns candidates. The agent searches twice, then rejects them all.", "scenario": {"id": "outside_passport_renewal", "category": "not_in_catalogue", "search": "required", "turns": [{"user": "I need to renew my British passport.", "expect": "no_journey"}]}, "passed": true, "events": [{"kind": "citizen", "text": "I need to renew my British passport."}, {"kind": "search", "input": {"query": "renew British passport"}}, {"kind": "result", "json": {"candidates": [{"workflow_id": "264774", "title": "Get help with your citizenship or certificate of entitlement application", "description": "Contact the Home Office for help with a British citizenship application, certificate of entitlement application or renunciation of citizenship, such as updates, refunds, returns of documents or certificate corrections. Can be completed on behalf of someone else, with a letter of authority."}, {"workflow_id": "3139", "title": "Apply for an emergency travel document (first time applicant)", "description": "Apply for an emergency travel document from abroad if you have never held a UK passport issued since 1 January 2006 and have an urgent, unplanned reason to travel. Collects applicant and contact details, location and a summary of exceptional circumstances, for yourself or someone else."}, {"workflow_id": "265949", "title": "Request to restore and renew a registration (TM13)", "description": "Request restoration and renewal of a lapsed UK trade mark whose renewal date was 6 to 12 months ago. Give the trade mark number, classes to renew and a statement explaining the missed renewal, then pay the restoration and renewal fees by card or deposit account."}, {"workflow_id": "264768", "title": "Immigration Enforcement – first reporting event: East of England police station", "description": "Provide personal, family, health, work, housing and identity details before a first immigration bail reporting appointment at the East of England police station. Collects CEPR or UAN, partner and children, medication, passport upload, and interest in voluntary return."}, {"workflow_id": "267100", "title": "New starter", "description": "Request a building security pass for a new starter at Welsh Government offices or tenant organisations. Collects the starter's name, start date, organisation, optional HRIS reference and vetting clearance details, and an uploaded passport-style photo."}]}}, {"kind": "search", "input": {"query": "passport renewal, replace lost or damaged passport, change passport details"}}, {"kind": "result", "json": {"candidates": [{"workflow_id": "265551", "title": "Get help with your application registration card (ARC)", "description": "Request a replacement or correction for an asylum application registration card (ARC) that is missing, expired, stolen, damaged or has wrong details or photo. Can be completed by the holder or a representative, and collects reference numbers, dependants and ID."}, {"workflow_id": "7275", "title": "Apply to replace a lost or damaged dangerous goods (ADR) driver card", "description": "Apply for a replacement dangerous goods (ADR) driver card that is lost, stolen or damaged, and pay the fee. Collects your name, date of birth, optional ADR card number, address and contact details. Not for name or nationality changes, Driver CPC cards or DGSA certificates."}, {"workflow_id": "358", "title": "Amend my personal details", "description": "Amend personal details on an existing redundancy payment claim, such as name, National Insurance number, date of birth, email, home address or mobile number. Verify identity with the claim reference and current details; employment details are covered by a separate form."}, {"workflow_id": "264289", "title": "Apply to change the nationality on your dangerous goods (ADR) driver card", "description": "Apply and pay for a replacement dangerous goods (ADR) driver card showing a new nationality. Upload a passport, driving licence, national identification card or certificate of naturalisation as proof, and give your ADR card number and address, if changed."}, {"workflow_id": "777", "title": "Apply to replace a lost, stolen or damaged Driver CPC card", "description": "Request a replacement Driver CPC (driver qualification) card for lorry, bus or coach driving issued by DVSA in England, Scotland or Wales, if lost, stolen or damaged. Collects name, driving licence number, address and contact details; DVSA phones to take the fee."}]}}, {"kind": "decision", "outcome": "no_journey", "workflow_ids": [], "reply": "I couldn't find a passport renewal service in the catalogue I can search, so I can't offer a form for it here. The closest result was an emergency travel document, but that's only for first-time applicants abroad who need to travel urgently, so it isn't right for a renewal.\n\nYou can renew a British passport on GOV.UK by searching for \"renew or replace your adult passport\". If you tell me more, such as whether you're abroad or need to travel urgently, I can check for anything else that fits."}]}, {"id": "no_search_greeting", "label": "No search", "point": "Small talk: Journey Search is never called.", "scenario": {"id": "no_search_greeting", "category": "no_search", "search": "forbidden", "turns": [{"user": "Hello! How are you?", "expect": "no_journey"}]}, "passed": true, "events": [{"kind": "citizen", "text": "Hello! How are you?"}, {"kind": "decision", "outcome": "no_journey", "workflow_ids": [], "reply": "Hello! I'm well, thank you. How can I help you today? If you tell me what you'd like to do, such as apply for something, report something or make a claim, I can look for the right government form."}]}]};
+
+	const $ = (id) => document.getElementById(id);
+	const get = (path) => path.split('.').reduce((o, k) => o?.[k], DEMO);
+
+	const escapeHtml = (text) => String(text)
+		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+	function renderJson(value) {
+		const json = JSON.stringify(value, null, 2);
+		const token = /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+		let html = '';
+		let last = 0;
+		for (const match of json.matchAll(token)) {
+			const [whole, str, colon, num] = match;
+			html += escapeHtml(json.slice(last, match.index));
+			if (num) html += `<span class="n">${num}</span>`;
+			else if (colon) html += `<span class="k">${escapeHtml(str)}</span>${colon}`;
+			else html += `<span class="s">${escapeHtml(str)}</span>`;
+			last = match.index + whole.length;
+		}
+		return html + escapeHtml(json.slice(last));
+	}
+
+	/** Enough Markdown for the agent's replies: paragraphs, bullet lists and bold. */
+	function renderMarkdown(text) {
+		const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+		return text.trim().split(/\n{2,}/).map((block) => {
+			const lines = block.split('\n');
+			if (lines.every((l) => /^\s*[-*] /.test(l))) {
+				return '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ''))}</li>`).join('') + '</ul>';
+			}
+			return `<p>${lines.map(inline).join('<br>')}</p>`;
+		}).join('');
+	}
+
+	const tag = (outcome) => `<span class="tag tag--${outcome}">${outcome}</span>`;
+
+	// --- Static content ----------------------------------------------------------
+
+	function fill() {
+		document.querySelectorAll('[data-n]').forEach((el) => { el.textContent = get(el.dataset.n); });
+
+		$('cats').innerHTML = Object.entries(DEMO.dataset.by_category).map(([cat, n]) =>
+			`<span class="cat"><strong>${n}</strong><code>${escapeHtml(cat)}</code></span>`).join('');
+
+		const t = DEMO.tool_sample;
+		$('tool-sample').innerHTML = `<span class="c">// query: ${escapeHtml(JSON.stringify(t.input.query))}</span>\n` +
+			renderJson({ candidates: t.candidates }).replace(/\n {2}\]\n\}$/, `,\n    <span class="c">…</span>\n  ]\n}`);
+		$('tool-sample-caption').textContent = `A recorded response: the first ${t.candidates.length} of ${t.of} candidates. ` +
+			'The second shows why every candidate needs judging.';
+
+		DEMO.scenario_samples.forEach((s, i) => { $(`sample-${i}`).innerHTML = renderJson(s); });
+
+		$('ref-score').textContent = `${DEMO.reference.passed}/${DEMO.reference.total}`;
+		$('ref-model').textContent = DEMO.reference.model_id;
+	}
+
+	// --- Example explorer ---------------------------------------------------------
+
+	function expectation(turn) {
+		return turn.expect === 'offer_journey' ? `${tag('offer_journey')} <code>${escapeHtml(turn.workflow_id)}</code>` : tag(turn.expect);
+	}
+
+	function showExample(index) {
+		const ex = DEMO.examples[index];
+		document.querySelectorAll('.tab').forEach((tab, i) => tab.setAttribute('aria-selected', String(i === index)));
+		const s = ex.scenario;
+		const expectedId = s.turns[s.turns.length - 1].workflow_id;
+		const titles = {};
+
+		const trace = ex.events.map((e) => {
+			if (e.kind === 'citizen') return `<li class="citizen"><span class="trace__who">Citizen</span>${escapeHtml(e.text)}</li>`;
+			if (e.kind === 'search') {
+				const limit = e.input.limit !== undefined ? `, limit=${e.input.limit}` : '';
+				return `<li class="search"><span class="trace__who">Agent → Journey Search</span>search_service_journeys(${escapeHtml(JSON.stringify(e.input.query))}${limit})</li>`;
+			}
+			if (e.kind === 'result') {
+				const items = (e.json?.candidates || []).map((c) => {
+					titles[c.workflow_id] = c.title;
+					const hit = c.workflow_id === expectedId;
+					return `<li${hit ? ' class="hit"' : ''}>${escapeHtml(c.title)} <span class="wid">${escapeHtml(c.workflow_id)}</span>${hit ? ' ✓ expected' : ''}</li>`;
+				}).join('');
+				return `<li class="result"><span class="trace__who">Journey Search → Agent: candidates</span><ol>${items}</ol></li>`;
+			}
+			const ids = e.workflow_ids.length ? ' ' + e.workflow_ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(', ') : '';
+			return `<li class="decision"><span class="trace__who">Agent → Citizen &nbsp;${tag(e.outcome)}${ids}</span><div class="reply">${renderMarkdown(e.reply)}</div></li>`;
+		}).join('');
+
+		const searches = ex.events.filter((e) => e.kind === 'search').length;
+		$('explorer').innerHTML =
+			`<div class="panel"><h3>Scenario</h3>` +
+			s.turns.map((t, i) => `<div class="expect">${s.turns.length > 1 ? `<span class="small muted">Turn ${i + 1}</span>` : ''}<q>${escapeHtml(t.user)}</q>Expected: ${expectation(t)}</div>`).join('') +
+			`<p class="small"><span class="tag tag--grey">${escapeHtml(s.category)}</span> <span class="tag tag--grey">search ${escapeHtml(s.search)}</span></p>` +
+			`<p>${escapeHtml(ex.point)}</p>` +
+			`<p class="small"><span class="tag ${ex.passed ? 'tag--pass' : 'tag--fail'}">${ex.passed ? 'Passed' : 'Failed'}</span> <span class="muted">${searches} search${searches === 1 ? '' : 'es'} · <code>${escapeHtml(ex.id)}</code></span></p></div>` +
+			`<div class="panel"><h3>Recorded trace</h3><ol class="trace">${trace}</ol></div>`;
+	}
+
+	// --- Deck ---------------------------------------------------------------------
+
+	const slides = [...document.querySelectorAll('.slide')];
+	let current = 0;
+
+	function go(n) {
+		current = Math.max(0, Math.min(n, slides.length - 1));
+		slides.forEach((s, i) => { s.hidden = i !== current; });
+		slides[current].scrollTop = 0;
+		$('count').textContent = `${current + 1} / ${slides.length}`;
+		$('progress').style.width = `${((current + 1) / slides.length) * 100}%`;
+		$('prev').disabled = current === 0;
+		$('next').disabled = current === slides.length - 1;
+		try { history.replaceState(null, '', `#${current + 1}`); } catch (e) { /* the hash is only a convenience */ }
+	}
+
+	function init() {
+		fill();
+		$('tabs').innerHTML = DEMO.examples.map((ex, i) =>
+			`<button class="tab" type="button" role="tab" data-i="${i}">${escapeHtml(ex.label)}</button>`).join('');
+		$('tabs').addEventListener('click', (e) => {
+			const tab = e.target.closest('.tab');
+			if (tab) showExample(Number(tab.dataset.i));
+		});
+		showExample(0);
+
+		$('prev').addEventListener('click', () => go(current - 1));
+		$('next').addEventListener('click', () => go(current + 1));
+		document.addEventListener('keydown', (e) => {
+			if (e.altKey || e.metaKey || e.ctrlKey || e.target.matches('input, textarea, select')) return;
+			if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(current + 1); }
+			if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(current - 1); }
+			if (e.key === 'Home') go(0);
+			if (e.key === 'End') go(slides.length - 1);
+		});
+
+		const fromHash = Number(location.hash.slice(1));
+		go(Number.isInteger(fromHash) && fromHash >= 1 ? fromHash - 1 : 0);
+	}
+
+	init();
+</script>
+</body>
+</html>
