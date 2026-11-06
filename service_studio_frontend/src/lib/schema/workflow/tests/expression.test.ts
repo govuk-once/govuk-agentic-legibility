@@ -4,7 +4,7 @@ import { expressionSchema } from '../expression';
 type Example = { states?: Record<string, { type: string; [key: string]: unknown }> };
 
 // Every process file in the two example services, loaded as parsed JSON.
-const exampleFiles = import.meta.glob('../../../examples/new-examples/*/*.json', {
+const exampleFiles = import.meta.glob('../../../examples/services/*/*.json', {
 	eager: true,
 	import: 'default'
 }) as Record<string, Example>;

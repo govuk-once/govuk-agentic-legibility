@@ -13,7 +13,7 @@ const manifestFileName = 'workflow_manifest.json';
 
 // import.meta.glob eagerly bundles every example file at build time, so the list of examples needs no
 // server round trip. The pattern only reaches one folder down, which is one folder per workflow.
-const modules = import.meta.glob('./new-examples/*/*.json', { eager: true, import: 'default' });
+const modules = import.meta.glob('./services/*/*.json', { eager: true, import: 'default' });
 
 /**
  * Every example file grouped by its workflow folder: the folder name, then the file name, then the

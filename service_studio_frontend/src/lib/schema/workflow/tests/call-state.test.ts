@@ -12,7 +12,7 @@ type ExampleManifest = { defaults?: { call?: { timeouts?: unknown; retry?: unkno
 
 // The workflow manifest of each example service, which holds the default timeouts and retry policy.
 const manifests = Object.values(
-	import.meta.glob('../../../examples/new-examples/*/workflow_manifest.json', {
+	import.meta.glob('../../../examples/services/*/workflow_manifest.json', {
 		eager: true,
 		import: 'default'
 	})

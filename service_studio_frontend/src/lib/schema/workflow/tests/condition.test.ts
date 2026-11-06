@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { conditionSchema } from '../condition';
 
 // Every workflow file in the two example services, loaded as parsed JSON.
-const exampleFiles = import.meta.glob('../../../examples/new-examples/*/*.json', {
+const exampleFiles = import.meta.glob('../../../examples/services/*/*.json', {
 	eager: true,
 	import: 'default'
 }) as Record<string, unknown>;
