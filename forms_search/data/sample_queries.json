@@ -1,0 +1,38 @@
+{
+  "about": "Hand-labelled smoke-test queries for comparing retrieval methods. 'expected' lists every journey a reasonable person would accept as a correct candidate; an empty list means no journey in the catalogue fits. This is a small illustrative set, not a benchmark.",
+  "queries": [
+    {"category": "named", "query": "HR1 advance notification of redundancies", "expected": ["691"]},
+    {"category": "named", "query": "replace lost motorcycle CBT certificate", "expected": ["786"]},
+    {"category": "named", "query": "Opt out of Winter Fuel Payment", "expected": ["264648"]},
+
+    {"category": "paraphrase", "query": "I think some suppliers are secretly agreeing prices between them", "expected": ["4822"]},
+    {"category": "paraphrase", "query": "my car's MOT record shows the wrong mileage", "expected": ["1994"]},
+    {"category": "paraphrase", "query": "I lost my veterans badge and need a new one", "expected": ["656"]},
+    {"category": "paraphrase", "query": "someone registered a company using my home address without asking me", "expected": ["8295"]},
+    {"category": "paraphrase", "query": "DVSA cancelled my driving test at the last minute and I want my costs back", "expected": ["5123"]},
+    {"category": "paraphrase", "query": "a lorry carrying hazardous chemicals had a spill on the motorway", "expected": ["2131"]},
+    {"category": "paraphrase", "query": "I don't want the winter heating payment any more", "expected": ["264648"]},
+    {"category": "paraphrase", "query": "tell the Home Office my marriage has ended", "expected": ["1693"]},
+
+    {"category": "ambiguous", "query": "I need to change my redundancy claim because I wasn't paid for my holidays", "expected": ["6", "232"]},
+    {"category": "ambiguous", "query": "update my redundancy payment claim", "expected": ["6", "232", "289", "356", "358"]},
+    {"category": "ambiguous", "query": "I want to report a sanctions breach", "expected": ["6158", "6771", "6345", "6375"]},
+    {"category": "ambiguous", "query": "claim expenses for a cancelled test", "expected": ["5123", "6770"]},
+
+    {"category": "unusual", "query": "I saw an octopus while diving off Cornwall", "expected": ["265276"]},
+    {"category": "unusual", "query": "I found a strange mosquito in my garden", "expected": ["3652"]},
+    {"category": "unusual", "query": "we want to put on a maypole dance for the village fete", "expected": ["5021"]},
+    {"category": "unusual", "query": "can I get a licence to juggle in public", "expected": ["5169", "8256"]},
+    {"category": "unusual", "query": "a stile on the footpath behind my house is broken", "expected": ["266470"]},
+
+    {"category": "misleading_title", "query": "book a visit to see my son in prison", "expected": [], "note": "'Visit someone in prison' (263703) and 'Get help with the cost of prison visits' (8250) are feedback forms, not booking services."},
+
+    {"category": "not_in_catalogue", "query": "renew my passport", "expected": []},
+    {"category": "not_in_catalogue", "query": "apply for universal credit", "expected": []},
+    {"category": "not_in_catalogue", "query": "tax my car", "expected": []},
+    {"category": "not_in_catalogue", "query": "I found a dolphin stranded on the beach", "expected": [], "note": "'Marine Mammal Reporting' (5396) is for fishing-vessel bycatch, not strandings."},
+
+    {"category": "informational", "query": "what is the Foreign Office travel advice for Spain?", "expected": []},
+    {"category": "informational", "query": "what are the opening hours of the passport office?", "expected": []}
+  ]
+}

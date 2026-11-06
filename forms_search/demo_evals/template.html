@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journey Search Handover</title>
+<!--
+	A short deck for the GOV.UK orchestration team: the Journey Search MCP server they can connect to, and the
+	evaluation suite they can run against their orchestrator. Example traces are real recordings from our
+	reference runs, inlined by build.py. Edit this file, then run from the repository root:
+	uv run python forms_search/demo_evals/build.py
+-->
+<style>
+	/* Light only, GOV.UK palette. One slide is visible at a time; each scrolls internally if it must. */
+	:root {
+		--text: #0b0c0c;
+		--secondary: #505a5f;
+		--border: #b1b4b6;
+		--grey: #f3f2f1;
+		--blue: #1d70b8;
+		--dark-blue: #003078;
+		--green: #00703c;
+		--green-bg: #cce2d8;
+		--yellow-bg: #fff7bf;
+		--red-bg: #f4cdc6;
+		--purple: #4c2c92;
+		--white: #ffffff;
+		--mono: ui-monospace, "SF Mono", menlo, consolas, monospace;
+	}
+
+	* { box-sizing: border-box; }
+
+	html, body { height: 100%; }
+
+	body {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		background: var(--white);
+		color: var(--text);
+		font-family: "GDS Transport", arial, sans-serif;
+		font-size: 19px;
+		line-height: 1.35;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	.bar {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px max(16px, env(safe-area-inset-left, 0px));
+		background: var(--text);
+		color: var(--white);
+		font-weight: 700;
+		font-size: 17px;
+	}
+
+	.bar__tag {
+		padding: 2px 8px;
+		background: var(--blue);
+		font-size: 14px;
+		font-weight: 400;
+	}
+
+	.bar__spacer { flex: 1; }
+	.bar__count { font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+	.progress { flex: none; height: 5px; background: var(--grey); }
+	.progress__fill { height: 100%; background: var(--blue); transition: width 0.2s; }
+
+	.deck { flex: 1; min-height: 0; position: relative; }
+
+	.slide {
+		position: absolute;
+		inset: 0;
+		overflow-y: auto;
+		padding: 24px max(16px, env(safe-area-inset-left, 0px)) 24px;
+	}
+
+	.slide[hidden] { display: none; }
+
+	.slide__inner {
+		max-width: 1100px;
+		min-height: 100%;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.controls {
+		flex: none;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 10px max(16px, env(safe-area-inset-left, 0px));
+		border-top: 1px solid var(--border);
+	}
+
+	.controls__hint { color: var(--secondary); font-size: 15px; text-align: center; }
+
+	.button {
+		padding: 8px 18px;
+		border: 0;
+		box-shadow: 0 2px 0 #002d18;
+		background: var(--green);
+		color: var(--white);
+		font: inherit;
+		font-size: 17px;
+		cursor: pointer;
+	}
+
+	.button--secondary { background: var(--grey); color: var(--text); box-shadow: 0 2px 0 #929191; }
+	.button:disabled { opacity: 0.5; cursor: default; }
+	.button:focus-visible, .tab:focus-visible { outline: 3px solid #ffdd00; outline-offset: 0; }
+
+	/* Type */
+	.eyebrow { margin: 0 0 10px; color: var(--secondary); font-size: 19px; }
+	h1 { margin: 0 0 20px; font-size: 48px; line-height: 1.1; }
+	h2 { margin: 0 0 20px; font-size: 34px; line-height: 1.15; }
+	h3 { margin: 0 0 10px; font-size: 22px; }
+	p { margin: 0 0 15px; }
+	.lede { font-size: 24px; line-height: 1.35; max-width: 860px; }
+	.muted { color: var(--secondary); }
+	.small { font-size: 16px; }
+	ul.plain { margin: 0; padding-left: 20px; }
+	ul.plain li { margin-bottom: 6px; }
+	code { font-family: var(--mono); font-size: 0.9em; }
+	a { color: var(--blue); }
+
+	.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 25px; }
+	.grid-2--wide-right { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); }
+
+	.card { padding: 20px 22px; background: var(--grey); border-top: 5px solid var(--blue); }
+	.card--purple { border-top-color: var(--purple); }
+	.card > :last-child { margin-bottom: 0; }
+
+	.big { display: block; margin-bottom: 8px; font-size: 56px; font-weight: 700; line-height: 1; }
+
+	.code {
+		margin: 0 0 15px;
+		padding: 15px 18px;
+		overflow: auto;
+		background: var(--grey);
+		font-family: var(--mono);
+		font-size: 13px;
+		line-height: 1.4;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.code .k { color: var(--dark-blue); }
+	.code .s { color: var(--green); }
+	.code .n { color: var(--purple); }
+	.code .c { color: var(--secondary); }
+
+	.callout { margin: 20px 0 0; padding: 12px 18px; border-left: 8px solid var(--blue); background: #e8f1f8; }
+
+	/* Architecture */
+	.flow { display: grid; grid-template-columns: 1fr auto 1.3fr auto 1.3fr; align-items: center; gap: 14px; margin-bottom: 30px; }
+	.flow--stack { grid-template-columns: 0.8fr auto 1.2fr auto 1fr auto 1.5fr; align-items: stretch; gap: 10px; }
+	.flow--stack .link { align-self: center; }
+	.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+
+	.node { padding: 18px; border: 3px solid var(--text); background: var(--white); }
+	.node h3 { margin-bottom: 6px; }
+	.node p { margin: 0; font-size: 16px; color: var(--secondary); }
+	.node--ours { border-color: var(--purple); }
+	.node--yours { border-color: var(--blue); }
+
+	.link { text-align: center; font-size: 15px; color: var(--secondary); }
+	.link__arrow { display: block; font-size: 28px; line-height: 1; color: var(--text); }
+	.link code { display: block; margin-top: 4px; color: var(--text); }
+
+	/* Outcomes and categories */
+	.tag { display: inline-block; padding: 2px 8px; font-size: 16px; font-weight: 700; white-space: nowrap; }
+	.tag--offer_journey { background: var(--green-bg); color: #005a30; }
+	.tag--clarify { background: var(--yellow-bg); color: #594d00; }
+	.tag--no_journey { background: var(--red-bg); color: #942514; }
+	.tag--grey { background: #e5e6e7; color: #383f43; font-weight: 400; }
+	.tag--pass { background: var(--green); color: var(--white); }
+	.tag--fail { background: #d4351c; color: var(--white); }
+
+	.cats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
+	.cat { padding: 10px 14px; background: var(--grey); border-left: 5px solid var(--blue); }
+	.cat strong { font-size: 24px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+	.outcomes { width: 100%; border-collapse: collapse; }
+	.outcomes td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+	.outcomes td:first-child { width: 1%; white-space: nowrap; }
+
+	.steps { margin: 0; padding-left: 26px; }
+	.steps li { margin-bottom: 12px; padding-left: 4px; }
+
+	/* Example explorer */
+	.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+
+	.tab {
+		padding: 8px 14px;
+		border: 0;
+		border-bottom: 4px solid transparent;
+		background: var(--grey);
+		color: var(--blue);
+		font: inherit;
+		font-size: 17px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.tab[aria-selected="true"] { border-bottom-color: var(--blue); background: var(--white); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+
+	.explorer { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 25px; align-items: start; }
+
+	.panel h3 { font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--secondary); }
+
+	.trace { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 420px); min-height: 220px; overflow-y: auto; }
+	.trace > li { position: relative; margin: 0 0 12px; padding: 10px 14px 10px 16px; border-left: 4px solid var(--border); background: var(--grey); font-size: 16px; }
+	.trace > li.citizen { border-left-color: var(--text); background: var(--white); box-shadow: inset 0 0 0 1px var(--border); font-size: 18px; }
+	.trace > li.search { border-left-color: var(--purple); font-family: var(--mono); font-size: 14px; }
+	.trace > li.result { border-left-color: var(--purple); }
+	.trace > li.decision { border-left-color: var(--blue); background: #e8f1f8; }
+	.trace__who { display: block; margin-bottom: 4px; color: var(--secondary); font-family: arial, sans-serif; font-size: 14px; font-weight: 700; }
+	.trace ol { margin: 0; padding-left: 22px; }
+	.trace ol li { margin-bottom: 2px; }
+	.trace .wid { color: var(--secondary); font-family: var(--mono); font-size: 13px; }
+	.trace .hit { font-weight: 700; color: #005a30; }
+	.reply p, .reply ul { margin: 6px 0 0; }
+	.reply ul { padding-left: 20px; }
+
+	.expect { margin: 0 0 12px; padding: 10px 14px; background: var(--grey); }
+	.expect q { display: block; margin-bottom: 8px; font-size: 18px; }
+
+	@media (max-width: 760px) {
+		body { font-size: 17px; }
+		h1 { font-size: 34px; }
+		h2 { font-size: 27px; }
+		.lede { font-size: 20px; }
+		.big { font-size: 42px; }
+		.slide { padding-top: 25px; padding-bottom: 25px; }
+		.slide__inner { justify-content: flex-start; }
+		.grid-2, .explorer { grid-template-columns: 1fr; }
+		.flow, .flow--stack, .grid-3 { grid-template-columns: 1fr; }
+		.link__arrow { transform: rotate(90deg); }
+		.controls__hint { display: none; }
+		.trace { max-height: none; }
+	}
+</style>
+</head>
+<body>
+
+<header class="bar">
+	<span>Agentic Legibility: Journey Search</span>
+	<span class="bar__tag">Prototype</span>
+	<span class="bar__spacer"></span>
+	<span class="bar__count" id="count"></span>
+</header>
+<div class="progress" aria-hidden="true"><div class="progress__fill" id="progress"></div></div>
+
+<main class="deck" id="deck">
+
+	<!-- 1 -->
+	<section class="slide" aria-label="Introduction">
+		<div class="slide__inner">
+			<p class="eyebrow">Service Legibility</p>
+			<h1>Journey Search: an MCP server and an evaluation suite</h1>
+			<p class="lede">Two things you can use now, to see whether the orchestrator can find the right government
+				service for a citizen without already knowing the catalogue.</p>
+			<div class="grid-2" style="margin-top: 20px;">
+				<div class="card card--purple">
+					<span class="big">1 tool</span>
+					<h3>A hosted MCP server</h3>
+					<p><code>search_service_journeys</code> returns a shortlist of candidate GOV.UK Forms from a catalogue of
+						about 550. Connect with OAuth client credentials.</p>
+				</div>
+				<div class="card">
+					<span class="big" data-n="dataset.total"></span>
+					<h3>Evaluation scenarios</h3>
+					<p>Citizen messages with expected outcomes, for you to run against the orchestrator.</p>
+				</div>
+			</div>
+			<br>
+			<p class="small">Design principle: The orchestrator decides <strong>when</strong> to search but does not know <strong>which</strong> service journeys exist.  Search should be a lightweight, low-latency tool that can be used frequently, to avoid missing journeys.</p>			
+		</div>
+	</section>
+
+	<!-- 2 -->
+	<section class="slide" aria-label="Where it fits">
+		<div class="slide__inner">
+			<p class="eyebrow">Where it fits</p>
+			<h2>Journey Search retrieves. The orchestrator decides.</h2>
+			<div class="flow">
+				<div class="node"><h3>Citizen</h3><p>Talks only to the orchestrator.</p></div>
+				<div class="link"><span class="link__arrow">⇄</span>conversation</div>
+				<div class="node node--yours"><h3>GOV.UK orchestrator</h3><p>The agent owns the conversation, has other tools,
+					and decides whether to search, what to search for, and what to do with the results.</p></div>
+				<div class="link"><span class="link__arrow">⇄</span>MCP<code>search_service_journeys</code></div>
+				<div class="node node--ours"><h3>Journey Search</h3><p>Our MCP server. Stateless. Returns ranked candidates, each with
+					an ID, title and description.</p></div>
+			</div>
+			<div class="grid-2">
+				<div>
+					<h3>After a search, the orchestrator can…</h3>
+					<ul class="plain">
+						<li>offer the one journey that fits</li>
+						<li>ask the citizen which of several applies</li>
+						<li>search again with a better query</li>
+						<li>decide none fits and use another capability</li>
+					</ul>
+				</div>
+				<div>
+					<h3>Things to know</h3>
+					<ul class="plain">
+						<li><strong>Candidates are not necessarily matches.</strong> It always returns up to <code>limit</code>, even when nothing fits.</li>
+						<li><strong>Searching doesn't start anything.</strong> Starting a journey is a separate call, after the citizen agrees.</li>
+						<li><strong>No state between calls.</strong> Put what matters from the conversation in the query.</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 3 -->
+	<section class="slide" aria-label="The tool">
+		<div class="slide__inner">
+			<p class="eyebrow">The MCP tool</p>
+			<h2>One call: a plain-language query in, candidates out</h2>
+			<div class="grid-2 grid-2--wide-right">
+				<div>
+					<pre class="code"><span class="k">search_service_journeys</span>(
+    query: <span class="k">str</span>,      <span class="c"># plain words</span>
+    limit: <span class="k">int</span> = <span class="n">5</span>,  <span class="c"># up to 20</span>
+)</pre>
+					<ul class="plain">
+						<li>The citizen doesn't need to know the service's name.</li>
+						<li>Don't put personal details in the query.</li>
+						<li>The tool description, which the model sees, explains how to judge results.</li>
+						<li>About 300 ms per search on an open connection.</li>
+					</ul>
+				</div>
+				<div>
+					<pre class="code" id="tool-sample"></pre>
+					<p class="small muted" id="tool-sample-caption"></p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 4 -->
+	<section class="slide" aria-label="Connecting">
+		<div class="slide__inner">
+			<p class="eyebrow">Connecting</p>
+			<h2>Five settings, then add it to the agent's tools</h2>
+			<div class="grid-2">
+				<div>
+					<h3>1. Get credentials from us</h3>
+					<pre class="code">JOURNEY_SEARCH_MCP_URL
+JOURNEY_SEARCH_TOKEN_URL
+JOURNEY_SEARCH_CLIENT_ID
+JOURNEY_SEARCH_CLIENT_SECRET  <span class="c"># sent separately</span>
+JOURNEY_SEARCH_SCOPE</pre>
+					<p class="small muted">OAuth client credentials. You don't need access to our AWS account.</p>
+					<h3>2. Check access</h3>
+					<pre class="code">uv run strands_client.py tools
+uv run strands_client.py search <span class="s">"report a mosquito"</span></pre>
+				</div>
+				<div>
+					<h3>3. Use it from Strands (or any MCP client)</h3>
+					<pre class="code">journey_search = MCPClient(
+    url=os.environ[<span class="s">"JOURNEY_SEARCH_MCP_URL"</span>],
+    auth_provider=JourneySearchAuth(),  <span class="c"># bearer token</span>
+)
+
+<span class="k">with</span> journey_search:
+    agent = Agent(
+        model=your_model,
+        tools=journey_search.list_tools_sync()
+              + your_other_tools,
+    )</pre>
+					<p class="small muted">Streamable HTTP with <code>Authorization: Bearer &lt;token&gt;</code>. The full
+						auth class, a <code>curl</code> example and error codes are in
+						<code>forms_search/journey_search/CONNECTING.md</code>.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Tech stack -->
+	<section class="slide" aria-label="Tech stack">
+		<div class="slide__inner">
+			<p class="eyebrow">The backend</p>
+			<h2>Tech stack</h2>
+			<div class="flow flow--stack">
+				<div class="node node--yours"><h3>Orchestrator</h3><p>Any MCP client with streamable HTTP.</p></div>
+				<div class="link"><span class="link__arrow">→</span>HTTPS +<br>Bearer token</div>
+				<div class="node node--ours"><h3>AgentCore Runtime</h3><p>Amazon Bedrock AgentCore. Its JWT authoriser checks the
+					Cognito token first.</p></div>
+				<div class="link"><span class="link__arrow">→</span></div>
+				<div class="node node--ours"><h3>MCP container</h3><p>Python, MCP SDK (FastMCP). ARM64 image. Stateless.</p></div>
+				<div class="link"><span class="link__arrow">→</span></div>
+				<div class="node node--ours"><h3>Retrieval</h3><p><strong>Bedrock:</strong> embed the query with Cohere Embed v4
+					(1,536 dims).<br><strong>DynamoDB:</strong> vector index (cosine), queried with <code>SearchVectors</code>.</p></div>
+			</div>
+			<div class="grid-3">
+				<div class="card card--purple">
+					<h3>Catalogue (prepared offline)</h3>
+					<ul class="plain small">
+						<li>About 550 Forms from the GOV.UK Forms JSON export</li>
+						<li>Each gets a short description, generated from the Form by Claude Sonnet on Bedrock</li>
+						<li>Title and description embedded and loaded into DynamoDB; only changed Forms are re-embedded</li>
+					</ul>
+				</div>
+				<div class="card card--purple">
+					<h3>Auth</h3>
+					<ul class="plain small">
+						<li>Amazon Cognito, OAuth client credentials</li>
+						<li>Scope <code>journey-search/search</code></li>
+						<li>Callers never need AWS credentials</li>
+					</ul>
+				</div>
+				<div class="card card--purple">
+					<h3>Deployment</h3>
+					<ul class="plain small">
+						<li>One AWS CDK stack (TypeScript), <span style="white-space: nowrap;">eu-west-2</span></li>
+						<li>Search takes any embedder and vector store, so retrieval can change without changing the tool</li>
+						<li>Code: <code>forms_search/journey_search/</code></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 5 -->
+	<section class="slide" aria-label="The evaluation suite">
+		<div class="slide__inner">
+			<p class="eyebrow">The evaluation suite</p>
+			<h2><span data-n="dataset.total"></span> scenarios, each with one expected outcome</h2>
+			<div class="cats" id="cats"></div>
+			<div class="grid-2">
+				<table class="outcomes">
+					<tr><td><span class="tag tag--offer_journey">offer_journey</span></td><td>The agent offers <strong>this specific</strong> workflow ID. Merely being returned by search doesn't count.</td></tr>
+					<tr><td><span class="tag tag--clarify">clarify</span></td><td>The agent asks a relevant question instead of committing to a journey.</td></tr>
+					<tr><td><span class="tag tag--no_journey">no_journey</span></td><td>The agent offers no Form. Answering normally or using another tool is fine.</td></tr>
+				</table>
+				<div>
+					<p>Each scenario also says whether search is <strong>required</strong> or <strong>forbidden</strong>,
+						at any point in the conversation.</p>
+					<p><span data-n="dataset.by_turns.2"></span> scenarios have two turns: the first is ambiguous, and a scripted second message
+						resolves it.</p>
+					<p class="small muted">Synthetic, for checking the architecture. Not a sample of real citizen traffic.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 6 -->
+	<section class="slide" aria-label="A scenario">
+		<div class="slide__inner">
+			<p class="eyebrow">The evaluation suite</p>
+			<h2>What a scenario looks like</h2>
+			<div class="grid-2">
+				<div>
+					<h3>Single turn</h3>
+					<pre class="code" id="sample-0"></pre>
+				</div>
+				<div>
+					<h3>Clarification: two turns</h3>
+					<pre class="code" id="sample-1"></pre>
+					<p class="small muted">If the agent asks a relevant question, send the second <code>user</code> message
+						verbatim. It's a fixed script, not a simulated citizen.</p>
+				</div>
+			</div>
+			<p class="small muted">All in one file: <code>forms_search/evals/scenarios.json</code>. Check it with
+				<code>uv run python -m forms_search.evals.validate</code>.</p>
+		</div>
+	</section>
+
+	<!-- 7 -->
+	<section class="slide" aria-label="Running it">
+		<div class="slide__inner">
+			<p class="eyebrow">The evaluation suite</p>
+			<h2>Running it against the orchestrator</h2>
+			<div class="grid-2">
+				<ol class="steps">
+					<li>Start a <strong>fresh conversation</strong> per scenario and send only the <code>user</code> text. Never show the agent the expected outcome.</li>
+					<li>Let it decide whether to search, what for, and how many times.</li>
+					<li>Record <strong>which workflow ID it offered</strong>, for example a structured decision or an unconfirmed "start journey" call, plus every search and its candidates.</li>
+					<li>For two-turn scenarios, send the second message only if it clarified.</li>
+					<li>Score each turn and the search rule. Pass only if all hold.</li>
+				</ol>
+				<div>
+					<div class="card">
+						<h3>What we'd like back</h3>
+						<ul class="plain">
+							<li>Pass rates <strong>by category</strong>, so the large catalogue group doesn't hide the rest</li>
+							<li>Traces, so each failure can be put down to the dataset, the search tool or the orchestrator</li>
+							<li>Whether the expected ID was retrieved at all, separately from whether it was offered</li>
+						</ul>
+					</div>
+					<p class="small muted" style="margin-top: 15px;">Scoring rules and output format:
+						<code>forms_search/evals/README.md</code>. Our reference runner, <code>run_evals.py</code>, is one example.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- 8 -->
+	<section class="slide" aria-label="Example traces">
+		<div class="slide__inner">
+			<p class="eyebrow">Example traces</p>
+			<h2>How a plain agent used it</h2>
+			<div class="tabs" role="tablist" id="tabs"></div>
+			<div class="explorer" role="tabpanel" id="explorer"></div>
+		</div>
+	</section>
+
+	<!-- 9 -->
+	<section class="slide" aria-label="Sanity check">
+		<div class="slide__inner">
+			<p class="eyebrow">Sanity check</p>
+			<h2>The suite is solvable with nothing but this tool</h2>
+			<div class="grid-2">
+				<div class="card card--purple">
+					<span class="big" id="ref-score"></span>
+					<p>A plain Strands agent (<code id="ref-model"></code>) with a short prompt and <strong>only</strong> Journey
+						Search as its tool</p>
+				</div>
+				<div>
+					<p class="lede" style="font-size: 22px;">That only shows the scenarios work and the tool is usable. It tells us
+						nothing about the orchestrator.</p>
+					<p>The other tools, instructions, context and guardrails could change when it searches, what it searches
+						for and how it judges candidates. That's what we'd like to find out with you.</p>
+					<pre class="code">uv run forms_search/evals/run_evals.py run --run smoke \
+  --ids unusual_octopus cancelled_test_theory</pre>
+					<p class="small muted">Our reference runner, if you want to see it working end to end first.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+</main>
+
+<nav class="controls" aria-label="Slides">
+	<button class="button button--secondary" type="button" id="prev">Previous</button>
+	<span class="controls__hint">← → or space to move between slides</span>
+	<button class="button" type="button" id="next">Next</button>
+</nav>
+
+<script>
+	// Dataset counts, a recorded tool response, sample scenarios and recorded traces, inlined by build.py.
+	const DEMO = /*__DEMO_DATA__*/null;
+
+	const $ = (id) => document.getElementById(id);
+	const get = (path) => path.split('.').reduce((o, k) => o?.[k], DEMO);
+
+	const escapeHtml = (text) => String(text)
+		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+	function renderJson(value) {
+		const json = JSON.stringify(value, null, 2);
+		const token = /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+		let html = '';
+		let last = 0;
+		for (const match of json.matchAll(token)) {
+			const [whole, str, colon, num] = match;
+			html += escapeHtml(json.slice(last, match.index));
+			if (num) html += `<span class="n">${num}</span>`;
+			else if (colon) html += `<span class="k">${escapeHtml(str)}</span>${colon}`;
+			else html += `<span class="s">${escapeHtml(str)}</span>`;
+			last = match.index + whole.length;
+		}
+		return html + escapeHtml(json.slice(last));
+	}
+
+	/** Enough Markdown for the agent's replies: paragraphs, bullet lists and bold. */
+	function renderMarkdown(text) {
+		const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+		return text.trim().split(/\n{2,}/).map((block) => {
+			const lines = block.split('\n');
+			if (lines.every((l) => /^\s*[-*] /.test(l))) {
+				return '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ''))}</li>`).join('') + '</ul>';
+			}
+			return `<p>${lines.map(inline).join('<br>')}</p>`;
+		}).join('');
+	}
+
+	const tag = (outcome) => `<span class="tag tag--${outcome}">${outcome}</span>`;
+
+	// --- Static content ----------------------------------------------------------
+
+	function fill() {
+		document.querySelectorAll('[data-n]').forEach((el) => { el.textContent = get(el.dataset.n); });
+
+		$('cats').innerHTML = Object.entries(DEMO.dataset.by_category).map(([cat, n]) =>
+			`<span class="cat"><strong>${n}</strong><code>${escapeHtml(cat)}</code></span>`).join('');
+
+		const t = DEMO.tool_sample;
+		$('tool-sample').innerHTML = `<span class="c">// query: ${escapeHtml(JSON.stringify(t.input.query))}</span>\n` +
+			renderJson({ candidates: t.candidates }).replace(/\n {2}\]\n\}$/, `,\n    <span class="c">…</span>\n  ]\n}`);
+		$('tool-sample-caption').textContent = `A recorded response: the first ${t.candidates.length} of ${t.of} candidates. ` +
+			'The second shows why every candidate needs judging.';
+
+		DEMO.scenario_samples.forEach((s, i) => { $(`sample-${i}`).innerHTML = renderJson(s); });
+
+		$('ref-score').textContent = `${DEMO.reference.passed}/${DEMO.reference.total}`;
+		$('ref-model').textContent = DEMO.reference.model_id;
+	}
+
+	// --- Example explorer ---------------------------------------------------------
+
+	function expectation(turn) {
+		return turn.expect === 'offer_journey' ? `${tag('offer_journey')} <code>${escapeHtml(turn.workflow_id)}</code>` : tag(turn.expect);
+	}
+
+	function showExample(index) {
+		const ex = DEMO.examples[index];
+		document.querySelectorAll('.tab').forEach((tab, i) => tab.setAttribute('aria-selected', String(i === index)));
+		const s = ex.scenario;
+		const expectedId = s.turns[s.turns.length - 1].workflow_id;
+		const titles = {};
+
+		const trace = ex.events.map((e) => {
+			if (e.kind === 'citizen') return `<li class="citizen"><span class="trace__who">Citizen</span>${escapeHtml(e.text)}</li>`;
+			if (e.kind === 'search') {
+				const limit = e.input.limit !== undefined ? `, limit=${e.input.limit}` : '';
+				return `<li class="search"><span class="trace__who">Agent → Journey Search</span>search_service_journeys(${escapeHtml(JSON.stringify(e.input.query))}${limit})</li>`;
+			}
+			if (e.kind === 'result') {
+				const items = (e.json?.candidates || []).map((c) => {
+					titles[c.workflow_id] = c.title;
+					const hit = c.workflow_id === expectedId;
+					return `<li${hit ? ' class="hit"' : ''}>${escapeHtml(c.title)} <span class="wid">${escapeHtml(c.workflow_id)}</span>${hit ? ' ✓ expected' : ''}</li>`;
+				}).join('');
+				return `<li class="result"><span class="trace__who">Journey Search → Agent: candidates</span><ol>${items}</ol></li>`;
+			}
+			const ids = e.workflow_ids.length ? ' ' + e.workflow_ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(', ') : '';
+			return `<li class="decision"><span class="trace__who">Agent → Citizen &nbsp;${tag(e.outcome)}${ids}</span><div class="reply">${renderMarkdown(e.reply)}</div></li>`;
+		}).join('');
+
+		const searches = ex.events.filter((e) => e.kind === 'search').length;
+		$('explorer').innerHTML =
+			`<div class="panel"><h3>Scenario</h3>` +
+			s.turns.map((t, i) => `<div class="expect">${s.turns.length > 1 ? `<span class="small muted">Turn ${i + 1}</span>` : ''}<q>${escapeHtml(t.user)}</q>Expected: ${expectation(t)}</div>`).join('') +
+			`<p class="small"><span class="tag tag--grey">${escapeHtml(s.category)}</span> <span class="tag tag--grey">search ${escapeHtml(s.search)}</span></p>` +
+			`<p>${escapeHtml(ex.point)}</p>` +
+			`<p class="small"><span class="tag ${ex.passed ? 'tag--pass' : 'tag--fail'}">${ex.passed ? 'Passed' : 'Failed'}</span> <span class="muted">${searches} search${searches === 1 ? '' : 'es'} · <code>${escapeHtml(ex.id)}</code></span></p></div>` +
+			`<div class="panel"><h3>Recorded trace</h3><ol class="trace">${trace}</ol></div>`;
+	}
+
+	// --- Deck ---------------------------------------------------------------------
+
+	const slides = [...document.querySelectorAll('.slide')];
+	let current = 0;
+
+	function go(n) {
+		current = Math.max(0, Math.min(n, slides.length - 1));
+		slides.forEach((s, i) => { s.hidden = i !== current; });
+		slides[current].scrollTop = 0;
+		$('count').textContent = `${current + 1} / ${slides.length}`;
+		$('progress').style.width = `${((current + 1) / slides.length) * 100}%`;
+		$('prev').disabled = current === 0;
+		$('next').disabled = current === slides.length - 1;
+		try { history.replaceState(null, '', `#${current + 1}`); } catch (e) { /* the hash is only a convenience */ }
+	}
+
+	function init() {
+		fill();
+		$('tabs').innerHTML = DEMO.examples.map((ex, i) =>
+			`<button class="tab" type="button" role="tab" data-i="${i}">${escapeHtml(ex.label)}</button>`).join('');
+		$('tabs').addEventListener('click', (e) => {
+			const tab = e.target.closest('.tab');
+			if (tab) showExample(Number(tab.dataset.i));
+		});
+		showExample(0);
+
+		$('prev').addEventListener('click', () => go(current - 1));
+		$('next').addEventListener('click', () => go(current + 1));
+		document.addEventListener('keydown', (e) => {
+			if (e.altKey || e.metaKey || e.ctrlKey || e.target.matches('input, textarea, select')) return;
+			if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(current + 1); }
+			if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(current - 1); }
+			if (e.key === 'Home') go(0);
+			if (e.key === 'End') go(slides.length - 1);
+		});
+
+		const fromHash = Number(location.hash.slice(1));
+		go(Number.isInteger(fromHash) && fromHash >= 1 ? fromHash - 1 : 0);
+	}
+
+	init();
+</script>
+</body>
+</html>
