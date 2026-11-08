@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
+	import { saveDraft } from '$lib/service-editor/draft-store';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/service-editor/graph/process-to-graph';
 	import type { ActionData } from './$types';
 
@@ -15,22 +17,18 @@
 	// A decision is a branch, so the count matches the diamonds the editor will show.
 	const branchCount = $derived(process ? Object.values(process.states).filter((state) => state.type === 'choice').length : 0);
 
+	// Set when the browser would not hold the draft, so the person is told why the editor did not open.
+	let draftNotHeld = $state(false);
+
 	/**
-	 * Downloads the generated workflow as one JSON file holding the manifest and its process. It is kept until
-	 * the editor can open a generated draft directly.
+	 * Holds the draft in this browser tab and opens it in the editor, which is a different page and so reads it
+	 * from there. If the browser will not store it, the page stays and says so.
 	 */
-	function handleDownload() {
+	async function handleEdit() {
 		if (!form?.success) return;
 
-		const blob = new Blob([JSON.stringify({ manifest: form.workflow.manifest, processes: form.workflow.processes }, null, 2)], {
-			type: 'application/json'
-		});
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `${form.name || 'service'}.json`;
-		link.click();
-		URL.revokeObjectURL(url);
+		draftNotHeld = !saveDraft(form.workflow);
+		if (!draftNotHeld) await goto(resolve('/edit-service/draft'));
 	}
 </script>
 
@@ -81,8 +79,8 @@
 			</div>
 
 			<p class="govuk-body-l govuk-!-margin-bottom-7">
-				The assistant drafted {stepTotal} steps and {branchCount} branches from your service brief. Your
-				service is ready to download.
+				The assistant drafted {stepTotal} steps and {branchCount} branches from your service brief. Open it in
+				the editor to check the steps and change anything that is wrong.
 			</p>
 
 			{#if form.warnings.length > 0}
@@ -97,13 +95,19 @@
 				</div>
 			{/if}
 
-			<!-- Edit stays disabled until the editor can open a generated draft directly, which comes with the next
-				change. The download is kept until then. -->
+			{#if draftNotHeld}
+				<div class="govuk-error-summary" role="alert">
+					<h2 class="govuk-error-summary__title">The draft could not be opened</h2>
+					<div class="govuk-error-summary__body">
+						<p class="govuk-body">
+							This browser would not keep the draft for the editor. Check that it allows site data and try again.
+						</p>
+					</div>
+				</div>
+			{/if}
+
 			<div class="govuk-button-group">
-				<button class="govuk-button" type="button" disabled>Edit</button>
-				<button class="govuk-button govuk-button--secondary" type="button" onclick={handleDownload}>
-					Download schema
-				</button>
+				<button class="govuk-button" type="button" onclick={handleEdit}>Edit</button>
 			</div>
 		{/if}
 	</div>
