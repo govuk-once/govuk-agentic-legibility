@@ -1,5 +1,5 @@
 import { journeyOrder } from '$lib/schema/workflow/journey-order';
-import type { Process, State } from '$lib/schema/workflow/process';
+import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 import { isErrorKind, routesOf } from '$lib/schema/workflow/routes';
 import { estimateStepNodeHeight, estimateStepNodeWidth } from '$lib/graph-kit/node-sizing';
 import type { ProcessEdge, ProcessEdgeData, ProcessGraphElements, ProcessNode } from './process-graph-types';
@@ -9,7 +9,7 @@ import { tidyCode } from '$lib/graph-kit/tidy-code';
 // ever seen before the layout runs.
 const initialPosition = { x: 0, y: 0 };
 
-// The id of the start dot. State names are chosen by the workflow author, so this is written so that
+// The id of the start dot. WorkingState names are chosen by the workflow author, so this is written so that
 // it will not be mistaken for one.
 export const startNodeId = '__start__';
 
@@ -118,7 +118,7 @@ export function stepCount(graph: ProcessGraphElements): number {
  * message an output says, or the outcome of an end. A state with none of these, such as a call, has
  * no text of its own.
  */
-function stateText(state: State): string | undefined {
+function stateText(state: WorkingState): string | undefined {
 	switch (state.type) {
 		case 'input':
 			return state.prompt;
@@ -135,7 +135,7 @@ function stateText(state: State): string | undefined {
  * Chooses the title shown for a state. A title written by the author comes first, then the state's
  * own text, then its code tidied into words, so every state has something readable to show.
  */
-export function stateTitle(state: State, code: string): string {
+export function stateTitle(state: WorkingState, code: string): string {
 	return state.name ?? stateText(state) ?? tidyCode(code);
 }
 
@@ -146,7 +146,7 @@ export function stateTitle(state: State, code: string): string {
  * state that nothing leads to comes last. A route to a state that does not exist draws no edge, so the
  * graph still builds while an edit has left the process half finished.
  */
-export function processToGraph(process: Process): ProcessGraphElements {
+export function processToGraph(process: WorkingProcess): ProcessGraphElements {
 	const nodes: ProcessNode[] = [
 		{
 			id: startNodeId,
@@ -224,7 +224,7 @@ export function processToGraph(process: Process): ProcessGraphElements {
 				id: `${code}:${route.path.join('.')}`,
 				source: code,
 				target: route.target,
-				data: { kind: route.kind }
+				data: { kind: route.kind, path: route.path }
 			});
 		}
 	}

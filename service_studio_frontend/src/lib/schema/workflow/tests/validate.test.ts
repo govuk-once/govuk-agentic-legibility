@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles, exampleWorkflows } from './example-states';
-import { parseProcess, parseWorkflow } from '../validate';
+import { checkBeforeProceeding, parseProcess, parseWorkflow } from '../validate';
+import type { WorkingWorkflow } from '../working-process';
 
 // A small valid process that each test copies and then breaks in one way.
 const process = {
@@ -339,5 +340,48 @@ describe('workflow warnings', () => {
 	it('gives no warnings when the workflow has errors', () => {
 		const result = parseWorkflow({ ...workflow, manifest: { ...manifest, entry: 'other' } });
 		expect(result).not.toHaveProperty('warnings');
+	});
+});
+
+// Treats a plain test object as a workflow that is being edited. The cast is needed because each test builds only the keys it uses.
+const editing = (value: unknown) => value as WorkingWorkflow;
+
+describe('checkBeforeProceeding', () => {
+	it('gives a complete journey no problems', () => {
+		expect(checkBeforeProceeding(editing(workflow))).toEqual([]);
+	});
+
+	it('reports a step with nothing after it once, in plain words', () => {
+		const { next: _removed, ...unfinished } = workflow.processes.main.states.run_section;
+		const main = { ...workflow.processes.main, states: { ...workflow.processes.main.states, run_section: unfinished } };
+		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, main } }));
+
+		expect(problems).toEqual([
+			{ path: 'processes.main.states.run_section.next', message: 'Does not say which state it continues to' },
+			{ path: 'processes.main.states.finish', message: expect.stringContaining('Nothing leads to this state') }
+		]);
+	});
+
+	it('reports a piece that is not joined to the start, even though the schema accepts it', () => {
+		const section = { ...workflow.processes.section, states: { ...workflow.processes.section.states, loose: finish } };
+		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, section } }));
+
+		expect(problems.map((problem) => problem.path)).toEqual(['processes.section.states.loose']);
+	});
+
+	it('lists the schema problems as well, all at once', () => {
+		const main = { ...workflow.processes.main, states: { ...workflow.processes.main.states, run_section: { type: 'invoke', process: 'gone', next: 'missing' } } };
+		const paths = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, main } })).map((problem) => problem.path);
+
+		expect(paths).toEqual(expect.arrayContaining(['processes.main.states.run_section.next', 'processes.main.states.run_section.process']));
+	});
+
+	it('leaves out warnings that do not stop a journey being passed on, such as a process nothing runs', () => {
+		const spare = { ...workflow.processes.section, process_id: 'spare' };
+		const withSpare = {
+			manifest: { ...manifest, processes: [...manifest.processes, { process_id: 'spare', version: '0.1.0' }] },
+			processes: { ...workflow.processes, spare }
+		};
+		expect(checkBeforeProceeding(editing(withSpare))).toEqual([]);
 	});
 });

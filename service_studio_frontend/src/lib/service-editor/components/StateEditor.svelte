@@ -11,32 +11,49 @@
 	import type { TargetOption } from '$lib/service-editor/graph/state-rows';
 	import {
 		descriptionOf,
+		endsTheJourney,
 		hasNext,
 		hasText,
+		nothingYet,
 		textOf,
 		withChoiceTargets,
-		withNext,
+		withNextChoice,
 		withText,
 		withTitleAndDescription
 	} from '$lib/schema/workflow/edit-state';
-	import type { State } from '$lib/schema/workflow/process';
-	import type { WorkflowIssue } from '$lib/schema/workflow/validate';
+	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import RemoveStepConfirm from './RemoveStepConfirm.svelte';
 
 	interface Props {
 		// The state as it is now. The form starts from it and only changes a copy.
-		currentState: State;
+		currentState: WorkingState;
 		// The code of the state, so it is left out of the choices for where it continues to.
 		stateCode: string;
 		// Every state that a route could lead to, named for a list of choices.
 		targets: TargetOption[];
-		// Called with the changed state when the person applies. It returns any problems the schema found
-		// with the result, and an empty list when the change was accepted.
-		onApply: (updated: State) => WorkflowIssue[];
+		// Called with the changed state when the person applies. The second value is true when they chose that the
+		// state ends the journey, which needs a new end state that only the owner of the process can add.
+		onApply: (updated: WorkingState, endsJourney: boolean) => void;
+		// Whether the state is already the start of the process, and whether the journey can be ended at it.
+		// Each action below is only offered when it would do something.
+		isStart: boolean;
+		canEnd: boolean;
+		// Called when the person chooses to make the state the start, end the journey at it, or remove it.
+		onSetStart: () => void;
+		onEndJourney: () => void;
+		onRemove: () => void;
 		// Called when the form should close, after a change is applied or when the person cancels.
 		onClose: () => void;
 	}
 
-	let { currentState, stateCode, targets, onApply, onClose }: Props = $props();
+	let { currentState, stateCode, targets, onApply, isStart, canEnd, onSetStart, onEndJourney, onRemove, onClose }: Props = $props();
+
+	// Whether the person has chosen Remove and is being asked to confirm. Removing a state cannot be undone, so
+	// nothing is removed until they agree.
+	let confirmingRemoval = $state(false);
+
+	// What the state is called on the graph, for the words of the confirmation.
+	const noun = $derived(currentState.type === 'choice' ? 'decision' : currentState.type === 'end' ? 'end' : 'step');
 
 	// Makes the id of each field unique, so the labels stay correct if two forms are ever on the page.
 	const fieldId = $props.id();
@@ -50,12 +67,11 @@
 	let draftTitle = $state(untrack(() => currentState.name ?? ''));
 	let draftDescription = $state(untrack(() => descriptionOf(currentState)));
 	// The state it continues to. A choice or an end has none, so this stays empty for them and is not used.
-	let draftNext = $state(untrack(() => (hasNext(currentState) ? currentState.next : '')));
+	let draftNext = $state(untrack(() => (hasNext(currentState) ? (currentState.next ?? '') : '')));
 	// Where each rule of a choice leads, in the order of its rules, and where its default leads. A state that
 	// is not a choice has none, so these stay empty for it and are not used.
 	let draftRuleTargets = $state(untrack(() => (currentState.type === 'choice' ? currentState.rules.map((rule) => rule.next) : [])));
 	let draftDefault = $state(untrack(() => (currentState.type === 'choice' ? currentState.default : '')));
-	let issues = $state<WorkflowIssue[]>([]);
 
 	// The types offered. Invoke is only listed on a step that already is one, because nothing can be changed
 	// into it.
@@ -70,8 +86,7 @@
 	const nextChoices = $derived(targets.filter((target) => target.stateId !== stateCode));
 
 	/**
-	 * Builds the changed state from the form and hands it over. The form closes only if the change was
-	 * accepted, so a problem is shown next to what caused it and nothing typed is lost.
+	 * Builds the changed state from the form, hands it over and closes the form.
 	 */
 	function apply() {
 		// The type is changed first, and then what was typed in the form is put onto the result. The words are
@@ -79,8 +94,8 @@
 		const converted = isConvertTargetType(draftType) ? convertState(currentState, draftType, stateCode) : currentState;
 		const withWords = hasText(currentState) && hasText(converted) ? withText(converted, draftText) : converted;
 		const changed = withTitleAndDescription(withWords, draftTitle, draftDescription);
-		issues = onApply(withChoiceTargets(withNext(changed, draftNext), draftRuleTargets, draftDefault));
-		if (issues.length === 0) onClose();
+		onApply(withChoiceTargets(withNextChoice(changed, draftNext), draftRuleTargets, draftDefault), draftNext === endsTheJourney);
+		onClose();
 	}
 </script>
 
@@ -91,19 +106,6 @@
 		apply();
 	}}
 >
-	{#if issues.length > 0}
-		<div class="govuk-error-summary" role="alert">
-			<h2 class="govuk-error-summary__title">This change cannot be applied</h2>
-			<div class="govuk-error-summary__body">
-				<ul class="govuk-list govuk-error-summary__list">
-					{#each issues as issue, index (index)}
-						<li>{issue.path}: {issue.message}</li>
-					{/each}
-				</ul>
-			</div>
-		</div>
-	{/if}
-
 	{#if isConvertible(currentState)}
 		<div class="govuk-form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-type">Type</label>
@@ -163,6 +165,8 @@
 		<div class="govuk-form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-next">Continues to</label>
 			<select class="govuk-select state-editor__select" id="{fieldId}-next" bind:value={draftNext}>
+				<option value={nothingYet}>Nothing yet</option>
+				<option value={endsTheJourney}>Ends the journey</option>
 				{#each nextChoices as target (target.stateId)}
 					<option value={target.stateId}>{target.label}</option>
 				{/each}
@@ -193,12 +197,50 @@
 		</div>
 	{/if}
 
-	<div class="state-editor__buttons">
-		<button type="submit" class="govuk-button govuk-!-margin-bottom-0">Apply changes</button>
-		<button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" onclick={onClose}>
-			Cancel
-		</button>
-	</div>
+	<!-- Moving the start of the journey, or ending it here, changes the shape of the whole journey rather than
+		this one state, so these sit apart from the fields above them. Each only shows when it would do something. -->
+	{#if (!isStart && currentState.type !== 'end') || canEnd}
+		<div class="state-editor__journey-actions">
+			{#if !isStart && currentState.type !== 'end'}
+				<button
+					type="button"
+					class="govuk-link govuk-body"
+					onclick={() => {
+						onSetStart();
+						onClose();
+					}}
+				>
+					Set as start step
+				</button>
+			{/if}
+			{#if canEnd}
+				<button
+					type="button"
+					class="govuk-link govuk-body"
+					onclick={() => {
+						onEndJourney();
+						onClose();
+					}}
+				>
+					End the journey here
+				</button>
+			{/if}
+		</div>
+	{/if}
+
+	{#if confirmingRemoval}
+		<RemoveStepConfirm {noun} {onRemove} onCancel={() => (confirmingRemoval = false)} />
+	{:else}
+		<div class="state-editor__buttons">
+			<button type="submit" class="govuk-button govuk-!-margin-bottom-0">Apply changes</button>
+			<button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" onclick={onClose}>
+				Cancel
+			</button>
+			<button type="button" class="govuk-link govuk-body state-editor__remove" onclick={() => (confirmingRemoval = true)}>
+				Remove {noun}
+			</button>
+		</div>
+	{/if}
 </form>
 
 <style>
@@ -211,9 +253,22 @@
 		max-width: 100%;
 	}
 
+	.state-editor__journey-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+		margin-bottom: 15px;
+	}
+
 	.state-editor__buttons {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 15px;
+	}
+
+	.state-editor__remove {
+		margin: 0;
+		color: #d4351c;
 	}
 </style>

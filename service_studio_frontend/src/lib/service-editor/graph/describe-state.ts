@@ -1,4 +1,4 @@
-import type { State } from '$lib/schema/workflow/process';
+import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { routesOf, type Route } from '$lib/schema/workflow/routes';
 import { describeCondition, describeDuration, describeExpression } from './describe-value';
 import { tidyCode } from '$lib/graph-kit/tidy-code';
@@ -20,7 +20,7 @@ export type StateRouteDescription = { label: string; kind: Route['kind']; target
 export type StateDescription = {
 	code: string;
 	// The schema's own name for the type of state, such as input or invoke.
-	type: State['type'];
+	type: WorkingState['type'];
 	facts: StateFact[];
 	routes: StateRouteDescription[];
 	// Set only on an invoke state, so the panel can offer to open the process it runs.
@@ -31,7 +31,7 @@ export type StateDescription = {
  * Lists the facts a person needs to understand what a state does. Each type of state has its own list,
  * and the switch covers every type, so adding a state type without handling it here fails to compile.
  */
-function factsOf(state: State): StateFact[] {
+function factsOf(state: WorkingState): StateFact[] {
 	switch (state.type) {
 		case 'input': {
 			const options = state.schema.kind === 'select_one' || state.schema.kind === 'select_many' ? state.schema.options : undefined;
@@ -90,7 +90,7 @@ function factsOf(state: State): StateFact[] {
  * Says when a route is taken. The route's kind says which key it came from, and the path inside the
  * state says which rule or error clause, so the words can quote the rule or the error name.
  */
-function routeLabel(state: State, route: Route): string {
+function routeLabel(state: WorkingState, route: Route): string {
 	switch (route.kind) {
 		case 'next':
 			return 'Next';
@@ -116,7 +116,7 @@ function routeLabel(state: State, route: Route): string {
  * each target is looked up by the caller, because a title can come from a name, a question or a code and
  * the caller already works that out for the graph. A target that does not exist is named as missing.
  */
-export function describeState(state: State, code: string, titleOf: (code: string) => string | undefined): StateDescription {
+export function describeState(state: WorkingState, code: string, titleOf: (code: string) => string | undefined): StateDescription {
 	return {
 		code,
 		type: state.type,

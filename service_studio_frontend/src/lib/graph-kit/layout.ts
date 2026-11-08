@@ -26,7 +26,7 @@ export const RANK_GAP = 60;
 const MARGIN = 30;
 
 // The dagre settings that change how a graph is arranged. Both are optional, and leaving them out keeps
-// dagre's own defaults, which is how the original graph is laid out.
+// dagre's own defaults.
 export type LayoutOptions = {
 	// Which corner of a group of connected boxes the others line up with. A straight run of boxes then
 	// stays in one column instead of drifting sideways.

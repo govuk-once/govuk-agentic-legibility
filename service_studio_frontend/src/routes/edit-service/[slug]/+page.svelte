@@ -4,9 +4,9 @@
 	import ProcessWorkspace from '$lib/service-editor/components/ProcessWorkspace.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
+	import { noDrafts, type DraftSet } from '$lib/service-editor/graph/drafts';
 	import type { NodePositions } from '$lib/service-editor/graph/process-graph-types';
-	import type { Process } from '$lib/schema/workflow/process';
-	import { parseWorkflow, type WorkflowIssue } from '$lib/schema/workflow/validate';
+	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/service-editor/graph/process-to-graph';
 	import { tidyCode } from '$lib/graph-kit/tidy-code';
 	import type { PageData } from './$types';
@@ -14,27 +14,18 @@
 	let { data }: { data: PageData } = $props();
 
 	// The workflow being edited. It starts as the one that was loaded and is replaced by a new copy with every
-	// change. It starts again from the loaded one when another service is opened, and it is not saved.
-	let workingWorkflow = $derived(data.workflow);
+	// change. It starts again from the loaded one when another service is opened, and it is not saved. It is not
+	// checked against the schema while it is being edited, because a journey is allowed to be unfinished then.
+	let workingWorkflow = $derived<WorkingWorkflow>(data.workflow);
 
 	// The id of the process on the graph. It starts on the entry process, which is the one the manifest
 	// says the workflow starts in, and it starts again from there when another service is opened.
 	let selectedProcessId = $derived(data.workflow.manifest.entry);
 	// The schema check has already confirmed that every listed process exists.
 	const selectedProcess = $derived(workingWorkflow.processes[selectedProcessId]);
-	/**
-	 * Takes in a changed process. The whole workflow is checked against the schema first, so a change that
-	 * breaks it is refused and its problems are given back to be shown, and the workflow is left as it was.
-	 */
-	function changeProcess(updated: Process): WorkflowIssue[] {
-		const result = parseWorkflow({
-			manifest: workingWorkflow.manifest,
-			processes: { ...workingWorkflow.processes, [selectedProcessId]: updated }
-		});
-		if (!result.ok) return result.issues;
-
-		workingWorkflow = result.workflow;
-		return [];
+	// Takes in a changed process and keeps it as the process on the graph. The other processes are the same objects as before.
+	function changeProcess(updated: WorkingProcess) {
+		workingWorkflow = { ...workingWorkflow, processes: { ...workingWorkflow.processes, [selectedProcessId]: updated } };
 	}
 
 	// Where the person has dragged boxes to, kept for each process while the page is open. It is only how the
@@ -46,6 +37,13 @@
 	function moveNodes(moved: NodePositions) {
 		draggedPositions = { ...draggedPositions, [processKey]: { ...positions, ...moved } };
 	}
+
+	// The shapes placed from the palette that are not in the process yet, kept for each process while the page is
+	// open. A workflow can have several processes, and the graph is built again when another one is shown or when the
+	// error routes are shown or hidden, so they are held here to last through both. Like the positions they are only
+	// how the graph is drawn, so they are not part of the workflow and are not saved.
+	let draftSets = $state.raw<Record<string, DraftSet>>({});
+	const drafts = $derived(draftSets[processKey] ?? noDrafts);
 
 	// Puts every box of the process on the graph back where the layout placed it.
 	function tidyUp() {
@@ -65,7 +63,7 @@
 	<title>{tidyCode(data.slug)} | Service Studio</title>
 </svelte:head>
 
-<!-- The stage sequence sits inside the banner row, as it does on the original editor. -->
+<!-- The stage sequence sits inside the banner row. -->
 <ServiceHeader>
 	<Progress stages={editStages} compact />
 </ServiceHeader>
@@ -118,6 +116,8 @@
 			{showErrorRoutes}
 			{positions}
 			onMoveNodes={moveNodes}
+			{drafts}
+			onChangeDrafts={(changed) => (draftSets = { ...draftSets, [processKey]: changed })}
 			onChangeProcess={changeProcess}
 			onOpenProcess={(processId) => (selectedProcessId = processId)}
 		/>

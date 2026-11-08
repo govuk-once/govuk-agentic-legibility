@@ -1,7 +1,9 @@
 import type { z } from 'zod';
+import { hasNext } from './edit-state';
 import { processSchema, type Process } from './process';
 import { reachableInOrder } from './journey-order';
 import { routesOf } from './routes';
+import type { WorkingProcess, WorkingWorkflow } from './working-process';
 import { workflowSchema, type Workflow } from './workflow';
 
 /*
@@ -13,6 +15,9 @@ import { workflowSchema, type Workflow } from './workflow';
 	warning is something worth a look that does not stop it, for example a state that nothing leads
 	to. Warnings are only worked out when there are no errors, because they read routes that an
 	error may have left pointing nowhere.
+
+	The editor allows some things that a saved workflow does not, such as a step with nothing after it, while
+	a journey is being built. checkBeforeProceeding is where those are reported, together with everything else.
 */
 
 // A problem found, flattened to a dotted path and a message so it can be listed directly in a
@@ -147,18 +152,22 @@ function checkWorkflow(workflow: Workflow): WorkflowIssue[] {
 }
 
 /**
+ * Lists the states of a process that cannot be reached from its start by any route, error routes included.
+ */
+function unreachableStates(process: WorkingProcess): string[] {
+	const reached = new Set(reachableInOrder(process));
+	return Object.keys(process.states).filter((name) => !reached.has(name));
+}
+
+/**
  * Warns about each state in a process that no route leads to. Such a state is harmless but can
  * never run, which usually means a route was removed by mistake or a step was left behind.
  */
 function warnAboutProcess(process: Process, pathPrefix = ''): WorkflowIssue[] {
-	const reached = new Set(reachableInOrder(process));
-
-	return Object.keys(process.states)
-		.filter((name) => !reached.has(name))
-		.map((name) => ({
-			path: `${pathPrefix}states.${name}`,
-			message: 'No route leads to this state, so it can never run'
-		}));
+	return unreachableStates(process).map((name) => ({
+		path: `${pathPrefix}states.${name}`,
+		message: 'No route leads to this state, so it can never run'
+	}));
 }
 
 /**
@@ -245,4 +254,37 @@ export function parseWorkflow(input: unknown): WorkflowValidation {
 	if (issues.length) return { ok: false, issues };
 
 	return { ok: true, workflow: result.data, warnings: warnAboutWorkflow(result.data) };
+}
+
+/**
+ * Checks a workflow that is being edited, to decide whether it can be passed on for review. A person building a
+ * journey can leave a step with nothing after it, and can leave pieces that are not joined to the start. Neither
+ * is allowed in a saved workflow, so both are reported here, together with every problem the schema finds, so the
+ * whole list can be shown at once. An empty list means the journey is ready. Other warnings, such as a process
+ * that nothing runs, do not stop a journey being passed on, so they are not included.
+ */
+export function checkBeforeProceeding(workflow: WorkingWorkflow): WorkflowIssue[] {
+	const unfinished: WorkflowIssue[] = [];
+	const unjoined: WorkflowIssue[] = [];
+
+	for (const [key, process] of Object.entries(workflow.processes)) {
+		for (const [name, state] of Object.entries(process.states)) {
+			if (hasNext(state) && state.next === undefined) {
+				unfinished.push({ path: `processes.${key}.states.${name}.next`, message: 'Does not say which state it continues to' });
+			}
+		}
+		for (const name of unreachableStates(process)) {
+			unjoined.push({
+				path: `processes.${key}.states.${name}`,
+				message: 'Nothing leads to this state, so it is not part of the journey. Join it to the journey or delete it'
+			});
+		}
+	}
+
+	// The schema words a missing next in its own way, so those are left out and the same thing is not said twice.
+	const alreadyReported = new Set(unfinished.map((issue) => issue.path));
+	const result = parseWorkflow(workflow);
+	const fromSchema = result.ok ? [] : result.issues.filter((issue) => !alreadyReported.has(issue.path));
+
+	return [...unfinished, ...unjoined, ...fromSchema];
 }

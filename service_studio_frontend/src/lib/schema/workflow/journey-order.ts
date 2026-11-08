@@ -1,4 +1,4 @@
-import type { Process } from './process';
+import type { WorkingProcess } from './working-process';
 import { isErrorKind, routesOf, type Route } from './routes';
 
 /*
@@ -18,7 +18,7 @@ import { isErrorKind, routesOf, type Route } from './routes';
  * edit has left the process half finished. A caller can pass a test to follow only some routes, for
  * example to leave out the error routes.
  */
-export function reachableInOrder(process: Process, followRoute: (route: Route) => boolean = () => true): string[] {
+export function reachableInOrder(process: WorkingProcess, followRoute: (route: Route) => boolean = () => true): string[] {
 	const order: string[] = [];
 	const seen = new Set<string>();
 	const queue = [process.start];
@@ -42,7 +42,7 @@ export function reachableInOrder(process: Process, followRoute: (route: Route) =
  * appears instead of vanishing from the graph. Putting the main journey first means the steps that
  * are shown when error routes are hidden are numbered one after another with no gaps.
  */
-export function journeyOrder(process: Process): string[] {
+export function journeyOrder(process: WorkingProcess): string[] {
 	const ordered = [
 		...reachableInOrder(process, (route) => !isErrorKind(route.kind)),
 		...reachableInOrder(process),

@@ -2,16 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { exampleStatesOfType } from './example-states';
 import {
 	descriptionOf,
+	endsTheJourney,
 	hasNext,
 	hasText,
+	nothingYet,
 	replaceState,
 	textOf,
 	withChoiceTargets,
 	withNext,
+	withNextChoice,
 	withText,
 	withTitleAndDescription
 } from '../edit-state';
 import { stateSchema, type Process, type State } from '../process';
+import type { WorkingState } from '../working-process';
 
 const state = (value: unknown) => value as State;
 const wait = state({ type: 'wait', duration: 'PT1S', next: 'done' });
@@ -220,5 +224,26 @@ describe('hasText, textOf and withText', () => {
 			expect(stateSchema.safeParse(updated).success).toBe(true);
 			if (hasText(updated)) expect(textOf(updated)).toBe('Changed words');
 		}
+	});
+});
+
+describe('withNextChoice', () => {
+	const step = { type: 'wait', duration: 'PT1S', next: 'b' } as unknown as WorkingState;
+
+	it('points the state at the chosen state', () => {
+		expect(withNextChoice(step, 'c')).toMatchObject({ next: 'c' });
+	});
+
+	it('leaves the step with nothing after it when nothing yet is chosen', () => {
+		expect(withNextChoice(step, nothingYet)).not.toHaveProperty('next');
+	});
+
+	it('leaves the state as it is when ending the journey is chosen, because the caller makes the end', () => {
+		expect(withNextChoice(step, endsTheJourney)).toBe(step);
+	});
+
+	it('leaves a decision as it is, because it has no single next state', () => {
+		const decision = { type: 'choice', rules: [], default: 'a' } as unknown as WorkingState;
+		expect(withNextChoice(decision, nothingYet)).toBe(decision);
 	});
 });

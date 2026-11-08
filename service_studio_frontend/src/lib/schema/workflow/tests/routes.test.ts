@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles } from './example-states';
 import { processSchema, type State } from '../process';
-import { isErrorKind, routesOf } from '../routes';
+import { isErrorKind, routesOf, withRouteTarget } from '../routes';
 
 // Builds a state for a test. The cast is needed because each test supplies only the keys it uses.
 const state = (value: unknown) => value as State;
@@ -80,5 +80,58 @@ describe('isErrorKind', () => {
 
 	it.each(['next', 'rule', 'default', 'start'])('treats %s as part of the main journey', (kind) => {
 		expect(isErrorKind(kind)).toBe(false);
+	});
+});
+
+describe('withRouteTarget', () => {
+	it('changes the next route of a state', () => {
+		expect(withRouteTarget(state({ type: 'wait', duration: 'PT1S', next: 'a' }), ['next'], 'b')).toMatchObject({ next: 'b' });
+	});
+
+	it('changes one rule of a choice and leaves the others and the default alone', () => {
+		const choice = state({
+			type: 'choice',
+			rules: [
+				{ when: { op: 'is_true', path: 'a' }, next: 'first' },
+				{ when: { op: 'is_true', path: 'b' }, next: 'second' }
+			],
+			default: 'fallback'
+		});
+		expect(withRouteTarget(choice, ['rules', 1, 'next'], 'other')).toMatchObject({
+			rules: [{ next: 'first' }, { next: 'other' }],
+			default: 'fallback'
+		});
+	});
+
+	it('changes a timeout and a catch clause', () => {
+		const input = state({ type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'n', timeout: { after: 'PT5S', next: 'old' } });
+		expect(withRouteTarget(input, ['timeout', 'next'], 'new')).toMatchObject({ timeout: { after: 'PT5S', next: 'new' } });
+
+		const call = state({ type: 'call', method: 'GET', service: 's', url: '/u', next: 'n', catch: [{ on: 'any', next: 'old' }] });
+		expect(withRouteTarget(call, ['catch', 0, 'next'], 'new')).toMatchObject({ catch: [{ on: 'any', next: 'new' }] });
+	});
+
+	it('leaves the state it was given unchanged', () => {
+		const wait = state({ type: 'wait', duration: 'PT1S', next: 'a' });
+		withRouteTarget(wait, ['next'], 'b');
+		expect(wait).toMatchObject({ next: 'a' });
+	});
+
+	it('gives back a route that routesOf finds at the same path', () => {
+		const choice = state({ type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'first' }], default: 'fallback' });
+		for (const route of routesOf(choice)) {
+			expect(routesOf(withRouteTarget(choice, route.path, 'moved')).filter((r) => r.target === 'moved')).toHaveLength(1);
+		}
+	});
+});
+
+describe('routesOf for a step with no next yet', () => {
+	it.each(['output', 'assign', 'wait'])('gives a %s step no routes', (type) => {
+		expect(routesOf(state({ type }))).toEqual([]);
+	});
+
+	it('keeps the error routes of a step that has no next', () => {
+		const input = state({ type: 'input', timeout: { after: 'PT1H', next: 'late' }, on_invalid: 'again' });
+		expect(routesOf(input).map((route) => route.kind)).toEqual(['on_invalid', 'timeout']);
 	});
 });

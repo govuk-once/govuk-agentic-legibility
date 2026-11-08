@@ -9,7 +9,7 @@ import {
 	placeholderWaitDuration,
 	unconnectedCallDetails
 } from '$lib/schema/workflow/placeholders';
-import type { State } from '$lib/schema/workflow/process';
+import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { assignStateSchema, outputStateSchema, waitStateSchema } from '$lib/schema/workflow/states';
 
 /*
@@ -95,7 +95,7 @@ const keyNames: Record<string, string> = {
  * Tells whether a state can be changed into another type. A decision and an end cannot, because each has
  * routes that the other types do not.
  */
-export function isConvertible(state: State): state is Extract<State, { type: ConvertibleType }> {
+export function isConvertible(state: WorkingState): state is Extract<WorkingState, { type: ConvertibleType }> {
 	return state.type !== 'choice' && state.type !== 'end';
 }
 
@@ -104,7 +104,7 @@ export function isConvertible(state: State): state is Extract<State, { type: Con
  * input or a transcript output are carried over to the other, so they are not counted as lost. An empty
  * list means nothing is lost, which is also the answer when the type does not change.
  */
-export function lostByConversion(state: State, toType: ConvertTargetType): string[] {
+export function lostByConversion(state: WorkingState, toType: ConvertTargetType): string[] {
 	if (!isConvertible(state) || state.type === toType) return [];
 
 	const carriesText = textOf(state) !== '' && (toType === 'input' || toType === 'output');
@@ -122,7 +122,7 @@ export function lostByConversion(state: State, toType: ConvertTargetType): strin
  * used to name the variable of a new input. A state that cannot be changed, or is already the type asked
  * for, is returned as it is.
  */
-export function convertState(state: State, toType: ConvertTargetType, stateCode: string): State {
+export function convertState(state: WorkingState, toType: ConvertTargetType, stateCode: string): WorkingState {
 	if (!isConvertible(state) || state.type === toType) return state;
 
 	const kept = Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'type' && keysOfType[toType].has(key)));
@@ -141,6 +141,6 @@ export function convertState(state: State, toType: ConvertTargetType, stateCode:
 	};
 
 	// The result is built from keys and not from a typed object, because the keys depend on the types chosen.
-	// The page checks the whole workflow against the schema before it accepts the change.
-	return { ...placeholders[toType], ...kept, type: toType } as State;
+	// The result is not checked here. The whole journey is checked once, before it is passed on.
+	return { ...placeholders[toType], ...kept, type: toType } as WorkingState;
 }

@@ -37,8 +37,10 @@ export type ProcessTerminalNode = Node<ProcessTerminalNodeData, 'terminal'>;
 export type ProcessNode = ProcessStepNode | ProcessDecisionNode | ProcessTerminalNode;
 
 // The kind of an edge is the kind of route it was built from, plus start for the edge that leaves the
-// start dot. Keeping them apart lets a timeout or an error route be drawn differently from a normal one.
-export type ProcessEdgeData = { kind: Route['kind'] | 'start' };
+// start dot. Keeping them apart lets a timeout or an error route be drawn differently from a normal one. The
+// path says where the route sits in the state it leaves, so a line chosen on the canvas can be found in the
+// process. A draft line is drawn to or from a shape that is not in the process yet.
+export type ProcessEdgeData = { kind: Route['kind'] | 'start'; path?: Route['path']; draft?: boolean };
 export type ProcessEdge = Edge<ProcessEdgeData>;
 
 // Where the person has dragged boxes to, by node id. A box that is not here stays where the layout put it.
@@ -48,4 +50,13 @@ export type NodePositions = Record<string, { x: number; y: number }>;
 export type ProcessGraphElements = {
 	nodes: ProcessNode[];
 	edges: ProcessEdge[];
+};
+
+// What a press of the Delete key removed from the canvas. A line between states carries the state it leaves,
+// where in that state the route sits, and the state it leads to.
+export type DeletedElements = {
+	draftIds: string[];
+	draftLineIds: string[];
+	stateCodes: string[];
+	lines: Array<{ source: string; path: (string | number)[]; target: string }>;
 };
