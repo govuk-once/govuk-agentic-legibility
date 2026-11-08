@@ -1,5 +1,5 @@
-import { fetchLinkText } from '../shared/fetch-link';
 import { generateJson, type GenerationIssue, type ModelClient } from '../shared/generate-json';
+import { readLinks } from '../shared/read-links';
 import { parseProcess, parseWorkflow } from '$lib/schema/workflow/validate';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import { buildWorkflow, type ServiceDetails } from './build-workflow';
@@ -28,19 +28,8 @@ export async function generateService(
 	{ name, description, links }: ServiceDetails,
 	{ client, modelId }: GenerateServiceDependencies
 ): Promise<GenerateServiceResult> {
-	const warnings: string[] = [];
-	const fetchedLinks = await Promise.all(links.filter(Boolean).map(fetchLinkText));
-	const linkSections = fetchedLinks
-		.map((link) => {
-			if ('error' in link) {
-				warnings.push(`Could not read ${link.url}: ${link.error}`);
-				return null;
-			}
-			return `Source: ${link.url}\n${link.text}`;
-		})
-		.filter((section): section is string => section !== null);
-
-	const briefText = [`Service name: ${name}`, `Service description: ${description}`, ...linkSections].join('\n\n');
+	const { sections, warnings } = await readLinks(links);
+	const briefText = [`Service name: ${name}`, `Service description: ${description}`, ...sections].join('\n\n');
 
 	const result = await generateJson<Workflow>({
 		client,
