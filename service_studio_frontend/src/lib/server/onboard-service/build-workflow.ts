@@ -21,8 +21,8 @@ import { z } from 'zod';
 // What the person typed on the details page.
 export type ServiceDetails = { name: string; description: string; links: string[] };
 
-// The version given to a first draft, for the workflow and for its process.
-const firstVersion = '0.1.0';
+// The version given to a first draft, for the workflow and for its process. Exported so the prompt can say the same.
+export const firstVersion = '0.1.0';
 
 // A link that is not a real web address cannot be kept in a process, so it is left out.
 const isWebAddress = (link: string) => z.url().safeParse(link).success;
