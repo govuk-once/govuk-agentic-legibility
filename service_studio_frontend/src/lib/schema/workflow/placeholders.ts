@@ -1,6 +1,6 @@
-import type { CallState } from './call-state';
+import type { CallState, RetryPolicy, Timeouts } from './call-state';
 import type { Condition } from './condition';
-import type { CompletionStatus } from './states';
+import type { CompletionStatus, EndState } from './states';
 
 /*
 	Placeholder values for details that are filled in at a later review, not while the journey is
@@ -88,3 +88,51 @@ export const placeholderWaitDuration = 'PT1M';
 export function placeholderAnswerVariable(stateCode: string): string {
 	return `answer_${stateCode.replace(/[^A-Za-z0-9_]/g, '_')}`;
 }
+
+/**
+ * The first part of a workflow id before the owner is known. An id needs at least two parts joined by dots, and
+ * the first part normally names the owning team, so this stands in for it until the owner is confirmed.
+ */
+export const placeholderNamespace = 'draft';
+
+/**
+ * How long a whole run of the workflow may last before the executor stops it. Fourteen days is the limit the
+ * example services use. A real limit is set at the technical review.
+ */
+export const placeholderRunTimeout = 'P14D';
+
+/**
+ * The time limit and retry policy that every call uses unless a call says otherwise. They are the same as the
+ * example services use, so a draft behaves like a real workflow until the technical review sets its own.
+ */
+export const placeholderCallDefaults: { timeouts: Timeouts; retry: RetryPolicy } = {
+	timeouts: { start_to_close: 'PT15S' },
+	retry: {
+		max_attempts: 3,
+		initial_interval: 'PT1S',
+		backoff_coefficient: 2,
+		max_interval: 'PT30S',
+		retry_on: ['5xx', '429', 'timeout', 'connection']
+	}
+};
+
+/**
+ * How the executor names and reuses each run of a draft workflow. The name is the slug of the workflow, and a
+ * repeat run is allowed, because refusing one would stop a second person using the draft. The technical review
+ * sets the real template and policy.
+ */
+export function placeholderExecutor(slug: string) {
+	return {
+		workflow_id_template: slug,
+		id_reuse_policy: 'allow_duplicate',
+		run_timeout: placeholderRunTimeout,
+		search_attributes: {}
+	} as const;
+}
+
+/**
+ * The end that every call leads to when it reports an error and nobody has said where it should go. It finishes
+ * the journey as failed, which is the most common choice in the example services. The technical review points each
+ * call at the right place.
+ */
+export const placeholderFailedEnd: EndState = { type: 'end', status: 'failed', name: 'Something went wrong' };
