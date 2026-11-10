@@ -18,7 +18,7 @@ import { processRefSchema, stateRefSchema, variablePathSchema } from './primitiv
 // Runs the named process. input gives it its starting values, assign keeps what it returns, and
 // catch routes the named ways it can end to other states.
 export const invokeStateSchema = z.strictObject({
-	state_type: z.literal('invoke'),
+	type: z.literal('invoke'),
 	...baseStateFields,
 	process: processRefSchema,
 	input: z.record(variablePathSchema, expressionSchema).optional(),

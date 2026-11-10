@@ -110,7 +110,7 @@
 
 		const before = process.states[code];
 		const oldNext = before && hasNext(before) ? before.next : undefined;
-		const leftEnd = oldNext !== undefined && process.states[oldNext]?.state_type === 'end' ? [oldNext] : [];
+		const leftEnd = oldNext !== undefined && process.states[oldNext]?.type === 'end' ? [oldNext] : [];
 		applyChange(removeUnreachableStates(ended?.ok ? ended.process : edited, leftEnd));
 	}
 
@@ -124,7 +124,7 @@
 	// Tells whether the journey can be ended at a state: it continues to a single next state that is not already an end, or it has not been joined to anything yet.
 	function canEndAt(code: string): boolean {
 		const state = process.states[code];
-		return state !== undefined && hasNext(state) && (state.next === undefined || process.states[state.next]?.state_type !== 'end');
+		return state !== undefined && hasNext(state) && (state.next === undefined || process.states[state.next]?.type !== 'end');
 	}
 
 	// The title of a state in this process, or nothing when no state has that code. The panel uses it to

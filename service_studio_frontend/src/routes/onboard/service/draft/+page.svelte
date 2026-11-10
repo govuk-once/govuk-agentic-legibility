@@ -15,7 +15,7 @@
 	const stepTotal = $derived(process ? stepCount(visibleGraph(processToGraph(process), { showErrorRoutes: false })) : 0);
 
 	// A decision is a branch, so the count matches the diamonds the editor will show.
-	const branchCount = $derived(process ? Object.values(process.states).filter((state) => state.state_type === 'choice').length : 0);
+	const branchCount = $derived(process ? Object.values(process.states).filter((state) => state.type === 'choice').length : 0);
 
 	// Set when the browser would not hold the draft, so the person is told why the editor did not open.
 	let draftNotHeld = $state(false);

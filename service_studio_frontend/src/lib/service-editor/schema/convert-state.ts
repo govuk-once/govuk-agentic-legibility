@@ -57,7 +57,7 @@ const keysOfType: Record<ConvertTargetType, ReadonlySet<string>> = {
 };
 
 // The keys that every type shares or that the conversion handles itself, so they are never reported as lost.
-const alwaysKept = new Set(['state_type', 'name', 'metadata', 'next']);
+const alwaysKept = new Set(['type', 'name', 'metadata', 'next']);
 
 // Plain words for each key, used when telling the person what a change will remove. Several keys can
 // share a name, such as the three that make up a request, and the name is only shown once.
@@ -95,8 +95,8 @@ const keyNames: Record<string, string> = {
  * Tells whether a state can be changed into another type. A decision and an end cannot, because each has
  * routes that the other types do not.
  */
-export function isConvertible(state: WorkingState): state is Extract<WorkingState, { state_type: ConvertibleType }> {
-	return state.state_type !== 'choice' && state.state_type !== 'end';
+export function isConvertible(state: WorkingState): state is Extract<WorkingState, { type: ConvertibleType }> {
+	return state.type !== 'choice' && state.type !== 'end';
 }
 
 /**
@@ -105,7 +105,7 @@ export function isConvertible(state: WorkingState): state is Extract<WorkingStat
  * list means nothing is lost, which is also the answer when the type does not change.
  */
 export function lostByConversion(state: WorkingState, toType: ConvertTargetType): string[] {
-	if (!isConvertible(state) || state.state_type === toType) return [];
+	if (!isConvertible(state) || state.type === toType) return [];
 
 	const carriesText = textOf(state) !== '' && (toType === 'input' || toType === 'output');
 	const lost = Object.keys(state)
@@ -123,9 +123,9 @@ export function lostByConversion(state: WorkingState, toType: ConvertTargetType)
  * for, is returned as it is.
  */
 export function convertState(state: WorkingState, toType: ConvertTargetType, stateCode: string): WorkingState {
-	if (!isConvertible(state) || state.state_type === toType) return state;
+	if (!isConvertible(state) || state.type === toType) return state;
 
-	const kept = Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'state_type' && keysOfType[toType].has(key)));
+	const kept = Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'type' && keysOfType[toType].has(key)));
 	const words = textOf(state);
 
 	const placeholders: Record<ConvertTargetType, Record<string, unknown>> = {
@@ -142,5 +142,5 @@ export function convertState(state: WorkingState, toType: ConvertTargetType, sta
 
 	// The result is built from keys and not from a typed object, because the keys depend on the types chosen.
 	// The result is not checked here. The whole journey is checked once, before it is passed on.
-	return { ...placeholders[toType], ...kept, state_type: toType } as WorkingState;
+	return { ...placeholders[toType], ...kept, type: toType } as WorkingState;
 }

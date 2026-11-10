@@ -95,7 +95,7 @@ describe('inputTimeoutSchema', () => {
 
 describe('inputStateSchema', () => {
 	const question = {
-		state_type: 'input',
+		type: 'input',
 		prompt: 'Is your address correct?',
 		schema: { kind: 'boolean' },
 		assign: 'address_confirmed',
@@ -109,6 +109,23 @@ describe('inputStateSchema', () => {
 			metadata: { description: 'Checks the address.' },
 			on_invalid: 'ask_again',
 			timeout: { after: 'P1D', next: 'give_up' }
+		};
+		expect(inputStateSchema.safeParse(state).success).toBe(true);
+	});
+
+	it('accepts the notes that the form converter writes: text, a number, true or false, and null', () => {
+		const state = {
+			...question,
+			name: 'Are you applying for yourself',
+			metadata: {
+				forms_step_id: 'abc123',
+				position: 2,
+				page_heading: null,
+				answer_type: 'selection',
+				hint_text: 'Choose one answer.',
+				optional: false,
+				repeatable: false
+			}
 		};
 		expect(inputStateSchema.safeParse(state).success).toBe(true);
 	});

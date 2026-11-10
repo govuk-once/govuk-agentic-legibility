@@ -18,7 +18,7 @@
     },
     "states": {
         "prompt_is_baby_born": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Has your baby already been born?",
             "schema": {
                 "kind": "boolean"
@@ -27,7 +27,7 @@
             "next": "branch_baby_status"
         },
         "branch_baby_status": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -40,7 +40,7 @@
             "default": "prompt_due_date_unborn"
         },
         "check_bereavement_status": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Was your baby stillborn or did your baby die?",
             "schema": {
                 "kind": "boolean"
@@ -49,7 +49,7 @@
             "next": "branch_bereavement_status"
         },
         "branch_bereavement_status": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -62,18 +62,18 @@
             "default": "prompt_born_in_uk"
         },
         "say_bereavement_guidance": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "We are very sorry for your loss. Special rules apply to claims in cases of stillbirth or infant death. Please read Page 4 of the MA1 Notes or contact us on 0800 169 0283 so we can assist you with completing the paper MA1 form and submitting your certificate of stillbirth.",
             "next": "end_bereavement"
         },
         "end_bereavement": {
-            "state_type": "end",
+            "type": "end",
             "status": "failed",
             "outcome": "bereavement_offramp"
         },
         "prompt_born_in_uk": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Was your baby born in the UK?",
             "schema": {
                 "kind": "boolean"
@@ -82,7 +82,7 @@
             "next": "branch_born_in_uk"
         },
         "branch_born_in_uk": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -95,13 +95,13 @@
             "default": "say_offramp_born_outside_uk"
         },
         "say_offramp_born_outside_uk": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Because your baby was born outside the UK, you cannot complete your claim using this online service. Please complete your claim using the paper MA1 form and post it along with your baby's foreign birth certificate and official translation.",
             "next": "end_offramp_paper"
         },
         "prompt_actual_birth_date": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Enter your baby's actual date of birth (DD/MM/YYYY):",
             "schema": {
                 "kind": "string",
@@ -112,7 +112,7 @@
             "next": "evaluate_actual_birth_date"
         },
         "evaluate_actual_birth_date": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -126,13 +126,13 @@
             "default": "prompt_due_date_born"
         },
         "say_future_birth_date_error": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Invalid Birth Date: Your baby's actual date of birth cannot be in the future. If your baby has not been born yet, please go back and select 'No'.",
             "next": "prompt_actual_birth_date"
         },
         "prompt_due_date_born": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Enter the date your baby was originally due from your MAT B1 maternity certificate (DD/MM/YYYY):",
             "schema": {
                 "kind": "string",
@@ -143,7 +143,7 @@
             "next": "run_born_timeline_calculations"
         },
         "prompt_due_date_unborn": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Enter your expected childbirth date from your MAT B1 maternity certificate (DD/MM/YYYY):",
             "schema": {
                 "kind": "string",
@@ -154,7 +154,7 @@
             "next": "run_unborn_timeline_calculations"
         },
         "run_born_timeline_calculations": {
-            "state_type": "invoke",
+            "type": "invoke",
             "process": "calculate_deadlines",
             "input": {
                 "due_date": {
@@ -169,7 +169,7 @@
             "next": "evaluate_backdating_limit"
         },
         "run_unborn_timeline_calculations": {
-            "state_type": "invoke",
+            "type": "invoke",
             "process": "calculate_deadlines",
             "input": {
                 "due_date": {
@@ -182,7 +182,7 @@
             "next": "evaluate_pre_birth_window"
         },
         "evaluate_backdating_limit": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -195,13 +195,13 @@
             "default": "prompt_matb1_file"
         },
         "say_backdating_warning": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Notice: Maternity Allowance can only be backdated for up to 3 months. Because your claim is submitted more than 3 months after your baby's birth, your payment start date is set automatically to the day after birth, but you risk losing payments for any period prior to the 3-month backdating limit.",
             "next": "prompt_matb1_file"
         },
         "evaluate_pre_birth_window": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -214,18 +214,18 @@
             "default": "prompt_matb1_file"
         },
         "say_too_early_to_claim": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "You have applied too early. Claims cannot be submitted earlier than 14 weeks before your due week. Based on your expected due date, your claim window opens on {{calculated_dates.earliest_signing_date}}.",
             "next": "end_too_early_to_claim"
         },
         "end_too_early_to_claim": {
-            "state_type": "end",
+            "type": "end",
             "status": "failed",
             "outcome": "too_early_to_claim"
         },
         "prompt_matb1_file": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Upload a photo or scan of your MAT B1 maternity certificate (JPEG, PNG, or PDF).",
             "schema": {
                 "kind": "file_ref",
@@ -240,7 +240,7 @@
             "next": "upload_matb1_api"
         },
         "upload_matb1_api": {
-            "state_type": "api_call",
+            "type": "api_call",
             "method": "POST",
             "service": "dwp",
             "url": "/app/dwp/v1/upload",
@@ -271,7 +271,7 @@
             "next": "check_matb1_upload"
         },
         "check_matb1_upload": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -284,7 +284,7 @@
             "default": "increment_matb1_attempts"
         },
         "increment_matb1_attempts": {
-            "state_type": "assign",
+            "type": "assign",
             "set": {
                 "matb1_upload_attempts": {
                     "op": "add",
@@ -295,7 +295,7 @@
             "next": "evaluate_matb1_attempts"
         },
         "evaluate_matb1_attempts": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -309,13 +309,13 @@
             "default": "prompt_retry_matb1"
         },
         "prompt_retry_matb1": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Upload failed or missing. Please try uploading your MAT B1 certificate again (Attempt {{matb1_upload_attempts}} of 3).",
             "next": "prompt_matb1_file"
         },
         "check_birth_certificate_required": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -328,7 +328,7 @@
             "default": "end_section2"
         },
         "prompt_birth_evidence_method": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "How would you like to provide proof of your baby's birth?",
             "schema": {
                 "kind": "select_one",
@@ -347,7 +347,7 @@
             "next": "branch_birth_evidence_method"
         },
         "branch_birth_evidence_method": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -361,7 +361,7 @@
             "default": "upload_birth_certificate"
         },
         "prompt_uk_birth_system_number": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Enter the 9-digit System Number from the bottom-left corner of your UK birth certificate:",
             "schema": {
                 "kind": "string",
@@ -372,7 +372,7 @@
             "next": "end_section2"
         },
         "upload_birth_certificate": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Upload a scan or photo of your baby's birth certificate (JPEG, PNG, or PDF).",
             "schema": {
                 "kind": "file_ref",
@@ -387,7 +387,7 @@
             "next": "upload_birth_certificate_api"
         },
         "upload_birth_certificate_api": {
-            "state_type": "api_call",
+            "type": "api_call",
             "method": "POST",
             "service": "dwp",
             "url": "/app/dwp/v1/upload",
@@ -418,7 +418,7 @@
             "next": "check_birth_cert_upload"
         },
         "check_birth_cert_upload": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -431,7 +431,7 @@
             "default": "increment_birth_cert_attempts"
         },
         "increment_birth_cert_attempts": {
-            "state_type": "assign",
+            "type": "assign",
             "set": {
                 "birth_cert_upload_attempts": {
                     "op": "add",
@@ -442,7 +442,7 @@
             "next": "evaluate_birth_cert_attempts"
         },
         "evaluate_birth_cert_attempts": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -456,18 +456,18 @@
             "default": "prompt_retry_birth_cert"
         },
         "prompt_retry_birth_cert": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Upload failed or missing. Please try uploading your birth certificate again (Attempt {{birth_cert_upload_attempts}} of 3).",
             "next": "upload_birth_certificate"
         },
         "end_offramp_paper": {
-            "state_type": "end",
+            "type": "end",
             "status": "offramp",
             "outcome": "offramp_paper"
         },
         "end_section2": {
-            "state_type": "end",
+            "type": "end",
             "status": "success",
             "return": {
                 "is_baby_born": {

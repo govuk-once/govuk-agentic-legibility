@@ -18,12 +18,12 @@ import { stateSchema, type Process, type State } from '../process';
 import type { WorkingState } from '../working-process';
 
 const state = (value: unknown) => value as State;
-const wait = state({ state_type: 'wait', duration: 'PT1S', next: 'done' });
+const wait = state({ type: 'wait', duration: 'PT1S', next: 'done' });
 
 describe('withTitleAndDescription', () => {
 	it('sets the title as the name and the description in the notes', () => {
 		const updated = withTitleAndDescription(wait, 'Pause', 'Waits a second.');
-		expect(updated).toEqual({ state_type: 'wait', duration: 'PT1S', next: 'done', name: 'Pause', metadata: { description: 'Waits a second.' } });
+		expect(updated).toEqual({ type: 'wait', duration: 'PT1S', next: 'done', name: 'Pause', metadata: { description: 'Waits a second.' } });
 	});
 
 	it('trims the text it is given', () => {
@@ -70,10 +70,14 @@ describe('descriptionOf', () => {
 		expect(descriptionOf(wait)).toBe('');
 		expect(descriptionOf(state({ ...wait, metadata: { interaction: 'phone' } }))).toBe('');
 	});
+
+	it.each([null, 3, true])('gives an empty string when the description note is %s and not text', (note) => {
+		expect(descriptionOf(state({ ...wait, metadata: { description: note } }))).toBe('');
+	});
 });
 
 describe('replaceState', () => {
-	const process = { process_id: 'p', version: '0.1.0', vars: {}, start: 'a', states: { a: wait, done: state({ state_type: 'end', status: 'success' }) } } as unknown as Process;
+	const process = { process_id: 'p', version: '0.1.0', vars: {}, start: 'a', states: { a: wait, done: state({ type: 'end', status: 'success' }) } } as unknown as Process;
 
 	it('replaces one state and keeps the others as they were', () => {
 		const changed = withTitleAndDescription(wait, 'Pause', '');
@@ -98,8 +102,8 @@ describe('withNext', () => {
 	});
 
 	it('returns a choice or an end as it is, because they have no single next state', () => {
-		const choice = state({ state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'x' }], default: 'y' });
-		const end = state({ state_type: 'end', status: 'success' });
+		const choice = state({ type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'x' }], default: 'y' });
+		const end = state({ type: 'end', status: 'success' });
 		expect(withNext(choice, 'elsewhere')).toBe(choice);
 		expect(withNext(end, 'elsewhere')).toBe(end);
 	});
@@ -129,13 +133,13 @@ describe('hasNext', () => {
 		['choice', false],
 		['end', false]
 	])('says whether a %s state has a single next state: %s', (type, expected) => {
-		expect(hasNext(state({ state_type: type }))).toBe(expected);
+		expect(hasNext(state({ type }))).toBe(expected);
 	});
 });
 
 describe('withChoiceTargets', () => {
 	const choice = state({
-		state_type: 'choice',
+		type: 'choice',
 		rules: [
 			{ when: { op: 'is_true', path: 'a' }, next: 'first' },
 			{ when: { op: 'is_true', path: 'b' }, next: 'second' }
@@ -146,7 +150,7 @@ describe('withChoiceTargets', () => {
 	it('changes where each rule and the default lead, and keeps the conditions', () => {
 		const updated = withChoiceTargets(choice, ['one', 'two'], 'other');
 		expect(updated).toEqual({
-			state_type: 'choice',
+			type: 'choice',
 			rules: [
 				{ when: { op: 'is_true', path: 'a' }, next: 'one' },
 				{ when: { op: 'is_true', path: 'b' }, next: 'two' }
@@ -178,7 +182,7 @@ describe('withChoiceTargets', () => {
 		const choices = exampleStatesOfType('choice');
 		expect(choices.length).toBeGreaterThan(0);
 		for (const real of choices) {
-			const parsed = state(real) as Extract<State, { state_type: 'choice' }>;
+			const parsed = state(real) as Extract<State, { type: 'choice' }>;
 			const updated = withChoiceTargets(parsed, parsed.rules.map(() => 'here'), 'there');
 			expect(stateSchema.safeParse(updated).success).toBe(true);
 			expect(updated).toMatchObject({ default: 'there' });
@@ -187,9 +191,9 @@ describe('withChoiceTargets', () => {
 });
 
 describe('hasText, textOf and withText', () => {
-	const input = state({ state_type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'done' });
-	const transcript = state({ state_type: 'output', channel: 'transcript', message: 'Thank you.', next: 'done' });
-	const email = state({ state_type: 'output', channel: 'email', template: 'receipt', next: 'done' });
+	const input = state({ type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'done' });
+	const transcript = state({ type: 'output', channel: 'transcript', message: 'Thank you.', next: 'done' });
+	const email = state({ type: 'output', channel: 'email', template: 'receipt', next: 'done' });
 
 	it('offers the prompt of an input and the message of a transcript output, and nothing else', () => {
 		expect(hasText(input)).toBe(true);
@@ -228,7 +232,7 @@ describe('hasText, textOf and withText', () => {
 });
 
 describe('withNextChoice', () => {
-	const step = { state_type: 'wait', duration: 'PT1S', next: 'b' } as unknown as WorkingState;
+	const step = { type: 'wait', duration: 'PT1S', next: 'b' } as unknown as WorkingState;
 
 	it('points the state at the chosen state', () => {
 		expect(withNextChoice(step, 'c')).toMatchObject({ next: 'c' });
@@ -243,7 +247,7 @@ describe('withNextChoice', () => {
 	});
 
 	it('leaves a decision as it is, because it has no single next state', () => {
-		const decision = { state_type: 'choice', rules: [], default: 'a' } as unknown as WorkingState;
+		const decision = { type: 'choice', rules: [], default: 'a' } as unknown as WorkingState;
 		expect(withNextChoice(decision, nothingYet)).toBe(decision);
 	});
 });

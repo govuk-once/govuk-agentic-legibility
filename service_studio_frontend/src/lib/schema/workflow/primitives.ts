@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /*
-	Shared building blocks for the unified workflow schema (sfsm/0.2). Conditions, expressions and
+	Shared building blocks for the unified workflow schema (Workflow/0.2). Conditions, expressions and
 	states all reuse these, so the rules for a path, a reference and a duration live in one place.
 */
 
@@ -62,11 +62,13 @@ export const stateRefSchema = z.string().min(1, 'Give the name of a state');
 export const processRefSchema = z.string().min(1, 'Give the name of a process');
 
 /**
- * Notes about a workflow, a process or a state, stored as text to text entries. Values are limited
- * to text because the executor ignores this map and only Service Studio and the channels read it,
- * so nested data would have no agreed meaning.
+ * Notes about a workflow, a process or a state, stored as entries of a name and a value. A value is text, a
+ * number, true or false, or null. Nested data is refused, because it would have no agreed meaning. The executor
+ * ignores this map and only Service Studio and the channels read it. The form converter writes the position of
+ * a question as a number and whether it is optional as true or false, so those are accepted. A null value means
+ * the note has not been given, as a missing note does.
  */
-export const metadataSchema = z.record(z.string(), z.string());
+export const metadataSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]));
 
 export type VariablePath = z.infer<typeof variablePathSchema>;
 export type Duration = z.infer<typeof durationSchema>;

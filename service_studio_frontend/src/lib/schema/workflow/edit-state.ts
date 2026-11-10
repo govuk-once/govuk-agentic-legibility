@@ -16,10 +16,11 @@ export const descriptionKey = 'description';
 
 /**
  * Returns the description of a state, or an empty string when it has none, so a form can show it without
- * checking that the notes exist.
+ * checking that the notes exist. A note that is not text, such as null, counts as no description.
  */
 export function descriptionOf(state: WorkingState): string {
-	return state.metadata?.[descriptionKey] ?? '';
+	const note = state.metadata?.[descriptionKey];
+	return typeof note === 'string' ? note : '';
 }
 
 /**
@@ -49,15 +50,15 @@ export function withTitleAndDescription(state: WorkingState, title: string, desc
  * wording of the template is kept in another system, so there is no text here to edit for it.
  */
 export function hasText(state: WorkingState): boolean {
-	return state.state_type === 'input' || (state.state_type === 'output' && state.channel === 'transcript');
+	return state.type === 'input' || (state.type === 'output' && state.channel === 'transcript');
 }
 
 /**
  * Returns the words of a state that a person can edit, or an empty string when it has none.
  */
 export function textOf(state: WorkingState): string {
-	if (state.state_type === 'input') return state.prompt;
-	if (state.state_type === 'output' && state.channel === 'transcript') return state.message ?? '';
+	if (state.type === 'input') return state.prompt;
+	if (state.type === 'output' && state.channel === 'transcript') return state.message ?? '';
 	return '';
 }
 
@@ -67,8 +68,8 @@ export function textOf(state: WorkingState): string {
  * either end are never meant to be shown.
  */
 export function withText(state: WorkingState, text: string): WorkingState {
-	if (state.state_type === 'input') return { ...state, prompt: text.trim() };
-	if (state.state_type === 'output' && state.channel === 'transcript') return { ...state, message: text.trim() };
+	if (state.type === 'input') return { ...state, prompt: text.trim() };
+	if (state.type === 'output' && state.channel === 'transcript') return { ...state, message: text.trim() };
 	return state;
 }
 
@@ -76,8 +77,8 @@ export function withText(state: WorkingState, text: string): WorkingState {
  * Tells whether a state has a single next state that it continues to. A choice has a rule and a default
  * for each way on instead, and an end has nowhere to go.
  */
-export function hasNext(state: WorkingState): state is Exclude<WorkingState, { state_type: 'choice' | 'end' }> {
-	return state.state_type !== 'choice' && state.state_type !== 'end';
+export function hasNext(state: WorkingState): state is Exclude<WorkingState, { type: 'choice' | 'end' }> {
+	return state.type !== 'choice' && state.type !== 'end';
 }
 
 /**
@@ -123,7 +124,7 @@ export function withoutNext(state: WorkingState): WorkingState {
  * is. If fewer targets are given than there are rules, the rules without one keep the target they had.
  */
 export function withChoiceTargets(state: WorkingState, ruleTargets: string[], defaultTarget: string): WorkingState {
-	if (state.state_type !== 'choice') return state;
+	if (state.type !== 'choice') return state;
 
 	return {
 		...state,

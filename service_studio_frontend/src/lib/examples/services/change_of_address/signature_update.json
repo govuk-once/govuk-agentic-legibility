@@ -9,7 +9,7 @@
     },
     "states": {
         "prompt_new_signature": {
-            "state_type": "input",
+            "type": "input",
             "prompt": "Please add a digital signature:",
             "schema": {
                 "kind": "file_ref"
@@ -18,7 +18,7 @@
             "next": "add_signature_api"
         },
         "add_signature_api": {
-            "state_type": "api_call",
+            "type": "api_call",
             "method": "POST",
             "service": "dvla",
             "url": "/app/dvla/v1/signature",
@@ -50,7 +50,7 @@
             "next": "branch_sig_validation"
         },
         "branch_sig_validation": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -64,13 +64,13 @@
             "default": "increment_attempt_counter"
         },
         "say_sig_accepted": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Your signature has been accepted.",
             "next": "end_new_sig"
         },
         "increment_attempt_counter": {
-            "state_type": "assign",
+            "type": "assign",
             "set": {
                 "upload_attempts": {
                     "op": "add",
@@ -81,7 +81,7 @@
             "next": "check_retry_limit"
         },
         "check_retry_limit": {
-            "state_type": "choice",
+            "type": "choice",
             "rules": [
                 {
                     "when": {
@@ -95,19 +95,19 @@
             "default": "say_invalid_sig_retry"
         },
         "say_invalid_sig_retry": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "The signature was not accepted. Please try again (Attempt {{upload_attempts}} of 3).",
             "next": "prompt_new_signature"
         },
         "say_max_attempts_exceeded": {
-            "state_type": "output",
+            "type": "output",
             "channel": "transcript",
             "message": "Maximum attempts exceeded. Please try again later.",
             "next": "end_invalid_sig"
         },
         "end_new_sig": {
-            "state_type": "end",
+            "type": "end",
             "status": "success",
             "outcome": "signature_added",
             "return": {
@@ -115,12 +115,12 @@
             }
         },
         "end_invalid_sig": {
-            "state_type": "end",
+            "type": "end",
             "status": "failed",
             "outcome": "invalid_signature"
         },
         "end_api_failure": {
-            "state_type": "end",
+            "type": "end",
             "status": "failed",
             "outcome": "api_failure"
         }

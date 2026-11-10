@@ -11,18 +11,18 @@ const process = {
 	vars: { attended: null },
 	states: {
 		ask: {
-			state_type: 'input',
+			type: 'input',
 			prompt: 'Did you attend?',
 			schema: { kind: 'boolean' },
 			assign: 'attended',
 			next: 'branch'
 		},
 		branch: {
-			state_type: 'choice',
+			type: 'choice',
 			rules: [{ when: { op: 'is_true', path: 'attended' }, next: 'finish' }],
 			default: 'ask'
 		},
-		finish: { state_type: 'end', status: 'success' }
+		finish: { type: 'end', status: 'success' }
 	}
 };
 
@@ -43,7 +43,7 @@ describe('parseProcess', () => {
 	});
 
 	it('reports a shape problem with a dotted path', () => {
-		const broken = { ...process, states: { ...process.states, finish: { state_type: 'end' } } };
+		const broken = { ...process, states: { ...process.states, finish: { type: 'end' } } };
 		const result = parseProcess(broken);
 		expect(result).toMatchObject({ ok: false });
 		if (!result.ok) expect(result.issues.map((issue) => issue.path)).toContain('states.finish.status');
@@ -70,7 +70,7 @@ describe('parseProcess', () => {
 			...process.states,
 			ask: { ...process.states.ask, timeout: { after: 'PT5S', next: 'gone_timeout' } },
 			branch: {
-				state_type: 'choice',
+				type: 'choice',
 				rules: [{ when: { op: 'is_true', path: 'attended' }, next: 'gone_rule' }],
 				default: 'gone_default'
 			}
@@ -81,7 +81,7 @@ describe('parseProcess', () => {
 	});
 
 	it('reports a missing target inside a catch clause', () => {
-		const call = { state_type: 'api_call', method: 'GET', service: 'dwp', url: '/x', catch: [{ on: 'any', next: 'gone' }], next: 'finish' };
+		const call = { type: 'api_call', method: 'GET', service: 'dwp', url: '/x', catch: [{ on: 'any', next: 'gone' }], next: 'finish' };
 		const result = parseProcess({ ...process, start: 'fetch', states: { fetch: call, finish: process.states.finish } });
 		expect(result).toMatchObject({ ok: false, issues: [{ path: 'states.fetch.catch.0.next' }] });
 	});
@@ -99,7 +99,7 @@ describe('parseProcess', () => {
 	});
 
 	it('does not run the cross state checks when the shape is wrong', () => {
-		const result = parseProcess({ ...process, states: { ask: { state_type: 'input' } } });
+		const result = parseProcess({ ...process, states: { ask: { type: 'input' } } });
 		expect(result.ok).toBe(false);
 	});
 });
@@ -128,7 +128,7 @@ const manifest = {
 	]
 };
 
-const finish = { state_type: 'end', status: 'success' };
+const finish = { type: 'end', status: 'success' };
 
 const workflow = {
 	manifest,
@@ -138,7 +138,7 @@ const workflow = {
 			version: '0.1.0',
 			start: 'run_section',
 			vars: {},
-			states: { run_section: { state_type: 'invoke', process: 'section', next: 'finish' }, finish }
+			states: { run_section: { type: 'invoke', process: 'section', next: 'finish' }, finish }
 		},
 		section: {
 			process_id: 'section',
@@ -177,7 +177,7 @@ describe('parseWorkflow', () => {
 	});
 
 	it('reports a problem inside one process with the process name in the path', () => {
-		const states = { run_section: { state_type: 'invoke', process: 'section', next: 'nowhere' }, finish };
+		const states = { run_section: { type: 'invoke', process: 'section', next: 'nowhere' }, finish };
 		const broken = { ...workflow, processes: { ...workflow.processes, main: { ...workflow.processes.main, states } } };
 		expect(issuePaths(broken)).toEqual(['processes.main.states.run_section.next']);
 	});
@@ -218,7 +218,7 @@ describe('parseWorkflow', () => {
 	});
 
 	it('reports an invoke state that runs a process that does not exist', () => {
-		const states = { run_section: { state_type: 'invoke', process: 'missing', next: 'finish' }, finish };
+		const states = { run_section: { type: 'invoke', process: 'missing', next: 'finish' }, finish };
 		const broken = { ...workflow, processes: { ...workflow.processes, main: { ...workflow.processes.main, states } } };
 		expect(issuePaths(broken)).toEqual(['processes.main.states.run_section.process']);
 	});
@@ -262,7 +262,7 @@ describe('process warnings', () => {
 	});
 
 	it('warns about a state that no route leads to', () => {
-		const states = { ...process.states, orphan: { state_type: 'end', status: 'failed' } };
+		const states = { ...process.states, orphan: { type: 'end', status: 'failed' } };
 		const result = parseProcess({ ...process, states });
 		expect(result).toMatchObject({ ok: true, warnings: [{ path: 'states.orphan' }] });
 	});
@@ -291,7 +291,7 @@ describe('workflow warnings', () => {
 	it('warns about a process that is only run from a state that nothing leads to', () => {
 		const main = {
 			...workflow.processes.main,
-			states: { ...workflow.processes.main.states, hidden: { state_type: 'invoke', process: 'spare', next: 'finish' } }
+			states: { ...workflow.processes.main.states, hidden: { type: 'invoke', process: 'spare', next: 'finish' } }
 		};
 		const result = warningPaths({ ...withSpare, processes: { ...withSpare.processes, main } });
 		expect(result).toEqual(['processes.main.states.hidden', 'processes.spare']);
@@ -308,7 +308,7 @@ describe('workflow warnings', () => {
 		// The section ends with the outcome "cancelled", and the main process catches names from it.
 		const section = {
 			...workflow.processes.section,
-			states: { finish: { state_type: 'end', status: 'cancelled', outcome: 'cancelled' } }
+			states: { finish: { type: 'end', status: 'cancelled', outcome: 'cancelled' } }
 		};
 		const withCatch = (on: string) => ({
 			...workflow,
@@ -316,7 +316,7 @@ describe('workflow warnings', () => {
 				main: {
 					...workflow.processes.main,
 					states: {
-						run_section: { state_type: 'invoke', process: 'section', catch: [{ on, next: 'finish' }], next: 'finish' },
+						run_section: { type: 'invoke', process: 'section', catch: [{ on, next: 'finish' }], next: 'finish' },
 						finish
 					}
 				},
@@ -347,6 +347,12 @@ describe('workflow warnings', () => {
 const editing = (value: unknown) => value as WorkingWorkflow;
 
 describe('checkBeforeProceeding', () => {
+	it('does not stop a workflow whose owner and contact are not set yet, because the policy review asks for them', () => {
+		const notSet = { ...workflow, manifest: { ...workflow.manifest, owner: null, contact: null } };
+		expect(parseWorkflow(notSet).ok).toBe(true);
+		expect(checkBeforeProceeding(editing(notSet))).toEqual([]);
+	});
+
 	it('gives a complete journey no problems', () => {
 		expect(checkBeforeProceeding(editing(workflow))).toEqual([]);
 	});
@@ -370,7 +376,7 @@ describe('checkBeforeProceeding', () => {
 	});
 
 	it('lists the schema problems as well, all at once', () => {
-		const main = { ...workflow.processes.main, states: { ...workflow.processes.main.states, run_section: { state_type: 'invoke', process: 'gone', next: 'missing' } } };
+		const main = { ...workflow.processes.main, states: { ...workflow.processes.main.states, run_section: { type: 'invoke', process: 'gone', next: 'missing' } } };
 		const paths = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, main } })).map((problem) => problem.path);
 
 		expect(paths).toEqual(expect.arrayContaining(['processes.main.states.run_section.next', 'processes.main.states.run_section.process']));

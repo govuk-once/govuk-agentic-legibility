@@ -6,7 +6,7 @@ import { assembleWorkflow } from '../../../examples/workflows';
 	every real state of its type. It lives in the tests folder with the schema tests and is never imported by app code.
 */
 
-type ExampleState = { state_type: string; [key: string]: unknown };
+type ExampleState = { type: string; [key: string]: unknown };
 type ExampleFile = { states?: Record<string, ExampleState> };
 
 // Every file in the two example services, manifests included, which is why the process files are
@@ -34,5 +34,5 @@ export function exampleWorkflows(): { name: string; manifest: unknown; processes
  * state schema accepts what the executor team's real workflows contain.
  */
 export function exampleStatesOfType(type: string): ExampleState[] {
-	return exampleFiles.flatMap((file) => Object.values(file.states ?? {}).filter((state) => state.state_type === type));
+	return exampleFiles.flatMap((file) => Object.values(file.states ?? {}).filter((state) => state.type === type));
 }

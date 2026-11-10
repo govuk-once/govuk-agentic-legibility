@@ -19,14 +19,28 @@ import { processSchema } from './process';
 	   api_call in section 1.9, so api_call is used, to match the name of the state. notify is not a
 	   state type, so it is accepted and not used until the executor team explains it.
 	5. workflow_id is a number or text, as the document says, because the two examples differ.
+	6. The document gives the schema value as "Workflow/0.2". The example services and the older executor files say
+	   "sfsm/0.2", so both are accepted for now. A draft that Service Studio writes uses the document's value.
+	   When the checking service is in use, it can decide whether the older value is still allowed.
+	7. A null means the same as a key that is not there: nothing has been given yet. The form converter writes null for
+	   what it cannot fill in, such as the owner of a form, so the owner, the contact and the optional manifest and
+	   executor keys accept null. The key for the owner and the contact must still be there. Nothing here changes
+	   a null to a missing key, so a workflow that is saved again says what it said when it was loaded. Asking for a
+	   real owner and contact is left to the policy review, before a workflow is published.
 */
+
+// The schema values a manifest may carry. The first is the one in the unified class structure document.
+export const schemaVersions = ['Workflow/0.2', 'sfsm/0.2'] as const;
+
+// The schema value that Service Studio writes into a new draft.
+export const currentSchemaVersion = schemaVersions[0];
 
 // How the executor runs and names each execution of the workflow.
 const executorSchema = z.strictObject({
 	workflow_id_template: z.string().min(1),
 	id_reuse_policy: z.enum(['reject_duplicate', 'allow_duplicate', 'terminate_existing']),
 	run_timeout: durationSchema,
-	continue_as_new: z.record(z.string(), z.string()).optional(),
+	continue_as_new: z.record(z.string(), z.string()).nullish(),
 	search_attributes: z.record(z.string(), z.json())
 });
 
@@ -44,19 +58,19 @@ const processReferenceSchema = z.strictObject({
 
 export const manifestSchema = z.strictObject({
 	workflow_id: z.union([z.string().min(1), z.number().int()]),
-	schema: z.literal('sfsm/0.2'),
+	schema: z.enum(schemaVersions),
 	id: z.string().regex(/^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$/, 'Must be a namespaced id such as "dwp.maternity_allowance"'),
 	version: versionSchema,
-	owner: z.string().min(1),
-	contact: z.email(),
+	owner: z.string().min(1).nullable(),
+	contact: z.email().nullable(),
 	description: z.string(),
 	state: z.enum(['draft', 'live', 'deprecated', 'retired']),
-	metadata: metadataSchema.optional(),
+	metadata: metadataSchema.nullish(),
 	entry: processRefSchema,
 	executor: executorSchema,
 	defaults: z.strictObject({
-		api_call: activityDefaultsSchema.optional(),
-		notify: activityDefaultsSchema.optional()
+		api_call: activityDefaultsSchema.nullish(),
+		notify: activityDefaultsSchema.nullish()
 	}),
 	processes: z.array(processReferenceSchema).min(1, 'List at least one process')
 });

@@ -14,8 +14,8 @@ import {
 	type Endpoint
 } from '../drafts';
 
-const finish = { state_type: 'end', status: 'success' };
-const wait = (next: string) => ({ state_type: 'wait', duration: 'PT1S', next });
+const finish = { type: 'end', status: 'success' };
+const wait = (next: string) => ({ type: 'wait', duration: 'PT1S', next });
 
 // Builds a process from a map of states. The cast is needed because each test gives only the keys it uses.
 const build = (start: string, states: Record<string, unknown>) =>
@@ -47,8 +47,8 @@ describe('promoteDrafts', () => {
 		const set = canvasWith([['e', 'end']], [[state('a'), draftEnd('e')]]);
 		const promoted = promoteDrafts(journey(), set);
 		const a = promoted.process.states.a;
-		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
-		expect(promoted.process.states[a.next]).toMatchObject({ state_type: 'end' });
+		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		expect(promoted.process.states[a.next]).toMatchObject({ type: 'end' });
 		expect(promoted.process.states.b).toBeUndefined();
 		expect(promoted.set).toEqual(noDrafts);
 	});
@@ -60,10 +60,10 @@ describe('promoteDrafts', () => {
 
 		const ready = promoteDrafts(process, addDraftLine(waiting.set, draftEnd('d'), state('z')));
 		const a = ready.process.states.a;
-		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
 		const choice = ready.process.states[a.next];
-		expect(choice).toMatchObject({ state_type: 'choice', default: 'z' });
-		if (choice.state_type === 'choice') {
+		expect(choice).toMatchObject({ type: 'choice', default: 'z' });
+		if (choice.type === 'choice') {
 			expect(choice.rules.map((rule) => rule.next)).toEqual(['y']);
 			expect(isUndecidedRule(choice.rules[0].when)).toBe(true);
 		}

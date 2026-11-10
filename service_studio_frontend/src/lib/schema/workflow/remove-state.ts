@@ -32,11 +32,11 @@ export type DeletedFromJourney = {
 function isOptionalRoute(state: WorkingState, path: (string | number)[]): boolean {
 	switch (path[0]) {
 		case 'on_invalid':
-			return state.state_type === 'input' && state.on_invalid !== undefined;
+			return state.type === 'input' && state.on_invalid !== undefined;
 		case 'timeout':
-			return state.state_type === 'input' && state.timeout !== undefined;
+			return state.type === 'input' && state.timeout !== undefined;
 		case 'catch':
-			return (state.state_type === 'api_call' || state.state_type === 'invoke') && state.catch?.[Number(path[1])] !== undefined;
+			return (state.type === 'api_call' || state.type === 'invoke') && state.catch?.[Number(path[1])] !== undefined;
 		default:
 			return false;
 	}
@@ -53,7 +53,7 @@ function withoutOptionalRoute(state: WorkingState, path: (string | number)[]): W
 	if (path[0] === 'on_invalid') delete copy.on_invalid;
 	if (path[0] === 'timeout') delete copy.timeout;
 
-	if (path[0] === 'catch' && (state.state_type === 'api_call' || state.state_type === 'invoke')) {
+	if (path[0] === 'catch' && (state.type === 'api_call' || state.type === 'invoke')) {
 		const clauses = (state.catch ?? []).filter((_, index) => index !== Number(path[1]));
 		if (clauses.length > 0) copy.catch = clauses;
 		else delete copy.catch;
@@ -75,7 +75,7 @@ export function deleteFromJourney(process: WorkingProcess, deleted: DeletedFromJ
 	// Takes one way on out of a decision. The way is named by where it sits, a rule or the default.
 	function dropChoiceBranch(choiceCode: string, path: (string | number)[]) {
 		const choice = current.states[choiceCode];
-		if (choice?.state_type !== 'choice') return;
+		if (choice?.type !== 'choice') return;
 
 		const branches = [...choice.rules.map((rule) => ({ target: rule.next, rule })), { target: choice.default, rule: undefined }];
 		const index = path[0] === 'default' ? branches.length - 1 : Number(path[1]);
@@ -106,7 +106,7 @@ export function deleteFromJourney(process: WorkingProcess, deleted: DeletedFromJ
 			current = replaceState(current, sourceCode, withoutNext(source));
 			return true;
 		}
-		if (source.state_type === 'choice' && (path[0] === 'rules' || path[0] === 'default')) {
+		if (source.type === 'choice' && (path[0] === 'rules' || path[0] === 'default')) {
 			dropChoiceBranch(sourceCode, path);
 			return true;
 		}
@@ -123,9 +123,9 @@ export function deleteFromJourney(process: WorkingProcess, deleted: DeletedFromJ
 		if (!state) return;
 
 		// Where the journey carries on if this was the start. A decision carries on by its default.
-		const wayOn = hasNext(state) ? state.next : state.state_type === 'choice' ? state.default : undefined;
+		const wayOn = hasNext(state) ? state.next : state.type === 'choice' ? state.default : undefined;
 		// Taking out a decision ends the step it came from, so the branches it led to are checked afterwards.
-		if (state.state_type === 'choice') roots.push(...routesOf(state).map((route) => route.target));
+		if (state.type === 'choice') roots.push(...routesOf(state).map((route) => route.target));
 
 		// Every route that led here is dealt with one at a time, because dealing with one can change the next.
 		for (let guard = 0; guard < 100; guard += 1) {

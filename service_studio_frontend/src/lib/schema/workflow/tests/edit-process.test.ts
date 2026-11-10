@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { redirectRoutes, routesInto } from '../edit-process';
 import type { Process } from '../process';
 
-const finish = { state_type: 'end', status: 'success' };
+const finish = { type: 'end', status: 'success' };
 
 // Builds a process from a map of states. The cast is needed because each test gives only the keys it uses.
 const build = (start: string, states: Record<string, unknown>) =>
@@ -10,8 +10,8 @@ const build = (start: string, states: Record<string, unknown>) =>
 
 // A process with a call that has an error route, and a decision, so every kind of route is in use.
 const branching = build('ask', {
-	ask: { state_type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'decide', on_invalid: 'sorry' },
-	decide: { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'sorry' }], default: 'done' },
+	ask: { type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'decide', on_invalid: 'sorry' },
+	decide: { type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'sorry' }], default: 'done' },
 	sorry: finish,
 	done: finish
 });

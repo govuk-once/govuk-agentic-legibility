@@ -20,7 +20,7 @@ export const choiceRuleSchema = z.strictObject({
 
 // Checks the rules from the first to the last, then falls back to the default state.
 export const choiceStateSchema = z.strictObject({
-	state_type: z.literal('choice'),
+	type: z.literal('choice'),
 	...baseStateFields,
 	rules: z.array(choiceRuleSchema).min(1, 'Give at least one rule'),
 	default: stateRefSchema

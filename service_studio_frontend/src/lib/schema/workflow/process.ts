@@ -20,7 +20,7 @@ import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema }
 */
 
 // Any one of the eight states, picked by its type. The type decides which keys are allowed.
-export const stateSchema = z.discriminatedUnion('state_type', [
+export const stateSchema = z.discriminatedUnion('type', [
 	inputStateSchema,
 	outputStateSchema,
 	apiCallStateSchema,

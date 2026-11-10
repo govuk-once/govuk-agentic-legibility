@@ -6,7 +6,7 @@ import { routesOf } from '$lib/schema/workflow/routes';
 import { stateRows, targetOptions } from '../state-rows';
 import { graphShape, isErrorRoute, processToGraph, separateEndDots, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
 
-const finish = { state_type: 'end', status: 'success' };
+const finish = { type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };
 
 // Builds a process from a map of states. The cast is needed because each test gives only the keys it uses.
@@ -55,16 +55,16 @@ describe('processToGraph with the real examples', () => {
 
 describe('processToGraph nodes', () => {
 	const process = build('ask', {
-		ask: { state_type: 'input', prompt: 'Is your address correct?', schema: { kind: 'boolean' }, assign: 'ok', next: 'check' },
+		ask: { type: 'input', prompt: 'Is your address correct?', schema: { kind: 'boolean' }, assign: 'ok', next: 'check' },
 		check: {
-			state_type: 'choice',
+			type: 'choice',
 			name: 'Address correct?',
 			rules: [{ when: isTrue, next: 'say_thanks' }],
 			default: 'look_up_address'
 		},
-		look_up_address: { state_type: 'api_call', method: 'GET', service: 'dvla', url: '/x', next: 'finish' },
-		say_thanks: { state_type: 'output', channel: 'transcript', message: 'Thank you.', next: 'finish' },
-		finish: { state_type: 'end', status: 'success', outcome: 'address_confirmed' }
+		look_up_address: { type: 'api_call', method: 'GET', service: 'dvla', url: '/x', next: 'finish' },
+		say_thanks: { type: 'output', channel: 'transcript', message: 'Thank you.', next: 'finish' },
+		finish: { type: 'end', status: 'success', outcome: 'address_confirmed' }
 	});
 	const { nodes } = processToGraph(process);
 	const node = (id: string) => nodes.find((candidate) => candidate.id === id)!;
@@ -84,7 +84,7 @@ describe('processToGraph nodes', () => {
 	it('prefers a name written by the author to the state text', () => {
 		const named = processToGraph(
 			build('ask', {
-				ask: { state_type: 'input', name: 'Confirm address', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'finish' },
+				ask: { type: 'input', name: 'Confirm address', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'finish' },
 				finish
 			})
 		);
@@ -122,8 +122,8 @@ describe('processToGraph nodes', () => {
 	it('lets an invoke box open the process it runs, in a taller box that says so', () => {
 		const graph = processToGraph(
 			build('run', {
-				run: { state_type: 'invoke', process: 'photo_update', next: 'later' },
-				later: { state_type: 'wait', duration: 'PT1S', next: 'done' },
+				run: { type: 'invoke', process: 'photo_update', next: 'later' },
+				later: { type: 'wait', duration: 'PT1S', next: 'done' },
 				done: finish
 			})
 		);
@@ -138,7 +138,7 @@ describe('processToGraph nodes', () => {
 	});
 
 	it('lists a state that nothing leads to last, still numbered', () => {
-		const withOrphan = processToGraph(build('a', { a: { state_type: 'wait', duration: 'PT1S', next: 'done' }, orphan_step: { state_type: 'wait', duration: 'PT1S', next: 'done' }, done: finish }));
+		const withOrphan = processToGraph(build('a', { a: { type: 'wait', duration: 'PT1S', next: 'done' }, orphan_step: { type: 'wait', duration: 'PT1S', next: 'done' }, done: finish }));
 		expect(withOrphan.nodes.map((candidate) => candidate.id)).toEqual([startNodeId, 'a', 'done', 'orphan_step']);
 	});
 });
@@ -146,7 +146,7 @@ describe('processToGraph nodes', () => {
 describe('processToGraph edges', () => {
 	const process = build('ask', {
 		ask: {
-			state_type: 'input',
+			type: 'input',
 			prompt: 'Name?',
 			schema: { kind: 'string' },
 			assign: 'name',
@@ -154,8 +154,8 @@ describe('processToGraph edges', () => {
 			on_invalid: 'ask',
 			timeout: { after: 'PT5S', next: 'finish' }
 		},
-		branch: { state_type: 'choice', rules: [{ when: isTrue, next: 'call' }], default: 'finish' },
-		call: { state_type: 'api_call', method: 'GET', service: 'dvla', url: '/x', catch: [{ on: 'any', next: 'finish' }], next: 'finish' },
+		branch: { type: 'choice', rules: [{ when: isTrue, next: 'call' }], default: 'finish' },
+		call: { type: 'api_call', method: 'GET', service: 'dvla', url: '/x', catch: [{ on: 'any', next: 'finish' }], next: 'finish' },
 		finish
 	});
 	const { edges } = processToGraph(process);
@@ -184,7 +184,7 @@ describe('processToGraph edges', () => {
 	});
 
 	it('draws no edge for a route to a state that does not exist or a start that does not exist', () => {
-		const half = processToGraph(build('a', { a: { state_type: 'wait', duration: 'PT1S', next: 'missing' } }));
+		const half = processToGraph(build('a', { a: { type: 'wait', duration: 'PT1S', next: 'missing' } }));
 		expect(half.edges).toHaveLength(1);
 
 		const noStart = processToGraph(build('nowhere', { a: finish }));
@@ -217,8 +217,8 @@ describe('stepCount', () => {
 	it('counts only the numbered boxes, not the diamonds or the dots', () => {
 		const graph = processToGraph(
 			build('ask', {
-				ask: { state_type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'check' },
-				check: { state_type: 'choice', rules: [{ when: isTrue, next: 'finish' }], default: 'finish' },
+				ask: { type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'check' },
+				check: { type: 'choice', rules: [{ when: isTrue, next: 'finish' }], default: 'finish' },
 				finish
 			})
 		);
@@ -230,9 +230,9 @@ describe('stepCount', () => {
 describe('visibleGraph', () => {
 	// A call whose error route leads to a recovery step and an end that nothing else reaches.
 	const process = build('call', {
-		call: { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'sorry' }] },
-		sorry: { state_type: 'output', channel: 'transcript', message: 'Sorry.', next: 'failed' },
-		failed: { state_type: 'end', status: 'failed' },
+		call: { type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'sorry' }] },
+		sorry: { type: 'output', channel: 'transcript', message: 'Sorry.', next: 'failed' },
+		failed: { type: 'end', status: 'failed' },
 		done: finish,
 		unused: finish
 	});
@@ -256,7 +256,7 @@ describe('visibleGraph', () => {
 	it('keeps a state that the main journey also reaches', () => {
 		const shared = processToGraph(
 			build('call', {
-				call: { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'done' }] },
+				call: { type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'done' }] },
 				done: finish
 			})
 		);
@@ -297,10 +297,10 @@ describe('separateEndDots', () => {
 	// Two steps lead to the same end state, and a third leads to an end state of its own.
 	const graph = processToGraph(
 		build('first', {
-			first: { state_type: 'wait', duration: 'PT1S', next: 'second' },
-			second: { state_type: 'choice', rules: [{ when: isTrue, next: 'shared' }], default: 'third' },
-			third: { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'shared', catch: [{ on: 'any', next: 'shared' }] },
-			shared: { state_type: 'end', status: 'success', outcome: 'done' },
+			first: { type: 'wait', duration: 'PT1S', next: 'second' },
+			second: { type: 'choice', rules: [{ when: isTrue, next: 'shared' }], default: 'third' },
+			third: { type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'shared', catch: [{ on: 'any', next: 'shared' }] },
+			shared: { type: 'end', status: 'success', outcome: 'done' },
 			alone: finish
 		})
 	);
@@ -327,7 +327,7 @@ describe('separateEndDots', () => {
 
 	it('leaves an end state with no route or one route into it as it is', () => {
 		expect(separated.nodes.some((node) => node.id === 'alone')).toBe(true);
-		const single = separateEndDots(processToGraph(build('a', { a: { state_type: 'wait', duration: 'PT1S', next: 'done' }, done: finish })));
+		const single = separateEndDots(processToGraph(build('a', { a: { type: 'wait', duration: 'PT1S', next: 'done' }, done: finish })));
 		expect(single.nodes.map((node) => node.id)).toEqual([startNodeId, 'a', 'done']);
 	});
 
@@ -339,7 +339,7 @@ describe('separateEndDots', () => {
 
 describe('graphShape', () => {
 	const states = {
-		ask: { state_type: 'input', prompt: 'Name?', schema: { kind: 'string' }, assign: 'name', next: 'done' },
+		ask: { type: 'input', prompt: 'Name?', schema: { kind: 'string' }, assign: 'name', next: 'done' },
 		done: finish
 	};
 
@@ -359,8 +359,8 @@ describe('graphShape', () => {
 });
 
 describe('developer steps', () => {
-	const input = (next: string) => ({ state_type: 'input', prompt: 'A question?', schema: { kind: 'string' }, assign: 'answer', next });
-	const assign = (next: string) => ({ state_type: 'assign', set: { count: 1 }, next });
+	const input = (next: string) => ({ type: 'input', prompt: 'A question?', schema: { kind: 'string' }, assign: 'answer', next });
+	const assign = (next: string) => ({ type: 'assign', set: { count: 1 }, next });
 
 	// A question, then an assign, then a second question.
 	const process = build('first', {
@@ -422,7 +422,7 @@ describe('developer steps', () => {
 	});
 
 	it('drops the line before a developer step that leads nowhere', () => {
-		const loose = processToGraph(build('first', { first: input('save'), save: { state_type: 'assign', set: { count: 1 } } }), ['assign']);
+		const loose = processToGraph(build('first', { first: input('save'), save: { type: 'assign', set: { count: 1 } } }), ['assign']);
 		const shown = visibleGraph(loose, { showErrorRoutes: true, showDeveloperSteps: false });
 
 		expect(shown.edges.map((edge) => edge.id)).toEqual([`${startNodeId}:start`]);
@@ -439,7 +439,7 @@ describe('developer steps', () => {
 		const twoWays = processToGraph(
 			build('first', {
 				first: input('call'),
-				call: { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'sorry' }] },
+				call: { type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done', catch: [{ on: 'any', next: 'sorry' }] },
 				sorry: finish,
 				done: finish
 			}),
@@ -477,7 +477,7 @@ describe('developer steps', () => {
 		const processes = serviceExamples.flatMap((example) => Object.values(example.workflow?.processes ?? {}));
 
 		it('is exercised by at least one real process that has an assign state', () => {
-			expect(processes.some((process) => Object.values(process.states).some((state) => state.state_type === 'assign'))).toBe(true);
+			expect(processes.some((process) => Object.values(process.states).some((state) => state.type === 'assign'))).toBe(true);
 		});
 
 		it('hides every assign, leaves no line to a hidden box, and numbers the steps left from 1 with no gaps', () => {
@@ -486,7 +486,7 @@ describe('developer steps', () => {
 				const ids = new Set(shown.nodes.map((node) => node.id));
 
 				for (const [code, state] of Object.entries(process.states)) {
-					if (state.state_type === 'assign') expect(ids.has(code), `${process.process_id}: ${code}`).toBe(false);
+					if (state.type === 'assign') expect(ids.has(code), `${process.process_id}: ${code}`).toBe(false);
 				}
 				for (const edge of shown.edges) {
 					expect(ids.has(edge.source) && ids.has(edge.target), `${process.process_id}: ${edge.id}`).toBe(true);

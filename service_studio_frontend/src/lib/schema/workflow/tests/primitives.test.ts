@@ -108,8 +108,16 @@ describe('metadataSchema', () => {
 		expect(metadataSchema.safeParse({ description: 'Checks the licence number.' }).success).toBe(true);
 	});
 
-	it('rejects values that are not text', () => {
-		expect(metadataSchema.safeParse({ attempts: 3 }).success).toBe(false);
+	it('accepts a null note, which means it has not been given', () => {
+		expect(metadataSchema.safeParse({ hint_text: null }).success).toBe(true);
+	});
+
+	it('accepts a number and true or false, as the form converter writes for the position and for optional', () => {
+		expect(metadataSchema.safeParse({ position: 3, optional: true, repeatable: false }).success).toBe(true);
+	});
+
+	it('rejects nested data, in an object or a list', () => {
 		expect(metadataSchema.safeParse({ nested: { a: 'b' } }).success).toBe(false);
+		expect(metadataSchema.safeParse({ options: ['a', 'b'] }).success).toBe(false);
 	});
 });

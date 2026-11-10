@@ -8,7 +8,7 @@ const unfinished = {
 	version: '0.1.0',
 	vars: {},
 	start: 'a',
-	states: { a: { state_type: 'wait', duration: 'PT1S' } }
+	states: { a: { type: 'wait', duration: 'PT1S' } }
 } as unknown as WorkingProcess;
 
 describe('WorkingProcess', () => {
@@ -18,7 +18,7 @@ describe('WorkingProcess', () => {
 			version: '0.1.0',
 			vars: {},
 			start: 'a',
-			states: { a: { state_type: 'wait', duration: 'PT1S', next: 'end' }, end: { state_type: 'end', status: 'success' } }
+			states: { a: { type: 'wait', duration: 'PT1S', next: 'end' }, end: { type: 'end', status: 'success' } }
 		};
 		const editing: WorkingProcess = saved;
 		expect(editing.start).toBe('a');

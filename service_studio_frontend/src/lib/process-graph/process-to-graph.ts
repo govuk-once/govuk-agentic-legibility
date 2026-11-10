@@ -165,7 +165,7 @@ export function stepCount(graph: ProcessGraphElements): number {
  * no text of its own.
  */
 function stateText(state: WorkingState): string | undefined {
-	switch (state.state_type) {
+	switch (state.type) {
 		case 'input':
 			return state.prompt;
 		case 'output':
@@ -196,7 +196,7 @@ export function stateTitle(state: WorkingState, code: string): string {
  * steps and take no number, so the numbers of the steps around them run on without a gap whether or not they
  * are shown. Hiding them is done afterwards, by visibleGraph.
  */
-export function processToGraph(process: WorkingProcess, developerStateTypes: readonly State['state_type'][] = []): ProcessGraphElements {
+export function processToGraph(process: WorkingProcess, developerStateTypes: readonly State['type'][] = []): ProcessGraphElements {
 	const nodes: ProcessNode[] = [
 		{
 			id: startNodeId,
@@ -213,7 +213,7 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 		const state = process.states[code];
 		const title = stateTitle(state, code);
 
-		if (state.state_type === 'end') {
+		if (state.type === 'end') {
 			nodes.push({
 				id: code,
 				type: 'terminal',
@@ -227,7 +227,7 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 					status: state.status
 				}
 			});
-		} else if (state.state_type === 'choice') {
+		} else if (state.type === 'choice') {
 			nodes.push({
 				id: code,
 				type: 'condition',
@@ -235,14 +235,14 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 				data: { stateId: code, title, ariaLabel: `Decision, ${title}` }
 			});
 		} else {
-			const developer = developerStateTypes.includes(state.state_type);
+			const developer = developerStateTypes.includes(state.type);
 			if (!developer) stepNumber += 1;
 			// The box is sized for the words it shows, which are the number and the title, or only the title.
 			const label = developer ? title : `${stepNumber}. ${title}`;
 			const width = estimateStepNodeWidth(label);
 			// An invoke state shows a second line that opens the process it runs, so its box is taller.
 			const opensProcess =
-				state.state_type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined;
+				state.type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined;
 
 			nodes.push({
 				id: code,
@@ -252,7 +252,7 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 					stateId: code,
 					stepNumber: developer ? undefined : stepNumber,
 					title,
-					stateType: state.state_type,
+					stateType: state.type,
 					...(developer ? { developer: true } : {}),
 					opensProcess,
 					width,

@@ -46,10 +46,10 @@ describe('SERVICE_SYSTEM_PROMPT', () => {
 			start: 'ask',
 			vars: {},
 			states: {
-				ask: { state_type: 'input', name: 'Ask', prompt: 'Yes or no?', schema: { kind: 'boolean' }, assign: 'answer', next: 'decide' },
-				decide: { state_type: 'choice', rules: [{ when: { ...undecidedRule }, next: 'look_up' }], default: 'finish' },
-				look_up: { state_type: 'api_call', ...unconnectedApiCallDetails, next: 'finish' },
-				finish: { state_type: 'end', status: 'success' }
+				ask: { type: 'input', name: 'Ask', prompt: 'Yes or no?', schema: { kind: 'boolean' }, assign: 'answer', next: 'decide' },
+				decide: { type: 'choice', rules: [{ when: { ...undecidedRule }, next: 'look_up' }], default: 'finish' },
+				look_up: { type: 'api_call', ...unconnectedApiCallDetails, next: 'finish' },
+				finish: { type: 'end', status: 'success' }
 			}
 		};
 		const result = parseProcess(process);

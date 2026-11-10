@@ -135,4 +135,4 @@ export function placeholderExecutor(slug: string) {
  * the journey as failed, which is the most common choice in the example services. The technical review points each
  * call at the right place.
  */
-export const placeholderFailedEnd: EndState = { state_type: 'end', status: 'failed', name: 'Something went wrong' };
+export const placeholderFailedEnd: EndState = { type: 'end', status: 'failed', name: 'Something went wrong' };

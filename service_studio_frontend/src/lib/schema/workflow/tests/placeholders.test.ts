@@ -19,9 +19,9 @@ describe('placeholders pass validation', () => {
 		start: 'look_up',
 		vars: {},
 		states: {
-			look_up: { state_type: 'api_call', ...unconnectedApiCallDetails, next: 'decide' },
-			decide: { state_type: 'choice', rules: [{ when: undecidedRule, next: 'finish' }], default: 'finish' },
-			finish: { state_type: 'end', status: defaultEndStatus }
+			look_up: { type: 'api_call', ...unconnectedApiCallDetails, next: 'decide' },
+			decide: { type: 'choice', rules: [{ when: undecidedRule, next: 'finish' }], default: 'finish' },
+			finish: { type: 'end', status: defaultEndStatus }
 		}
 	};
 

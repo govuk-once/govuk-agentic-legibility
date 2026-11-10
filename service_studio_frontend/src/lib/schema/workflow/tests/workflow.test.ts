@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleWorkflows } from './example-states';
-import { manifestSchema, workflowSchema } from '../workflow';
+import { currentSchemaVersion, manifestSchema, workflowSchema } from '../workflow';
 
 describe('workflowSchema with the real examples', () => {
 	const workflows = exampleWorkflows();
@@ -47,6 +47,44 @@ describe('manifestSchema', () => {
 		expect(manifestSchema.safeParse(manifest).success).toBe(true);
 	});
 
+	it('accepts null for the owner and the contact, which means they are not set yet', () => {
+		expect(manifestSchema.safeParse({ ...manifest, owner: null, contact: null }).success).toBe(true);
+	});
+
+	it('still needs the owner and the contact keys to be there', () => {
+		const { owner: _owner, ...withoutOwner } = manifest;
+		const { contact: _contact, ...withoutContact } = manifest;
+		expect(manifestSchema.safeParse(withoutOwner).success).toBe(false);
+		expect(manifestSchema.safeParse(withoutContact).success).toBe(false);
+	});
+
+	it('still rejects an empty owner and a contact that is not an email address', () => {
+		expect(manifestSchema.safeParse({ ...manifest, owner: '' }).success).toBe(false);
+		expect(manifestSchema.safeParse({ ...manifest, contact: 'not an email' }).success).toBe(false);
+	});
+
+	it('accepts null for the optional manifest and executor keys', () => {
+		const adjusted = {
+			...manifest,
+			metadata: null,
+			executor: { ...manifest.executor, continue_as_new: null },
+			defaults: { api_call: null, notify: null }
+		};
+		expect(manifestSchema.safeParse(adjusted).success).toBe(true);
+	});
+
+	it('keeps a null as it was written and does not turn it into a missing key', () => {
+		const parsed = manifestSchema.parse({ ...manifest, owner: null, metadata: null, executor: { ...manifest.executor, continue_as_new: null } });
+		expect(parsed.owner).toBeNull();
+		expect(parsed.metadata).toBeNull();
+		expect(parsed.executor.continue_as_new).toBeNull();
+	});
+
+	it('still rejects null where a value is needed', () => {
+		expect(manifestSchema.safeParse({ ...manifest, entry: null }).success).toBe(false);
+		expect(manifestSchema.safeParse({ ...manifest, executor: { ...manifest.executor, run_timeout: null } }).success).toBe(false);
+	});
+
 	it('accepts a text workflow_id, notes, and empty defaults', () => {
 		const adjusted = { ...manifest, workflow_id: 'coa-1', metadata: { navigation: 'strict' }, defaults: {} };
 		expect(manifestSchema.safeParse(adjusted).success).toBe(true);
@@ -60,8 +98,16 @@ describe('manifestSchema', () => {
 		}
 	);
 
-	it('rejects a schema version other than sfsm/0.2', () => {
-		expect(manifestSchema.safeParse({ ...manifest, schema: 'sfsm/0.1' }).success).toBe(false);
+	it.each(['Workflow/0.2', 'sfsm/0.2'])('accepts the schema value %s', (schema) => {
+		expect(manifestSchema.safeParse({ ...manifest, schema }).success).toBe(true);
+	});
+
+	it.each(['sfsm/0.1', 'Workflow/0.1', 'workflow/0.2', 'sfsm'])('rejects the schema value %s', (schema) => {
+		expect(manifestSchema.safeParse({ ...manifest, schema }).success).toBe(false);
+	});
+
+	it('writes the value from the document into a new draft', () => {
+		expect(currentSchemaVersion).toBe('Workflow/0.2');
 	});
 
 	it('rejects an id with no namespace and an id with spaces', () => {

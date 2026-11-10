@@ -16,9 +16,9 @@ const generated = (states: Record<string, unknown> = {}) =>
 		start: 'ask',
 		vars: {},
 		states: {
-			ask: { state_type: 'input', prompt: 'Postcode?', schema: { kind: 'string' }, assign: 'postcode', next: 'look_up' },
-			look_up: { state_type: 'api_call', method: 'GET', service: 'unconnected_service', url: '/unconnected', next: 'finish' },
-			finish: { state_type: 'end', status: 'success' },
+			ask: { type: 'input', prompt: 'Postcode?', schema: { kind: 'string' }, assign: 'postcode', next: 'look_up' },
+			look_up: { type: 'api_call', method: 'GET', service: 'unconnected_service', url: '/unconnected', next: 'finish' },
+			finish: { type: 'end', status: 'success' },
 			...states
 		}
 	}) as unknown as Process;
@@ -37,16 +37,16 @@ describe('slugOf', () => {
 
 describe('withFailureRoutes', () => {
 	it('adds one failed end and sends every call without an error route to it', () => {
-		const process = generated({ send: { state_type: 'api_call', method: 'POST', service: 's', url: '/u', next: 'finish' } });
+		const process = generated({ send: { type: 'api_call', method: 'POST', service: 's', url: '/u', next: 'finish' } });
 		const result = withFailureRoutes(process);
 
-		expect(result.states.end_failed).toMatchObject({ state_type: 'end', status: 'failed' });
+		expect(result.states.end_failed).toMatchObject({ type: 'end', status: 'failed' });
 		expect(result.states.look_up).toMatchObject({ catch: [{ on: 'any', next: 'end_failed' }] });
 		expect(result.states.send).toMatchObject({ catch: [{ on: 'any', next: 'end_failed' }] });
 	});
 
 	it('leaves a call that already says where its errors go', () => {
-		const own = { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'finish', catch: [{ on: 'api_failure', next: 'finish' }] };
+		const own = { type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'finish', catch: [{ on: 'api_failure', next: 'finish' }] };
 		const result = withFailureRoutes(generated({ look_up: own }));
 		expect(result.states.look_up).toEqual(own);
 		expect(result.states.end_failed).toBeUndefined();
@@ -60,7 +60,7 @@ describe('withFailureRoutes', () => {
 	});
 
 	it('gives the end a name that no state already has', () => {
-		const result = withFailureRoutes(generated({ end_failed: { state_type: 'end', status: 'cancelled' } }));
+		const result = withFailureRoutes(generated({ end_failed: { type: 'end', status: 'cancelled' } }));
 		expect(result.states.end_failed).toMatchObject({ status: 'cancelled' });
 		expect(result.states.end_failed_2).toMatchObject({ status: 'failed' });
 		expect(result.states.look_up).toMatchObject({ catch: [{ next: 'end_failed_2' }] });
@@ -83,7 +83,7 @@ describe('buildWorkflow', () => {
 	it('fills the manifest with placeholders and the details the person typed', () => {
 		const { manifest } = buildWorkflow(generated(), details);
 		expect(manifest).toMatchObject({
-			schema: 'sfsm/0.2',
+			schema: 'Workflow/0.2',
 			id: 'draft.change_driving_licence_address',
 			state: 'draft',
 			owner: 'To be confirmed',

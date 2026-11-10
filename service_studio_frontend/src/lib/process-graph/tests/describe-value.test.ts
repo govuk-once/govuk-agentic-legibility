@@ -66,7 +66,7 @@ describe('describeCondition', () => {
 		for (const example of serviceExamples) {
 			for (const process of Object.values(example.workflow?.processes ?? {})) {
 				for (const state of Object.values(process.states)) {
-					if (state.state_type === 'choice') conditions.push(...state.rules.map((rule) => rule.when));
+					if (state.type === 'choice') conditions.push(...state.rules.map((rule) => rule.when));
 				}
 			}
 		}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { expressionSchema } from '../expression';
 
-type Example = { states?: Record<string, { state_type: string; [key: string]: unknown }> };
+type Example = { states?: Record<string, { type: string; [key: string]: unknown }> };
 
 // Every process file in the two example services, loaded as parsed JSON.
 const exampleFiles = import.meta.glob('../../../examples/services/*/*.json', {
@@ -21,7 +21,7 @@ function collectExpressions(): unknown[] {
 	const found: unknown[] = [];
 	for (const file of Object.values(exampleFiles)) {
 		for (const state of Object.values(file.states ?? {})) {
-			const field = fields[state.state_type];
+			const field = fields[state.type];
 			if (field && field in state) found.push(state[field]);
 		}
 	}

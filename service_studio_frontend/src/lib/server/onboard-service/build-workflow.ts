@@ -7,7 +7,7 @@ import {
 	placeholderOwner
 } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
-import type { Workflow } from '$lib/schema/workflow/workflow';
+import { currentSchemaVersion, type Workflow } from '$lib/schema/workflow/workflow';
 import { z } from 'zod';
 
 /*
@@ -45,7 +45,7 @@ export function slugOf(name: string): string {
  * route is added here and not by the model, because where an error should lead depends on the real service.
  */
 export function withFailureRoutes(process: Process): Process {
-	const needsRoute = (state: Process['states'][string]) => state.state_type === 'api_call' && !state.catch?.length;
+	const needsRoute = (state: Process['states'][string]) => state.type === 'api_call' && !state.catch?.length;
 	if (!Object.values(process.states).some(needsRoute)) return process;
 
 	// The end is named after the states that are already there, so it cannot replace one of them.
@@ -53,7 +53,7 @@ export function withFailureRoutes(process: Process): Process {
 	const states = Object.fromEntries(
 		Object.entries(process.states).map(([code, state]) => [
 			code,
-			state.state_type === 'api_call' && needsRoute(state) ? { ...state, catch: [{ on: 'any', next: endCode }] } : state
+			state.type === 'api_call' && needsRoute(state) ? { ...state, catch: [{ on: 'any', next: endCode }] } : state
 		])
 	);
 
@@ -82,7 +82,7 @@ export function buildWorkflow(generated: Process, details: ServiceDetails): Work
 	return {
 		manifest: {
 			workflow_id: slug,
-			schema: 'sfsm/0.2',
+			schema: currentSchemaVersion,
 			id: `${placeholderNamespace}.${slug}`,
 			version: firstVersion,
 			...placeholderOwner,

@@ -15,7 +15,7 @@
     },
     "states": {
         "confirm_intent": {
-            "state_type": "input",
+            "type": "input",
             "name": "Confirm Change Address Intent",
             "metadata": {
                 "category": "eligibility"
@@ -28,7 +28,7 @@
             "next": "branch_intent"
         },
         "branch_intent": {
-            "state_type": "choice",
+            "type": "choice",
             "name": "Intent Decision",
             "rules": [
                 {
@@ -42,14 +42,14 @@
             "default": "say_cancelled"
         },
         "say_cancelled": {
-            "state_type": "output",
+            "type": "output",
             "name": "Inform Service Cancelled",
             "channel": "transcript",
             "message": "Service cancelled. No changes have been made to your driver record.",
             "next": "end_cancelled"
         },
         "check_name_change": {
-            "state_type": "input",
+            "type": "input",
             "name": "Check Name Change Intent",
             "prompt": "Do you also need to change your legal name on your licence?",
             "schema": {
@@ -59,7 +59,7 @@
             "next": "branch_name_change"
         },
         "branch_name_change": {
-            "state_type": "choice",
+            "type": "choice",
             "name": "Name Decision",
             "rules": [
                 {
@@ -73,14 +73,14 @@
             "default": "run_driver_details"
         },
         "say_postal_only": {
-            "state_type": "output",
+            "type": "output",
             "name": "Inform Service Cancelled - Postal Offramp",
             "channel": "transcript",
             "message": "Name changes cannot be processed online. You must apply by post using a D1 application form with original identity documents.",
             "next": "end_postal_required"
         },
         "run_driver_details": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Retrieve Driver Details",
             "process": "driver_details",
             "assign": "driver_info",
@@ -93,7 +93,7 @@
             "next": "assign_driver_vars"
         },
         "assign_driver_vars": {
-            "state_type": "assign",
+            "type": "assign",
             "name": "Assign Driver Details",
             "set": {
                 "driver_id": {
@@ -106,7 +106,7 @@
             "next": "run_photo_update"
         },
         "run_photo_update": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Run Photo Update",
             "process": "photo_update",
             "input": {
@@ -128,7 +128,7 @@
             "next": "run_signature_update"
         },
         "run_signature_update": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Run Signature Update",
             "process": "signature_update",
             "input": {
@@ -150,7 +150,7 @@
             "next": "run_organ_donation"
         },
         "run_organ_donation": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Run Organ Donation",
             "process": "organ_donation",
             "input": {
@@ -162,7 +162,7 @@
             "next": "run_select_address"
         },
         "run_select_address": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Confirm New Address",
             "process": "select_address",
             "assign": "address",
@@ -175,7 +175,7 @@
             "next": "run_address_update"
         },
         "run_address_update": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Run Address Update",
             "process": "address_update",
             "input": {
@@ -200,7 +200,7 @@
             "next": "run_finalisation"
         },
         "run_finalisation": {
-            "state_type": "invoke",
+            "type": "invoke",
             "name": "Poll and Confirm Update",
             "process": "finalisation",
             "input": {
@@ -226,31 +226,31 @@
             "next": "end_complete"
         },
         "end_complete": {
-            "state_type": "end",
+            "type": "end",
             "name": "Service Complete",
             "status": "success",
             "outcome": "licence_address_updated"
         },
         "end_cancelled": {
-            "state_type": "end",
+            "type": "end",
             "name": "Service Cancelled by User",
             "status": "cancelled",
             "outcome": "user_cancelled"
         },
         "end_postal_required": {
-            "state_type": "end",
+            "type": "end",
             "name": "Service Cancelled - Postal Offramp",
             "status": "cancelled",
             "outcome": "postal_application_required"
         },
         "end_rejected": {
-            "state_type": "end",
+            "type": "end",
             "name": "Service Cancelled - Update Rejected",
             "status": "failed",
             "outcome": "update_rejected"
         },
         "end_exception": {
-            "state_type": "end",
+            "type": "end",
             "name": "Service Cancelled - System Exception",
             "status": "needs_attention",
             "outcome": "system_exception"

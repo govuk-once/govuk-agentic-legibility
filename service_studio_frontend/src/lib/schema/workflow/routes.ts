@@ -42,7 +42,7 @@ function nextRoute(next: string | undefined): Route[] {
  * adding a new type without handling it here fails to compile.
  */
 export function routesOf(state: WorkingState): Route[] {
-	switch (state.state_type) {
+	switch (state.type) {
 		case 'end':
 			return [];
 
