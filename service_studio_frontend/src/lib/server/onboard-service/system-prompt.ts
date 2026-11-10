@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import { processSchema } from '$lib/schema/workflow/process';
-import { firstVersion } from './build-workflow';
+import { firstVersion } from '../shared/onboard-details';
 
 /* System prompt editable here */
 

@@ -3,7 +3,7 @@ import { serviceExamples } from '$lib/examples/services';
 import { placeholderApiCallDefaults, placeholderRunTimeout } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { buildWorkflow, slugOf, withFailureRoutes } from '../build-workflow';
+import { buildWorkflow, withFailureRoutes } from '../build-workflow';
 
 const details = { name: 'Change driving licence address', description: 'Change an address.', links: ['https://www.gov.uk/change-address'] };
 
@@ -22,18 +22,6 @@ const generated = (states: Record<string, unknown> = {}) =>
 			...states
 		}
 	}) as unknown as Process;
-
-describe('slugOf', () => {
-	it('turns a name into lower case words joined by underscores', () => {
-		expect(slugOf('Change driving licence address')).toBe('change_driving_licence_address');
-		expect(slugOf('  Apply: for a (new) licence!  ')).toBe('apply_for_a_new_licence');
-	});
-
-	it('gives a name with nothing usable in it a name of its own', () => {
-		expect(slugOf('')).toBe('untitled');
-		expect(slugOf('!!!')).toBe('untitled');
-	});
-});
 
 describe('withFailureRoutes', () => {
 	it('adds one failed end and sends every call without an error route to it', () => {
@@ -111,6 +99,12 @@ describe('buildWorkflow', () => {
 	it('uses the links the person gave as sources and leaves out one that is not a web address', () => {
 		const { manifest, processes } = buildWorkflow(generated(), { ...details, links: ['https://a.gov.uk/x', 'not a link', ''] });
 		expect(processes[manifest.entry].source).toEqual(['https://a.gov.uk/x']);
+	});
+
+	it('leaves out a link that does not use http or https, such as an email link or a file', () => {
+		const links = ['http://b.gov.uk/y', 'mailto:team@example.gov.uk', 'file:///etc/passwd'];
+		const { manifest, processes } = buildWorkflow(generated(), { ...details, links });
+		expect(processes[manifest.entry].source).toEqual(['http://b.gov.uk/y']);
 	});
 
 	it('keeps the sources the process already had when no usable link was given', () => {

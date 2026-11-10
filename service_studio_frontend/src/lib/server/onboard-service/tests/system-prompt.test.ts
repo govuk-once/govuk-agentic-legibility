@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import { parseProcess } from '$lib/schema/workflow/validate';
-import { firstVersion } from '../build-workflow';
+import { firstVersion } from '../../shared/onboard-details';
 import { SERVICE_SYSTEM_PROMPT } from '../system-prompt';
 
 // The instructions come first and the JSON Schema is added after this line, so the two can be read separately.

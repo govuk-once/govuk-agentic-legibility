@@ -1,8 +1,9 @@
 import { generateJson, type GenerationIssue, type ModelClient } from '../shared/generate-json';
+import type { OnboardDetails } from '../shared/onboard-details';
 import { readLinks } from '../shared/read-links';
 import { parseProcess, parseWorkflow } from '$lib/schema/workflow/validate';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { buildWorkflow, type ServiceDetails } from './build-workflow';
+import { buildWorkflow } from './build-workflow';
 import { SERVICE_SYSTEM_PROMPT } from './system-prompt';
 
 const MAX_TOKENS = 32000;
@@ -25,7 +26,7 @@ export type GenerateServiceResult = ({ ok: true; workflow: Workflow } | { ok: fa
  * workarounds here for not having them.
  */
 export async function generateService(
-	{ name, description, links }: ServiceDetails,
+	{ name, description, links }: OnboardDetails,
 	{ client, modelId }: GenerateServiceDependencies
 ): Promise<GenerateServiceResult> {
 	const { sections, warnings } = await readLinks(links);

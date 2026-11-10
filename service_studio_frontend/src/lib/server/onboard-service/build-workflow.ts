@@ -8,7 +8,7 @@ import {
 } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
 import { currentSchemaVersion, type Workflow } from '$lib/schema/workflow/workflow';
-import { z } from 'zod';
+import { firstVersion, isWebAddress, slugOf, type OnboardDetails } from '../shared/onboard-details';
 
 /*
 	Wraps the process that the model generated into a whole workflow that the editor can open. The model is only
@@ -18,26 +18,6 @@ import { z } from 'zod';
 	workflow can be checked and opened straight away.
 */
 
-// What the person typed on the details page.
-export type ServiceDetails = { name: string; description: string; links: string[] };
-
-// The version given to a first draft, for the workflow and for its process. Exported so the prompt can say the same.
-export const firstVersion = '0.1.0';
-
-// A link that is not a real web address cannot be kept in a process, so it is left out.
-const isWebAddress = (link: string) => z.url().safeParse(link).success;
-
-/**
- * Turns a service name into a short code that can be used in an id: lower case letters and numbers, with an
- * underscore between words. A name with nothing usable in it becomes "untitled", so an id is always possible.
- */
-export function slugOf(name: string): string {
-	const slug = name
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '_')
-		.replace(/^_+|_+$/g, '');
-	return slug || 'untitled';
-}
 
 /**
  * Gives every call that has no error route one that leads to a shared failed end, and adds that end. A call that
@@ -66,7 +46,7 @@ export function withFailureRoutes(process: Process): Process {
  * The manifest holds the placeholders for the owner, the executor settings and the call defaults. The process
  * that is given in is never changed.
  */
-export function buildWorkflow(generated: Process, details: ServiceDetails): Workflow {
+export function buildWorkflow(generated: Process, details: OnboardDetails): Workflow {
 	const slug = slugOf(details.name);
 	const links = details.links.filter(isWebAddress);
 
