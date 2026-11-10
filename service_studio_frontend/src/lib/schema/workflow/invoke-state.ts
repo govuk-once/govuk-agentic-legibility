@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { catchClauseSchema } from './call-state';
+import { catchClauseSchema } from './api-call-state';
 import { expressionSchema } from './expression';
-import { stateCommonFields } from './states';
+import { baseStateFields } from './states';
 import { processRefSchema, stateRefSchema, variablePathSchema } from './primitives';
 
 /*
@@ -18,8 +18,8 @@ import { processRefSchema, stateRefSchema, variablePathSchema } from './primitiv
 // Runs the named process. input gives it its starting values, assign keeps what it returns, and
 // catch routes the named ways it can end to other states.
 export const invokeStateSchema = z.strictObject({
-	type: z.literal('invoke'),
-	...stateCommonFields,
+	state_type: z.literal('invoke'),
+	...baseStateFields,
 	process: processRefSchema,
 	input: z.record(variablePathSchema, expressionSchema).optional(),
 	assign: variablePathSchema.optional(),

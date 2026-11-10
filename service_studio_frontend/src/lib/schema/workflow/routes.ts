@@ -42,7 +42,7 @@ function nextRoute(next: string | undefined): Route[] {
  * adding a new type without handling it here fails to compile.
  */
 export function routesOf(state: WorkingState): Route[] {
-	switch (state.type) {
+	switch (state.state_type) {
 		case 'end':
 			return [];
 
@@ -60,7 +60,7 @@ export function routesOf(state: WorkingState): Route[] {
 			return routes;
 		}
 
-		case 'call':
+		case 'api_call':
 		case 'invoke':
 			// A call and an invoke both have a next state and can also route a named error elsewhere.
 			return [

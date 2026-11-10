@@ -1,16 +1,17 @@
-import { assembleWorkflow, exampleFolders } from '../../../examples/workflows';
+import { serviceExampleFolders } from '../../../examples/services';
+import { assembleWorkflow } from '../../../examples/workflows';
 
 /*
 	Test helper that reads the two example services so each state schema can be checked against
 	every real state of its type. It lives in the tests folder with the schema tests and is never imported by app code.
 */
 
-type ExampleState = { type: string; [key: string]: unknown };
+type ExampleState = { state_type: string; [key: string]: unknown };
 type ExampleFile = { states?: Record<string, ExampleState> };
 
 // Every file in the two example services, manifests included, which is why the process files are
 // picked out below by having a states key.
-const exampleFiles = Object.values(exampleFolders).flatMap((files) => Object.values(files)) as ExampleFile[];
+const exampleFiles = Object.values(serviceExampleFolders).flatMap((files) => Object.values(files)) as ExampleFile[];
 
 /**
  * Returns every process file from the example services, which are the files that hold states. The
@@ -25,7 +26,7 @@ export function exampleProcessFiles(): unknown[] {
  * together with the folder name. The input is unchecked, so a test can break a copy of it.
  */
 export function exampleWorkflows(): { name: string; manifest: unknown; processes: Record<string, unknown> }[] {
-	return Object.entries(exampleFolders).map(([name, files]) => ({ name, ...assembleWorkflow(files) }));
+	return Object.entries(serviceExampleFolders).map(([name, files]) => ({ name, ...assembleWorkflow(files) }));
 }
 
 /**
@@ -33,5 +34,5 @@ export function exampleWorkflows(): { name: string; manifest: unknown; processes
  * state schema accepts what the executor team's real workflows contain.
  */
 export function exampleStatesOfType(type: string): ExampleState[] {
-	return exampleFiles.flatMap((file) => Object.values(file.states ?? {}).filter((state) => state.type === type));
+	return exampleFiles.flatMap((file) => Object.values(file.states ?? {}).filter((state) => state.state_type === type));
 }

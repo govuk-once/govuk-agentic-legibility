@@ -1,24 +1,13 @@
 <script lang="ts">
-	import ProcessGraph from '$lib/service-editor/graph/ProcessGraph.svelte';
-	import NodePalette, { type PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
+	import type { PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
+	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
 	import { describeState } from '$lib/service-editor/graph/describe-state';
-	import {
-		addDraft,
-		addDraftLine,
-		canDraw,
-		drawRealLine,
-		newDraftId,
-		promoteDrafts,
-		removeFromDrafts,
-		type DraftKind,
-		type DraftSet,
-		type Endpoint
-	} from '$lib/service-editor/graph/drafts';
+	import type { DraftSet } from '$lib/process-graph/drafts';
 	import { isErrorKind } from '$lib/schema/workflow/routes';
-	import { processToGraph, stateTitle, visibleGraph } from '$lib/service-editor/graph/process-to-graph';
-	import { stateRows, targetOptions } from '$lib/service-editor/graph/state-rows';
-	import type { DeletedElements, NodePositions } from '$lib/service-editor/graph/process-graph-types';
-	import { addLooseStep, addStepBeforeStart, endJourneyAt } from '$lib/schema/workflow/edit-journey';
+	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
+	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
+	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
+	import { endJourneyAt } from '$lib/schema/workflow/edit-journey';
 	import { removeUnreachableStates, setStart } from '$lib/schema/workflow/edit-process';
 	import { hasNext, replaceState } from '$lib/schema/workflow/edit-state';
 	import { reachableInOrder } from '$lib/schema/workflow/journey-order';
@@ -60,7 +49,7 @@
 	const graph = $derived(processToGraph(process));
 	// What is shown with the error routes on or off. The list and the details use it, so they never offer
 	// a step that is not on the graph.
-	const shown = $derived(visibleGraph(graph, showErrorRoutes));
+	const shown = $derived(visibleGraph(graph, { showErrorRoutes }));
 
 	// Every state a route could lead to, named for the lists of choices in the edit form. It uses the whole graph
 	// and not only what is shown, because a route can lead to a state that is hidden with the error routes.
@@ -71,7 +60,7 @@
 	const reachable = $derived(new Set(reachableInOrder(process)));
 
 	// Why the last change could not be made, in words, shown over the canvas until it is dismissed. It is empty when
-	// there is nothing to say.
+	// there is nothing to say. The canvas shows it and can add to it, so the two share it.
 	let messages = $state<string[]>([]);
 
 	/**
@@ -100,95 +89,6 @@
 		selection = { code, editing: true };
 	}
 
-	/**
-	 * Makes drafts that now have enough joined to them part of the process. The process to start from is given
-	 * when it has just been changed and the page has not caught up yet.
-	 */
-	function promote(set: DraftSet, base: WorkingProcess = process) {
-		const promoted = promoteDrafts(base, set);
-		if (promoted.process !== process) applyChange(promoted.process);
-
-		onChangeDrafts(promoted.set);
-		if (promoted.reasons.length > 0) messages = promoted.reasons;
-		// A decision that has just been made is shown with its form open, so its ways on can be set at once.
-		else if (promoted.selectCode) selectAndEdit(promoted.selectCode);
-	}
-
-	/**
-	 * Draws a line the person has dragged between two shapes. A line between two things already in the process
-	 * is made to the process at once. A line to or from a shape that is not in the process yet waits on the
-	 * canvas until that shape is joined up enough to be added.
-	 */
-	function handleConnect(source: Endpoint, target: Endpoint) {
-		if (source.kind !== 'draft' && target.kind !== 'draft') {
-			const result = drawRealLine(process, source, target);
-			if (result.ok) applyChange(result.process);
-			else messages = [result.reason];
-			return;
-		}
-		promote(addDraftLine(drafts, source, target));
-	}
-
-	// Adds a new step where it was dropped. It is part of the process at once, with nothing after it, and its edit
-	// form opens so the question and title can be typed.
-	function handleCreateStep(position: { x: number; y: number }) {
-		const added = addLooseStep(process);
-		applyChange(added.process);
-
-		onMoveNodes({ [added.code]: position });
-		selectAndEdit(added.code);
-	}
-
-	// Places a decision, start or end on the canvas where it was dropped. It stays a draft until enough is joined to it,
-	// because none of the three can be part of the process on its own.
-	function handleCreateDraft(kind: DraftKind, position: { x: number; y: number }) {
-		onChangeDrafts(addDraft(drafts, { id: newDraftId(), kind, position }));
-	}
-
-	// A line let go on empty canvas adds a new step there, joined to the shape the line came from. From the start
-	// dot the new step becomes the start. From a decision that is still a draft, the line waits for the decision
-	// to be joined up.
-	function handleCreateConnectedStep(source: Endpoint, position: { x: number; y: number }) {
-		if (source.kind === 'start') {
-			const result = addStepBeforeStart(process);
-			if (!result.ok || !result.code) return;
-
-			applyChange(result.process);
-			onMoveNodes({ [result.code]: position });
-			selectAndEdit(result.code);
-			return;
-		}
-
-		const added = addLooseStep(process);
-		const joined = { kind: 'state', code: added.code } as const;
-		if (source.kind === 'draft') {
-			promote(addDraftLine(drafts, source, joined), added.process);
-		} else {
-			const drawn = drawRealLine(added.process, source, joined);
-			if (!drawn.ok) {
-				messages = [drawn.reason];
-				return;
-			}
-			applyChange(drawn.process);
-		}
-
-		onMoveNodes({ [added.code]: position });
-		selectAndEdit(added.code);
-	}
-
-	/**
-	 * Takes out what a press of the Delete key selected. Draft shapes and lines only exist on the canvas, so
-	 * they are removed from it. States and lines between states are taken out of the process.
-	 */
-	function handleDeleteElements(deleted: DeletedElements) {
-		if (deleted.draftIds.length + deleted.draftLineIds.length > 0) {
-			onChangeDrafts(removeFromDrafts(drafts, deleted.draftIds, deleted.draftLineIds));
-		}
-		if (deleted.stateCodes.length + deleted.lines.length === 0) return;
-
-		removeFromProcess(deleted);
-	}
-
 	// Takes states and lines out of the process, and drops the selection if the selected state went with them.
 	function removeFromProcess(deleted: Pick<DeletedElements, 'stateCodes' | 'lines'>) {
 		const result = deleteFromJourney(process, deleted);
@@ -210,7 +110,7 @@
 
 		const before = process.states[code];
 		const oldNext = before && hasNext(before) ? before.next : undefined;
-		const leftEnd = oldNext !== undefined && process.states[oldNext]?.type === 'end' ? [oldNext] : [];
+		const leftEnd = oldNext !== undefined && process.states[oldNext]?.state_type === 'end' ? [oldNext] : [];
 		applyChange(removeUnreachableStates(ended?.ok ? ended.process : edited, leftEnd));
 	}
 
@@ -224,7 +124,7 @@
 	// Tells whether the journey can be ended at a state: it continues to a single next state that is not already an end, or it has not been joined to anything yet.
 	function canEndAt(code: string): boolean {
 		const state = process.states[code];
-		return state !== undefined && hasNext(state) && (state.next === undefined || process.states[state.next]?.type !== 'end');
+		return state !== undefined && hasNext(state) && (state.next === undefined || process.states[state.next]?.state_type !== 'end');
 	}
 
 	// The title of a state in this process, or nothing when no state has that code. The panel uses it to
@@ -250,39 +150,22 @@
 </script>
 
 <div class="process-workspace">
-	<NodePalette tools={paletteTools} />
-
-	<div class="process-workspace__canvas">
-		<ProcessGraph
-			{graph}
-			{showErrorRoutes}
-			{positions}
-			{onMoveNodes}
-			{drafts}
-			bind:selectedStateId={() => selectedStateId, select}
-			{onOpenProcess}
-			canConnect={(source, target) => canDraw(process, drafts, source, target)}
-			onConnect={handleConnect}
-			onCreateConnectedStep={handleCreateConnectedStep}
-			onCreateStep={handleCreateStep}
-			onCreateDraft={handleCreateDraft}
-			onDeleteElements={handleDeleteElements}
-		/>
-
-		{#if messages.length > 0}
-			<div class="govuk-error-summary process-workspace__messages" role="alert">
-				<h2 class="govuk-error-summary__title">That change was not made</h2>
-				<div class="govuk-error-summary__body">
-					<ul class="govuk-list govuk-error-summary__list">
-						{#each messages as message, index (index)}
-							<li>{message}</li>
-						{/each}
-					</ul>
-					<button type="button" class="govuk-link process-workspace__dismiss" onclick={() => (messages = [])}>Dismiss</button>
-				</div>
-			</div>
-		{/if}
-	</div>
+	<ProcessCanvas
+		{process}
+		{graph}
+		{paletteTools}
+		{showErrorRoutes}
+		{positions}
+		{onMoveNodes}
+		{drafts}
+		{onChangeDrafts}
+		onChangeProcess={applyChange}
+		{onOpenProcess}
+		bind:selectedStateId={() => selectedStateId, select}
+		bind:messages
+		onEditState={selectAndEdit}
+		onDeleteStates={removeFromProcess}
+	/>
 
 	<aside class="process-workspace__panel" aria-label="Steps">
 		<div class="process-workspace__list">
@@ -329,31 +212,6 @@
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
-	}
-
-	.process-workspace__canvas {
-		position: relative;
-		flex: 1 1 auto;
-		min-width: 0;
-	}
-
-	/* The reasons a change was refused sit on top of the canvas, so they are seen without moving the graph. */
-	.process-workspace__messages {
-		position: absolute;
-		top: 15px;
-		left: 15px;
-		right: 15px;
-		z-index: 5;
-		margin: 0;
-		background-color: #ffffff;
-	}
-
-	.process-workspace__dismiss {
-		padding: 0;
-		background: none;
-		border: 0;
-		font: inherit;
-		cursor: pointer;
 	}
 
 	/* The list of states keeps the space it needs and scrolls on its own. When a state is selected its

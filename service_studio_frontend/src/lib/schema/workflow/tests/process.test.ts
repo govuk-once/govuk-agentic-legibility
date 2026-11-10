@@ -15,20 +15,20 @@ describe('processSchema with the real examples', () => {
 
 describe('stateSchema', () => {
 	it('picks the right schema from the type', () => {
-		expect(stateSchema.safeParse({ type: 'end', status: 'success' }).success).toBe(true);
-		expect(stateSchema.safeParse({ type: 'wait', duration: 'PT5S', next: 'a' }).success).toBe(true);
-		expect(stateSchema.safeParse({ type: 'output', channel: 'transcript', message: 'Hello', next: 'a' }).success).toBe(true);
+		expect(stateSchema.safeParse({ state_type: 'end', status: 'success' }).success).toBe(true);
+		expect(stateSchema.safeParse({ state_type: 'wait', duration: 'PT5S', next: 'a' }).success).toBe(true);
+		expect(stateSchema.safeParse({ state_type: 'output', channel: 'transcript', message: 'Hello', next: 'a' }).success).toBe(true);
 	});
 
 	it('applies the rules of the matching state only', () => {
 		// A wait state may not have a status, which only an end state uses.
-		expect(stateSchema.safeParse({ type: 'wait', duration: 'PT5S', next: 'a', status: 'success' }).success).toBe(false);
+		expect(stateSchema.safeParse({ state_type: 'wait', duration: 'PT5S', next: 'a', status: 'success' }).success).toBe(false);
 		// An output rule still applies when the output sits inside the union.
-		expect(stateSchema.safeParse({ type: 'output', channel: 'transcript', next: 'a' }).success).toBe(false);
+		expect(stateSchema.safeParse({ state_type: 'output', channel: 'transcript', next: 'a' }).success).toBe(false);
 	});
 
 	it('rejects an unknown type and a state with no type', () => {
-		expect(stateSchema.safeParse({ type: 'decide', rules: [], default: 'a' }).success).toBe(false);
+		expect(stateSchema.safeParse({ state_type: 'decide', rules: [], default: 'a' }).success).toBe(false);
 		expect(stateSchema.safeParse({ next: 'a' }).success).toBe(false);
 	});
 });
@@ -41,13 +41,13 @@ describe('processSchema', () => {
 		vars: { attended: null },
 		states: {
 			ask: {
-				type: 'input',
+				state_type: 'input',
 				prompt: 'Did you attend?',
 				schema: { kind: 'boolean' },
 				assign: 'attended',
 				next: 'finish'
 			},
-			finish: { type: 'end', status: 'success' }
+			finish: { state_type: 'end', status: 'success' }
 		}
 	};
 
@@ -77,7 +77,7 @@ describe('processSchema', () => {
 	});
 
 	it('rejects an invalid state inside the process', () => {
-		const broken = { ...process, states: { ...process.states, finish: { type: 'end' } } };
+		const broken = { ...process, states: { ...process.states, finish: { state_type: 'end' } } };
 		expect(processSchema.safeParse(broken).success).toBe(false);
 	});
 

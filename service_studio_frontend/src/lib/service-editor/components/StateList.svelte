@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { StateRow } from '$lib/service-editor/graph/state-rows';
+	import type { StateRow } from '$lib/process-graph/state-rows';
 
 	interface Props {
 		rows: StateRow[];

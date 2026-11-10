@@ -3,10 +3,10 @@ import { exampleWorkflows } from './example-states';
 import {
 	defaultEndStatus,
 	isUndecidedRule,
-	isUnconnectedCall,
+	isUnconnectedApiCall,
 	placeholderOwner,
 	undecidedRule,
-	unconnectedCallDetails
+	unconnectedApiCallDetails
 } from '../placeholders';
 import { parseProcess, parseWorkflow } from '../validate';
 
@@ -19,9 +19,9 @@ describe('placeholders pass validation', () => {
 		start: 'look_up',
 		vars: {},
 		states: {
-			look_up: { type: 'call', ...unconnectedCallDetails, next: 'decide' },
-			decide: { type: 'choice', rules: [{ when: undecidedRule, next: 'finish' }], default: 'finish' },
-			finish: { type: 'end', status: defaultEndStatus }
+			look_up: { state_type: 'api_call', ...unconnectedApiCallDetails, next: 'decide' },
+			decide: { state_type: 'choice', rules: [{ when: undecidedRule, next: 'finish' }], default: 'finish' },
+			finish: { state_type: 'end', status: defaultEndStatus }
 		}
 	};
 
@@ -38,13 +38,13 @@ describe('placeholders pass validation', () => {
 	});
 });
 
-describe('isUnconnectedCall', () => {
+describe('isUnconnectedApiCall', () => {
 	it('recognises a call with the placeholder details', () => {
-		expect(isUnconnectedCall(unconnectedCallDetails)).toBe(true);
+		expect(isUnconnectedApiCall(unconnectedApiCallDetails)).toBe(true);
 	});
 
 	it('does not match a call to a real service', () => {
-		expect(isUnconnectedCall({ service: 'dvla' })).toBe(false);
+		expect(isUnconnectedApiCall({ service: 'dvla' })).toBe(false);
 	});
 });
 

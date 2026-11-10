@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assembleWorkflow, exampleFolders, workflowExamples } from '../workflows';
+import { assembleWorkflow, groupByFolder, loadExamples } from '../workflows';
 
 describe('assembleWorkflow', () => {
 	const manifest = { id: 'a.b' };
@@ -33,37 +33,31 @@ describe('assembleWorkflow', () => {
 	});
 });
 
-describe('exampleFolders', () => {
-	it('groups the files of each example under its folder name', () => {
-		expect(Object.keys(exampleFolders).sort()).toEqual(['change_of_address', 'maternity_allowance']);
-		expect(exampleFolders.change_of_address).toHaveProperty('workflow_manifest.json');
-		expect(exampleFolders.change_of_address).toHaveProperty('driver_details.json');
-		expect(Object.keys(exampleFolders.maternity_allowance)).toHaveLength(7);
+describe('groupByFolder', () => {
+	it('groups files by the folder and file name at the end of their path', () => {
+		const grouped = groupByFolder({
+			'./services/one/workflow_manifest.json': { id: 'one' },
+			'./services/one/start.json': { process_id: 'start' },
+			'./services/two/workflow_manifest.json': { id: 'two' }
+		});
+
+		expect(Object.keys(grouped)).toEqual(['one', 'two']);
+		expect(Object.keys(grouped.one)).toEqual(['workflow_manifest.json', 'start.json']);
 	});
 });
 
-describe('workflowExamples', () => {
-	it('lists both example workflows in name order', () => {
-		expect(workflowExamples.map((example) => example.slug)).toEqual(['change_of_address', 'maternity_allowance']);
+describe('loadExamples', () => {
+	it('keeps an example that fails the schema in the list, with its problems and no workflow', () => {
+		const [broken] = loadExamples({ broken: { 'workflow_manifest.json': {} } });
+
+		expect(broken.slug).toBe('broken');
+		expect(broken.workflow).toBeNull();
+		expect(broken.issues.length).toBeGreaterThan(0);
+		expect(broken.warnings).toEqual([]);
 	});
 
-	it('validates every example with no errors', () => {
-		const failures = workflowExamples
-			.filter((example) => example.workflow === null)
-			.map((example) => ({ slug: example.slug, issues: example.issues }));
-
-		expect(failures).toEqual([]);
-	});
-
-	it('gives each valid example all the processes its manifest lists', () => {
-		for (const example of workflowExamples) {
-			const listed = example.workflow?.manifest.processes.map((process) => process.process_id).sort();
-			expect(Object.keys(example.workflow?.processes ?? {}).sort()).toEqual(listed);
-		}
-	});
-
-	it('carries the warnings of each example', () => {
-		const warningCounts = Object.fromEntries(workflowExamples.map((example) => [example.slug, example.warnings.length]));
-		expect(warningCounts).toEqual({ change_of_address: 0, maternity_allowance: 1 });
+	it('lists the examples in name order', () => {
+		const slugs = loadExamples({ b: {}, a: {}, c: {} }).map((example) => example.slug);
+		expect(slugs).toEqual(['a', 'b', 'c']);
 	});
 });

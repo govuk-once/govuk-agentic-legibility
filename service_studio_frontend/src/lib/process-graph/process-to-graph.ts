@@ -1,4 +1,5 @@
 import { journeyOrder } from '$lib/schema/workflow/journey-order';
+import type { State } from '$lib/schema/workflow/process';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 import { isErrorKind, routesOf } from '$lib/schema/workflow/routes';
 import { estimateStepNodeHeight, estimateStepNodeWidth } from '$lib/graph-kit/node-sizing';
@@ -43,15 +44,25 @@ function reachableNodes(edges: ProcessEdge[]): Set<string> {
 	return reached;
 }
 
-/**
- * Returns the part of a graph that is shown. With error routes on this is the whole graph. With them
- * off, the error routes are removed and so is every state that only an error route leads to, such as
- * an end dot that nothing else reaches, because it would otherwise float on its own. A state that
- * nothing leads to at all is kept, because that is a problem the person should see.
- */
-export function visibleGraph(graph: ProcessGraphElements, showErrorRoutes: boolean): ProcessGraphElements {
-	if (showErrorRoutes) return graph;
+// What the graph leaves out. Error routes are hidden unless showErrorRoutes is set. Developer steps, the states an
+// editor marks as developer states, are shown unless showDeveloperSteps is false.
+export type GraphVisibility = { showErrorRoutes: boolean; showDeveloperSteps?: boolean };
 
+/**
+ * Returns the part of a graph that is shown. With error routes on and developer steps on this is the whole
+ * graph. Turning either off takes that part out, and the two can be combined.
+ */
+export function visibleGraph(graph: ProcessGraphElements, { showErrorRoutes, showDeveloperSteps = true }: GraphVisibility): ProcessGraphElements {
+	const withoutErrors = showErrorRoutes ? graph : withoutErrorRoutes(graph);
+	return showDeveloperSteps ? withoutErrors : withoutDeveloperSteps(withoutErrors);
+}
+
+/**
+ * Takes the error routes out of a graph, and so every state that only an error route leads to, such as an end
+ * dot that nothing else reaches, because it would otherwise float on its own. A state that nothing leads to at
+ * all is kept, because that is a problem the person should see.
+ */
+function withoutErrorRoutes(graph: ProcessGraphElements): ProcessGraphElements {
 	const mainEdges = graph.edges.filter((edge) => !isErrorRoute(edge));
 	const reachedWithErrorRoutes = reachableNodes(graph.edges);
 	const reachedOnMainJourney = reachableNodes(mainEdges);
@@ -59,6 +70,41 @@ export function visibleGraph(graph: ProcessGraphElements, showErrorRoutes: boole
 	const shown = new Set(nodes.map((node) => node.id));
 
 	return { nodes, edges: mainEdges.filter((edge) => shown.has(edge.source) && shown.has(edge.target)) };
+}
+
+/**
+ * Takes the developer steps out of a graph and draws each line that led into one straight on to the state that
+ * the developer step led to. A person then sees "Question 1, Question 2" where the file has "Question 1, assign,
+ * Question 2". Several developer steps in a row are passed over together. The line keeps the identity of the route
+ * it was drawn from, so it still says which route of the state before it is meant. A developer step that leads
+ * nowhere, or only back round to developer steps, leaves the line before it with nowhere to go and it is dropped.
+ */
+function withoutDeveloperSteps(graph: ProcessGraphElements): ProcessGraphElements {
+	const hidden = new Set(graph.nodes.filter((node) => node.type === 'step' && node.data.developer).map((node) => node.id));
+	if (hidden.size === 0) return graph;
+
+	const edgesFrom = new Map<string, ProcessEdge[]>();
+	for (const edge of graph.edges) edgesFrom.set(edge.source, [...(edgesFrom.get(edge.source) ?? []), edge]);
+
+	// Follows developer steps until a state that is shown is reached. The steps already passed on this way are
+	// remembered, so a loop made only of developer steps ends and is dropped.
+	function shownTargets(id: string, passed: ReadonlySet<string>): string[] {
+		if (!hidden.has(id)) return [id];
+		if (passed.has(id)) return [];
+		const next = new Set(passed).add(id);
+		return (edgesFrom.get(id) ?? []).flatMap((edge) => shownTargets(edge.target, next));
+	}
+
+	const edges = graph.edges
+		.filter((edge) => !hidden.has(edge.source))
+		.flatMap((edge): ProcessEdge[] => {
+			const targets = shownTargets(edge.target, new Set());
+			if (targets.length === 1 && targets[0] === edge.target) return [edge];
+			// One developer step can lead on to more than one state, so each line needs its own id.
+			return targets.map((target) => ({ ...edge, id: targets.length > 1 ? `${edge.id}>${target}` : edge.id, target }));
+		});
+
+	return { nodes: graph.nodes.filter((node) => !hidden.has(node.id)), edges };
 }
 
 /**
@@ -105,12 +151,12 @@ export function graphShape(graph: ProcessGraphElements): string {
 }
 
 /**
- * Counts the numbered boxes in a graph. This is the number of steps in a process. A decision diamond and
- * an end dot are not counted, so the count matches the last number on the graph and the length of the
- * list of steps.
+ * Counts the numbered boxes in a graph. This is the number of steps in a process. A decision diamond, an
+ * end dot and a developer step are not counted, so the count matches the last number on the graph and the
+ * length of the list of steps.
  */
 export function stepCount(graph: ProcessGraphElements): number {
-	return graph.nodes.filter((node) => node.type === 'step').length;
+	return graph.nodes.filter((node) => node.type === 'step' && node.data.stepNumber !== undefined).length;
 }
 
 /**
@@ -119,7 +165,7 @@ export function stepCount(graph: ProcessGraphElements): number {
  * no text of its own.
  */
 function stateText(state: WorkingState): string | undefined {
-	switch (state.type) {
+	switch (state.state_type) {
 		case 'input':
 			return state.prompt;
 		case 'output':
@@ -145,8 +191,12 @@ export function stateTitle(state: WorkingState, code: string): string {
  * order and boxes are numbered in that order, so the numbers follow the routes from the start and a
  * state that nothing leads to comes last. A route to a state that does not exist draws no edge, so the
  * graph still builds while an edit has left the process half finished.
+ *
+ * An editor can name state types that are developer states, such as assign. Their boxes are marked as developer
+ * steps and take no number, so the numbers of the steps around them run on without a gap whether or not they
+ * are shown. Hiding them is done afterwards, by visibleGraph.
  */
-export function processToGraph(process: WorkingProcess): ProcessGraphElements {
+export function processToGraph(process: WorkingProcess, developerStateTypes: readonly State['state_type'][] = []): ProcessGraphElements {
 	const nodes: ProcessNode[] = [
 		{
 			id: startNodeId,
@@ -163,7 +213,7 @@ export function processToGraph(process: WorkingProcess): ProcessGraphElements {
 		const state = process.states[code];
 		const title = stateTitle(state, code);
 
-		if (state.type === 'end') {
+		if (state.state_type === 'end') {
 			nodes.push({
 				id: code,
 				type: 'terminal',
@@ -177,7 +227,7 @@ export function processToGraph(process: WorkingProcess): ProcessGraphElements {
 					status: state.status
 				}
 			});
-		} else if (state.type === 'choice') {
+		} else if (state.state_type === 'choice') {
 			nodes.push({
 				id: code,
 				type: 'condition',
@@ -185,11 +235,14 @@ export function processToGraph(process: WorkingProcess): ProcessGraphElements {
 				data: { stateId: code, title, ariaLabel: `Decision, ${title}` }
 			});
 		} else {
-			stepNumber += 1;
-			const width = estimateStepNodeWidth(`${stepNumber}. ${title}`);
+			const developer = developerStateTypes.includes(state.state_type);
+			if (!developer) stepNumber += 1;
+			// The box is sized for the words it shows, which are the number and the title, or only the title.
+			const label = developer ? title : `${stepNumber}. ${title}`;
+			const width = estimateStepNodeWidth(label);
 			// An invoke state shows a second line that opens the process it runs, so its box is taller.
 			const opensProcess =
-				state.type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined;
+				state.state_type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined;
 
 			nodes.push({
 				id: code,
@@ -197,15 +250,18 @@ export function processToGraph(process: WorkingProcess): ProcessGraphElements {
 				position: initialPosition,
 				data: {
 					stateId: code,
-					stepNumber,
+					stepNumber: developer ? undefined : stepNumber,
 					title,
-					stateType: state.type,
+					stateType: state.state_type,
+					...(developer ? { developer: true } : {}),
 					opensProcess,
 					width,
-					height: estimateStepNodeHeight(`${stepNumber}. ${title}`, width, opensProcess ? 1 : 0),
-					ariaLabel: opensProcess
-						? `Step ${stepNumber}, ${title}, opens the ${opensProcess.title} process`
-						: `Step ${stepNumber}, ${title}`
+					height: estimateStepNodeHeight(label, width, opensProcess ? 1 : 0),
+					ariaLabel: developer
+						? `Developer step, ${title}`
+						: opensProcess
+							? `Step ${stepNumber}, ${title}, opens the ${opensProcess.title} process`
+							: `Step ${stepNumber}, ${title}`
 				}
 			});
 		}

@@ -1,4 +1,4 @@
-import type { CallState, RetryPolicy, Timeouts } from './call-state';
+import type { ApiCallState, RetryPolicy, Timeouts } from './api-call-state';
 import type { Condition } from './condition';
 import type { CompletionStatus, EndState } from './states';
 
@@ -23,18 +23,18 @@ export const placeholderOwner = {
  * and url come from the technical review, which is after the journey is drawn, so a new API step
  * holds these until then. The service name is the part used to recognise an unconnected call.
  */
-export const unconnectedCallDetails = {
+export const unconnectedApiCallDetails = {
 	method: 'GET',
 	service: 'unconnected_service',
 	url: '/unconnected'
-} as const satisfies Pick<CallState, 'method' | 'service' | 'url'>;
+} as const satisfies Pick<ApiCallState, 'method' | 'service' | 'url'>;
 
 /**
  * Tells whether a call still holds the placeholder API details. The editor uses this to show that
  * the step needs connecting, and a check can use it to warn before the workflow is sent.
  */
-export function isUnconnectedCall(call: Pick<CallState, 'service'>): boolean {
-	return call.service === unconnectedCallDetails.service;
+export function isUnconnectedApiCall(call: Pick<ApiCallState, 'service'>): boolean {
+	return call.service === unconnectedApiCallDetails.service;
 }
 
 /**
@@ -105,7 +105,7 @@ export const placeholderRunTimeout = 'P14D';
  * The time limit and retry policy that every call uses unless a call says otherwise. They are the same as the
  * example services use, so a draft behaves like a real workflow until the technical review sets its own.
  */
-export const placeholderCallDefaults: { timeouts: Timeouts; retry: RetryPolicy } = {
+export const placeholderApiCallDefaults: { timeouts: Timeouts; retry: RetryPolicy } = {
 	timeouts: { start_to_close: 'PT15S' },
 	retry: {
 		max_attempts: 3,
@@ -135,4 +135,4 @@ export function placeholderExecutor(slug: string) {
  * the journey as failed, which is the most common choice in the example services. The technical review points each
  * call at the right place.
  */
-export const placeholderFailedEnd: EndState = { type: 'end', status: 'failed', name: 'Something went wrong' };
+export const placeholderFailedEnd: EndState = { state_type: 'end', status: 'failed', name: 'Something went wrong' };

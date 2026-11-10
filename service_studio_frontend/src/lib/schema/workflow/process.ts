@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { callStateSchema } from './call-state';
+import { apiCallStateSchema } from './api-call-state';
 import { choiceStateSchema } from './choice-state';
 import { inputStateSchema } from './input-state';
 import { invokeStateSchema } from './invoke-state';
@@ -20,10 +20,10 @@ import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema }
 */
 
 // Any one of the eight states, picked by its type. The type decides which keys are allowed.
-export const stateSchema = z.discriminatedUnion('type', [
+export const stateSchema = z.discriminatedUnion('state_type', [
 	inputStateSchema,
 	outputStateSchema,
-	callStateSchema,
+	apiCallStateSchema,
 	choiceStateSchema,
 	assignStateSchema,
 	invokeStateSchema,

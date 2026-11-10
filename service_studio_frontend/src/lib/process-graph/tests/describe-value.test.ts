@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { workflowExamples } from '$lib/examples/workflows';
+import { serviceExamples } from '$lib/examples/services';
 import type { Condition } from '$lib/schema/workflow/condition';
 import type { Expression } from '$lib/schema/workflow/expression';
-import { describeCondition, describeDuration, describeExpression } from '../graph/describe-value';
+import { describeCondition, describeDuration, describeExpression } from '../describe-value';
 
 describe('describeDuration', () => {
 	it.each([
@@ -63,10 +63,10 @@ describe('describeCondition', () => {
 
 	it('describes every condition in both real examples', () => {
 		const conditions: Condition[] = [];
-		for (const example of workflowExamples) {
+		for (const example of serviceExamples) {
 			for (const process of Object.values(example.workflow?.processes ?? {})) {
 				for (const state of Object.values(process.states)) {
-					if (state.type === 'choice') conditions.push(...state.rules.map((rule) => rule.when));
+					if (state.state_type === 'choice') conditions.push(...state.rules.map((rule) => rule.when));
 				}
 			}
 		}

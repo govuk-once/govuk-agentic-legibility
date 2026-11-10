@@ -17,6 +17,9 @@
 		// Off by default, which hides the routes taken when something goes wrong or runs late, and the
 		// states that only those routes lead to. The graph is arranged again when this changes.
 		showErrorRoutes?: boolean;
+		// On by default, so every developer step the graph was built with is drawn. Off hides them, and the line before
+		// each one carries on to the state after it. The graph is arranged again when this changes.
+		showDeveloperSteps?: boolean;
 		// Where the person has dragged boxes to. A box that is not listed stays where the layout put it.
 		positions?: NodePositions;
 		// Called with the new position of every box that was just dragged, when the drag ends.
@@ -46,6 +49,7 @@
 		graph,
 		selectedStateId = $bindable(null),
 		showErrorRoutes = false,
+		showDeveloperSteps = true,
 		positions = {},
 		onMoveNodes,
 		onOpenProcess,
@@ -72,7 +76,7 @@
 	// pull a box sideways. Ticking Show error routes lays the graph out again with those routes in it.
 	// An end state that several steps lead to is drawn as one end dot under each step, so no line has to run
 	// a long way across the graph to reach it.
-	const shown = $derived(separateEndDots(visibleGraph(graph, showErrorRoutes)));
+	const shown = $derived(separateEndDots(visibleGraph(graph, { showErrorRoutes, showDeveloperSteps })));
 
 	// Where the layout put each box, and the shape of the graph it was worked out for. An edit that leaves the
 	// shape as it was, such as a new title, reuses these places, so a rename never moves a box. The graph is

@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { saveDraft } from '$lib/service-editor/draft-store';
-	import { processToGraph, stepCount, visibleGraph } from '$lib/service-editor/graph/process-to-graph';
+	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
@@ -12,10 +12,10 @@
 	const process = $derived(form?.success ? form.workflow.processes[form.workflow.manifest.entry] : undefined);
 
 	// The steps are counted the way the editor counts them, so the number here matches the one on the editing page.
-	const stepTotal = $derived(process ? stepCount(visibleGraph(processToGraph(process), false)) : 0);
+	const stepTotal = $derived(process ? stepCount(visibleGraph(processToGraph(process), { showErrorRoutes: false })) : 0);
 
 	// A decision is a branch, so the count matches the diamonds the editor will show.
-	const branchCount = $derived(process ? Object.values(process.states).filter((state) => state.type === 'choice').length : 0);
+	const branchCount = $derived(process ? Object.values(process.states).filter((state) => state.state_type === 'choice').length : 0);
 
 	// Set when the browser would not hold the draft, so the person is told why the editor did not open.
 	let draftNotHeld = $state(false);

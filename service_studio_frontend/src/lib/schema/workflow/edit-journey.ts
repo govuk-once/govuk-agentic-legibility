@@ -37,7 +37,7 @@ export function routeToTargets(process: WorkingProcess, targets: string[]): { pr
 	if (targets.length === 1) return { process, entry: targets[0] };
 
 	const decision: WorkingState = {
-		type: 'choice',
+		state_type: 'choice',
 		rules: targets.slice(0, -1).map((next) => ({ when: { ...undecidedRule }, next })),
 		default: targets[targets.length - 1]
 	};
@@ -57,7 +57,7 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 	// Both ends must be states of this process.
 	if (!source || !(targetCode in process.states)) return { ok: false, reason: 'A line must join two steps.' };
 	if (sourceCode === targetCode) return { ok: false, reason: 'A step cannot continue to itself.' };
-	if (source.type === 'end') return { ok: false, reason: 'An end has nowhere to go.' };
+	if (source.state_type === 'end') return { ok: false, reason: 'An end has nowhere to go.' };
 
 	// A route that already leads there would only be repeated.
 	if (routesOf(source).some((route) => route.target === targetCode && ['next', 'rule', 'default'].includes(route.kind))) {
@@ -65,7 +65,7 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 	}
 
 	// A decision takes the new way on as a rule placed before its default.
-	if (source.type === 'choice') {
+	if (source.state_type === 'choice') {
 		const rules = [...source.rules, { when: { ...undecidedRule }, next: targetCode }];
 		return { ok: true, process: replaceState(process, sourceCode, { ...source, rules }) };
 	}
@@ -77,7 +77,7 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 	}
 
 	// A step that only ends the journey gives up its end for the new line, and the end goes if nothing else leads to it.
-	if (process.states[source.next]?.type === 'end') {
+	if (process.states[source.next]?.state_type === 'end') {
 		const replaced = replaceState(process, sourceCode, { ...source, next: targetCode });
 		return { ok: true, process: removeUnreachableStates(replaced, [source.next]) };
 	}
@@ -95,18 +95,18 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditResult {
 	const source = process.states[sourceCode];
 	if (!source) return { ok: false, reason: 'There is no step to end the journey at.' };
-	if (source.type === 'end') return { ok: false, reason: 'That is already an end.' };
+	if (source.state_type === 'end') return { ok: false, reason: 'That is already an end.' };
 
-	const end: WorkingState = { type: 'end', status: defaultEndStatus };
+	const end: WorkingState = { state_type: 'end', status: defaultEndStatus };
 	const added = addState(process, newEndCode, end);
 
-	if (source.type === 'choice') {
+	if (source.state_type === 'choice') {
 		const drawn = drawLine(added.process, sourceCode, added.code);
 		return drawn.ok ? { ...drawn, code: added.code } : drawn;
 	}
 	if (!hasNext(source)) return { ok: false, reason: 'That step cannot end the journey.' };
 	const oldNext = source.next;
-	if (oldNext !== undefined && process.states[oldNext]?.type === 'end') {
+	if (oldNext !== undefined && process.states[oldNext]?.state_type === 'end') {
 		return { ok: false, reason: 'The journey already ends there.' };
 	}
 
@@ -121,7 +121,7 @@ export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditR
  * message to the person with a placeholder wording. The result carries the name of the new step.
  */
 export function addLooseStep(process: WorkingProcess): { process: WorkingProcess; code: string } {
-	const step: WorkingState = { type: 'output', channel: 'transcript', message: placeholderMessage };
+	const step: WorkingState = { state_type: 'output', channel: 'transcript', message: placeholderMessage };
 	return addState(process, newStepCode, step);
 }
 
@@ -131,7 +131,7 @@ export function addLooseStep(process: WorkingProcess): { process: WorkingProcess
  * of the new step.
  */
 export function addStepBeforeStart(process: WorkingProcess): EditResult {
-	const step: WorkingState = { type: 'output', channel: 'transcript', message: placeholderMessage, next: process.start };
+	const step: WorkingState = { state_type: 'output', channel: 'transcript', message: placeholderMessage, next: process.start };
 	const added = addState(process, newStepCode, step);
 	return { ok: true, process: setStart(added.process, added.code), code: added.code };
 }
@@ -144,9 +144,9 @@ export function addStepBeforeStart(process: WorkingProcess): EditResult {
  */
 export function addBranch(process: WorkingProcess, sourceCode: string, targets: string[]): EditResult {
 	const source = process.states[sourceCode];
-	if (!source || source.type === 'end') return { ok: false, reason: 'That step cannot branch.' };
+	if (!source || source.state_type === 'end') return { ok: false, reason: 'That step cannot branch.' };
 
-	if (source.type === 'choice') {
+	if (source.state_type === 'choice') {
 		const existing = new Set(routesOf(source).map((route) => route.target));
 		const added = targets.filter((target) => !existing.has(target));
 		const rules = [...source.rules, ...added.map((next) => ({ when: { ...undecidedRule }, next }))];
@@ -156,7 +156,7 @@ export function addBranch(process: WorkingProcess, sourceCode: string, targets: 
 
 	// The route the step already had stays as a way on, unless it only ended the journey or it had none.
 	const oldNext = source.next;
-	const replacesEnd = oldNext !== undefined && process.states[oldNext]?.type === 'end';
+	const replacesEnd = oldNext !== undefined && process.states[oldNext]?.state_type === 'end';
 	const keeps = oldNext === undefined || replacesEnd ? [] : [oldNext];
 	const ways = [...new Set([...keeps, ...targets])];
 

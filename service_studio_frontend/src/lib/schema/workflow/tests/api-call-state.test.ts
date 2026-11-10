@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-	callStateSchema,
+	apiCallStateSchema,
 	captureSpecSchema,
 	catchClauseSchema,
 	retryPolicySchema,
 	timeoutsSchema
-} from '../call-state';
+} from '../api-call-state';
 import { exampleStatesOfType } from './example-states';
 
-type ExampleManifest = { defaults?: { call?: { timeouts?: unknown; retry?: unknown } } };
+type ExampleManifest = { defaults?: { api_call?: { timeouts?: unknown; retry?: unknown } } };
 
 // The workflow manifest of each example service, which holds the default timeouts and retry policy.
 const manifests = Object.values(
@@ -18,12 +18,12 @@ const manifests = Object.values(
 	})
 ) as ExampleManifest[];
 
-describe('callStateSchema with the real examples', () => {
+describe('apiCallStateSchema with the real examples', () => {
 	it('accepts every call state in the example files', () => {
-		const states = exampleStatesOfType('call');
+		const states = exampleStatesOfType('api_call');
 		expect(states.length).toBeGreaterThan(10);
 		for (const state of states) {
-			const result = callStateSchema.safeParse(state);
+			const result = apiCallStateSchema.safeParse(state);
 			expect(result.success, JSON.stringify(state)).toBe(true);
 		}
 	});
@@ -31,17 +31,17 @@ describe('callStateSchema with the real examples', () => {
 	it('accepts the default timeouts and retry policy in every manifest', () => {
 		expect(manifests.length).toBeGreaterThan(0);
 		for (const manifest of manifests) {
-			expect(timeoutsSchema.safeParse(manifest.defaults?.call?.timeouts).success).toBe(true);
-			expect(retryPolicySchema.safeParse(manifest.defaults?.call?.retry).success).toBe(true);
+			expect(timeoutsSchema.safeParse(manifest.defaults?.api_call?.timeouts).success).toBe(true);
+			expect(retryPolicySchema.safeParse(manifest.defaults?.api_call?.retry).success).toBe(true);
 		}
 	});
 });
 
-describe('callStateSchema', () => {
-	const call = { type: 'call', method: 'GET', service: 'dvla', url: '/drivers/{{driver_id}}', next: 'show_driver' };
+describe('apiCallStateSchema', () => {
+	const call = { state_type: 'api_call', method: 'GET', service: 'dvla', url: '/drivers/{{driver_id}}', next: 'show_driver' };
 
 	it('accepts a minimal call', () => {
-		expect(callStateSchema.safeParse(call).success).toBe(true);
+		expect(apiCallStateSchema.safeParse(call).success).toBe(true);
 	});
 
 	it('accepts a call with every optional key', () => {
@@ -61,25 +61,25 @@ describe('callStateSchema', () => {
 			capture: { photo_id: 'body.photo_id', names: { from: 'body.names', pick: ['first'], max_items: 5 } },
 			catch: [{ on: 'any', next: 'upload_failed' }]
 		};
-		expect(callStateSchema.safeParse(state).success).toBe(true);
+		expect(apiCallStateSchema.safeParse(state).success).toBe(true);
 	});
 
 	it.each(['method', 'service', 'url', 'next'])('rejects a call with no %s', (key) => {
 		const { [key as keyof typeof call]: _removed, ...state } = call;
-		expect(callStateSchema.safeParse(state).success).toBe(false);
+		expect(apiCallStateSchema.safeParse(state).success).toBe(false);
 	});
 
 	it('rejects an unknown method', () => {
-		expect(callStateSchema.safeParse({ ...call, method: 'FETCH' }).success).toBe(false);
+		expect(apiCallStateSchema.safeParse({ ...call, method: 'FETCH' }).success).toBe(false);
 	});
 
 	it('rejects a body value that is not a valid expression', () => {
 		const state = { ...call, body: { a: { op: 'multiply', path: 'x', value: 2 } } };
-		expect(callStateSchema.safeParse(state).success).toBe(false);
+		expect(apiCallStateSchema.safeParse(state).success).toBe(false);
 	});
 
 	it('rejects a capture name that is not a valid path', () => {
-		expect(callStateSchema.safeParse({ ...call, capture: { 'not a path': 'body.x' } }).success).toBe(false);
+		expect(apiCallStateSchema.safeParse({ ...call, capture: { 'not a path': 'body.x' } }).success).toBe(false);
 	});
 });
 

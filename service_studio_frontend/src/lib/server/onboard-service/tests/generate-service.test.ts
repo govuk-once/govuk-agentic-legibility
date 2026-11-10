@@ -35,9 +35,9 @@ const processReply = JSON.stringify({
 	start: 'ask',
 	vars: {},
 	states: {
-		ask: { type: 'input', name: 'Ask', prompt: 'Your postcode?', schema: { kind: 'string' }, assign: 'postcode', next: 'look_up' },
-		look_up: { type: 'call', method: 'GET', service: 'unconnected_service', url: '/unconnected', next: 'finish' },
-		finish: { type: 'end', status: 'success' }
+		ask: { state_type: 'input', name: 'Ask', prompt: 'Your postcode?', schema: { kind: 'string' }, assign: 'postcode', next: 'look_up' },
+		look_up: { state_type: 'api_call', method: 'GET', service: 'unconnected_service', url: '/unconnected', next: 'finish' },
+		finish: { state_type: 'end', status: 'success' }
 	}
 });
 
@@ -85,7 +85,7 @@ describe('generateService', () => {
 	});
 
 	it('asks again with the problems when the process does not pass, and uses the corrected one', async () => {
-		const broken = JSON.stringify({ process_id: 'main', version: '0.1.0', start: 'ask', vars: {}, states: { ask: { type: 'end' } } });
+		const broken = JSON.stringify({ process_id: 'main', version: '0.1.0', start: 'ask', vars: {}, states: { ask: { state_type: 'end' } } });
 		const { client, requests } = fakeModel([broken, processReply]);
 		const result = await generateService(details, { client, modelId: 'the-model' });
 

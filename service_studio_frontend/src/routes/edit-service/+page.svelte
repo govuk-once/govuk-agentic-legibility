@@ -3,13 +3,13 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
-	import { workflowExamples } from '$lib/examples/workflows';
+	import { serviceExamples } from '$lib/examples/services';
 	import { tidyCode } from '$lib/graph-kit/tidy-code';
 
 	// The slug of the example chosen in the list. It starts on the first example so the page never
 	// opens with nothing chosen.
-	let selectedSlug = $state(workflowExamples[0]?.slug ?? '');
-	const selectedExample = $derived(workflowExamples.find((example) => example.slug === selectedSlug) ?? null);
+	let selectedSlug = $state(serviceExamples[0]?.slug ?? '');
+	const selectedExample = $derived(serviceExamples.find((example) => example.slug === selectedSlug) ?? null);
 
 	// The number of states in every process of the chosen workflow, shown so the size of a service is
 	// clear before it is opened.
@@ -41,7 +41,7 @@
 		<div class="govuk-form-group picker-page__select">
 			<label class="govuk-label govuk-label--s" for="example-workflow">Choose a service</label>
 			<select class="govuk-select" id="example-workflow" bind:value={selectedSlug}>
-				{#each workflowExamples as example (example.slug)}
+				{#each serviceExamples as example (example.slug)}
 					<option value={example.slug}>{tidyCode(example.slug)}</option>
 				{/each}
 			</select>

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { workflowExamples } from '$lib/examples/workflows';
+import { serviceExamples } from '$lib/examples/services';
 import { nodeSize } from '$lib/graph-kit/layout';
-import { arrangeProcessGraph } from '../graph/arrange';
-import { processToGraph, separateEndDots, visibleGraph } from '../graph/process-to-graph';
+import { arrangeProcessGraph } from '../arrange';
+import { processToGraph, separateEndDots, visibleGraph } from '../process-to-graph';
 
-const processes = workflowExamples.flatMap((example) => Object.values(example.workflow?.processes ?? {}));
+const processes = serviceExamples.flatMap((example) => Object.values(example.workflow?.processes ?? {}));
 
 describe('arrangeProcessGraph with process graphs', () => {
 	it('gives every node of every real process a position', () => {
@@ -23,7 +23,7 @@ describe('arrangeProcessGraph with process graphs', () => {
 	it('keeps the nodes of every real process from overlapping, with error routes on or off', () => {
 		for (const process of processes) {
 			for (const showErrorRoutes of [true, false]) {
-				const shown = separateEndDots(visibleGraph(processToGraph(process), showErrorRoutes));
+				const shown = separateEndDots(visibleGraph(processToGraph(process), { showErrorRoutes }));
 				const { nodes: laidOut } = arrangeProcessGraph(shown.nodes, shown.edges);
 
 				for (const [index, first] of laidOut.entries()) {
@@ -58,7 +58,7 @@ describe('the layout of the shown graph', () => {
 	// straight down is 0, and a long one is a sign that a box was pushed far to the side.
 	function sidewaysDistances(showErrorRoutes: boolean): number[] {
 		return processes.flatMap((process) => {
-			const shown = separateEndDots(visibleGraph(processToGraph(process), showErrorRoutes));
+			const shown = separateEndDots(visibleGraph(processToGraph(process), { showErrorRoutes }));
 			const laidOut = arrangeProcessGraph(shown.nodes, shown.edges).nodes;
 			const centres = new Map(laidOut.map((node) => [node.id, node.position.x + nodeSize(node).width / 2]));
 
@@ -77,7 +77,7 @@ describe('the layout of the shown graph', () => {
 
 	it('keeps the branches of a decision close to it when they share a row', () => {
 		const distances = processes.flatMap((process) => {
-			const shown = separateEndDots(visibleGraph(processToGraph(process), false));
+			const shown = separateEndDots(visibleGraph(processToGraph(process), { showErrorRoutes: false }));
 			const laidOut = arrangeProcessGraph(shown.nodes, shown.edges).nodes;
 			const byId = new Map(laidOut.map((node) => [node.id, node]));
 			const centreX = (id: string) => byId.get(id)!.position.x + nodeSize(byId.get(id)!).width / 2;
@@ -99,7 +99,7 @@ describe('the layout of the shown graph', () => {
 
 	it('puts most end dots directly under the step that leads to them', () => {
 		const offsets = processes.flatMap((process) => {
-			const shown = separateEndDots(visibleGraph(processToGraph(process), false));
+			const shown = separateEndDots(visibleGraph(processToGraph(process), { showErrorRoutes: false }));
 			const laidOut = arrangeProcessGraph(shown.nodes, shown.edges).nodes;
 			const byId = new Map(laidOut.map((node) => [node.id, node]));
 			const centreX = (id: string) => byId.get(id)!.position.x + nodeSize(byId.get(id)!).width / 2;
@@ -122,7 +122,7 @@ describe('the layout of the shown graph', () => {
 	// Whether two lines drawn straight from the centre of one box to the centre of another cross each other.
 	// Lines that meet at a box do not count. The real lines are curved, but this is close enough to compare layouts.
 	function countCrossings(process: (typeof processes)[number]): number {
-		const shown = separateEndDots(visibleGraph(processToGraph(process), false));
+		const shown = separateEndDots(visibleGraph(processToGraph(process), { showErrorRoutes: false }));
 		const laidOut = arrangeProcessGraph(shown.nodes, shown.edges).nodes;
 		const centres = new Map(
 			laidOut.map((node) => [node.id, { x: node.position.x + nodeSize(node).width / 2, y: node.position.y + nodeSize(node).height / 2 }])
@@ -153,9 +153,9 @@ describe('the layout of the shown graph', () => {
 	});
 
 	it('is narrower without the error routes than with them for the entry process of change of address', () => {
-		const entry = workflowExamples.find((example) => example.slug === 'change_of_address')!.workflow!;
+		const entry = serviceExamples.find((example) => example.slug === 'change_of_address')!.workflow!;
 		const graph = processToGraph(entry.processes[entry.manifest.entry]);
-		const withoutErrorRoutes = visibleGraph(graph, false);
+		const withoutErrorRoutes = visibleGraph(graph, { showErrorRoutes: false });
 
 		const narrow = arrangeProcessGraph(withoutErrorRoutes.nodes, withoutErrorRoutes.edges).width;
 		const wide = arrangeProcessGraph(graph.nodes, graph.edges).width;

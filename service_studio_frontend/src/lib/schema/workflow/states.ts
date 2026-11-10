@@ -16,10 +16,12 @@ import { durationOrRefSchema, metadataSchema, stateRefSchema, variablePathSchema
 */
 
 /**
- * The keys that every state type shares. Each state schema spreads these in, so the optional title
- * and notes are described once.
+ * The keys of the BaseState class in section 1.7 of the unified class structure document that every state
+ * shares: the optional title and the notes. Each state schema spreads these in, so they are described once.
+ * The state_type key is also part of BaseState, but each state gives it its own fixed value, so it is written
+ * in each state schema and not here.
  */
-export const stateCommonFields = {
+export const baseStateFields = {
 	name: z.string().min(1).optional(),
 	metadata: metadataSchema.optional()
 };
@@ -27,8 +29,8 @@ export const stateCommonFields = {
 // Emits a message to the person or sends a notification. A new person facing step is usually this.
 export const outputStateSchema = z
 	.strictObject({
-		type: z.literal('output'),
-		...stateCommonFields,
+		state_type: z.literal('output'),
+		...baseStateFields,
 		channel: z.enum(['transcript', 'email', 'sms']),
 		message: z.string().optional(),
 		template: z.string().optional(),
@@ -50,16 +52,16 @@ export const outputStateSchema = z
 
 // Sets process variables. Each key is the variable to change and each value is an expression.
 export const assignStateSchema = z.strictObject({
-	type: z.literal('assign'),
-	...stateCommonFields,
+	state_type: z.literal('assign'),
+	...baseStateFields,
 	set: z.record(variablePathSchema, expressionSchema),
 	next: stateRefSchema
 });
 
 // Pauses the workflow for a set time, for example between two checks of a remote service.
 export const waitStateSchema = z.strictObject({
-	type: z.literal('wait'),
-	...stateCommonFields,
+	state_type: z.literal('wait'),
+	...baseStateFields,
 	duration: durationOrRefSchema,
 	next: stateRefSchema
 });
@@ -69,8 +71,8 @@ export const completionStatusSchema = z.enum(['success', 'cancelled', 'failed', 
 
 // Finishes the process. A sub process hands its return value back to the state that invoked it.
 export const endStateSchema = z.strictObject({
-	type: z.literal('end'),
-	...stateCommonFields,
+	state_type: z.literal('end'),
+	...baseStateFields,
 	status: completionStatusSchema,
 	outcome: z.string().min(1).optional(),
 	return: expressionSchema.optional()

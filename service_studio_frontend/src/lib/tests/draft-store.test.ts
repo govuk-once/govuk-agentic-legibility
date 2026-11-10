@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { workflowExamples } from '$lib/examples/workflows';
-import { loadDraft, saveDraft } from '../draft-store';
+import { serviceExamples } from '$lib/examples/services';
+import { createDraftStore } from '../draft-store';
 
 // A stand in for the browser's session storage, so the tests run without a browser. It can be made to refuse.
 function fakeStorage() {
@@ -18,7 +18,10 @@ function fakeStorage() {
 	};
 }
 
-const example = workflowExamples.find((candidate) => candidate.slug === 'change_of_address')!.workflow!;
+// A key of its own, so the tests check the store and not any one editor's key.
+const { loadDraft, saveDraft } = createDraftStore('test-draft');
+
+const example = serviceExamples.find((candidate) => candidate.slug === 'change_of_address')!.workflow!;
 
 let storage: ReturnType<typeof fakeStorage>;
 beforeEach(() => {
@@ -28,6 +31,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('the held draft', () => {
+	it('keeps drafts held under different keys apart', () => {
+		const other = createDraftStore('other-draft');
+		saveDraft(example);
+		expect(other.loadDraft()).toEqual({ ok: false, reason: 'missing' });
+		expect(loadDraft()).toEqual({ ok: true, workflow: example });
+	});
+
 	it('gives back the draft that was saved', () => {
 		expect(saveDraft(example)).toBe(true);
 		const loaded = loadDraft();
@@ -39,15 +49,15 @@ describe('the held draft', () => {
 	});
 
 	it('says the draft is invalid, and why, when what is stored is not JSON', () => {
-		storage.items.set('service-studio.service-draft', 'not json {');
+		storage.items.set('test-draft', 'not json {');
 		expect(loadDraft()).toEqual({ ok: false, reason: 'invalid', issues: [{ path: '(root)', message: 'The saved draft is not valid JSON.' }] });
 	});
 
 	it('checks the draft against the schema when it is loaded, so a changed one is refused', () => {
 		saveDraft(example);
-		const stored = JSON.parse(storage.items.get('service-studio.service-draft')!);
+		const stored = JSON.parse(storage.items.get('test-draft')!);
 		stored.manifest.schema = 'old';
-		storage.items.set('service-studio.service-draft', JSON.stringify(stored));
+		storage.items.set('test-draft', JSON.stringify(stored));
 
 		const loaded = loadDraft();
 		expect(loaded).toMatchObject({ ok: false, reason: 'invalid' });

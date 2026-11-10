@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { StateDescription } from '$lib/service-editor/graph/describe-state';
-	import type { TargetOption } from '$lib/service-editor/graph/state-rows';
+	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
 	import StateEditor from './StateEditor.svelte';
 
@@ -155,7 +155,7 @@
 				<dl class="state-details__facts">
 					<div>
 						<dt class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Type</dt>
-						<dd class="govuk-body govuk-!-margin-bottom-2">{description.type}</dd>
+						<dd class="govuk-body govuk-!-margin-bottom-2">{description.stateType}</dd>
 					</div>
 					<div>
 						<dt class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Code</dt>

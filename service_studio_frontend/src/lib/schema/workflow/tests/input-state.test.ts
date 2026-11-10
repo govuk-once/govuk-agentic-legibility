@@ -95,7 +95,7 @@ describe('inputTimeoutSchema', () => {
 
 describe('inputStateSchema', () => {
 	const question = {
-		type: 'input',
+		state_type: 'input',
 		prompt: 'Is your address correct?',
 		schema: { kind: 'boolean' },
 		assign: 'address_confirmed',

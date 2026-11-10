@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { expressionSchema } from './expression';
-import { stateCommonFields } from './states';
+import { baseStateFields } from './states';
 import { durationSchema, dynamicRefSchema, stateRefSchema, variablePathSchema } from './primitives';
 
 /*
-	The call state from section 1.9 of the unified class structure document, with the timeouts (1.4),
+	The api_call state from section 1.9 of the unified class structure document, with the timeouts (1.4),
 	retry policy (1.5), catch clause (2.6) and capture specification (2.7) it uses. The timeouts and
 	retry policy are also used by the workflow defaults, so they are exported.
 
@@ -52,9 +52,9 @@ export const captureSpecSchema = z.union([
 ]);
 
 // Calls an HTTP service. The service name is turned into a real address when the workflow runs.
-export const callStateSchema = z.strictObject({
-	type: z.literal('call'),
-	...stateCommonFields,
+export const apiCallStateSchema = z.strictObject({
+	state_type: z.literal('api_call'),
+	...baseStateFields,
 	method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
 	service: z.string().min(1),
 	url: z.string().min(1),
@@ -75,4 +75,4 @@ export type Timeouts = z.infer<typeof timeoutsSchema>;
 export type RetryPolicy = z.infer<typeof retryPolicySchema>;
 export type CatchClause = z.infer<typeof catchClauseSchema>;
 export type CaptureSpec = z.infer<typeof captureSpecSchema>;
-export type CallState = z.infer<typeof callStateSchema>;
+export type ApiCallState = z.infer<typeof apiCallStateSchema>;

@@ -13,7 +13,7 @@
     },
     "states": {
         "choose_entry_method": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "How would you like to enter your new address?",
             "schema": {
                 "kind": "select_one",
@@ -32,7 +32,7 @@
             "next": "branch_method"
         },
         "branch_method": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -46,7 +46,7 @@
             "default": "prompt_postcode"
         },
         "prompt_postcode": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Enter your new UK postcode:",
             "schema": {
                 "kind": "string",
@@ -59,7 +59,7 @@
             "next": "lookup_postcode"
         },
         "increment_postcode_attempts": {
-            "type": "assign",
+            "state_type": "assign",
             "set": {
                 "postcode_attempts": {
                     "op": "add",
@@ -70,7 +70,7 @@
             "next": "check_postcode_retry_limit"
         },
         "check_postcode_retry_limit": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -84,13 +84,13 @@
             "default": "prompt_postcode"
         },
         "say_max_postcode_attempts": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Maximum postcode entry attempts exceeded. Please enter your address manually.",
             "next": "prompt_manual_address"
         },
         "lookup_postcode": {
-            "type": "call",
+            "state_type": "api_call",
             "method": "POST",
             "service": "postoffice",
             "url": "/app/postoffice/v1/address_from_postcode",
@@ -113,7 +113,7 @@
             "next": "prompt_select_address"
         },
         "prompt_select_address": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Select your address:",
             "schema": {
                 "kind": "select_one",
@@ -125,7 +125,7 @@
             "next": "end_success_selected"
         },
         "prompt_manual_address": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Enter Address Line 1 (e.g., 10 Downing Street):",
             "schema": {
                 "kind": "string",
@@ -137,7 +137,7 @@
             "next": "prompt_manual_postcode"
         },
         "prompt_manual_postcode": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Enter your UK postcode:",
             "schema": {
                 "kind": "string",
@@ -149,7 +149,7 @@
             "next": "end_success_manual"
         },
         "end_success_selected": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "address_selected",
             "return": {
@@ -162,7 +162,7 @@
             }
         },
         "end_success_manual": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "address_entered_manually",
             "return": {
@@ -175,7 +175,7 @@
             }
         },
         "end_api_failure": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "api_failure"
         }

@@ -39,7 +39,7 @@ describe('manifestSchema', () => {
 			run_timeout: 'P14D',
 			search_attributes: {}
 		},
-		defaults: { call: { timeouts: { start_to_close: 'PT15S' }, retry: { max_attempts: 3 } } },
+		defaults: { api_call: { timeouts: { start_to_close: 'PT15S' }, retry: { max_attempts: 3 } } },
 		processes: [{ process_id: 'change_of_address', version: '0.1.0' }]
 	};
 

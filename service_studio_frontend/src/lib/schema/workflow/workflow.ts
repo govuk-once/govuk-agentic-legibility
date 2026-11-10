@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { retryPolicySchema, timeoutsSchema } from './call-state';
+import { retryPolicySchema, timeoutsSchema } from './api-call-state';
 import { durationSchema, metadataSchema, processRefSchema, versionSchema } from './primitives';
 import { processSchema } from './process';
 
@@ -15,7 +15,8 @@ import { processSchema } from './process';
 	   because the document calls it a namespaced identifier. The document gives no stricter format.
 	3. As with the states, a key is required when every example manifest includes it and the document
 	   gives no default. That makes executor and defaults required, and also search_attributes.
-	4. defaults is keyed by activity type. The document names call and notify, but notify is not a
+	4. defaults is keyed by activity type. The document calls the key http_call in section 1.1 and
+	   api_call in section 1.9, so api_call is used, to match the name of the state. notify is not a
 	   state type, so it is accepted and not used until the executor team explains it.
 	5. workflow_id is a number or text, as the document says, because the two examples differ.
 */
@@ -54,7 +55,7 @@ export const manifestSchema = z.strictObject({
 	entry: processRefSchema,
 	executor: executorSchema,
 	defaults: z.strictObject({
-		call: activityDefaultsSchema.optional(),
+		api_call: activityDefaultsSchema.optional(),
 		notify: activityDefaultsSchema.optional()
 	}),
 	processes: z.array(processReferenceSchema).min(1, 'List at least one process')

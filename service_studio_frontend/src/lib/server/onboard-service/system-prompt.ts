@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
-import { undecidedRule, unconnectedCallDetails } from '$lib/schema/workflow/placeholders';
+import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import { processSchema } from '$lib/schema/workflow/process';
 import { firstVersion } from './build-workflow';
 
@@ -19,7 +19,7 @@ added afterwards, so leave them out.
 
 The states are an object. Each key is a short readable code in lower case with underscores, such as
 choose_address_method, and its value is the state. Do not use UUIDs. Make sure every code you
-refer to is one you also defined. The only state types to use are input, output, call, choice and
+refer to is one you also defined. The only state types to use are input, output, api_call, choice and
 end.
 
 Give every state a name, a short title in plain English for the person reading the journey, and a
@@ -37,8 +37,8 @@ An output tells the person something. Use the transcript channel and write the m
 output for information, and for a step the person does outside the service, such as phoning or
 posting something: tell them what to do and where to do it.
 
-A call is a call to an external system. If you were not given its real details, write it with
-exactly these placeholder details, ${JSON.stringify(unconnectedCallDetails)}, and say in the state's description that the
+An api_call is a call to an external system. If you were not given its real details, write it with
+exactly these placeholder details, ${JSON.stringify(unconnectedApiCallDetails)}, and say in the state's description that the
 real details need to be confirmed, rather than presenting a guess as real. Do not fabricate API
 endpoints that are not supported by what you were given.
 

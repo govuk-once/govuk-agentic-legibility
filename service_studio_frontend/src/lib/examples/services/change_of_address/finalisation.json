@@ -13,7 +13,7 @@
     },
     "states": {
         "set_deadline": {
-            "type": "assign",
+            "state_type": "assign",
             "set": {
                 "deadline": {
                     "op": "now_plus",
@@ -23,14 +23,14 @@
             "next": "wait"
         },
         "wait": {
-            "type": "wait",
+            "state_type": "wait",
             "duration": {
                 "$": "poll_interval"
             },
             "next": "poll"
         },
         "poll": {
-            "type": "call",
+            "state_type": "api_call",
             "method": "GET",
             "service": "dvla",
             "url": "/app/dvla/v1/jobs/{{input.job_id}}",
@@ -48,7 +48,7 @@
             "next": "branch_job"
         },
         "branch_job": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -70,7 +70,7 @@
             "default": "branch_deadline"
         },
         "branch_deadline": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -83,7 +83,7 @@
             "default": "wait"
         },
         "send_confirmation_email": {
-            "type": "output",
+            "state_type": "output",
             "channel": "email",
             "template": "coa_application_submitted",
             "params": {
@@ -98,20 +98,20 @@
             "next": "say_completion_summary"
         },
         "say_completion_summary": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your update has been processed successfully and a new driving licence has been dispatched.\nHere is the summary of completed actions:\n• Driver details confirmed for licence: {{input.driver_id}}\n• Photocard photo & signature updated\n• NHS Organ Donation preferences reviewed\n• New address set to: {{input.address.single_line}}, {{input.address.postcode}}\n\nA confirmation email has been sent to {{input.email}}.",
             "next": "wait_for_delivery"
         },
         "wait_for_delivery": {
-            "type": "wait",
+            "state_type": "wait",
             "duration": {
                 "$": "delivery_wait"
             },
             "next": "await_receipt"
         },
         "await_receipt": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "It has now been a week since your new driving licence was sent out to {{input.address.single_line}}, {{input.address.postcode}}.\nCan you please confirm you have received your new photocard driving licence in the post?",
             "schema": {
                 "kind": "boolean"
@@ -126,7 +126,7 @@
             "next": "branch_receipt"
         },
         "branch_receipt": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -139,47 +139,47 @@
             "default": "say_not_received"
         },
         "suggest_v5c_update": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Thank you for confirming! If you own a vehicle, please remember to update the address on your V5C logbook online via GOV.UK.",
             "next": "end_ok"
         },
         "say_timeout": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your update is taking longer than expected. We've logged this case for manual review.",
             "next": "end_rejected"
         },
         "say_not_received": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Sorry to hear that. We've opened a tracking case with Royal Mail.",
             "next": "end_exception"
         },
         "say_no_response": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "We haven't heard from you about your new licence. We've logged this case for follow-up.",
             "next": "end_exception"
         },
         "say_job_rejected": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your address update was rejected. Please contact DVLA customer support.",
             "next": "end_rejected"
         },
         "end_ok": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "delivery_confirmed"
         },
         "end_exception": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "delivery_exception"
         },
         "end_rejected": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "delivery_rejected"
         }

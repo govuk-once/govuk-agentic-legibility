@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { workflowExamples } from '$lib/examples/workflows';
-import { placeholderCallDefaults, placeholderRunTimeout } from '$lib/schema/workflow/placeholders';
+import { serviceExamples } from '$lib/examples/services';
+import { placeholderApiCallDefaults, placeholderRunTimeout } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
 import { buildWorkflow, slugOf, withFailureRoutes } from '../build-workflow';
@@ -16,9 +16,9 @@ const generated = (states: Record<string, unknown> = {}) =>
 		start: 'ask',
 		vars: {},
 		states: {
-			ask: { type: 'input', prompt: 'Postcode?', schema: { kind: 'string' }, assign: 'postcode', next: 'look_up' },
-			look_up: { type: 'call', method: 'GET', service: 'unconnected_service', url: '/unconnected', next: 'finish' },
-			finish: { type: 'end', status: 'success' },
+			ask: { state_type: 'input', prompt: 'Postcode?', schema: { kind: 'string' }, assign: 'postcode', next: 'look_up' },
+			look_up: { state_type: 'api_call', method: 'GET', service: 'unconnected_service', url: '/unconnected', next: 'finish' },
+			finish: { state_type: 'end', status: 'success' },
 			...states
 		}
 	}) as unknown as Process;
@@ -37,16 +37,16 @@ describe('slugOf', () => {
 
 describe('withFailureRoutes', () => {
 	it('adds one failed end and sends every call without an error route to it', () => {
-		const process = generated({ send: { type: 'call', method: 'POST', service: 's', url: '/u', next: 'finish' } });
+		const process = generated({ send: { state_type: 'api_call', method: 'POST', service: 's', url: '/u', next: 'finish' } });
 		const result = withFailureRoutes(process);
 
-		expect(result.states.end_failed).toMatchObject({ type: 'end', status: 'failed' });
+		expect(result.states.end_failed).toMatchObject({ state_type: 'end', status: 'failed' });
 		expect(result.states.look_up).toMatchObject({ catch: [{ on: 'any', next: 'end_failed' }] });
 		expect(result.states.send).toMatchObject({ catch: [{ on: 'any', next: 'end_failed' }] });
 	});
 
 	it('leaves a call that already says where its errors go', () => {
-		const own = { type: 'call', method: 'GET', service: 's', url: '/u', next: 'finish', catch: [{ on: 'api_failure', next: 'finish' }] };
+		const own = { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'finish', catch: [{ on: 'api_failure', next: 'finish' }] };
 		const result = withFailureRoutes(generated({ look_up: own }));
 		expect(result.states.look_up).toEqual(own);
 		expect(result.states.end_failed).toBeUndefined();
@@ -60,7 +60,7 @@ describe('withFailureRoutes', () => {
 	});
 
 	it('gives the end a name that no state already has', () => {
-		const result = withFailureRoutes(generated({ end_failed: { type: 'end', status: 'cancelled' } }));
+		const result = withFailureRoutes(generated({ end_failed: { state_type: 'end', status: 'cancelled' } }));
 		expect(result.states.end_failed).toMatchObject({ status: 'cancelled' });
 		expect(result.states.end_failed_2).toMatchObject({ status: 'failed' });
 		expect(result.states.look_up).toMatchObject({ catch: [{ next: 'end_failed_2' }] });
@@ -94,9 +94,9 @@ describe('buildWorkflow', () => {
 	});
 
 	it('uses the same run limit and call defaults as the real example services', () => {
-		const example = workflowExamples.find((candidate) => candidate.slug === 'change_of_address')?.workflow;
+		const example = serviceExamples.find((candidate) => candidate.slug === 'change_of_address')?.workflow;
 		const { manifest } = buildWorkflow(generated(), details);
-		expect(manifest.defaults).toEqual({ call: placeholderCallDefaults });
+		expect(manifest.defaults).toEqual({ api_call: placeholderApiCallDefaults });
 		expect(manifest.defaults).toEqual(example?.manifest.defaults);
 		expect(manifest.executor.run_timeout).toBe(placeholderRunTimeout);
 		expect(manifest.executor.run_timeout).toBe(example?.manifest.executor.run_timeout);

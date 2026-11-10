@@ -1,6 +1,6 @@
 import { uniqueStateCode } from '$lib/schema/workflow/edit-process';
 import {
-	placeholderCallDefaults,
+	placeholderApiCallDefaults,
 	placeholderExecutor,
 	placeholderFailedEnd,
 	placeholderNamespace,
@@ -45,7 +45,7 @@ export function slugOf(name: string): string {
  * route is added here and not by the model, because where an error should lead depends on the real service.
  */
 export function withFailureRoutes(process: Process): Process {
-	const needsRoute = (state: Process['states'][string]) => state.type === 'call' && !state.catch?.length;
+	const needsRoute = (state: Process['states'][string]) => state.state_type === 'api_call' && !state.catch?.length;
 	if (!Object.values(process.states).some(needsRoute)) return process;
 
 	// The end is named after the states that are already there, so it cannot replace one of them.
@@ -53,7 +53,7 @@ export function withFailureRoutes(process: Process): Process {
 	const states = Object.fromEntries(
 		Object.entries(process.states).map(([code, state]) => [
 			code,
-			state.type === 'call' && needsRoute(state) ? { ...state, catch: [{ on: 'any', next: endCode }] } : state
+			state.state_type === 'api_call' && needsRoute(state) ? { ...state, catch: [{ on: 'any', next: endCode }] } : state
 		])
 	);
 
@@ -90,7 +90,7 @@ export function buildWorkflow(generated: Process, details: ServiceDetails): Work
 			state: 'draft',
 			entry: slug,
 			executor: placeholderExecutor(slug),
-			defaults: { call: placeholderCallDefaults },
+			defaults: { api_call: placeholderApiCallDefaults },
 			processes: [{ process_id: slug, version: firstVersion }]
 		},
 		processes: { [slug]: process }

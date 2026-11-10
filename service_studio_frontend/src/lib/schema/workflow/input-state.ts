@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { stateCommonFields } from './states';
+import { baseStateFields } from './states';
 import { durationOrRefSchema, stateRefSchema, variablePathSchema } from './primitives';
 
 /*
@@ -96,8 +96,8 @@ export const inputTimeoutSchema = z.strictObject({
 
 // Asks one question and stores the answer in a variable before moving on.
 export const inputStateSchema = z.strictObject({
-	type: z.literal('input'),
-	...stateCommonFields,
+	state_type: z.literal('input'),
+	...baseStateFields,
 	prompt: z.string().min(1),
 	schema: answerDefinitionSchema,
 	assign: variablePathSchema,

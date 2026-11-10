@@ -14,7 +14,7 @@ describe('invokeStateSchema with the real examples', () => {
 });
 
 describe('invokeStateSchema', () => {
-	const invoke = { type: 'invoke', process: 'driver_details', next: 'update_address' };
+	const invoke = { state_type: 'invoke', process: 'driver_details', next: 'update_address' };
 
 	it('accepts an invoke with only a process and a next state', () => {
 		expect(invokeStateSchema.safeParse(invoke).success).toBe(true);

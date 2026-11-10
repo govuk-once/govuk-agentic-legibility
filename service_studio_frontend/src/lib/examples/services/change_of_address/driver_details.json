@@ -16,7 +16,7 @@
     },
     "states": {
         "get_driver_details": {
-            "type": "call",
+            "state_type": "api_call",
             "method": "GET",
             "service": "dvla",
             "url": "/app/dvla/v1/driver-summary",
@@ -38,7 +38,7 @@
             "next": "confirm_driver_details"
         },
         "confirm_driver_details": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Are these driver details correct?\nName: {{driver.first_name}} {{driver.last_name}}\nLicence Number: {{driver.driver_id}}\nDOB: {{driver.date_of_birth}}\nEmail: {{driver.email}}",
             "schema": {
                 "kind": "boolean"
@@ -47,7 +47,7 @@
             "next": "branch_driver_details"
         },
         "branch_driver_details": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -60,7 +60,7 @@
             "default": "prompt_manual_first_name"
         },
         "prompt_manual_first_name": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please enter your correct First Name:",
             "schema": {
                 "kind": "string",
@@ -70,7 +70,7 @@
             "next": "prompt_manual_last_name"
         },
         "prompt_manual_last_name": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please enter your correct Last Name:",
             "schema": {
                 "kind": "string",
@@ -80,7 +80,7 @@
             "next": "prompt_manual_dob"
         },
         "prompt_manual_dob": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please enter your Date of Birth (DD/MM/YYYY):",
             "schema": {
                 "kind": "string",
@@ -90,7 +90,7 @@
             "next": "prompt_manual_email"
         },
         "prompt_manual_email": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please enter your Email Address:",
             "schema": {
                 "kind": "string",
@@ -102,7 +102,7 @@
             "next": "prompt_manual_licence_no"
         },
         "prompt_manual_licence_no": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please enter your Driving Licence Number:",
             "schema": {
                 "kind": "string",
@@ -112,7 +112,7 @@
             "next": "confirm_manual_summary"
         },
         "confirm_manual_summary": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please confirm your updated details are correct:\nName: {{manual_first_name}} {{manual_last_name}}\nDOB: {{manual_dob}}\nEmail: {{manual_email}}\nLicence Number: {{manual_licence_no}}",
             "schema": {
                 "kind": "boolean"
@@ -121,7 +121,7 @@
             "next": "branch_manual_summary"
         },
         "branch_manual_summary": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -134,7 +134,7 @@
             "default": "prompt_manual_first_name"
         },
         "end_success": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "details_confirmed",
             "return": {
@@ -147,7 +147,7 @@
             }
         },
         "end_manual_updated": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "details_manually_updated",
             "return": {
@@ -160,7 +160,7 @@
             }
         },
         "end_api_failure": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "api_failure"
         }

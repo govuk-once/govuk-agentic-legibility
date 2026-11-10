@@ -4,10 +4,10 @@
 	import ProcessWorkspace from '$lib/service-editor/components/ProcessWorkspace.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
-	import { noDrafts, type DraftSet } from '$lib/service-editor/graph/drafts';
-	import type { NodePositions } from '$lib/service-editor/graph/process-graph-types';
+	import { noDrafts, type DraftSet } from '$lib/process-graph/drafts';
+	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
-	import { processToGraph, stepCount, visibleGraph } from '$lib/service-editor/graph/process-to-graph';
+	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { tidyCode } from '$lib/graph-kit/tidy-code';
 	import type { Workflow } from '$lib/schema/workflow/workflow';
 
@@ -58,7 +58,7 @@
 
 	// The number of steps is the number of numbered boxes shown, so it matches the numbers on the graph and
 	// the list.
-	const steps = $derived(stepCount(visibleGraph(processToGraph(selectedProcess), showErrorRoutes)));
+	const steps = $derived(stepCount(visibleGraph(processToGraph(selectedProcess), { showErrorRoutes })));
 </script>
 
 <svelte:head>

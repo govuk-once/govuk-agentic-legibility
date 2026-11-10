@@ -16,7 +16,7 @@
     "search_attributes": {}
   },
   "defaults": {
-    "call": {
+    "api_call": {
       "timeouts": {
         "start_to_close": "PT15S"
       },

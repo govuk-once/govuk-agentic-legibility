@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
-import { undecidedRule, unconnectedCallDetails } from '$lib/schema/workflow/placeholders';
+import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import { parseProcess } from '$lib/schema/workflow/validate';
 import { firstVersion } from '../build-workflow';
 import { SERVICE_SYSTEM_PROMPT } from '../system-prompt';
@@ -18,13 +18,13 @@ describe('SERVICE_SYSTEM_PROMPT', () => {
 
 	it('names the placeholder values from the shared constants, so the model writes what the app recognises', () => {
 		expect(instructions).toContain(JSON.stringify(undecidedRule));
-		expect(instructions).toContain(JSON.stringify(unconnectedCallDetails));
+		expect(instructions).toContain(JSON.stringify(unconnectedApiCallDetails));
 		expect(instructions).toContain(`"${descriptionKey}"`);
 		expect(instructions).toContain(`"${firstVersion}"`);
 	});
 
 	it('asks for the states this route uses and no others', () => {
-		expect(instructions).toContain('input, output, call, choice and\nend');
+		expect(instructions).toContain('input, output, api_call, choice and\nend');
 		for (const unused of ['invoke', 'wait', 'assign state']) expect(instructions).not.toContain(unused);
 	});
 
@@ -46,10 +46,10 @@ describe('SERVICE_SYSTEM_PROMPT', () => {
 			start: 'ask',
 			vars: {},
 			states: {
-				ask: { type: 'input', name: 'Ask', prompt: 'Yes or no?', schema: { kind: 'boolean' }, assign: 'answer', next: 'decide' },
-				decide: { type: 'choice', rules: [{ when: { ...undecidedRule }, next: 'look_up' }], default: 'finish' },
-				look_up: { type: 'call', ...unconnectedCallDetails, next: 'finish' },
-				finish: { type: 'end', status: 'success' }
+				ask: { state_type: 'input', name: 'Ask', prompt: 'Yes or no?', schema: { kind: 'boolean' }, assign: 'answer', next: 'decide' },
+				decide: { state_type: 'choice', rules: [{ when: { ...undecidedRule }, next: 'look_up' }], default: 'finish' },
+				look_up: { state_type: 'api_call', ...unconnectedApiCallDetails, next: 'finish' },
+				finish: { state_type: 'end', status: 'success' }
 			}
 		};
 		const result = parseProcess(process);

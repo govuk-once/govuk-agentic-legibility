@@ -7,11 +7,12 @@ import type { Route } from '$lib/schema/workflow/routes';
 import type { CompletionStatus } from '$lib/schema/workflow/states';
 
 // A box for any state that is neither a decision nor an end. The state type is the schema's own name
-// for it, such as input or call, so a label for the person can be chosen later without changing this.
+// for it, such as input or api_call, so a label for the person can be chosen later without changing this.
 export type ProcessStepNodeData = StepNodeData & {
 	stateId: string;
-	stepNumber: number;
-	stateType: State['type'];
+	stateType: State['state_type'];
+	// Set on a box for a developer state. It takes no step number, and an editor can hide it from the graph.
+	developer?: boolean;
 };
 
 // The diamond for a choice state. Its title is only for a screen reader, the routes are on the edges.
