@@ -101,6 +101,12 @@ describe('buildWorkflow', () => {
 		expect(processes[manifest.entry].source).toEqual(['https://a.gov.uk/x']);
 	});
 
+	it('leaves out a link to a site that is not on the list of sites the assistant can read', () => {
+		const links = ['https://www.gov.uk/a', 'https://example.com/page', 'https://gov.uk.example.com/b'];
+		const { manifest, processes } = buildWorkflow(generated(), { ...details, links });
+		expect(processes[manifest.entry].source).toEqual(['https://www.gov.uk/a']);
+	});
+
 	it('leaves out a link that does not use http or https, such as an email link or a file', () => {
 		const links = ['http://b.gov.uk/y', 'mailto:team@example.gov.uk', 'file:///etc/passwd'];
 		const { manifest, processes } = buildWorkflow(generated(), { ...details, links });

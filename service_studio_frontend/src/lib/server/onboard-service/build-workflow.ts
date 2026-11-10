@@ -8,7 +8,8 @@ import {
 } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
 import { currentSchemaVersion, type Workflow } from '$lib/schema/workflow/workflow';
-import { firstVersion, isWebAddress, slugOf, type OnboardDetails } from '../shared/onboard-details';
+import { isAllowedLink } from '../shared/allowed-link-domains';
+import { firstVersion, slugOf, type OnboardDetails } from '../shared/onboard-details';
 
 /*
 	Wraps the process that the model generated into a whole workflow that the editor can open. The model is only
@@ -42,16 +43,18 @@ export function withFailureRoutes(process: Process): Process {
 
 /**
  * Wraps a generated process into a workflow with a manifest. The process is given the id and version that the
- * manifest lists, the links the person gave become its sources, and every call gets the placeholder error route.
+ * manifest lists, the links the person gave that are on the list of readable sites become its sources, and every
+ * call gets the placeholder error route.
  * The manifest holds the placeholders for the owner, the executor settings and the call defaults. The process
  * that is given in is never changed.
  */
 export function buildWorkflow(generated: Process, details: OnboardDetails): Workflow {
 	const slug = slugOf(details.name);
-	const links = details.links.filter(isWebAddress);
+	const links = details.links.filter((link) => isAllowedLink(link));
 
-	// The process takes its id from the name of the service, and the links the person gave are its sources. When no
-	// usable link was given, whatever sources the process already had are kept.
+	// The process takes its id from the name of the service, and the links the person gave are its sources. Only a link
+	// on the list of sites the assistant may read is kept, because a page that was not read did not inform the draft.
+	// When no usable link was given, whatever sources the process already had are kept.
 	const process = withFailureRoutes({
 		...generated,
 		process_id: slug,
