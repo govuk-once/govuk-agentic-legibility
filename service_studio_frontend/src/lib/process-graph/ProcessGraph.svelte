@@ -20,6 +20,9 @@
 		// On by default, so every developer step the graph was built with is drawn. Off hides them, and the line before
 		// each one carries on to the state after it. The graph is arranged again when this changes.
 		showDeveloperSteps?: boolean;
+		// Off by default. On, the graph can be looked at, moved about and clicked, but no line can be drawn, no shape
+		// dropped and nothing deleted, and the connection points are hidden.
+		readOnly?: boolean;
 		// Where the person has dragged boxes to. A box that is not listed stays where the layout put it.
 		positions?: NodePositions;
 		// Called with the new position of every box that was just dragged, when the drag ends.
@@ -50,6 +53,7 @@
 		selectedStateId = $bindable(null),
 		showErrorRoutes = false,
 		showDeveloperSteps = true,
+		readOnly = false,
 		positions = {},
 		onMoveNodes,
 		onOpenProcess,
@@ -231,7 +235,7 @@
 	}
 </script>
 
-<section class="process-graph" aria-label="Process graph">
+<section class="process-graph" class:process-graph--read-only={readOnly} aria-label="Process graph">
 	<SvelteFlow
 		{nodes}
 		{edges}
@@ -244,7 +248,7 @@
 		{proOptions}
 		nodesDraggable
 		onnodedragstop={({ nodes: dragged }) => onMoveNodes?.(Object.fromEntries(dragged.map((node) => [node.id, node.position])))}
-		nodesConnectable
+		nodesConnectable={!readOnly}
 		{isValidConnection}
 		onconnect={({ source, target }) => {
 			const from = endpointOf(source);
@@ -261,9 +265,9 @@
 			if (from) onCreateConnectedStep?.(from, connectionState.to);
 		}}
 		onbeforedelete={handleBeforeDelete}
-		deleteKey={['Delete', 'Backspace']}
-		ondragover={handleDragOver}
-		ondrop={handleDrop}
+		deleteKey={readOnly ? null : ['Delete', 'Backspace']}
+		ondragover={readOnly ? undefined : handleDragOver}
+		ondrop={readOnly ? undefined : handleDrop}
 		onnodeclick={({ node }) => {
 			// A box that runs another process opens it. Any other state is highlighted.
 			const opens = node.data.opensProcess as { id: string } | undefined;
@@ -315,6 +319,11 @@
 	.process-graph :global(.svelte-flow__handle:hover) {
 		width: 28px;
 		height: 28px;
+	}
+
+	/* A graph that cannot be edited has no use for the connection points, so they are not drawn. */
+	.process-graph--read-only :global(.svelte-flow__handle) {
+		visibility: hidden;
 	}
 
 	.process-graph :global(.journey-node-handle-hint) {

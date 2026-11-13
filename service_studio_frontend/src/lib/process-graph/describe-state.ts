@@ -1,6 +1,6 @@
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { routesOf, type Route } from '$lib/schema/workflow/routes';
-import { describeCondition, describeDuration, describeExpression } from '$lib/process-graph/describe-value';
+import { describeCondition, describeDuration, describeExpression } from './describe-value';
 import { tidyCode } from '$lib/graph-kit/tidy-code';
 
 /**

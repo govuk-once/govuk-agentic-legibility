@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { StateRow } from '$lib/process-graph/state-rows';
+	import type { StateRow } from './state-rows';
 
 	interface Props {
 		rows: StateRow[];
@@ -8,7 +8,6 @@
 	}
 
 	let { rows, selectedStateId = $bindable(null) }: Props = $props();
-
 </script>
 
 <div class="state-list__header">
@@ -90,5 +89,4 @@
 		flex-shrink: 0;
 		min-width: 25px;
 	}
-
 </style>

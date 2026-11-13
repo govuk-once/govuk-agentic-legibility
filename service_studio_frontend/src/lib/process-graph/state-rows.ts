@@ -1,13 +1,15 @@
+import type { State } from '$lib/schema/workflow/process';
 import type { ProcessNode } from './process-graph-types';
 
 /**
- * One line of the list of steps beside the graph. It carries only what the line shows, the number and
- * the title, which are the same as the numbered box on the graph.
+ * One line of the list of steps beside the graph. It carries the number and the title, which are the same as
+ * the numbered box on the graph, and the kind of state, so an editor can choose to show a tag for it.
  */
 export type StateRow = {
 	stateId: string;
 	title: string;
 	number: number;
+	stateType: State['state_type'];
 };
 
 /**
@@ -20,7 +22,7 @@ export type StateRow = {
 export function stateRows(nodes: ProcessNode[]): StateRow[] {
 	return nodes.flatMap((node): StateRow[] =>
 		node.type === 'step' && node.data.stepNumber !== undefined
-			? [{ stateId: node.data.stateId, title: node.data.title, number: node.data.stepNumber }]
+			? [{ stateId: node.data.stateId, title: node.data.title, number: node.data.stepNumber, stateType: node.data.stateType }]
 			: []
 	);
 }

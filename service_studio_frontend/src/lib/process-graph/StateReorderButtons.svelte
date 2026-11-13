@@ -1,0 +1,83 @@
+<script lang="ts">
+	interface Props {
+		label: string;
+		canMoveUp: boolean;
+		canMoveDown: boolean;
+		onMoveUp: () => void;
+		onMoveDown: () => void;
+		// Overrides the generated "Reorder/Move {label} up/down" wording. The step editor reuses this same
+		// arrow pair to move between steps rather than to reorder one, so its aria-labels need to say that
+		// instead, not just have a different {label} substituted into wording that no longer applies.
+		groupLabel?: string;
+		upLabel?: string;
+		downLabel?: string;
+	}
+
+	let {
+		label,
+		canMoveUp,
+		canMoveDown,
+		onMoveUp,
+		onMoveDown,
+		groupLabel,
+		upLabel,
+		downLabel
+	}: Props = $props();
+</script>
+
+<!-- Arrow buttons used rather than drag handles for consistent interaction  -->
+<div class="state-reorder" role="group" aria-label={groupLabel ?? `Reorder ${label}`}>
+	<button
+		type="button"
+		class="state-reorder__button"
+		disabled={!canMoveUp}
+		aria-label={upLabel ?? `Move ${label} up`}
+		onclick={onMoveUp}
+	>
+		<svg width="12" height="8" viewBox="0 0 12 8" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<path d="M1 6.5 L6 1.5 L11 6.5" fill="none" stroke="currentColor" stroke-width="2" />
+		</svg>
+	</button>
+	<button
+		type="button"
+		class="state-reorder__button"
+		disabled={!canMoveDown}
+		aria-label={downLabel ?? `Move ${label} down`}
+		onclick={onMoveDown}
+	>
+		<svg width="12" height="8" viewBox="0 0 12 8" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<path d="M1 1.5 L6 6.5 L11 1.5" fill="none" stroke="currentColor" stroke-width="2" />
+		</svg>
+	</button>
+</div>
+
+<style>
+	.state-reorder {
+		display: flex;
+		flex-direction: column;
+		flex-shrink: 0;
+		border: 1px solid #b1b4b6;
+	}
+
+	.state-reorder__button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 21px;
+		background: none;
+		border: 0;
+		padding: 0;
+		color: #0b0c0c;
+		cursor: pointer;
+	}
+
+	.state-reorder__button:first-child {
+		border-bottom: 1px solid #b1b4b6;
+	}
+
+	.state-reorder__button:disabled {
+		color: #b1b4b6;
+		cursor: not-allowed;
+	}
+</style>

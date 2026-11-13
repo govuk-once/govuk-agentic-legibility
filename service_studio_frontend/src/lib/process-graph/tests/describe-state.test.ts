@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
 import type { State } from '$lib/schema/workflow/process';
-import { describeState } from '../graph/describe-state';
+import { describeState } from '../describe-state';
 import { stateTitle } from '$lib/process-graph/process-to-graph';
 
 const state = (value: unknown) => value as State;

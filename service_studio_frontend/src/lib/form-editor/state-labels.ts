@@ -20,3 +20,16 @@ export const stateLabels: Record<State['state_type'], string> = {
 
 // The start dot is on the canvas but is not a state of the process, so it has a label of its own.
 export const startLabel = 'Start';
+
+// The GOV.UK tag colour for each kind of state, so a question, a message and a decision can be told apart at a glance.
+// The record is keyed by every kind of state, so adding a kind to the schema without a colour here fails to compile.
+export const stateTagColours: Record<State['state_type'], string> = {
+	input: 'blue',
+	output: 'purple',
+	choice: 'yellow',
+	assign: 'grey',
+	end: 'green',
+	wait: 'orange',
+	invoke: 'teal',
+	api_call: 'magenta'
+};

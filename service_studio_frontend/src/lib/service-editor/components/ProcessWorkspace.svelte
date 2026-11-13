@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
 	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
-	import { describeState } from '$lib/service-editor/graph/describe-state';
+	import { describeState } from '$lib/process-graph/describe-state';
 	import type { DraftSet } from '$lib/process-graph/drafts';
 	import { isErrorKind } from '$lib/schema/workflow/routes';
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
@@ -14,9 +14,9 @@
 	import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
+	import StateList from '$lib/process-graph/StateList.svelte';
 	import StateDetails from './StateDetails.svelte';
-	import StateList from './StateList.svelte';
-
+	
 	interface Props {
 		process: WorkingProcess;
 		showErrorRoutes: boolean;

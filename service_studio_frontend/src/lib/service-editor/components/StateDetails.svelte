@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { StateDescription } from '$lib/service-editor/graph/describe-state';
+	import type { StateDescription } from '$lib/process-graph/describe-state';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import StateFacts from '$lib/process-graph/StateFacts.svelte';
 	import StateEditor from './StateEditor.svelte';
 
 	interface Props {
@@ -61,11 +62,6 @@
 		editing,
 		onEditingChange
 	}: Props = $props();
-
-	// The facts that explain the state are shown at once, unless one only repeats the title, as the
-	// question of an input usually does. Everything else is behind the More detail fold.
-	const mainFacts = $derived(description.facts.filter((fact) => fact.main && fact.value !== title));
-	const moreFacts = $derived(description.facts.filter((fact) => !fact.main));
 </script>
 
 {#if editing}
@@ -96,80 +92,19 @@
 			</div>
 		</div>
 
-		{#if unreachable}
-			<div class="govuk-inset-text">Nothing leads to this step, so it can never run.</div>
-		{/if}
-
-		{#if mainFacts.length > 0}
-			<dl class="state-details__facts">
-				{#each mainFacts as fact, index (index)}
-					<div>
-						<dt class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{fact.label}</dt>
-						<dd class="govuk-body govuk-!-margin-bottom-2 state-details__value">{fact.value}</dd>
-					</div>
-				{/each}
-			</dl>
-		{/if}
-
-		{#if description.opensProcess}
-			<button
-				type="button"
-				class="govuk-button govuk-button--secondary"
-				onclick={() => description.opensProcess && onOpenProcess(description.opensProcess.id)}
-			>
-				Open {description.opensProcess.title}
-			</button>
-		{/if}
-
-		{#if description.routes.length > 0}
-			<h3 class="govuk-heading-s govuk-!-margin-bottom-2">Where it goes next</h3>
-			<ul class="govuk-list">
-				{#each description.routes as route, index (index)}
-					<li>
-						<span class="state-details__route-label">{route.label}</span>
-						<button type="button" class="govuk-link state-details__link" onclick={() => onSelectState(route.targetId)}>
-							{route.targetTitle}
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		{#if canMoveUp || canMoveDown}
-			<!-- Moving a step swaps it with its neighbour in the journey, so its number changes with it. -->
-			<div class="govuk-button-group">
-				{#if canMoveUp}
-					<button type="button" class="govuk-button govuk-button--secondary" onclick={() => onMove('up')}>Move up</button>
-				{/if}
-				{#if canMoveDown}
-					<button type="button" class="govuk-button govuk-button--secondary" onclick={() => onMove('down')}>Move down</button>
-				{/if}
-			</div>
-		{/if}
-
-		<details class="govuk-details">
-			<summary class="govuk-details__summary">
-				<span class="govuk-details__summary-text">More detail</span>
-			</summary>
-			<div class="govuk-details__text">
-				<dl class="state-details__facts">
-					<div>
-						<dt class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Type</dt>
-						<dd class="govuk-body govuk-!-margin-bottom-2">{description.stateType}</dd>
-					</div>
-					<div>
-						<dt class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Code</dt>
-						<dd class="govuk-body govuk-!-margin-bottom-2">{description.code}</dd>
-					</div>
-					{#each moreFacts as fact, index (index)}
-						<div>
-							<dt class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{fact.label}</dt>
-							<dd class="govuk-body govuk-!-margin-bottom-2 state-details__value">{fact.value}</dd>
-						</div>
-					{/each}
-				</dl>
-			</div>
-		</details>
+		<StateFacts {title} {description} {unreachable} {onSelectState} {onOpenProcess}>
+			{#if canMoveUp || canMoveDown}
+				<!-- Moving a step swaps it with its neighbour in the journey, so its number changes with it. -->
+				<div class="govuk-button-group">
+					{#if canMoveUp}
+						<button type="button" class="govuk-button govuk-button--secondary" onclick={() => onMove('up')}>Move up</button>
+					{/if}
+					{#if canMoveDown}
+						<button type="button" class="govuk-button govuk-button--secondary" onclick={() => onMove('down')}>Move down</button>
+					{/if}
+				</div>
+			{/if}
+		</StateFacts>
 	</div>
 {/if}
 
@@ -195,22 +130,6 @@
 		gap: 15px;
 	}
 
-	.state-details__facts {
-		margin: 0 0 15px;
-	}
-
-	/* A long value, such as a message, wraps inside the panel and keeps the line breaks it was written with. */
-	.state-details__value {
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-	}
-
-	.state-details__route-label {
-		display: block;
-		color: #505a5f;
-	}
-
-	/* The remove link sits on the line after the route it removes, with a little space from the name of the step. */
 	/* A button that looks like a link. It is a button because it acts on the page and does not go to a new one. */
 	.state-details__link {
 		padding: 0;
