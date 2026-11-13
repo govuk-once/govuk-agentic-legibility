@@ -1,0 +1,161 @@
+{
+  "process_id": "accept_a_shortterm_medical_licence_d202",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {}
+  },
+  "states": {
+    "declaration": {
+      "type": "output",
+      "name": "Declaration",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "By submitting this form, you confirm that:\n\n* you agree to be issued with a short-term medical licence\n\n* you will send your previous licence to DVLA, unless you no longer have it",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "type": "input",
+      "name": "Accept Declaration",
+      "metadata": {},
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "type": "choice",
+      "name": "Declaration Decision",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "type": "input",
+      "name": "Tell us your case number",
+      "metadata": {
+        "forms_step_id": "pZjzzMAb",
+        "position": 1,
+        "page_heading": "Case number",
+        "guidance_markdown": "Your case number will be the 9-digit number on the letter we sent you.",
+        "answer_type": "number",
+        "hint_text": "This number will appear at the top of the letter that we sent you - above the QR code",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Tell us your case number",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_2"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "What's your name",
+      "metadata": {
+        "forms_step_id": "1kTppypm",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": "Please enter your name as shown on your driving licence.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "first_and_last_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What's your name?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "What's your address",
+      "metadata": {
+        "forms_step_id": "mXDXdC39",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What's your address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_3",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "You've accepted a short-term medical driving licence. You'll receive your new licence within 2 weeks.\r\n\r\nIf you still hold your previous licence, you must return it to us by post to  DVLA, Swansea, SA991DF\r\n\r\nIf you no longer have your previous licence, you do not need to do anything.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

@@ -1,0 +1,589 @@
+{
+  "process_id": "application_for_a_thames_estuary_and_blackwater_herring_licence",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {}
+  },
+  "states": {
+    "declaration": {
+      "type": "output",
+      "name": "Declaration",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "I, the applicant, confirm that the information that is contained in this application is true and correct to the best of my knowledge and belief and that I have made appropriate enquiries to ensure the accuracy of the information that I have submitted. For the avoidance of doubt, I further confirm:\n\n1) That I understand that if, in completing this form, I provide information that I know or suspect to be false then I will be committing a criminal offence for which I may be liable for criminal prosecution. 2) I have permission from all vessel owners to apply for a Thames and Blackwater Herring licence for the vessel named in this application. 3) The vessel named in this application, is registered to the vessel owners under the Merchant Shipping Act 1995. 4) Vessel owners commit to complying with all conditions attached to the licence. 5) All vessel owners understand that if any of the details provided in this application change, any licence issued will be invalid. 6) That I understand that in accordance with the requirements of the Thames Estuary and Blackwater Herring Licence, a landing declaration must be submitted within 48 hours of landing.",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "type": "input",
+      "name": "Accept Declaration",
+      "metadata": {},
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "type": "choice",
+      "name": "Declaration Decision",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "type": "input",
+      "name": "Are you applying for a Thames Estuary & Blackwater Herring licence",
+      "metadata": {
+        "forms_step_id": "aaRkcrXf",
+        "position": 1,
+        "page_heading": "Introduction",
+        "guidance_markdown": "Thames Estuary and Blackwater Herring is the herring stock in the maritime region of the Thames estuary. \r\n\r\nThis quota may only be used by vessels participating in the fishery to allow fisheries based data collection for this stock as assessed by the Centre for Environment Fisheries and Aquaculture Science (CEFAS).\r\n\r\nThis fishery may only be fished from 1 September to 31 January, or until the total allowable catch (TAC) is caught.\r\n\r\nThis fishery is not covered by catch recording and so a landing declaration must be submitted within 48 hours. Blank landing declarations can be found here [TEBWH_Landing_Declaration_Form_.pdf](https://assets.publishing.service.gov.uk/media/689c64c19a65499b446361a0/TEBWH_Landing_Declaration_Form_.pdf)",
+        "answer_type": "selection",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are you applying for a Thames Estuary & Blackwater Herring licence?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_1_routing"
+    },
+    "step_1_routing": {
+      "type": "choice",
+      "name": "Route from step_1",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_1"
+          },
+          "next": "step_1_exit_1"
+        }
+      ],
+      "default": "step_2"
+    },
+    "step_1_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "You do not wish to apply for a Thames Estuary & Blackwater Herring licence\n\nVisit [Get a domestic fishing vessel licence: over 10 metres - GOV.UK](https://www.gov.uk/guidance/get-a-fishing-vessel-licence-vessels-over-10-metres) for more information on domestic fishing vessel licensing for over 10m vessels, or [Get a domestic fishing vessel licence: 10 metres or under - GOV.UK](https://www.gov.uk/guidance/get-a-fishing-vessel-licence-vessels-10-metres-or-under) for 10m & under vessels.",
+      "on_error": "fail",
+      "next": "step_1_exit_1_end"
+    },
+    "step_1_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "Do you hold a UK domestic fishing vessel licence",
+      "metadata": {
+        "forms_step_id": "4MQjJMHx",
+        "position": 2,
+        "page_heading": "",
+        "guidance_markdown": "",
+        "answer_type": "selection",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you hold a UK domestic fishing vessel licence?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_2_routing"
+    },
+    "step_2_routing": {
+      "type": "choice",
+      "name": "Route from step_2",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_2"
+          },
+          "next": "step_2_exit_1"
+        }
+      ],
+      "default": "step_3"
+    },
+    "step_2_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "You may not apply for a Thames and Blackwater Herring licence\n\nYou may only apply for a Thames and Blackwater Herring licence if you hold a UK domestic fishing vessel licence.",
+      "on_error": "fail",
+      "next": "step_2_exit_1_end"
+    },
+    "step_2_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "What is the fishing vessel licence number",
+      "metadata": {
+        "forms_step_id": "YokQzPze",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the fishing vessel licence number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_3",
+      "next": "step_4"
+    },
+    "step_4": {
+      "type": "input",
+      "name": "What is the name of the vessel",
+      "metadata": {
+        "forms_step_id": "wXZgziZ9",
+        "position": 4,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "This can be found on the vessel's certificate of registry.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the name of the vessel?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_4",
+      "next": "step_5"
+    },
+    "step_5": {
+      "type": "input",
+      "name": "What is the official registration number",
+      "metadata": {
+        "forms_step_id": "kyLErXpi",
+        "position": 5,
+        "page_heading": "",
+        "guidance_markdown": "",
+        "answer_type": "text",
+        "hint_text": "This can be found on the vessel's certificate of registry. It's shown as one letter, either A, B or C followed by 5 numbers. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the official registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_5",
+      "next": "step_6"
+    },
+    "step_6": {
+      "type": "input",
+      "name": "What is the port letter and number (PLN)",
+      "metadata": {
+        "forms_step_id": "ZomnmX4L",
+        "position": 6,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "This can be found on the vessel's certificate of registry under Port, Letter, Number. It will consist of letters and numbers. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the port letter and number (PLN)?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_6",
+      "next": "step_7"
+    },
+    "step_7": {
+      "type": "input",
+      "name": "What is your name",
+      "metadata": {
+        "forms_step_id": "9HqArkmU",
+        "position": 7,
+        "page_heading": "Applicant details",
+        "guidance_markdown": "We need to know who is completing this application in case we need to discuss the application with you.\r\n\r\n* if you are an authorised signatory or have power of attorney for the owner(s) we will ask you to upload proof. \r\n\r\n* if you are applying on behalf of a company, only a company director has the authority to apply. We will need your name to check you are shown as a director on Companies House",
+        "answer_type": "name",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is your name?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_7",
+      "next": "step_8"
+    },
+    "step_8": {
+      "type": "input",
+      "name": "What is your email address",
+      "metadata": {
+        "forms_step_id": "ifQczouS",
+        "position": 8,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your email address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_8",
+      "next": "step_9"
+    },
+    "step_9": {
+      "type": "input",
+      "name": "What is your mobile phone number",
+      "metadata": {
+        "forms_step_id": "3wxwcMdF",
+        "position": 9,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your mobile phone number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_9",
+      "next": "step_10"
+    },
+    "step_10": {
+      "type": "input",
+      "name": "What is your address",
+      "metadata": {
+        "forms_step_id": "ueq2RFQ5",
+        "position": 10,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_10",
+      "next": "step_11"
+    },
+    "step_11": {
+      "type": "input",
+      "name": "Are you applying on behalf of a registered company",
+      "metadata": {
+        "forms_step_id": "afY35LwS",
+        "position": 11,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are you applying on behalf of a registered company?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_11",
+      "next": "step_11_routing"
+    },
+    "step_11_routing": {
+      "type": "choice",
+      "name": "Route from step_11",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_11"
+          },
+          "next": "step_14"
+        }
+      ],
+      "default": "step_12"
+    },
+    "step_12": {
+      "type": "input",
+      "name": "What is the name of the registered company",
+      "metadata": {
+        "forms_step_id": "xXsGsYYw",
+        "position": 12,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the name of the registered company?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_12",
+      "next": "step_13"
+    },
+    "step_13": {
+      "type": "input",
+      "name": "What is your position in this company",
+      "metadata": {
+        "forms_step_id": "soqcdMdK",
+        "position": 13,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "Only registered directors have the authority to complete an application on behalf of a company.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your position in this company?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_13",
+      "next": "step_14"
+    },
+    "step_14": {
+      "type": "input",
+      "name": "Upload your proof of authorisation to act on behalf of the current holder",
+      "metadata": {
+        "forms_step_id": "uaLMuhkt",
+        "position": 14,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "file",
+        "hint_text": "",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "Upload your proof of authorisation to act on behalf of the current holder",
+      "schema": {
+        "kind": "file_ref",
+        "allow_skip": true
+      },
+      "assign": "answers.step_14",
+      "next": "step_15"
+    },
+    "step_15": {
+      "type": "input",
+      "name": "Upload a copy of your certificate of registry",
+      "metadata": {
+        "forms_step_id": "DGECZf6D",
+        "position": 15,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "file",
+        "hint_text": "This is so we can make sure vessel and owner details match those we hold on our system. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "Upload a copy of your certificate of registry",
+      "schema": {
+        "kind": "file_ref",
+        "allow_skip": false
+      },
+      "assign": "answers.step_15",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "We aim to process your Thames Estuary and Blackwater Herring licence application within five working days.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

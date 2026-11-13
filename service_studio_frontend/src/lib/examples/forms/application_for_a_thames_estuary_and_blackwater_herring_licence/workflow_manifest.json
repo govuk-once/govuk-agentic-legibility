@@ -1,0 +1,46 @@
+{
+  "workflow_id": 8519,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.8519",
+  "version": "0.1.0",
+  "contact": "lowestoft@marinemanagement.org.uk",
+  "description": "Application for a Thames Estuary and Blackwater Herring Licence",
+  "state": "draft",
+  "metadata": {
+    "form_id": "8519",
+    "form_slug": "application-for-a-thames-estuary-and-blackwater-herring-licence",
+    "status": "live",
+    "language": "en",
+    "available_languages": [],
+    "submission_type": "email",
+    "submission_format": [],
+    "support_url": null,
+    "support_email": "lowestoft@marinemanagement.org.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://assets.publishing.service.gov.uk/media/62ecf81bd3bf7f75bb0e44b0/REVISED_Privacy-Notices-MMO_.pdf",
+    "payment_url": null,
+    "live_at": "2025-08-14T11:00:43.207822Z",
+    "created_at": "2025-07-14T10:55:56.045917Z",
+    "updated_at": "2025-08-14T11:00:43.207822Z",
+    "first_made_live_at": "2025-08-14T00:00:00.000000Z",
+    "creator_id": 1896,
+    "copied_from_id": null,
+    "send_copy_of_answers": null,
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "application_for_a_thames_estuary_and_blackwater_herring_licence",
+  "executor": {
+    "workflow_id_template": "forms-8519-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "application_for_a_thames_estuary_and_blackwater_herring_licence",
+      "version": "0.1.0"
+    }
+  ]
+}

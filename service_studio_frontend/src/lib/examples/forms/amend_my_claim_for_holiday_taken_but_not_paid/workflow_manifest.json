@@ -1,0 +1,46 @@
+{
+  "workflow_id": 232,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.232",
+  "version": "0.1.0",
+  "contact": "redundancypaymentsonline@insolvency.gov.uk",
+  "description": "Amend my claim for holiday taken but not paid",
+  "state": "draft",
+  "metadata": {
+    "form_id": "232",
+    "form_slug": "amend-my-claim-for-holiday-taken-but-not-paid",
+    "status": "live",
+    "language": "en",
+    "available_languages": [],
+    "submission_type": "email",
+    "submission_format": [],
+    "support_url": null,
+    "support_email": "redundancypaymentsonline@insolvency.gov.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.gov.uk/government/organisations/insolvency-service/about/personal-information-charter",
+    "payment_url": null,
+    "live_at": "2025-02-21T11:40:17.961Z",
+    "created_at": "2023-05-05T10:07:31.964Z",
+    "updated_at": "2025-02-21T11:40:17.961Z",
+    "first_made_live_at": "2023-07-18T00:00:00.000000Z",
+    "creator_id": null,
+    "copied_from_id": null,
+    "send_copy_of_answers": null,
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "amend_my_claim_for_holiday_taken_but_not_paid",
+  "executor": {
+    "workflow_id_template": "forms-232-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "amend_my_claim_for_holiday_taken_but_not_paid",
+      "version": "0.1.0"
+    }
+  ]
+}

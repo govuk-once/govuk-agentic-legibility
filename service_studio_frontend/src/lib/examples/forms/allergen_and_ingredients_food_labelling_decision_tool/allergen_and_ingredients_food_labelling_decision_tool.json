@@ -1,0 +1,359 @@
+{
+  "process_id": "allergen_and_ingredients_food_labelling_decision_tool",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "step_1",
+  "vars": {
+    "answers": {}
+  },
+  "states": {
+    "step_1": {
+      "type": "input",
+      "name": "Does the consumer choose or order the food in person at the premises",
+      "metadata": {
+        "forms_step_id": "ZR8Ya11i",
+        "position": 1,
+        "page_heading": "Advice to food businesses providing non-prepacked food",
+        "guidance_markdown": "Our advice to food businesses providing non-prepacked food is that written allergen information, supported by a conversation, works best for consumers.\r\n\r\nWritten allergen information should be readily available, if possible, without consumers having to ask for it, such as on the main menu, allergen booklet on a counter or matrix displayed on a wall in a consumer accessible area.  \r\nOur [best practice guidance](https://www.food.gov.uk/business-guidance/food-allergen-labelling-and-information-requirements-technical-guidance-introduction) and [downloadable tools](https://www.food.gov.uk/business-guidance/download-your-allergen-icons-and-posters) will help you provide allergen information for non-prepacked foods to consumers effectively.",
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Does the consumer choose or order the food in person at the premises?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_1_routing"
+    },
+    "step_1_routing": {
+      "type": "choice",
+      "name": "Route from step_1",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_1"
+          },
+          "next": "step_1_exit_1"
+        }
+      ],
+      "default": "step_2"
+    },
+    "step_1_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "Distance Selling\n\nFood sold via distance communications is not affected by the changes to prepacked for direct sale labelling. \r\n\r\nThis sale or transaction is classed as [distance selling](https://www.food.gov.uk/business-guidance/selling-food-for-delivery), whether it is [prepacked for direct sale](https://www.food.gov.uk/business-guidance/introduction-to-allergen-labelling-changes-ppds) or another category of food. This can include food that is ordered online, by mail or by telephone, and then delivered to the consumer.\r\n\r\nFood sold in this way is already subject to allergen labelling requirements. Allergen information must be provided at two stages:\r\n\r\n* before the purchase of the food is completed - this can be in writing (on a website, catalogue or menu) or orally (by phone)\r\n* at the moment the food is delivered - this can be in writing (allergen stickers on food or an enclosed copy of a menu) or orally (by delivery driver).\r\n\r\nFood businesses selling prepacked foods through distance selling need to make the same level of information on allergens available to consumer as when the food is bought from a retail environment. For example, this could be included on your website or in your catalogue.\r\n\r\nFood businesses selling non-prepacked foods or prepacked for direct sale food through distance selling will need to provide allergen information but not a list of ingredients.\r\n\r\nWhatever the chosen method of presentation, you must always ensure that the allergen information is current and accurate.\r\n\r\nThe applicable rules for all food sold through distance means are contained within [Article 14 of the Food Information Regulations (Opens in a new window)](https://www.legislation.gov.uk/eur/2011/1169/article/14).\r\n\r\nWe have more information on specific allergen information requirements for distance selling in our [food allergen labelling and information requirements technical guidance](https://www.food.gov.uk/business-guidance/food-allergen-labelling-and-information-requirements-technical-guidance-summary).\r\n\r\nFood businesses can also use our [food safety for food delivery](https://www.food.gov.uk/business-guidance/food-safety-for-food-delivery) advice to avoid cross-contamination in delivery.",
+      "on_error": "fail",
+      "next": "step_1_exit_1_end"
+    },
+    "step_1_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "Is the food presented to the consumer in packaging",
+      "metadata": {
+        "forms_step_id": "62bdjgQr",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "The packaging should fully or partly enclose the food when presented to the final consumer.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the food presented to the consumer in packaging?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_2_routing"
+    },
+    "step_2_routing": {
+      "type": "choice",
+      "name": "Route from step_2",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_2"
+          },
+          "next": "step_2_exit_1"
+        }
+      ],
+      "default": "step_3"
+    },
+    "step_2_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "This is non-prepacked food\n\nThis includes but is not limited to food without any packaging, such as loose fruit and vegetables, bread that is sold without wrapping, and food packed on the sales premises at the consumer's request after being selected or ordered.\r\n\r\nIn a retail environment this is likely to apply to foods which are sold from a delicatessen counter. This includes cold meats, cheeses, quiches, pies and dips, salad bars, bread or pastries sold without wrapping.\r\n\r\nIn a catering environment this is likely to apply to foods which are not sold prepacked, for example food from a takeaway, or meals served in a canteen or a restaurant.\r\n\r\nAllergen information for non-prepacked food can be communicated through a variety of means to suit the format of the food business. You are required to provide information about the use of the [14 allergens](https://www.food.gov.uk/business-guidance/allergen-guidance-for-food-businesses) if they are present in a food. You are not required to provide a full ingredients list.\r\n\r\nWhere a food business chooses for this information to not be provided upfront in a written format, they must use clear signposting to direct the customer to where this information can be found such as asking members of staff. In such situations there must be a statement that can be found on food menus, chalkboards, food order tickets or food labels.\r\n\r\nWe have more detailed information on providing written allergen information, supported by a conversation, for non-prepacked food in our Allergen Information for [Non-Prepacked Foods Best Practice](https://www.food.gov.uk/business-guidance/allergen-information-for-non-prepacked-foods-best-practice-summary) and information is available on specific allergen labelling requirements for non-prepacked food in our [food allergen labelling and information requirements technical guidance](https://www.food.gov.uk/business-guidance/food-allergen-labelling-and-information-requirements-technical-guidance-summary).",
+      "on_error": "fail",
+      "next": "step_2_exit_1_end"
+    },
+    "step_2_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "Is the food packaged before the consumer selects or orders it",
+      "metadata": {
+        "forms_step_id": "RJCfJ76o",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the food packaged before the consumer selects or orders it?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_3",
+      "next": "step_3_routing"
+    },
+    "step_3_routing": {
+      "type": "choice",
+      "name": "Route from step_3",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_3"
+          },
+          "next": "step_3_exit_1"
+        }
+      ],
+      "default": "step_4"
+    },
+    "step_3_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "Non-prepacked food\n\nThis is non-prepacked food.\r\n\r\nThis includes but is not limited to food without any packaging, such as loose fruit and vegetables, bread that is sold without wrapping, and food packed on the sales premises at the consumer's request after being selected or ordered.\r\n\r\nIn a retail environment this is likely to apply to foods which are sold from a delicatessen counter. This includes cold meats, cheeses, quiches, pies and dips, salad bars, bread or pastries sold without wrapping.\r\n\r\nIn a catering environment this is likely to apply to foods which are not sold prepacked, for example food from a takeaway, or meals served in a canteen or a restaurant.\r\n\r\nAllergen information for non-prepacked food can be communicated through a variety of means to suit the format of the food business. You are required to provide information about the use of the [14 allergens](https://www.food.gov.uk/business-guidance/allergen-guidance-for-food-businesses) if they are present in a food. You are not required to provide a full ingredients list.\r\n\r\nWhere food businesses chooses for this information to not be provided upfront in a written format, the food business must use clear signposting to direct the customer to where this information can be found such as asking members of staff. In such situations there must be a statement that can be found on food menus, chalkboards, food order tickets or food labels.\r\n\r\nWe have more information on specific allergen labelling requirements for non-prepacked food in our [food allergen labelling and information requirements technical guidance](https://www.food.gov.uk/business-guidance/food-allergen-labelling-and-information-requirements-technical-guidance-summary).",
+      "on_error": "fail",
+      "next": "step_3_exit_1_end"
+    },
+    "step_3_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_4": {
+      "type": "input",
+      "name": "Is the food packaged at the same place it is sold",
+      "metadata": {
+        "forms_step_id": "EmhJArxp",
+        "position": 4,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the food packaged at the same place it is sold?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_4",
+      "next": "step_4_routing"
+    },
+    "step_4_routing": {
+      "type": "choice",
+      "name": "Route from step_4",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_4"
+          },
+          "next": "step_4_exit_1"
+        }
+      ],
+      "default": "step_5"
+    },
+    "step_4_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "Prepacked food\n\nThis is prepacked food.\r\n\r\nWe have more information on specific labelling requirements for prepacked food in our [food allergen labelling and information requirements technical guidance](https://www.food.gov.uk/business-guidance/food-allergen-labelling-and-information-requirements-technical-guidance-summary). This contains details of the [14 allergens](https://www.food.gov.uk/business-guidance/allergen-guidance-for-food-businesses) (mandatory particulars) required to be emphasised on packaging by food law, and guidance for the presentation of these. This includes format and font size requirements.\r\n\r\nSome foods do not require an ingredients list, such as alcoholic drinks with more than 1.2% by volume of alcohol. In this case the presence of any substances or products derived from the 14 allergens which is present, and not clear from the name of the food, needs to be indicated.\r\n\r\nLabelling for prepacked food which is not produced on site will usually be produced by the food manufacturer. If you require clarification of labelling on such prepacked products, talk to your supplier.\r\n\r\nFor more information, read our [allergen labelling guidance for food manufacturers](https://www.food.gov.uk/business-guidance/allergen-labelling-for-food-manufacturers).",
+      "on_error": "fail",
+      "next": "step_4_exit_1_end"
+    },
+    "step_4_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_5": {
+      "type": "input",
+      "name": "Was this page useful",
+      "metadata": {
+        "forms_step_id": "czJb3XSe",
+        "position": 5,
+        "page_heading": "Prepacked for direct sale",
+        "guidance_markdown": "This food is prepacked for direct sale. \r\n\r\nThis is food which is packaged at the same place it is offered to consumers and is in the packaging before it is ordered or selected. It can include sandwiches and salads packaged by the food business and provided from the same premises. It can also apply to fast food is wrapped or packaged before a customer selects them, or supermarket products which are produced and packaged in store.\r\n\r\nThis can be food that customers select themselves, as well as pre-wrapped products kept behind a counter. It can also include some food sold at mobile or temporary outlets. \r\n\r\n### Important\r\n\r\nFood labelling requirements for prepacked for direct sale food changed on 1 October 2021 in England, Wales and Northern Ireland.\r\n\r\nAll prepacked for direct sale food needs to have a label showing the name of the food and the ingredients list with the 14 allergens required to be declared by law emphasised within it.\r\n\r\nThese need to be in line with the legal requirements that apply to naming the food and listing ingredients.\r\n\r\nFood businesses must still ensure they comply with existing relevant food information and labelling requirements for the country they operate in. \r\n\r\nHere's our [information on the 14 allergens and how to refer to them](https://www.food.gov.uk/business-guidance/allergen-guidance-for-food-businesses) and more information on [what needs to be provided on the label for PPDS food](https://www.food.gov.uk/business-guidance/introduction-to-allergen-labelling-changes-ppds#what-needs-to-be-on-the-label).",
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Was this page useful?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_5",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "There is no need to submit this form, as it is a decision tool to assist you. \r\n\r\nOur [best practice guidance](https://www.food.gov.uk/business-guidance/food-allergen-labelling-and-information-requirements-technical-guidance-introduction) and [downloadable tools](https://www.food.gov.uk/business-guidance/download-your-allergen-icons-and-posters) will help you provide allergen information for non-prepacked foods to consumers effectively.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

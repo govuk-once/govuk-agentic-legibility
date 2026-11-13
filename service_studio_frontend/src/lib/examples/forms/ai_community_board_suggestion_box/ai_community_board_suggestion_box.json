@@ -1,0 +1,254 @@
+{
+  "process_id": "ai_community_board_suggestion_box",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {}
+  },
+  "states": {
+    "declaration": {
+      "type": "output",
+      "name": "Declaration",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "By submitting this form you’re confirming that, to the best of your knowledge, the answers you’re providing are correct.",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "type": "input",
+      "name": "Accept Declaration",
+      "metadata": {},
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "type": "choice",
+      "name": "Declaration Decision",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "type": "input",
+      "name": "What is your email address",
+      "metadata": {
+        "forms_step_id": "bNNFajE4",
+        "position": 1,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": "Provide your email for contact and follow-up on any clarifications needed.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your email address",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_2"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "Which part of public sector does this primarily impact?",
+      "metadata": {
+        "forms_step_id": "SozR23MV",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "(One Dept / Multiple / Citizens)",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "false",
+          "selection_options": [
+            {
+              "name": "One Department",
+              "value": "One Department",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Multiple Departments",
+              "value": "Multiple Departments",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Citizen services",
+              "value": "Citizen services",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": {
+            "question_text": "Enter the impact as you see it",
+            "is_optional": true
+          },
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Which part of public sector does this primarily impact? ",
+      "schema": {
+        "kind": "select_many",
+        "options": [
+          {
+            "value": "One Department",
+            "label": "One Department"
+          },
+          {
+            "value": "Multiple Departments",
+            "label": "Multiple Departments"
+          },
+          {
+            "value": "Citizen services",
+            "label": "Citizen services"
+          },
+          {
+            "value": "__none_of_the_above__",
+            "label": "None of the above"
+          }
+        ],
+        "allow_skip": true
+      },
+      "assign": "answers.step_2",
+      "next": "step_2_none_of_the_above_route"
+    },
+    "step_2_none_of_the_above": {
+      "type": "input",
+      "name": "Other Answer",
+      "metadata": {},
+      "prompt": "Enter the impact as you see it",
+      "schema": {
+        "kind": "string",
+        "allow_skip": true
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_2_none_of_the_above_route": {
+      "type": "choice",
+      "name": "None Of The Above",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "eq",
+            "path": "answers.step_2",
+            "value": "__none_of_the_above__"
+          },
+          "next": "step_2_none_of_the_above"
+        }
+      ],
+      "default": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "Describe your AI-driven suggestion",
+      "metadata": {
+        "forms_step_id": "dxbM33zY",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": " (a brief pitch of the idea)",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "Describe your AI-driven suggestion",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_3",
+      "next": "step_4"
+    },
+    "step_4": {
+      "type": "input",
+      "name": "What is the cost of inaction?",
+      "metadata": {
+        "forms_step_id": "JH6Ghp5W",
+        "position": 4,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "(e.g. wasted hours, data privacy risk, slow service delivery, re-work)",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the cost of inaction? ",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_4",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "Many thanks for your suggestion to help the community, we value every suggestion and the AI Community Board will review this shortly.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

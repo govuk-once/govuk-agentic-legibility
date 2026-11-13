@@ -1,0 +1,421 @@
+{
+  "process_id": "amend_my_claim_for_unpaid_wages",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "step_1",
+  "vars": {
+    "answers": {}
+  },
+  "states": {
+    "step_1": {
+      "type": "input",
+      "name": "What is your full name",
+      "metadata": {
+        "forms_step_id": "22Ce6dqH",
+        "position": 1,
+        "page_heading": "How to complete this form",
+        "guidance_markdown": "## Part 1: Security questions\r\n\r\nYour answers must be the same as what you told us on your online claim. \r\nYou will need the following information to hand:\r\n\r\n* claim reference number\r\n* national Insurance number\r\n\r\n## Part 2: Amendment section\r\n\r\nYou will need the following information to hand:\r\n\r\n* type of wages owed, for example salary, overtime or commission\r\n* dates worked and not paid\r\n* your payslip\r\n* details of attachment of earnings\r\n\r\n##Start part 1",
+        "answer_type": "name",
+        "hint_text": "Use the same name you used on your claim",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "first_and_last_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is your full name?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_1",
+      "next": "step_2"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "What is your claim reference number",
+      "metadata": {
+        "forms_step_id": "bTPHEvKy",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "For example LN12345678. This is found in our initial email to you. ",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your claim reference number?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "What is your National Insurance number",
+      "metadata": {
+        "forms_step_id": "pjDzvJ8t",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "national_insurance_number",
+        "hint_text": "For example QQ 12 34 56 C. It is on your National Insurance card, benefit letter, payslip or P60.",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your National Insurance number?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_3",
+      "next": "step_4"
+    },
+    "step_4": {
+      "type": "input",
+      "name": "What is your email address",
+      "metadata": {
+        "forms_step_id": "SPXg8A7U",
+        "position": 4,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": "Use the email address you gave us when you created your claim",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your email address?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_4",
+      "next": "step_5"
+    },
+    "step_5": {
+      "type": "input",
+      "name": "What is your date of birth",
+      "metadata": {
+        "forms_step_id": "sP9mkgSr",
+        "position": 5,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "date",
+        "hint_text": "",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "date_of_birth",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your date of birth?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_5",
+      "next": "step_6"
+    },
+    "step_6": {
+      "type": "input",
+      "name": "What is your address",
+      "metadata": {
+        "forms_step_id": "Pa1xUiN9",
+        "position": 6,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": "Use the address you gave us in your claim",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your address?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_6",
+      "next": "step_7"
+    },
+    "step_7": {
+      "type": "input",
+      "name": "What company were you made redundant from",
+      "metadata": {
+        "forms_step_id": "2SZZ9xwN",
+        "position": 7,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "organisation_name",
+        "hint_text": "",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What company were you made redundant from?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_7",
+      "next": "step_8"
+    },
+    "step_8": {
+      "type": "input",
+      "name": "What type of wages are you owed",
+      "metadata": {
+        "forms_step_id": "ap76rrLF",
+        "position": 8,
+        "page_heading": "Part 2: Amendment section",
+        "guidance_markdown": "If you need to change what you submitted in your online claim, you'll need to answer all the questions in this section with the correct information.\r\n\r\nYou will need the following information to hand:\r\n\r\n* type of wages owed, for example salary, overtime or commission\r\n* dates worked and not paid\r\n* your payslip\r\n* details of attachment of earnings\r\n\r\n## Start part 2\r\n",
+        "answer_type": "text",
+        "hint_text": "For example salary, overtime or commission. List all that apply",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "What type of wages are you owed?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_8",
+      "next": "step_9"
+    },
+    "step_9": {
+      "type": "input",
+      "name": "What dates did you work but were not paid for",
+      "metadata": {
+        "forms_step_id": "1ad2Du5X",
+        "position": 9,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "For example from 1 January 2020 to 31 January 2020 (include bank holidays). Enter as many dates as you need to using separate lines.",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "What dates did you work but were not paid for?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_9",
+      "next": "step_10"
+    },
+    "step_10": {
+      "type": "input",
+      "name": "Within these dates, did you work any days that were not part of your normal shift pattern",
+      "metadata": {
+        "forms_step_id": "b88uDG94",
+        "position": 10,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "For example from 1 January 2020 to 31 January 2020 (include bank holidays). Enter as many dates as you need to using separate lines. If no, enter not applicable.",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "Within these dates, did you work any days that were not part of your normal shift pattern?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_10",
+      "next": "step_11"
+    },
+    "step_11": {
+      "type": "input",
+      "name": "If your employer sent you a payslip but did not pay you, what is the ‘net’ amount you're owed?",
+      "metadata": {
+        "forms_step_id": "pzusXV1T",
+        "position": 11,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "On your payslip, this is what you're owed after tax and National Insurance deductions. Enter 0 if not applicable",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "If your employer sent you a payslip but did not pay you, what is the ‘net’ amount you're owed? ",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_11",
+      "next": "step_12"
+    },
+    "step_12": {
+      "type": "input",
+      "name": "If your employer did not pay you, what is the 'gross' amount you're owed",
+      "metadata": {
+        "forms_step_id": "f8dFiydv",
+        "position": 12,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "The ‘gross’ amount is what you're owed before tax and National Insurance deductions. Enter 0 if not applicable",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "If your employer did not pay you, what is the 'gross' amount you're owed?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_12",
+      "next": "step_13"
+    },
+    "step_13": {
+      "type": "input",
+      "name": "Do you have an attachment of earnings in place",
+      "metadata": {
+        "forms_step_id": "XTjJsYv4",
+        "position": 13,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "This is a court order where deductions are made directly from your wages",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you have an attachment of earnings in place?",
+      "schema": {
+        "kind": "boolean"
+      },
+      "assign": "answers.step_13",
+      "next": "step_13_routing"
+    },
+    "step_13_routing": {
+      "type": "choice",
+      "name": "Route from step_13",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_13"
+          },
+          "next": "what_happens_next"
+        }
+      ],
+      "default": "step_14"
+    },
+    "step_14": {
+      "type": "input",
+      "name": "What is the attachment of earnings you have",
+      "metadata": {
+        "forms_step_id": "NTa51Mja",
+        "position": 14,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "For example unpaid council tax or child maintenance. ",
+        "optional": null,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the attachment of earnings you have?",
+      "schema": {
+        "kind": "string"
+      },
+      "assign": "answers.step_14",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "We will update your claim with the new information you provided. We aim to do this within 10 working days. After we have updated your information, we will let you know if you are due a payment. You do not need to send us any further evidence to complete your application.\n\nIf you have not had a response from us within 15 working days, contact us at: [redundancypaymentsonline@insolvency.gov.uk](mailto:redundancypaymentsonline@insolvency.gov.uk)\n\nMake sure you have told the insolvency practitioner handling your employer’s insolvency about the changes you have made to your claim information. They may need to change the information they provided the Insolvency Service.\n\nTo make another amendment to your redundancy claim, complete the relevant form from the [redundancy claim amendment forms](https://www.gov.uk/guidance/amend-a-redundancy-claim) page.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

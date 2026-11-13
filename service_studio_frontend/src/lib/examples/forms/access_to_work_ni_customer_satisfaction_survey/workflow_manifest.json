@@ -1,0 +1,48 @@
+{
+  "workflow_id": 8414,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.8414",
+  "version": "0.1.0",
+  "contact": "AtWNICustSatSurvey@communities-ni.gov.uk",
+  "description": "Access to Work (NI) Customer Satisfaction Survey",
+  "state": "draft",
+  "metadata": {
+    "form_id": "8414",
+    "form_slug": "access-to-work-ni-customer-satisfaction-survey",
+    "status": "live",
+    "language": "en",
+    "available_languages": [
+      "en"
+    ],
+    "submission_type": "email",
+    "submission_format": [],
+    "support_url": null,
+    "support_email": "AtWNICustSatSurvey@communities-ni.gov.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.communities-ni.gov.uk/articles/dfc-privacy-notice",
+    "payment_url": null,
+    "live_at": "2026-02-16T12:21:59.250490Z",
+    "created_at": "2025-07-04T11:25:55.515271Z",
+    "updated_at": "2026-02-16T12:21:59.250490Z",
+    "first_made_live_at": "2025-12-02T00:00:00.000000Z",
+    "creator_id": 3047,
+    "copied_from_id": null,
+    "send_copy_of_answers": null,
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "access_to_work_ni_customer_satisfaction_survey",
+  "executor": {
+    "workflow_id_template": "forms-8414-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "access_to_work_ni_customer_satisfaction_survey",
+      "version": "0.1.0"
+    }
+  ]
+}

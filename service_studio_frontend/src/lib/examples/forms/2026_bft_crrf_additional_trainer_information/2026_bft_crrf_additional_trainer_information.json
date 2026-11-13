@@ -1,0 +1,206 @@
+{
+  "process_id": "2026_bft_crrf_additional_trainer_information",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {},
+    "repeat": {}
+  },
+  "states": {
+    "declaration": {
+      "type": "output",
+      "name": "Declaration",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "In providing this information you agree that MMO can share these details of additional persons requiring training with Angling Trust in line with our privacy notice. See [Personal information charter - Marine Management Organisation - GOV.UK](https://www.gov.uk/government/organisations/marine-management-organisation/about/personal-information-charter)].",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "type": "input",
+      "name": "Accept Declaration",
+      "metadata": {},
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "type": "choice",
+      "name": "Declaration Decision",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "type": "input",
+      "name": "Please enter applicant full name",
+      "metadata": {
+        "forms_step_id": "b22bNSbn",
+        "position": 1,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": "Only the applicant that has received an offer can nominate additional persons required for training.\r\n\r\nYou will be asked for the details of the additional persons at the end of this form.  ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "first_and_last_name",
+          "title_needed": true
+        }
+      },
+      "prompt": "Please enter applicant full name",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_2"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "Name of vessel the your BFT CRRF application submission related to",
+      "metadata": {
+        "forms_step_id": "du868isA",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "Name of vessel the your BFT CRRF application submission related to",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "Please detail each additional person you are seeking training for",
+      "metadata": {
+        "forms_step_id": "cqtVpg4G",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": " Note you only require one trained person on board the permitted vessel for each trip. No BFT trips can occur be without a Angling Trust accredited BFT trained person onboard. ",
+        "optional": false,
+        "repeatable": true,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": true
+        },
+        "group": "Add another answer"
+      },
+      "prompt": "Please detail each additional person you are seeking training for",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "repeat.step_3.current",
+      "next": "step_3_append"
+    },
+    "step_3_append": {
+      "type": "assign",
+      "name": "Append Answer",
+      "metadata": {
+        "group": "Add another answer"
+      },
+      "set": {
+        "answers.step_3": {
+          "op": "append",
+          "path": "answers.step_3",
+          "value_path": "repeat.step_3.current"
+        }
+      },
+      "next": "step_3_more"
+    },
+    "step_3_more": {
+      "type": "input",
+      "name": "Add Another Answer",
+      "metadata": {
+        "group": "Add another answer"
+      },
+      "prompt": "Do you want to add another answer?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "repeat.step_3.more",
+      "next": "step_3_repeat_route"
+    },
+    "step_3_repeat_route": {
+      "type": "choice",
+      "name": "Repeat Question",
+      "metadata": {
+        "group": "Add another answer"
+      },
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "repeat.step_3.more"
+          },
+          "next": "step_3"
+        }
+      ],
+      "default": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "This information must be submitted to the MMO by 23:59 Sunday 10 May 2026.\r\n\r\nOnce completed, the additional person/s nominated for training will be able to book their training, enrol, pay and be given access to the course via the Angling Trust Training Portal (from Tuesday 12 May 2026). Go to [https://anglingtrust.net/training-courses/atlantic-bluefin-tuna-recreational-fishery-training-for-participants/]",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

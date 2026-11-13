@@ -1,0 +1,5829 @@
+{
+  "process_id": "application_for_a_fishing_licence_for_a_registered_fishing_vessel_administered_by_marine_management_organisation_afl2",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {}
+  },
+  "states": {
+    "declaration": {
+      "type": "output",
+      "name": "Declaration",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "I, the applicant, confirm that the information that is contained in this application is true and correct to the best of my knowledge and belief and that I have made appropriate enquiries to ensure the accuracy of the information that I have submitted. For the avoidance of doubt, I further confirm: -\n\n1) That I understand that if, in completing this form, I provide information that I know or suspect to be false then I will be committing a criminal offence for which I may be liable for criminal prosecution.\n\n2) I have permission from all vessel owners to apply for a fishing vessel licence for the vessel named in this application.\n\n3) The vessel named in this application, is registered to the vessel owners under the Merchant Shipping Act 1995.\n\n4) Vessel owners commit to complying with all conditions attached to the licence.\n\n5) All vessel owners understand that if any of the details provided in this application change, any licence issued will be invalid.\n\n6) All vessel owners confirm to the best of their knowledge the vessel has never received a decommissioning grant in the UK or any EC member state.\n\n7) Vessel owners hold the licence entitlements listed in this application\n\n8) All vessel owners understand that this application is for a domestic licence only. An external waters licence will need to be applied for separately from the UK SIA team uksia@marinemanagement.org.uk\n\nPlease note, after you submit this form a confirmation page will appear with a reference number and instructions on your next steps for submitting relevant documentation to support your application.",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "type": "input",
+      "name": "Accept Declaration",
+      "metadata": {},
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "type": "choice",
+      "name": "Declaration Decision",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "type": "input",
+      "name": "Are you applying to license an English or Crown Dependency vessel",
+      "metadata": {
+        "forms_step_id": "7t3hUhr9",
+        "position": 1,
+        "page_heading": "Introduction ",
+        "guidance_markdown": "## You can apply once you have:\r\n\r\n1) the certificate of registry in your name(s) from one of the following;\r\n\r\n* Maritime & Coastguard Agency (MCA) UK Ship Register\r\n* Isle of Man Ship Registry\r\n* Jersey ships Registry\r\n* Registry of British ships from Guernsey Harbours.\r\n\r\n2) at least one fishing entitlement in your name to license your vessel\r\n\r\n3) an English, Isle of Man, Jersey or Guernsey port, letter, number (PLN) on your vessel. \r\n\r\n## The application form must be filled in by:\r\n\r\n* the registered owner(s) of the vessel to be licensed\r\n* an authorised signatory for the registered owner(s)\r\n* a person with power of attorney for the registered owner(s)\r\n\r\n## To complete this application, you will need to have available:\r\n\r\n* the certificate of registry\r\n* vessel owner(s) contact details\r\n* nominee and/or nominated person contact details\r\n* the details for the entitlements you want to use to license this vessel (found on your AFL7 section D or AFL19 section F). The holder's details on the entitlements must be the same as the vessel owner details on the certificate of registry\r\n\r\nIf you are applying on behalf of a company based in Jersey, Guernsey or the Isle of Man, we will need the certificate of registration and the list of company directors.\r\n\r\nPlease make sure the entitlement(s) you want to use to license this vessel are suitable for your requirements:\r\n\r\n* overall length of the vessel (over 10 metres, or 10 metres and under)\r\n* licence category\r\n* licence permits – shellfish (all vessel lengths), scallop and beam trawl areas 4 and 7 (over 10m vessels only)\r\n* engine power\r\n* tonnage\r\n\r\nEligibility to fish for bass using regulated gears does not transfer ownership with a licence entitlement. The authority remains with the vessel. If you are replacing a vessel that has a bass authorisation, a transfer of authorisation will be considered but is subject to strict rules.\r\n\r\nIf MMO has given permission for the bass authorisation to be retained to be placed on another vessel in your ownership you will be asked to upload the confirmation letter or email during this application.\r\n\r\nFor vessels over 10m in overall length, in order to carry and use regulated gears in the Sole Recovery Zone (SRZ) and area 7d, referred to as Cod Area 7d, a vessel must have eligibility through a known track record or via the transfer of a single licence (or the aggregation of two or more licence entitlements) where the originating vessel(s) has such a record of fishing activity with selective gears in these areas.\r\n\r\n\r\n## Important\r\nIf the entitlements do not contain enough engine power or tonnage to license this vessel, you will need to obtain another entitlement to cover the shortfall. \r\n\r\nIf the engine power and tonnage on the entitlement are greater than the vessel requirements, any excess will be lost forever unless you first submit an AFL19 application to separate a fishing vessel licence entitlement. This is also known as disaggregating an entitlement.\r\n\r\nBefore you proceed with an application to separate a fishing vessel licence entitlement, please ensure that by disaggregating an entitlement it won’t affect the resulting shellfish, scallop or beam trawl permit. [To access an AFL19 application form select this link](https://www.gov.uk/government/publications/fishing-vessel-licensing-forms))",
+        "answer_type": "selection",
+        "hint_text": "The Crown Dependencies are Isle of Man, Jersey and Guernsey. In the case of Guernsey we will accept applications for over 10m vessels only.  ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes - I want to license a registered vessel with an English or Crown Dependency port, letter, number (PLN)",
+              "value": "Yes - I want to license a registered vessel with an English or Crown Dependency port, letter, number (PLN)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No - I want to license a registered vessel with a Scottish, Welsh or Northern Irish port, letter, number (PLN) and I understand I will need to contact their fisheries administrations to apply",
+              "value": "No - I want to license a registered vessel with a Scottish, Welsh or Northern Irish port, letter, number (PLN) and I understand I will need to contact their fisheries administrations to apply",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are you applying to license an English or Crown Dependency vessel?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Yes - I want to license a registered vessel with an English or Crown Dependency port, letter, number (PLN)",
+            "label": "Yes - I want to license a registered vessel with an English or Crown Dependency port, letter, number (PLN)"
+          },
+          {
+            "value": "No - I want to license a registered vessel with a Scottish, Welsh or Northern Irish port, letter, number (PLN) and I understand I will need to contact their fisheries administrations to apply",
+            "label": "No - I want to license a registered vessel with a Scottish, Welsh or Northern Irish port, letter, number (PLN) and I understand I will need to contact their fisheries administrations to apply"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_1_routing"
+    },
+    "step_1_routing": {
+      "type": "choice",
+      "name": "Route from step_1",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "eq",
+            "path": "answers.step_1",
+            "value": "No - I want to license a registered vessel with a Scottish, Welsh or Northern Irish port, letter, number (PLN) and I understand I will need to contact their fisheries administrations to apply"
+          },
+          "next": "step_1_exit_1"
+        }
+      ],
+      "default": "step_2"
+    },
+    "step_1_exit_1": {
+      "type": "output",
+      "name": "Exit Page",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "This form can only be used to license an English or Crown Dependency vessel\n\nTo find contact details of the Milford Haven fisheries office (Wales) go to [Understanding your fishing vessel licence | GOV.WALES](https://www.gov.wales/understanding-your-fishing-vessel-licence)\r\n\r\nTo find contact details of your nearest Marine Directorate fisheries office (Scotland) go to [Marine compliance: fishery offices information - gov.scot](https://www.gov.scot/publications/fishery-offices-information/)\r\n\r\nTo find contact details of your nearest DAERA fisheries office (Northern Ireland) go to  [Contact your local fishery office | Department of Agriculture, Environment and Rural Affairs](https://www.daera-ni.gov.uk/contacts/contact-your-local-fishery-office)",
+      "on_error": "fail",
+      "next": "step_1_exit_1_end"
+    },
+    "step_1_exit_1_end": {
+      "type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "What licence category do you wish to apply for",
+      "metadata": {
+        "forms_step_id": "xoptNJR9",
+        "position": 2,
+        "page_heading": "Licence Category",
+        "guidance_markdown": "## Licence category you are applying for.\r\n\r\n### Over 10 metre vessels\r\nPlease select the category of licence you are applying for from the list below. For more information on the licence categories please select this link [fishing vessel licence categories](https://www.gov.uk/guidance/fishing-vessel-licence-types).\r\n\r\n### Vessels 10 metres and under\r\nCategory A is the single category for 10 metre and under licences. As of 01 January 2025, the licence cap on 10 metre and under vessels has been permanently removed. \r\n",
+        "answer_type": "selection",
+        "hint_text": "This will be shown on the licence entitlement - AFL7 section D or AFL19 section F.  The first category is for licence entitlements originating from vessels 10 metres and under, the remaining categories are for licence entitlements originating from vessels over 10 metres.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "false",
+          "selection_options": [
+            {
+              "name": "10m and under - Category A",
+              "value": "10m and under - Category A",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Category A",
+              "value": "Category A",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Category A - Pelagic ",
+              "value": "Category A - Pelagic ",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Category B",
+              "value": "Category B",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Category C",
+              "value": "Category C",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Deep Sea",
+              "value": "Deep Sea",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What licence category do you wish to apply for?",
+      "schema": {
+        "kind": "select_many",
+        "options": [
+          {
+            "value": "10m and under - Category A",
+            "label": "10m and under - Category A"
+          },
+          {
+            "value": "Category A",
+            "label": "Category A"
+          },
+          {
+            "value": "Category A - Pelagic ",
+            "label": "Category A - Pelagic "
+          },
+          {
+            "value": "Category B",
+            "label": "Category B"
+          },
+          {
+            "value": "Category C",
+            "label": "Category C"
+          },
+          {
+            "value": "Deep Sea",
+            "label": "Deep Sea"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "What is the name of the vessel",
+      "metadata": {
+        "forms_step_id": "KRVGuNcr",
+        "position": 3,
+        "page_heading": "About your vessel",
+        "guidance_markdown": "The next series of questions will ask about the fishing vessel you want to licence. You can find the information you need to answer the questions on the certificate of registry. Each question has further information below to help.\r\n\r\n",
+        "answer_type": "text",
+        "hint_text": "This can be found on the vessel's certificate of registry. It is important that you make sure this is correct, it will be shown on your licence. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the name of the vessel?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_3",
+      "next": "step_4"
+    },
+    "step_4": {
+      "type": "input",
+      "name": "What is the official registration number",
+      "metadata": {
+        "forms_step_id": "A1yHvXty",
+        "position": 4,
+        "page_heading": "Official registration number",
+        "guidance_markdown": "For English and Guernsey registered vessels this can be found on the vessel's certificate of registry. It's shown as one letter, either A, B or C for an English vessel or G for a Guernsey vessel, followed by 5 numbers. \r\n\r\nIf you are completing the form for an Isle of Man registered vessel, the registration number may be shown as either an M followed by three to four digits, or six digits on their own.\r\n\r\nA Jersey registered vessel doesn't have an official number. To move on to the next question enter the PLN.",
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the official registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_4",
+      "next": "step_5"
+    },
+    "step_5": {
+      "type": "input",
+      "name": "What is the port letter and number (PLN)",
+      "metadata": {
+        "forms_step_id": "dCvqQWsp",
+        "position": 5,
+        "page_heading": "Port, Letter, Number (PLN)",
+        "guidance_markdown": "This can be found on the vessel's certificate of registry under Port, Letter, Number. It will consist of letters and numbers. ",
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the port letter and number (PLN)?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_5",
+      "next": "step_6"
+    },
+    "step_6": {
+      "type": "input",
+      "name": "What is the overall vessel length (metres)",
+      "metadata": {
+        "forms_step_id": "XdKd18EB",
+        "position": 6,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": "This can be found on the vessel's certificate of registry This can be found on the vessel's certificate of registry under Overall Length.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the overall vessel length (metres)?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_6",
+      "next": "step_7"
+    },
+    "step_7": {
+      "type": "input",
+      "name": "What is the registered vessel length (metres)",
+      "metadata": {
+        "forms_step_id": "JoyjexMf",
+        "position": 7,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": "This can be found on the vessel's certificate of registry under Registered Length.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the registered vessel length (metres)?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_7",
+      "next": "step_8"
+    },
+    "step_8": {
+      "type": "input",
+      "name": "What is the maximum breadth of the vessel (metres)",
+      "metadata": {
+        "forms_step_id": "TSox9MT9",
+        "position": 8,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": "This can be found on the vessel's certificate of registry under Breadth. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the maximum breadth of the vessel (metres)?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_8",
+      "next": "step_9"
+    },
+    "step_9": {
+      "type": "input",
+      "name": "What is the tonnage of the vessel",
+      "metadata": {
+        "forms_step_id": "ufxy4mfB",
+        "position": 9,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": "This can be found on the vessel's certificate of registry as Gross Tonnage.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the tonnage of the vessel?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_9",
+      "next": "step_10"
+    },
+    "step_10": {
+      "type": "input",
+      "name": "What is the vessel engine power (kW)",
+      "metadata": {
+        "forms_step_id": "UWwKGy5g",
+        "position": 10,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": "This can be found on the vessel's certificate of registry under Engine Power. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the vessel engine power (kW)?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_10",
+      "next": "step_11"
+    },
+    "step_11": {
+      "type": "input",
+      "name": "What is the International radio call sign (IRCS)",
+      "metadata": {
+        "forms_step_id": "PZy98SYa",
+        "position": 11,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "If you have an IRCS you must provide it. Otherwise, please leave this blank.  Your IRCS will be either 4 or 5 characters and can be a mixture of letters and numbers.",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the International radio call sign (IRCS)?",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_11",
+      "next": "step_12"
+    },
+    "step_12": {
+      "type": "input",
+      "name": "What are the main gears to be displayed on your fishing vessel licence",
+      "metadata": {
+        "forms_step_id": "bSLPfouk",
+        "position": 12,
+        "page_heading": "Main fishing gear",
+        "guidance_markdown": "Up to four gear types will be displayed on your licence for information only. This will not prevent you using other gear types not named on your licence, subject to the licence conditions for your licence category. \r\n\r\nIf the pattern of your fishing permanently changes so that the type of gear stated in your licence no longer accurately reflects the vessel's activities, you should apply to update your licence so a new licence containing the correct information can be issued.",
+        "answer_type": "selection",
+        "hint_text": "A main gear type is one you would use normally in the course of the year. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Suction dredge",
+              "value": "Suction dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand dredge",
+              "value": "Hand dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Power dredge",
+              "value": "Power dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Mechanised dredge",
+              "value": "Mechanised dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fluidisation dredge",
+              "value": "Fluidisation dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified dredge",
+              "value": "Unspecified dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines",
+              "value": "Long lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand lines (including gurdy)",
+              "value": "Hand lines (including gurdy)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Rod and line",
+              "value": "Rod and line",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Drifting)",
+              "value": "Long lines (Drifting)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Set)",
+              "value": "Long lines (Set)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Trolling lines",
+              "value": "Trolling lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Whelk pots",
+              "value": "Whelk pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Pots",
+              "value": "Pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Top opening pots",
+              "value": "Top opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Side opening pots",
+              "value": "Side opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Parlour pots",
+              "value": "Parlour pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Other or mixed pots",
+              "value": "Other or mixed pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Cuttle trap",
+              "value": "Cuttle trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified trap",
+              "value": "Unspecified trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Ring net",
+              "value": "Ring net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Drift net",
+              "value": "Drift net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified gill net",
+              "value": "Unspecified gill net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Trammel)",
+              "value": "Gill net (Trammel)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Tangle)",
+              "value": "Gill net (Tangle)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net Danish",
+              "value": "Gill net Danish",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net anchored",
+              "value": "Gill net anchored",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hoop net",
+              "value": "Hoop net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Stake net",
+              "value": "Stake net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fyke net",
+              "value": "Fyke net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Scottish fly seine",
+              "value": "Scottish fly seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Seine nets (not specified)",
+              "value": "Seine nets (not specified)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Danish anchor seine",
+              "value": "Danish anchor seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Purse seine",
+              "value": "Purse seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Beam Trawl",
+              "value": "Beam Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Heavy Otter Trawl",
+              "value": "Heavy Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Light Otter Trawl",
+              "value": "Light Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified Otter trawl",
+              "value": "Unspecified Otter trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Otter Trawl",
+              "value": "Twin Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Otter Trawl",
+              "value": "Triple Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Prawn Otter Trawl",
+              "value": "Prawn Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (single rig)",
+              "value": "Otter Trawl (single rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (multi rig)",
+              "value": "Otter Trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter Trawl",
+              "value": "Nephrops Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Nephrops Trawl",
+              "value": "Twin Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Nephrops Trawl",
+              "value": "Triple Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter trawl (multi rig)",
+              "value": "Nephrops Otter trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Demersal Trawl",
+              "value": "Midwater Demersal Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Trawl",
+              "value": "Midwater Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Pair",
+              "value": "Midwater Pair",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What are the main gears to be displayed on your fishing vessel licence?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Suction dredge",
+            "label": "Suction dredge"
+          },
+          {
+            "value": "Hand dredge",
+            "label": "Hand dredge"
+          },
+          {
+            "value": "Power dredge",
+            "label": "Power dredge"
+          },
+          {
+            "value": "Mechanised dredge",
+            "label": "Mechanised dredge"
+          },
+          {
+            "value": "Fluidisation dredge",
+            "label": "Fluidisation dredge"
+          },
+          {
+            "value": "Unspecified dredge",
+            "label": "Unspecified dredge"
+          },
+          {
+            "value": "Long lines",
+            "label": "Long lines"
+          },
+          {
+            "value": "Hand lines (including gurdy)",
+            "label": "Hand lines (including gurdy)"
+          },
+          {
+            "value": "Rod and line",
+            "label": "Rod and line"
+          },
+          {
+            "value": "Long lines (Drifting)",
+            "label": "Long lines (Drifting)"
+          },
+          {
+            "value": "Long lines (Set)",
+            "label": "Long lines (Set)"
+          },
+          {
+            "value": "Trolling lines",
+            "label": "Trolling lines"
+          },
+          {
+            "value": "Whelk pots",
+            "label": "Whelk pots"
+          },
+          {
+            "value": "Pots",
+            "label": "Pots"
+          },
+          {
+            "value": "Top opening pots",
+            "label": "Top opening pots"
+          },
+          {
+            "value": "Side opening pots",
+            "label": "Side opening pots"
+          },
+          {
+            "value": "Parlour pots",
+            "label": "Parlour pots"
+          },
+          {
+            "value": "Other or mixed pots",
+            "label": "Other or mixed pots"
+          },
+          {
+            "value": "Cuttle trap",
+            "label": "Cuttle trap"
+          },
+          {
+            "value": "Unspecified trap",
+            "label": "Unspecified trap"
+          },
+          {
+            "value": "Ring net",
+            "label": "Ring net"
+          },
+          {
+            "value": "Drift net",
+            "label": "Drift net"
+          },
+          {
+            "value": "Unspecified gill net",
+            "label": "Unspecified gill net"
+          },
+          {
+            "value": "Gill net (Trammel)",
+            "label": "Gill net (Trammel)"
+          },
+          {
+            "value": "Gill net (Tangle)",
+            "label": "Gill net (Tangle)"
+          },
+          {
+            "value": "Gill net Danish",
+            "label": "Gill net Danish"
+          },
+          {
+            "value": "Gill net anchored",
+            "label": "Gill net anchored"
+          },
+          {
+            "value": "Hoop net",
+            "label": "Hoop net"
+          },
+          {
+            "value": "Stake net",
+            "label": "Stake net"
+          },
+          {
+            "value": "Fyke net",
+            "label": "Fyke net"
+          },
+          {
+            "value": "Scottish fly seine",
+            "label": "Scottish fly seine"
+          },
+          {
+            "value": "Seine nets (not specified)",
+            "label": "Seine nets (not specified)"
+          },
+          {
+            "value": "Danish anchor seine",
+            "label": "Danish anchor seine"
+          },
+          {
+            "value": "Purse seine",
+            "label": "Purse seine"
+          },
+          {
+            "value": "Beam Trawl",
+            "label": "Beam Trawl"
+          },
+          {
+            "value": "Heavy Otter Trawl",
+            "label": "Heavy Otter Trawl"
+          },
+          {
+            "value": "Light Otter Trawl",
+            "label": "Light Otter Trawl"
+          },
+          {
+            "value": "Unspecified Otter trawl",
+            "label": "Unspecified Otter trawl"
+          },
+          {
+            "value": "Twin Otter Trawl",
+            "label": "Twin Otter Trawl"
+          },
+          {
+            "value": "Triple Otter Trawl",
+            "label": "Triple Otter Trawl"
+          },
+          {
+            "value": "Prawn Otter Trawl",
+            "label": "Prawn Otter Trawl"
+          },
+          {
+            "value": "Otter Trawl (single rig)",
+            "label": "Otter Trawl (single rig)"
+          },
+          {
+            "value": "Otter Trawl (multi rig)",
+            "label": "Otter Trawl (multi rig)"
+          },
+          {
+            "value": "Nephrops Otter Trawl",
+            "label": "Nephrops Otter Trawl"
+          },
+          {
+            "value": "Twin Nephrops Trawl",
+            "label": "Twin Nephrops Trawl"
+          },
+          {
+            "value": "Triple Nephrops Trawl",
+            "label": "Triple Nephrops Trawl"
+          },
+          {
+            "value": "Nephrops Otter trawl (multi rig)",
+            "label": "Nephrops Otter trawl (multi rig)"
+          },
+          {
+            "value": "Midwater Demersal Trawl",
+            "label": "Midwater Demersal Trawl"
+          },
+          {
+            "value": "Midwater Trawl",
+            "label": "Midwater Trawl"
+          },
+          {
+            "value": "Midwater Pair",
+            "label": "Midwater Pair"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_12",
+      "next": "step_13"
+    },
+    "step_13": {
+      "type": "input",
+      "name": "Do you want a second main gear type to be displayed on your licence",
+      "metadata": {
+        "forms_step_id": "DBsGM6q6",
+        "position": 13,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "We can only display up to four main gear types on your licence. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want a second main gear type to be displayed on your licence?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_13",
+      "next": "step_13_routing"
+    },
+    "step_13_routing": {
+      "type": "choice",
+      "name": "Route from step_13",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_13"
+          },
+          "next": "step_19"
+        }
+      ],
+      "default": "step_14"
+    },
+    "step_14": {
+      "type": "input",
+      "name": "What is the second main gear to be displayed on your fishing vessel licence",
+      "metadata": {
+        "forms_step_id": "o82h66St",
+        "position": 14,
+        "page_heading": null,
+        "guidance_markdown": "\r\n\r\n",
+        "answer_type": "selection",
+        "hint_text": "A main gear type is one you would use normally in the course of the year. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Suction dredge",
+              "value": "Suction dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand dredge",
+              "value": "Hand dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Power dredge",
+              "value": "Power dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Mechanised dredge",
+              "value": "Mechanised dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fluidisation dredge",
+              "value": "Fluidisation dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified dredge",
+              "value": "Unspecified dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines",
+              "value": "Long lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand lines (including gurdy)",
+              "value": "Hand lines (including gurdy)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Rod and line",
+              "value": "Rod and line",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Drifting)",
+              "value": "Long lines (Drifting)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Set)",
+              "value": "Long lines (Set)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Trolling lines",
+              "value": "Trolling lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Whelk pots",
+              "value": "Whelk pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Pots",
+              "value": "Pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Top opening pots",
+              "value": "Top opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Side opening pots",
+              "value": "Side opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Parlour pots",
+              "value": "Parlour pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Other or mixed pots",
+              "value": "Other or mixed pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Cuttle trap",
+              "value": "Cuttle trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified trap",
+              "value": "Unspecified trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Ring net",
+              "value": "Ring net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Drift net",
+              "value": "Drift net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified gill net",
+              "value": "Unspecified gill net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Trammel)",
+              "value": "Gill net (Trammel)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Tangle)",
+              "value": "Gill net (Tangle)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net Danish",
+              "value": "Gill net Danish",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net anchored",
+              "value": "Gill net anchored",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hoop net",
+              "value": "Hoop net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Stake net",
+              "value": "Stake net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fyke net",
+              "value": "Fyke net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Scottish fly seine",
+              "value": "Scottish fly seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Seine nets (not specified)",
+              "value": "Seine nets (not specified)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Danish anchor seine",
+              "value": "Danish anchor seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Purse seine",
+              "value": "Purse seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Beam Trawl",
+              "value": "Beam Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Heavy Otter Trawl",
+              "value": "Heavy Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Light Otter Trawl",
+              "value": "Light Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified Otter trawl",
+              "value": "Unspecified Otter trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Otter Trawl",
+              "value": "Twin Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Otter Trawl",
+              "value": "Triple Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Prawn Otter Trawl",
+              "value": "Prawn Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (single rig)",
+              "value": "Otter Trawl (single rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (multi rig)",
+              "value": "Otter Trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter Trawl",
+              "value": "Nephrops Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Nephrops Trawl",
+              "value": "Twin Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Nephrops Trawl",
+              "value": "Triple Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter trawl (multi rig)",
+              "value": "Nephrops Otter trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Demersal Trawl",
+              "value": "Midwater Demersal Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Trawl",
+              "value": "Midwater Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Pair",
+              "value": "Midwater Pair",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the second main gear to be displayed on your fishing vessel licence?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Suction dredge",
+            "label": "Suction dredge"
+          },
+          {
+            "value": "Hand dredge",
+            "label": "Hand dredge"
+          },
+          {
+            "value": "Power dredge",
+            "label": "Power dredge"
+          },
+          {
+            "value": "Mechanised dredge",
+            "label": "Mechanised dredge"
+          },
+          {
+            "value": "Fluidisation dredge",
+            "label": "Fluidisation dredge"
+          },
+          {
+            "value": "Unspecified dredge",
+            "label": "Unspecified dredge"
+          },
+          {
+            "value": "Long lines",
+            "label": "Long lines"
+          },
+          {
+            "value": "Hand lines (including gurdy)",
+            "label": "Hand lines (including gurdy)"
+          },
+          {
+            "value": "Rod and line",
+            "label": "Rod and line"
+          },
+          {
+            "value": "Long lines (Drifting)",
+            "label": "Long lines (Drifting)"
+          },
+          {
+            "value": "Long lines (Set)",
+            "label": "Long lines (Set)"
+          },
+          {
+            "value": "Trolling lines",
+            "label": "Trolling lines"
+          },
+          {
+            "value": "Whelk pots",
+            "label": "Whelk pots"
+          },
+          {
+            "value": "Pots",
+            "label": "Pots"
+          },
+          {
+            "value": "Top opening pots",
+            "label": "Top opening pots"
+          },
+          {
+            "value": "Side opening pots",
+            "label": "Side opening pots"
+          },
+          {
+            "value": "Parlour pots",
+            "label": "Parlour pots"
+          },
+          {
+            "value": "Other or mixed pots",
+            "label": "Other or mixed pots"
+          },
+          {
+            "value": "Cuttle trap",
+            "label": "Cuttle trap"
+          },
+          {
+            "value": "Unspecified trap",
+            "label": "Unspecified trap"
+          },
+          {
+            "value": "Ring net",
+            "label": "Ring net"
+          },
+          {
+            "value": "Drift net",
+            "label": "Drift net"
+          },
+          {
+            "value": "Unspecified gill net",
+            "label": "Unspecified gill net"
+          },
+          {
+            "value": "Gill net (Trammel)",
+            "label": "Gill net (Trammel)"
+          },
+          {
+            "value": "Gill net (Tangle)",
+            "label": "Gill net (Tangle)"
+          },
+          {
+            "value": "Gill net Danish",
+            "label": "Gill net Danish"
+          },
+          {
+            "value": "Gill net anchored",
+            "label": "Gill net anchored"
+          },
+          {
+            "value": "Hoop net",
+            "label": "Hoop net"
+          },
+          {
+            "value": "Stake net",
+            "label": "Stake net"
+          },
+          {
+            "value": "Fyke net",
+            "label": "Fyke net"
+          },
+          {
+            "value": "Scottish fly seine",
+            "label": "Scottish fly seine"
+          },
+          {
+            "value": "Seine nets (not specified)",
+            "label": "Seine nets (not specified)"
+          },
+          {
+            "value": "Danish anchor seine",
+            "label": "Danish anchor seine"
+          },
+          {
+            "value": "Purse seine",
+            "label": "Purse seine"
+          },
+          {
+            "value": "Beam Trawl",
+            "label": "Beam Trawl"
+          },
+          {
+            "value": "Heavy Otter Trawl",
+            "label": "Heavy Otter Trawl"
+          },
+          {
+            "value": "Light Otter Trawl",
+            "label": "Light Otter Trawl"
+          },
+          {
+            "value": "Unspecified Otter trawl",
+            "label": "Unspecified Otter trawl"
+          },
+          {
+            "value": "Twin Otter Trawl",
+            "label": "Twin Otter Trawl"
+          },
+          {
+            "value": "Triple Otter Trawl",
+            "label": "Triple Otter Trawl"
+          },
+          {
+            "value": "Prawn Otter Trawl",
+            "label": "Prawn Otter Trawl"
+          },
+          {
+            "value": "Otter Trawl (single rig)",
+            "label": "Otter Trawl (single rig)"
+          },
+          {
+            "value": "Otter Trawl (multi rig)",
+            "label": "Otter Trawl (multi rig)"
+          },
+          {
+            "value": "Nephrops Otter Trawl",
+            "label": "Nephrops Otter Trawl"
+          },
+          {
+            "value": "Twin Nephrops Trawl",
+            "label": "Twin Nephrops Trawl"
+          },
+          {
+            "value": "Triple Nephrops Trawl",
+            "label": "Triple Nephrops Trawl"
+          },
+          {
+            "value": "Nephrops Otter trawl (multi rig)",
+            "label": "Nephrops Otter trawl (multi rig)"
+          },
+          {
+            "value": "Midwater Demersal Trawl",
+            "label": "Midwater Demersal Trawl"
+          },
+          {
+            "value": "Midwater Trawl",
+            "label": "Midwater Trawl"
+          },
+          {
+            "value": "Midwater Pair",
+            "label": "Midwater Pair"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_14",
+      "next": "step_15"
+    },
+    "step_15": {
+      "type": "input",
+      "name": "Do you want to add a third main gear type to be displayed on your licence",
+      "metadata": {
+        "forms_step_id": "CHZbMXHJ",
+        "position": 15,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "We can display up to four main gear types on your fishing vessel licence. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to add a third main gear type to be displayed on your licence?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_15",
+      "next": "step_15_routing"
+    },
+    "step_15_routing": {
+      "type": "choice",
+      "name": "Route from step_15",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_15"
+          },
+          "next": "step_19"
+        }
+      ],
+      "default": "step_16"
+    },
+    "step_16": {
+      "type": "input",
+      "name": "What is the third main gear to be displayed on your fishing vessel licence",
+      "metadata": {
+        "forms_step_id": "WE4K74ci",
+        "position": 16,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "A main gear type is one you would use normally in the course of the year. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Suction dredge",
+              "value": "Suction dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand dredge",
+              "value": "Hand dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Power dredge",
+              "value": "Power dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Mechanised dredge",
+              "value": "Mechanised dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fluidisation dredge",
+              "value": "Fluidisation dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified dredge",
+              "value": "Unspecified dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines",
+              "value": "Long lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand lines (including gurdy)",
+              "value": "Hand lines (including gurdy)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Rod and line",
+              "value": "Rod and line",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Drifting)",
+              "value": "Long lines (Drifting)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Set)",
+              "value": "Long lines (Set)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Trolling lines",
+              "value": "Trolling lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Whelk pots",
+              "value": "Whelk pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Pots",
+              "value": "Pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Top opening pots",
+              "value": "Top opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Side opening pots",
+              "value": "Side opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Parlour pots",
+              "value": "Parlour pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Other or mixed pots",
+              "value": "Other or mixed pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Cuttle trap",
+              "value": "Cuttle trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified trap",
+              "value": "Unspecified trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Ring net",
+              "value": "Ring net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Drift net",
+              "value": "Drift net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified gill net",
+              "value": "Unspecified gill net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Trammel)",
+              "value": "Gill net (Trammel)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Tangle)",
+              "value": "Gill net (Tangle)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net Danish",
+              "value": "Gill net Danish",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net anchored",
+              "value": "Gill net anchored",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hoop net",
+              "value": "Hoop net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Stake net",
+              "value": "Stake net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fyke net",
+              "value": "Fyke net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Scottish fly seine",
+              "value": "Scottish fly seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Seine nets (not specified)",
+              "value": "Seine nets (not specified)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Danish anchor seine",
+              "value": "Danish anchor seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Purse seine",
+              "value": "Purse seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Beam Trawl",
+              "value": "Beam Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Heavy Otter Trawl",
+              "value": "Heavy Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Light Otter Trawl",
+              "value": "Light Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified Otter trawl",
+              "value": "Unspecified Otter trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Otter Trawl",
+              "value": "Twin Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Otter Trawl",
+              "value": "Triple Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Prawn Otter Trawl",
+              "value": "Prawn Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (single rig)",
+              "value": "Otter Trawl (single rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (multi rig)",
+              "value": "Otter Trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter Trawl",
+              "value": "Nephrops Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Nephrops Trawl",
+              "value": "Twin Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Nephrops Trawl",
+              "value": "Triple Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter trawl (multi rig)",
+              "value": "Nephrops Otter trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Demersal Trawl",
+              "value": "Midwater Demersal Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Trawl",
+              "value": "Midwater Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Pair",
+              "value": "Midwater Pair",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the third main gear to be displayed on your fishing vessel licence?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Suction dredge",
+            "label": "Suction dredge"
+          },
+          {
+            "value": "Hand dredge",
+            "label": "Hand dredge"
+          },
+          {
+            "value": "Power dredge",
+            "label": "Power dredge"
+          },
+          {
+            "value": "Mechanised dredge",
+            "label": "Mechanised dredge"
+          },
+          {
+            "value": "Fluidisation dredge",
+            "label": "Fluidisation dredge"
+          },
+          {
+            "value": "Unspecified dredge",
+            "label": "Unspecified dredge"
+          },
+          {
+            "value": "Long lines",
+            "label": "Long lines"
+          },
+          {
+            "value": "Hand lines (including gurdy)",
+            "label": "Hand lines (including gurdy)"
+          },
+          {
+            "value": "Rod and line",
+            "label": "Rod and line"
+          },
+          {
+            "value": "Long lines (Drifting)",
+            "label": "Long lines (Drifting)"
+          },
+          {
+            "value": "Long lines (Set)",
+            "label": "Long lines (Set)"
+          },
+          {
+            "value": "Trolling lines",
+            "label": "Trolling lines"
+          },
+          {
+            "value": "Whelk pots",
+            "label": "Whelk pots"
+          },
+          {
+            "value": "Pots",
+            "label": "Pots"
+          },
+          {
+            "value": "Top opening pots",
+            "label": "Top opening pots"
+          },
+          {
+            "value": "Side opening pots",
+            "label": "Side opening pots"
+          },
+          {
+            "value": "Parlour pots",
+            "label": "Parlour pots"
+          },
+          {
+            "value": "Other or mixed pots",
+            "label": "Other or mixed pots"
+          },
+          {
+            "value": "Cuttle trap",
+            "label": "Cuttle trap"
+          },
+          {
+            "value": "Unspecified trap",
+            "label": "Unspecified trap"
+          },
+          {
+            "value": "Ring net",
+            "label": "Ring net"
+          },
+          {
+            "value": "Drift net",
+            "label": "Drift net"
+          },
+          {
+            "value": "Unspecified gill net",
+            "label": "Unspecified gill net"
+          },
+          {
+            "value": "Gill net (Trammel)",
+            "label": "Gill net (Trammel)"
+          },
+          {
+            "value": "Gill net (Tangle)",
+            "label": "Gill net (Tangle)"
+          },
+          {
+            "value": "Gill net Danish",
+            "label": "Gill net Danish"
+          },
+          {
+            "value": "Gill net anchored",
+            "label": "Gill net anchored"
+          },
+          {
+            "value": "Hoop net",
+            "label": "Hoop net"
+          },
+          {
+            "value": "Stake net",
+            "label": "Stake net"
+          },
+          {
+            "value": "Fyke net",
+            "label": "Fyke net"
+          },
+          {
+            "value": "Scottish fly seine",
+            "label": "Scottish fly seine"
+          },
+          {
+            "value": "Seine nets (not specified)",
+            "label": "Seine nets (not specified)"
+          },
+          {
+            "value": "Danish anchor seine",
+            "label": "Danish anchor seine"
+          },
+          {
+            "value": "Purse seine",
+            "label": "Purse seine"
+          },
+          {
+            "value": "Beam Trawl",
+            "label": "Beam Trawl"
+          },
+          {
+            "value": "Heavy Otter Trawl",
+            "label": "Heavy Otter Trawl"
+          },
+          {
+            "value": "Light Otter Trawl",
+            "label": "Light Otter Trawl"
+          },
+          {
+            "value": "Unspecified Otter trawl",
+            "label": "Unspecified Otter trawl"
+          },
+          {
+            "value": "Twin Otter Trawl",
+            "label": "Twin Otter Trawl"
+          },
+          {
+            "value": "Triple Otter Trawl",
+            "label": "Triple Otter Trawl"
+          },
+          {
+            "value": "Prawn Otter Trawl",
+            "label": "Prawn Otter Trawl"
+          },
+          {
+            "value": "Otter Trawl (single rig)",
+            "label": "Otter Trawl (single rig)"
+          },
+          {
+            "value": "Otter Trawl (multi rig)",
+            "label": "Otter Trawl (multi rig)"
+          },
+          {
+            "value": "Nephrops Otter Trawl",
+            "label": "Nephrops Otter Trawl"
+          },
+          {
+            "value": "Twin Nephrops Trawl",
+            "label": "Twin Nephrops Trawl"
+          },
+          {
+            "value": "Triple Nephrops Trawl",
+            "label": "Triple Nephrops Trawl"
+          },
+          {
+            "value": "Nephrops Otter trawl (multi rig)",
+            "label": "Nephrops Otter trawl (multi rig)"
+          },
+          {
+            "value": "Midwater Demersal Trawl",
+            "label": "Midwater Demersal Trawl"
+          },
+          {
+            "value": "Midwater Trawl",
+            "label": "Midwater Trawl"
+          },
+          {
+            "value": "Midwater Pair",
+            "label": "Midwater Pair"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_16",
+      "next": "step_17"
+    },
+    "step_17": {
+      "type": "input",
+      "name": "Do you want a fourth main gear type to be displayed on your licence",
+      "metadata": {
+        "forms_step_id": "wFvoYEfF",
+        "position": 17,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want a fourth main gear type to be displayed on your licence?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_17",
+      "next": "step_17_routing"
+    },
+    "step_17_routing": {
+      "type": "choice",
+      "name": "Route from step_17",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_17"
+          },
+          "next": "step_19"
+        },
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_17"
+          },
+          "next": "step_19"
+        }
+      ],
+      "default": "step_18"
+    },
+    "step_18": {
+      "type": "input",
+      "name": "What is the fourth main gear to be displayed on your fishing vessel licence",
+      "metadata": {
+        "forms_step_id": "M2V3v83D",
+        "position": 18,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "A main gear type is one you would use normally in the course of the year. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Suction dredge",
+              "value": "Suction dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand dredge",
+              "value": "Hand dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Power dredge",
+              "value": "Power dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Mechanised dredge",
+              "value": "Mechanised dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fluidisation dredge",
+              "value": "Fluidisation dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified dredge",
+              "value": "Unspecified dredge",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines",
+              "value": "Long lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hand lines (including gurdy)",
+              "value": "Hand lines (including gurdy)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Rod and line",
+              "value": "Rod and line",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Drifting)",
+              "value": "Long lines (Drifting)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Long lines (Set)",
+              "value": "Long lines (Set)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Trolling lines",
+              "value": "Trolling lines",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Whelk pots",
+              "value": "Whelk pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Pots",
+              "value": "Pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Top opening pots",
+              "value": "Top opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Side opening pots",
+              "value": "Side opening pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Parlour pots",
+              "value": "Parlour pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Other or mixed pots",
+              "value": "Other or mixed pots",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Cuttle trap",
+              "value": "Cuttle trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified trap",
+              "value": "Unspecified trap",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Ring net",
+              "value": "Ring net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Drift net",
+              "value": "Drift net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified gill net",
+              "value": "Unspecified gill net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Trammel)",
+              "value": "Gill net (Trammel)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net (Tangle)",
+              "value": "Gill net (Tangle)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net Danish",
+              "value": "Gill net Danish",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Gill net anchored",
+              "value": "Gill net anchored",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Hoop net",
+              "value": "Hoop net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Stake net",
+              "value": "Stake net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fyke net",
+              "value": "Fyke net",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Scottish fly seine",
+              "value": "Scottish fly seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Seine nets (not specified)",
+              "value": "Seine nets (not specified)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Danish anchor seine",
+              "value": "Danish anchor seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Purse seine",
+              "value": "Purse seine",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Beam Trawl",
+              "value": "Beam Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Heavy Otter Trawl",
+              "value": "Heavy Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Light Otter Trawl",
+              "value": "Light Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Unspecified Otter trawl",
+              "value": "Unspecified Otter trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Otter Trawl",
+              "value": "Twin Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Otter Trawl",
+              "value": "Triple Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Prawn Otter Trawl",
+              "value": "Prawn Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (single rig)",
+              "value": "Otter Trawl (single rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Otter Trawl (multi rig)",
+              "value": "Otter Trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter Trawl",
+              "value": "Nephrops Otter Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Twin Nephrops Trawl",
+              "value": "Twin Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Triple Nephrops Trawl",
+              "value": "Triple Nephrops Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Nephrops Otter trawl (multi rig)",
+              "value": "Nephrops Otter trawl (multi rig)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Demersal Trawl",
+              "value": "Midwater Demersal Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Trawl",
+              "value": "Midwater Trawl",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Midwater Pair",
+              "value": "Midwater Pair",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the fourth main gear to be displayed on your fishing vessel licence?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Suction dredge",
+            "label": "Suction dredge"
+          },
+          {
+            "value": "Hand dredge",
+            "label": "Hand dredge"
+          },
+          {
+            "value": "Power dredge",
+            "label": "Power dredge"
+          },
+          {
+            "value": "Mechanised dredge",
+            "label": "Mechanised dredge"
+          },
+          {
+            "value": "Fluidisation dredge",
+            "label": "Fluidisation dredge"
+          },
+          {
+            "value": "Unspecified dredge",
+            "label": "Unspecified dredge"
+          },
+          {
+            "value": "Long lines",
+            "label": "Long lines"
+          },
+          {
+            "value": "Hand lines (including gurdy)",
+            "label": "Hand lines (including gurdy)"
+          },
+          {
+            "value": "Rod and line",
+            "label": "Rod and line"
+          },
+          {
+            "value": "Long lines (Drifting)",
+            "label": "Long lines (Drifting)"
+          },
+          {
+            "value": "Long lines (Set)",
+            "label": "Long lines (Set)"
+          },
+          {
+            "value": "Trolling lines",
+            "label": "Trolling lines"
+          },
+          {
+            "value": "Whelk pots",
+            "label": "Whelk pots"
+          },
+          {
+            "value": "Pots",
+            "label": "Pots"
+          },
+          {
+            "value": "Top opening pots",
+            "label": "Top opening pots"
+          },
+          {
+            "value": "Side opening pots",
+            "label": "Side opening pots"
+          },
+          {
+            "value": "Parlour pots",
+            "label": "Parlour pots"
+          },
+          {
+            "value": "Other or mixed pots",
+            "label": "Other or mixed pots"
+          },
+          {
+            "value": "Cuttle trap",
+            "label": "Cuttle trap"
+          },
+          {
+            "value": "Unspecified trap",
+            "label": "Unspecified trap"
+          },
+          {
+            "value": "Ring net",
+            "label": "Ring net"
+          },
+          {
+            "value": "Drift net",
+            "label": "Drift net"
+          },
+          {
+            "value": "Unspecified gill net",
+            "label": "Unspecified gill net"
+          },
+          {
+            "value": "Gill net (Trammel)",
+            "label": "Gill net (Trammel)"
+          },
+          {
+            "value": "Gill net (Tangle)",
+            "label": "Gill net (Tangle)"
+          },
+          {
+            "value": "Gill net Danish",
+            "label": "Gill net Danish"
+          },
+          {
+            "value": "Gill net anchored",
+            "label": "Gill net anchored"
+          },
+          {
+            "value": "Hoop net",
+            "label": "Hoop net"
+          },
+          {
+            "value": "Stake net",
+            "label": "Stake net"
+          },
+          {
+            "value": "Fyke net",
+            "label": "Fyke net"
+          },
+          {
+            "value": "Scottish fly seine",
+            "label": "Scottish fly seine"
+          },
+          {
+            "value": "Seine nets (not specified)",
+            "label": "Seine nets (not specified)"
+          },
+          {
+            "value": "Danish anchor seine",
+            "label": "Danish anchor seine"
+          },
+          {
+            "value": "Purse seine",
+            "label": "Purse seine"
+          },
+          {
+            "value": "Beam Trawl",
+            "label": "Beam Trawl"
+          },
+          {
+            "value": "Heavy Otter Trawl",
+            "label": "Heavy Otter Trawl"
+          },
+          {
+            "value": "Light Otter Trawl",
+            "label": "Light Otter Trawl"
+          },
+          {
+            "value": "Unspecified Otter trawl",
+            "label": "Unspecified Otter trawl"
+          },
+          {
+            "value": "Twin Otter Trawl",
+            "label": "Twin Otter Trawl"
+          },
+          {
+            "value": "Triple Otter Trawl",
+            "label": "Triple Otter Trawl"
+          },
+          {
+            "value": "Prawn Otter Trawl",
+            "label": "Prawn Otter Trawl"
+          },
+          {
+            "value": "Otter Trawl (single rig)",
+            "label": "Otter Trawl (single rig)"
+          },
+          {
+            "value": "Otter Trawl (multi rig)",
+            "label": "Otter Trawl (multi rig)"
+          },
+          {
+            "value": "Nephrops Otter Trawl",
+            "label": "Nephrops Otter Trawl"
+          },
+          {
+            "value": "Twin Nephrops Trawl",
+            "label": "Twin Nephrops Trawl"
+          },
+          {
+            "value": "Triple Nephrops Trawl",
+            "label": "Triple Nephrops Trawl"
+          },
+          {
+            "value": "Nephrops Otter trawl (multi rig)",
+            "label": "Nephrops Otter trawl (multi rig)"
+          },
+          {
+            "value": "Midwater Demersal Trawl",
+            "label": "Midwater Demersal Trawl"
+          },
+          {
+            "value": "Midwater Trawl",
+            "label": "Midwater Trawl"
+          },
+          {
+            "value": "Midwater Pair",
+            "label": "Midwater Pair"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_18",
+      "next": "step_19"
+    },
+    "step_19": {
+      "type": "input",
+      "name": "What is the name of the first vessel owner as shown on the certificate of registry",
+      "metadata": {
+        "forms_step_id": "WoVdBWrg",
+        "position": 19,
+        "page_heading": "Ownership details",
+        "guidance_markdown": "## Owner details\r\n\r\nIn this section, we will ask you questions about the name and contact details for the vessel owner(s). This may be a company, partnership or individual. If you are applying on behalf of a company we will ask you for the company registration number.\r\n\r\n## Important\r\n\r\nThe vessel owner details must match the owner names on both the licence entitlement(s) and the certificate of registry for the vessel you are licensing.\r\n\r\nIf you have a court order authorising a licence to be issued to you, we will ask you to provide us with a copy of the court order once you have submitted this application.",
+        "answer_type": "name",
+        "hint_text": "An owner can be an individual, partnership or company. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the first vessel owner as shown on the certificate of registry?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_19",
+      "next": "step_20"
+    },
+    "step_20": {
+      "type": "input",
+      "name": "Is the first vessel owner on the certificate of registry a registered company?",
+      "metadata": {
+        "forms_step_id": "HBxTSccS",
+        "position": 20,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes ",
+              "value": "Yes ",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No ",
+              "value": "No ",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the first vessel owner on the certificate of registry a registered company? ",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_20",
+      "next": "step_20_routing"
+    },
+    "step_20_routing": {
+      "type": "choice",
+      "name": "Route from step_20",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_20"
+          },
+          "next": "step_22"
+        }
+      ],
+      "default": "step_21"
+    },
+    "step_21": {
+      "type": "input",
+      "name": "What is the company registration number",
+      "metadata": {
+        "forms_step_id": "DNyqk2uJ",
+        "position": 21,
+        "page_heading": "Company registration number",
+        "guidance_markdown": "We need to check for the following information. \r\n\r\n* The company has a valid certificate of registration as a registered company. \r\n* Names of company directors. Only a director has the authority to make an application on behalf of a company.\r\n",
+        "answer_type": "text",
+        "hint_text": "If you look up the number online, it's shown directly under the company name. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the company registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_21",
+      "next": "step_22"
+    },
+    "step_22": {
+      "type": "input",
+      "name": "What is the address of the first vessel owner",
+      "metadata": {
+        "forms_step_id": "zDyprhpH",
+        "position": 22,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the address of the first vessel owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_22",
+      "next": "step_23"
+    },
+    "step_23": {
+      "type": "input",
+      "name": "What is the email address of the first vessel owner",
+      "metadata": {
+        "forms_step_id": "FcwiTbw8",
+        "position": 23,
+        "page_heading": "Email address",
+        "guidance_markdown": "If your vessel is 10 metres and under in length, we will use this e-mail address to set up an account for catch recording. \r\n\r\nMore information can be found on catch recording by selecting this link [catch recording](https://www.gov.uk/guidance/record-your-catch). ",
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the email address of the first vessel owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_23",
+      "next": "step_24"
+    },
+    "step_24": {
+      "type": "input",
+      "name": "What is the mobile phone number of the first vessel owner",
+      "metadata": {
+        "forms_step_id": "2oeksfrY",
+        "position": 24,
+        "page_heading": "Mobile phone number",
+        "guidance_markdown": "If your vessel is 10 metres and under in length, we will use this mobile phone number to set up an account for catch recording. \r\n\r\nMore information can be found on catch recording by selecting this link [catch recording](https://www.gov.uk/guidance/record-your-catch).\r\n",
+        "answer_type": "phone_number",
+        "hint_text": "If the vessel owner does not have a mobile phone, please provide a landline number. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the first vessel owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_24",
+      "next": "step_25"
+    },
+    "step_25": {
+      "type": "input",
+      "name": "Are there multiple owners",
+      "metadata": {
+        "forms_step_id": "XeUHZTfk",
+        "position": 25,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are there multiple owners?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_25",
+      "next": "step_25_routing"
+    },
+    "step_25_routing": {
+      "type": "choice",
+      "name": "Route from step_25",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_25"
+          },
+          "next": "step_54"
+        }
+      ],
+      "default": "step_26"
+    },
+    "step_26": {
+      "type": "input",
+      "name": "What is the name of the second owner",
+      "metadata": {
+        "forms_step_id": "pQrB7NY6",
+        "position": 26,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the second owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_26",
+      "next": "step_27"
+    },
+    "step_27": {
+      "type": "input",
+      "name": "Is the second vessel owner on the certificate of registry a registered company",
+      "metadata": {
+        "forms_step_id": "Pgv98VMi",
+        "position": 27,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the second vessel owner on the certificate of registry a registered company?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_27",
+      "next": "step_27_routing"
+    },
+    "step_27_routing": {
+      "type": "choice",
+      "name": "Route from step_27",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_27"
+          },
+          "next": "step_29"
+        }
+      ],
+      "default": "step_28"
+    },
+    "step_28": {
+      "type": "input",
+      "name": "What is the company registration number",
+      "metadata": {
+        "forms_step_id": "XF8BSntg",
+        "position": 28,
+        "page_heading": "Company registration number",
+        "guidance_markdown": "We need to check for the following information. \r\n\r\n* The company has a valid certificate of registration as a registered company. \r\n* Names of company directors, as only a director has the authority to make an application on behalf of a company.\r\n\r\n",
+        "answer_type": "text",
+        "hint_text": "If you look up the number online, it is shown directly under your company name. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the company registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_28",
+      "next": "step_29"
+    },
+    "step_29": {
+      "type": "input",
+      "name": "What is the address of the second owner",
+      "metadata": {
+        "forms_step_id": "5F1jTqWx",
+        "position": 29,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the address of the second owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_29",
+      "next": "step_30"
+    },
+    "step_30": {
+      "type": "input",
+      "name": "What is the email address of the second owner",
+      "metadata": {
+        "forms_step_id": "MpxQZ5Tc",
+        "position": 30,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the email address of the second owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_30",
+      "next": "step_31"
+    },
+    "step_31": {
+      "type": "input",
+      "name": "What is the mobile phone number of the second owner",
+      "metadata": {
+        "forms_step_id": "a6pjC7ub",
+        "position": 31,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If they don't have a mobile phone number, please provide a landline number. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the second owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_31",
+      "next": "step_32"
+    },
+    "step_32": {
+      "type": "input",
+      "name": "Is there a third vessel owner",
+      "metadata": {
+        "forms_step_id": "kMYRAgne",
+        "position": 32,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is there a third vessel owner?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_32",
+      "next": "step_32_routing"
+    },
+    "step_32_routing": {
+      "type": "choice",
+      "name": "Route from step_32",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_32"
+          },
+          "next": "step_54"
+        }
+      ],
+      "default": "step_33"
+    },
+    "step_33": {
+      "type": "input",
+      "name": "What is the name of the third vessel owner",
+      "metadata": {
+        "forms_step_id": "aNpGGbMN",
+        "position": 33,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the third vessel owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_33",
+      "next": "step_34"
+    },
+    "step_34": {
+      "type": "input",
+      "name": "Is the third vessel owner on the certificate of registry a registered company",
+      "metadata": {
+        "forms_step_id": "eC2KJqGu",
+        "position": 34,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the third vessel owner on the certificate of registry a registered company?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_34",
+      "next": "step_34_routing"
+    },
+    "step_34_routing": {
+      "type": "choice",
+      "name": "Route from step_34",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_34"
+          },
+          "next": "step_36"
+        }
+      ],
+      "default": "step_35"
+    },
+    "step_35": {
+      "type": "input",
+      "name": "What is the company registration number",
+      "metadata": {
+        "forms_step_id": "5ENAwig5",
+        "position": 35,
+        "page_heading": "Company registration number",
+        "guidance_markdown": "We need to check for the following information. \r\n\r\n* The company has a valid certificate of registration as a registered company. \r\n* Names of company directors, as only a director has the authority to make an application on behalf of a company.\r\n",
+        "answer_type": "text",
+        "hint_text": "This is the company registration number. If you look up the number online, it is shown directly under your company name. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the company registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_35",
+      "next": "step_36"
+    },
+    "step_36": {
+      "type": "input",
+      "name": "What is the address of the third owner",
+      "metadata": {
+        "forms_step_id": "R9v94JEK",
+        "position": 36,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the address of the third owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_36",
+      "next": "step_37"
+    },
+    "step_37": {
+      "type": "input",
+      "name": "What is the email address of the third owner",
+      "metadata": {
+        "forms_step_id": "suqybBvp",
+        "position": 37,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the email address of the third owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_37",
+      "next": "step_38"
+    },
+    "step_38": {
+      "type": "input",
+      "name": "What is the mobile phone number of the third owner",
+      "metadata": {
+        "forms_step_id": "NxYhqQn8",
+        "position": 38,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If they don't have a mobile phone number, please provide a landline number. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the third owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_38",
+      "next": "step_39"
+    },
+    "step_39": {
+      "type": "input",
+      "name": "Is there a fourth owner",
+      "metadata": {
+        "forms_step_id": "xPod38x2",
+        "position": 39,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is there a fourth owner?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_39",
+      "next": "step_39_routing"
+    },
+    "step_39_routing": {
+      "type": "choice",
+      "name": "Route from step_39",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_39"
+          },
+          "next": "step_54"
+        }
+      ],
+      "default": "step_40"
+    },
+    "step_40": {
+      "type": "input",
+      "name": "What is the name of the fourth owner",
+      "metadata": {
+        "forms_step_id": "tuyAGNb8",
+        "position": 40,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the fourth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_40",
+      "next": "step_41"
+    },
+    "step_41": {
+      "type": "input",
+      "name": "Is the fourth vessel owner on the certificate of registry a registered company",
+      "metadata": {
+        "forms_step_id": "dKFWoEiN",
+        "position": 41,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the fourth vessel owner on the certificate of registry a registered company?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_41",
+      "next": "step_41_routing"
+    },
+    "step_41_routing": {
+      "type": "choice",
+      "name": "Route from step_41",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_41"
+          },
+          "next": "step_43"
+        }
+      ],
+      "default": "step_42"
+    },
+    "step_42": {
+      "type": "input",
+      "name": "What is the company registration number",
+      "metadata": {
+        "forms_step_id": "TfSgpSws",
+        "position": 42,
+        "page_heading": "Company registration number",
+        "guidance_markdown": "We need to check for the following information. \r\n\r\n* The company has a valid certificate of registration as a registered company. \r\n* Names of company directors, as only a director has the authority to make an application on behalf of a company.\r\n",
+        "answer_type": "text",
+        "hint_text": "This is the company registration number. If you look up the number online, it is shown directly under your company name. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the company registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_42",
+      "next": "step_43"
+    },
+    "step_43": {
+      "type": "input",
+      "name": "What is the address of the fourth owner",
+      "metadata": {
+        "forms_step_id": "o8JM1rQC",
+        "position": 43,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the address of the fourth owner",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_43",
+      "next": "step_44"
+    },
+    "step_44": {
+      "type": "input",
+      "name": "What is the email address of the fourth owner",
+      "metadata": {
+        "forms_step_id": "Vm7f1sfZ",
+        "position": 44,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the email address of the fourth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_44",
+      "next": "step_45"
+    },
+    "step_45": {
+      "type": "input",
+      "name": "What is the mobile phone number of the fourth owner",
+      "metadata": {
+        "forms_step_id": "LBufHgY1",
+        "position": 45,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If they don't have a mobile phone number, please provide a landline number.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the fourth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_45",
+      "next": "step_46"
+    },
+    "step_46": {
+      "type": "input",
+      "name": "Is there a fifth owner",
+      "metadata": {
+        "forms_step_id": "teg7f13V",
+        "position": 46,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is there a fifth owner?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_46",
+      "next": "step_46_routing"
+    },
+    "step_46_routing": {
+      "type": "choice",
+      "name": "Route from step_46",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_46"
+          },
+          "next": "step_54"
+        }
+      ],
+      "default": "step_47"
+    },
+    "step_47": {
+      "type": "input",
+      "name": "What is the name of the fifth owner",
+      "metadata": {
+        "forms_step_id": "BWqPL4P8",
+        "position": 47,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the fifth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_47",
+      "next": "step_48"
+    },
+    "step_48": {
+      "type": "input",
+      "name": "Is the fifth vessel owner on the certificate of registry a registered company",
+      "metadata": {
+        "forms_step_id": "UHjf7eKn",
+        "position": 48,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the fifth vessel owner on the certificate of registry a registered company?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_48",
+      "next": "step_48_routing"
+    },
+    "step_48_routing": {
+      "type": "choice",
+      "name": "Route from step_48",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_48"
+          },
+          "next": "step_50"
+        }
+      ],
+      "default": "step_49"
+    },
+    "step_49": {
+      "type": "input",
+      "name": "What is the company registration number",
+      "metadata": {
+        "forms_step_id": "wXG9NJZV",
+        "position": 49,
+        "page_heading": "Company registration number ",
+        "guidance_markdown": "We need to check for the following information. \r\n\r\n* The company has a valid certificate of registration as a registered company. \r\n* Names of company directors, as only a director has the authority to make an application on behalf of a company.\r\n\r\n\r\n",
+        "answer_type": "text",
+        "hint_text": "This is the company registration number. If you look up the number online, it is shown directly under your company name. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the company registration number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_49",
+      "next": "step_50"
+    },
+    "step_50": {
+      "type": "input",
+      "name": "What is the address of the fifth owner",
+      "metadata": {
+        "forms_step_id": "iPoyBd5U",
+        "position": 50,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the address of the fifth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_50",
+      "next": "step_51"
+    },
+    "step_51": {
+      "type": "input",
+      "name": "What is the email address of the fifth owner",
+      "metadata": {
+        "forms_step_id": "HmTRXQaE",
+        "position": 51,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the email address of the fifth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_51",
+      "next": "step_52"
+    },
+    "step_52": {
+      "type": "input",
+      "name": "What is the mobile phone number of the fifth owner",
+      "metadata": {
+        "forms_step_id": "uZk9FFCE",
+        "position": 52,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If they don't have a mobile phone number, please provide a landline number.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the fifth owner?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_52",
+      "next": "step_53"
+    },
+    "step_53": {
+      "type": "input",
+      "name": "Do you need to add any additional owners",
+      "metadata": {
+        "forms_step_id": "LTnFN66z",
+        "position": 53,
+        "page_heading": "More than five vessel owners",
+        "guidance_markdown": "If there are more than 5 vessel owners on the certificate of registry, please provide details here. \r\n\r\nFor each vessel owner we need the:\r\n\r\n* Name (If a company please add the company registration number too)\r\n* Address\r\n* Email address\r\n* Mobile phone number.",
+        "answer_type": "text",
+        "hint_text": "If you do not need to add more than five owners, you can leave this question blank. ",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you need to add any additional owners?",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_53",
+      "next": "step_54"
+    },
+    "step_54": {
+      "type": "input",
+      "name": "Do you want to provide details for a nominee",
+      "metadata": {
+        "forms_step_id": "9A7fr8VG",
+        "position": 54,
+        "page_heading": "Nominee details",
+        "guidance_markdown": "You can nominate a person other than the first vessel owner to receive all licences, notices and variations on your behalf. \r\n\r\nIf you are nominating a person other than the first vessel owner to be the nominee, you will need to provide the following information;\r\n\r\n* A named nominee for the licence and their contact details. This person will receive all licences, notices and variations. \r\n\r\nYou will also have the opportunity to nominate a second person to receive licence variation notifications alongside the nominee.\r\n\r\n\r\n \r\n\r\n. \r\n\r\n\r\n",
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes - I want to add a nominee ",
+              "value": "Yes - I want to add a nominee ",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No - the first vessel owner will receive all licences, notices and variations",
+              "value": "No - the first vessel owner will receive all licences, notices and variations",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to provide details for a nominee?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Yes - I want to add a nominee ",
+            "label": "Yes - I want to add a nominee "
+          },
+          {
+            "value": "No - the first vessel owner will receive all licences, notices and variations",
+            "label": "No - the first vessel owner will receive all licences, notices and variations"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_54",
+      "next": "step_54_routing"
+    },
+    "step_54_routing": {
+      "type": "choice",
+      "name": "Route from step_54",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "eq",
+            "path": "answers.step_54",
+            "value": "No - the first vessel owner will receive all licences, notices and variations"
+          },
+          "next": "step_59"
+        }
+      ],
+      "default": "step_55"
+    },
+    "step_55": {
+      "type": "input",
+      "name": "What is the name of the nominee",
+      "metadata": {
+        "forms_step_id": "sNjDyRru",
+        "position": 55,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": "This is the person who will receive licences, notices and variations on your behalf. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the nominee?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_55",
+      "next": "step_56"
+    },
+    "step_56": {
+      "type": "input",
+      "name": "What is the address of the nominee",
+      "metadata": {
+        "forms_step_id": "PRDch4Mo",
+        "position": 56,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the address of the nominee?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_56",
+      "next": "step_57"
+    },
+    "step_57": {
+      "type": "input",
+      "name": "What is the email address of the nominee",
+      "metadata": {
+        "forms_step_id": "WTEwvHfa",
+        "position": 57,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the email address of the nominee?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_57",
+      "next": "step_58"
+    },
+    "step_58": {
+      "type": "input",
+      "name": "What is the mobile phone number of the nominee",
+      "metadata": {
+        "forms_step_id": "omgh8E6p",
+        "position": 58,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If they don't have a mobile phone number, please provide a landline number.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the nominee?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_58",
+      "next": "step_59"
+    },
+    "step_59": {
+      "type": "input",
+      "name": "Do you want to nominate a second person to receive licence variation notifications alongside the nominee",
+      "metadata": {
+        "forms_step_id": "dx3xx73V",
+        "position": 59,
+        "page_heading": "Second person to receive licence variation notifications",
+        "guidance_markdown": "You can request a second person to receive licence variation notifications here. This could be a vessel owner (if they aren't the nominee) or another person. ",
+        "answer_type": "selection",
+        "hint_text": "This can be one of the owners if they are not the nominee or can be someone nominated to receive the licence variation notifications on your behalf.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes I want to add a second person alongside the nominee",
+              "value": "Yes I want to add a second person alongside the nominee",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No I don't want to nominate a second person to receive licence variation notifications",
+              "value": "No I don't want to nominate a second person to receive licence variation notifications",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to nominate a second person to receive licence variation notifications alongside the nominee?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Yes I want to add a second person alongside the nominee",
+            "label": "Yes I want to add a second person alongside the nominee"
+          },
+          {
+            "value": "No I don't want to nominate a second person to receive licence variation notifications",
+            "label": "No I don't want to nominate a second person to receive licence variation notifications"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_59",
+      "next": "step_59_routing"
+    },
+    "step_59_routing": {
+      "type": "choice",
+      "name": "Route from step_59",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "eq",
+            "path": "answers.step_59",
+            "value": "No I don't want to nominate a second person to receive licence variation notifications"
+          },
+          "next": "step_63"
+        }
+      ],
+      "default": "step_60"
+    },
+    "step_60": {
+      "type": "input",
+      "name": "What is the name of the second person you would like to receive licence variation notifications",
+      "metadata": {
+        "forms_step_id": "C4cojYvJ",
+        "position": 60,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": "This can be you if you are not the nominee or it can be another person.  ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the second person you would like to receive licence variation notifications?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_60",
+      "next": "step_61"
+    },
+    "step_61": {
+      "type": "input",
+      "name": "What is the e-mail address of the second person you would like to receive licence variation notifications",
+      "metadata": {
+        "forms_step_id": "G4S2Vgvz",
+        "position": 61,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the e-mail address of the second person you would like to receive licence variation notifications?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_61",
+      "next": "step_62"
+    },
+    "step_62": {
+      "type": "input",
+      "name": "What is the mobile phone number of the second person you would like to receive licence variation notifications",
+      "metadata": {
+        "forms_step_id": "zijwEmno",
+        "position": 62,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If they don't have a mobile phone number, please provide a landline number. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the mobile phone number of the second person you would like to receive licence variation notifications?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_62",
+      "next": "step_63"
+    },
+    "step_63": {
+      "type": "input",
+      "name": "Are you a member of a Producer Organisation?",
+      "metadata": {
+        "forms_step_id": "iTEM5oVH",
+        "position": 63,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are you a member of a Producer Organisation? ",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_63",
+      "next": "step_63_routing"
+    },
+    "step_63_routing": {
+      "type": "choice",
+      "name": "Route from step_63",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_63"
+          },
+          "next": "step_65"
+        }
+      ],
+      "default": "step_64"
+    },
+    "step_64": {
+      "type": "input",
+      "name": "What is the name of the Producer Organisation",
+      "metadata": {
+        "forms_step_id": "JCN7haHL",
+        "position": 64,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "Please select the name from the list of Producer Organisations below. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Aberdeen Fish Producers Organisation (AFPO)",
+              "value": "Aberdeen Fish Producers Organisation (AFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Anglo Northern Ireland Fish Producers Organisation (ANIFPO)",
+              "value": "Anglo Northern Ireland Fish Producers Organisation (ANIFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Anglo Scottish Fish Producers Organisation (ASFPO)",
+              "value": "Anglo Scottish Fish Producers Organisation (ASFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Cornish Fish Producers Organisation (CFPO)",
+              "value": "Cornish Fish Producers Organisation (CFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Eastern England Fish Producers Organisation (EEFPO)",
+              "value": "Eastern England Fish Producers Organisation (EEFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fife Fish Producers Organisation",
+              "value": "Fife Fish Producers Organisation",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Fish Producers Organisation (FPO)",
+              "value": "Fish Producers Organisation (FPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Humberside Fish Producers Organisation (HFPO)",
+              "value": "Humberside Fish Producers Organisation (HFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Interfish Producers Organisation",
+              "value": "Interfish Producers Organisation",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Klondyke Fish Producers Organisation",
+              "value": "Klondyke Fish Producers Organisation",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Lunar",
+              "value": "Lunar",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Manx Fish Producers Organisation",
+              "value": "Manx Fish Producers Organisation",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "North East of Scotland Fishermen's Organisation (NESFO)",
+              "value": "North East of Scotland Fishermen's Organisation (NESFO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Northern Ireland Fish Producers Organisation (NIFPO)",
+              "value": "Northern Ireland Fish Producers Organisation (NIFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Northern Producers Organisation (NPO)",
+              "value": "Northern Producers Organisation (NPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "North Sea Fish Producers Organisation (NSFPO)",
+              "value": "North Sea Fish Producers Organisation (NSFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Orkney Fish Producers Organisation (OFPO)",
+              "value": "Orkney Fish Producers Organisation (OFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Scottish Fishermen's Organisation (SFO)",
+              "value": "Scottish Fishermen's Organisation (SFO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Shetland Fish Producers Organisation",
+              "value": "Shetland Fish Producers Organisation",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "South West Fish Producers Organisation (SWFPO)",
+              "value": "South West Fish Producers Organisation (SWFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Wales & West Coast Fish Producers Organisation (WWWC)",
+              "value": "Wales & West Coast Fish Producers Organisation (WWWC)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Western Fish Producers Organisation (WFPO)",
+              "value": "Western Fish Producers Organisation (WFPO)",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "West of Scotland Fish Producers Organisation (WSFPO)",
+              "value": "West of Scotland Fish Producers Organisation (WSFPO)",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the name of the Producer Organisation?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "Aberdeen Fish Producers Organisation (AFPO)",
+            "label": "Aberdeen Fish Producers Organisation (AFPO)"
+          },
+          {
+            "value": "Anglo Northern Ireland Fish Producers Organisation (ANIFPO)",
+            "label": "Anglo Northern Ireland Fish Producers Organisation (ANIFPO)"
+          },
+          {
+            "value": "Anglo Scottish Fish Producers Organisation (ASFPO)",
+            "label": "Anglo Scottish Fish Producers Organisation (ASFPO)"
+          },
+          {
+            "value": "Cornish Fish Producers Organisation (CFPO)",
+            "label": "Cornish Fish Producers Organisation (CFPO)"
+          },
+          {
+            "value": "Eastern England Fish Producers Organisation (EEFPO)",
+            "label": "Eastern England Fish Producers Organisation (EEFPO)"
+          },
+          {
+            "value": "Fife Fish Producers Organisation",
+            "label": "Fife Fish Producers Organisation"
+          },
+          {
+            "value": "Fish Producers Organisation (FPO)",
+            "label": "Fish Producers Organisation (FPO)"
+          },
+          {
+            "value": "Humberside Fish Producers Organisation (HFPO)",
+            "label": "Humberside Fish Producers Organisation (HFPO)"
+          },
+          {
+            "value": "Interfish Producers Organisation",
+            "label": "Interfish Producers Organisation"
+          },
+          {
+            "value": "Klondyke Fish Producers Organisation",
+            "label": "Klondyke Fish Producers Organisation"
+          },
+          {
+            "value": "Lunar",
+            "label": "Lunar"
+          },
+          {
+            "value": "Manx Fish Producers Organisation",
+            "label": "Manx Fish Producers Organisation"
+          },
+          {
+            "value": "North East of Scotland Fishermen's Organisation (NESFO)",
+            "label": "North East of Scotland Fishermen's Organisation (NESFO)"
+          },
+          {
+            "value": "Northern Ireland Fish Producers Organisation (NIFPO)",
+            "label": "Northern Ireland Fish Producers Organisation (NIFPO)"
+          },
+          {
+            "value": "Northern Producers Organisation (NPO)",
+            "label": "Northern Producers Organisation (NPO)"
+          },
+          {
+            "value": "North Sea Fish Producers Organisation (NSFPO)",
+            "label": "North Sea Fish Producers Organisation (NSFPO)"
+          },
+          {
+            "value": "Orkney Fish Producers Organisation (OFPO)",
+            "label": "Orkney Fish Producers Organisation (OFPO)"
+          },
+          {
+            "value": "Scottish Fishermen's Organisation (SFO)",
+            "label": "Scottish Fishermen's Organisation (SFO)"
+          },
+          {
+            "value": "Shetland Fish Producers Organisation",
+            "label": "Shetland Fish Producers Organisation"
+          },
+          {
+            "value": "South West Fish Producers Organisation (SWFPO)",
+            "label": "South West Fish Producers Organisation (SWFPO)"
+          },
+          {
+            "value": "Wales & West Coast Fish Producers Organisation (WWWC)",
+            "label": "Wales & West Coast Fish Producers Organisation (WWWC)"
+          },
+          {
+            "value": "Western Fish Producers Organisation (WFPO)",
+            "label": "Western Fish Producers Organisation (WFPO)"
+          },
+          {
+            "value": "West of Scotland Fish Producers Organisation (WSFPO)",
+            "label": "West of Scotland Fish Producers Organisation (WSFPO)"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_64",
+      "next": "step_65"
+    },
+    "step_65": {
+      "type": "input",
+      "name": "What is your intended home port",
+      "metadata": {
+        "forms_step_id": "ejosCaYm",
+        "position": 65,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "The home port is where the majority of landings will take place. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your intended home port?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_65",
+      "next": "step_66"
+    },
+    "step_66": {
+      "type": "input",
+      "name": "What is the number of the first entitlement or disaggregated component you want to use to license this vessel?",
+      "metadata": {
+        "forms_step_id": "MHa1NiFN",
+        "position": 66,
+        "page_heading": "Entitlements and disaggregations",
+        "guidance_markdown": "## You must have at least one or more, fishing entitlement(s) in the same name as the owner of the vessel to licence a vessel.\r\n\r\nThe entitlement(s) must be suitable for your requirements:\r\n\r\n* licence category\r\n* licence permits – shellfish (all lengths), scallop and beam trawl areas 4 and 7 (over 10 metre vessels only)\r\n* engine power\r\n* tonnage\r\n\r\nIf the entitlement does not hold enough engine power or tonnage to license this vessel, you will need to obtain another entitlement to cover the shortfall. \r\n\r\nIf the engine power and tonnage on the entitlement are greater than your vessel requirements any excess will be lost forever unless you submit an AFL19 application to separate a fishing vessel licence entitlement. This is also known as disaggregating an entitlement.\r\n\r\nBefore you proceed with an application to separate a fishing vessel licence entitlement, please ensure that by disaggregating an entitlement it won’t affect the resulting shellfish, scallop or beam trawl permit. Here is a link to the application to [Separate a fishing vessel licence entitlement (AFL19)](https://www.gov.uk/government/publications/combine-or-separate-a-fishing-vessel-licence-or-entitlement))",
+        "answer_type": "text",
+        "hint_text": "This will consist of 5 numbers that can be found on either Section D (AFL7 Entitlement). This is called the licence number. Or on Section F (AFL19 Disaggregated component). This is called the licence entitlement number.\r\n",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the number of the first entitlement or disaggregated component you want to use to license this vessel? ",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_66",
+      "next": "step_67"
+    },
+    "step_67": {
+      "type": "input",
+      "name": "What is the engine power (kW) on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "znJLQQGV",
+        "position": 67,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the engine power (kW) on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_67",
+      "next": "step_68"
+    },
+    "step_68": {
+      "type": "input",
+      "name": "What is the tonnage on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "vPzTCKzi",
+        "position": 68,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the tonnage on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_68",
+      "next": "step_69"
+    },
+    "step_69": {
+      "type": "input",
+      "name": "Do you want to add an additional entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "fYiNhFLs",
+        "position": 69,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "If the first entitlement didn't cover the kW and/or tonnage required to licence this vessel you will need to add another entitlement, or, if you have split an entitlement the disaggregated component.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to add an additional entitlement or disaggregated component?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_69",
+      "next": "step_69_routing"
+    },
+    "step_69_routing": {
+      "type": "choice",
+      "name": "Route from step_69",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_69"
+          },
+          "next": "step_83"
+        }
+      ],
+      "default": "step_70"
+    },
+    "step_70": {
+      "type": "input",
+      "name": "What is the number of the second entitlement or disaggregated component that you want to use to license this vessel",
+      "metadata": {
+        "forms_step_id": "1P3xFQCJ",
+        "position": 70,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "This will consist of 5 numbers and can be found on either the Section D (AFL7 Entitlement) - this is called licence number, or, the Section F (AFL19 Disaggregated component) - this is called licence entitlement number.\r\n",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the number of the second entitlement or disaggregated component that you want to use to license this vessel?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_70",
+      "next": "step_71"
+    },
+    "step_71": {
+      "type": "input",
+      "name": "What is the engine power (kW) on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "pGV3u2UW",
+        "position": 71,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the engine power (kW) on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_71",
+      "next": "step_72"
+    },
+    "step_72": {
+      "type": "input",
+      "name": "What is the tonnage on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "S6dNcnEB",
+        "position": 72,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the tonnage on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_72",
+      "next": "step_73"
+    },
+    "step_73": {
+      "type": "input",
+      "name": "Do you want to add an additional entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "9dnibCpv",
+        "position": 73,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to add an additional entitlement or disaggregated component?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_73",
+      "next": "step_73_routing"
+    },
+    "step_73_routing": {
+      "type": "choice",
+      "name": "Route from step_73",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_73"
+          },
+          "next": "step_83"
+        }
+      ],
+      "default": "step_74"
+    },
+    "step_74": {
+      "type": "input",
+      "name": "What is the number of the third entitlement or disaggregated component that you want to use to license this vessel",
+      "metadata": {
+        "forms_step_id": "umq2uuqZ",
+        "position": 74,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": "This will consist of 5 numbers and can be found on either the Section D (AFL7 Entitlement) - this is called licence number, or, the Section F (AFL19 Disaggregated component) - this is called licence entitlement number.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the number of the third entitlement or disaggregated component that you want to use to license this vessel?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_74",
+      "next": "step_75"
+    },
+    "step_75": {
+      "type": "input",
+      "name": "What is the engine power (kW) on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "939SHqML",
+        "position": 75,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the engine power (kW) on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_75",
+      "next": "step_76"
+    },
+    "step_76": {
+      "type": "input",
+      "name": "What is the tonnage on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "Bqk8YWLL",
+        "position": 76,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the tonnage on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_76",
+      "next": "step_77"
+    },
+    "step_77": {
+      "type": "input",
+      "name": "Do you want to add an additional entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "2xEBTwPi",
+        "position": 77,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to add an additional entitlement or disaggregated component?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_77",
+      "next": "step_77_routing"
+    },
+    "step_77_routing": {
+      "type": "choice",
+      "name": "Route from step_77",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_77"
+          },
+          "next": "step_83"
+        }
+      ],
+      "default": "step_78"
+    },
+    "step_78": {
+      "type": "input",
+      "name": "What is the number of the fourth entitlement or disaggregated component that you want to use to license this vessel",
+      "metadata": {
+        "forms_step_id": "VEcPEDYJ",
+        "position": 78,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "This will consist of 5 numbers and can be found on either the Section D (AFL7 Entitlement) - this is called licence number, or, the Section F (AFL19 Disaggregated component) - this is called licence entitlement number.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the number of the fourth entitlement or disaggregated component that you want to use to license this vessel?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_78",
+      "next": "step_79"
+    },
+    "step_79": {
+      "type": "input",
+      "name": "What is the engine power (kW) on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "QKudEKsW",
+        "position": 79,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the engine power (kW) on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_79",
+      "next": "step_80"
+    },
+    "step_80": {
+      "type": "input",
+      "name": "What is the tonnage on this entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "CSuzY1wL",
+        "position": 80,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "number",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is the tonnage on this entitlement or disaggregated component?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_80",
+      "next": "step_81"
+    },
+    "step_81": {
+      "type": "input",
+      "name": "Do you want to add an additional entitlement or disaggregated component",
+      "metadata": {
+        "forms_step_id": "HTnTQVjp",
+        "position": 81,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to add an additional entitlement or disaggregated component?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_81",
+      "next": "step_81_routing"
+    },
+    "step_81_routing": {
+      "type": "choice",
+      "name": "Route from step_81",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_81"
+          },
+          "next": "step_83"
+        }
+      ],
+      "default": "step_82"
+    },
+    "step_82": {
+      "type": "input",
+      "name": "Please list any  additional entitlement and/or disaggregated component details you want to use to license this vessel",
+      "metadata": {
+        "forms_step_id": "ziJsnFzK",
+        "position": 82,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "Please include licence entitlement numbers, engine power in kilowatts (kW) and tonnage",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "Please list any  additional entitlement and/or disaggregated component details you want to use to license this vessel",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_82",
+      "next": "step_83"
+    },
+    "step_83": {
+      "type": "input",
+      "name": "Please tell us if any of these points relate to your vessel and licence",
+      "metadata": {
+        "forms_step_id": "uVUPN4i7",
+        "position": 83,
+        "page_heading": "Bass, Cod Area 7d, and Sole Recovery Zone",
+        "guidance_markdown": "### For vessels of any length\r\n\r\n1 . Does the vessel have a bass authorisation or has MMO given permission for a retained bass authorisation to be placed on a vessel in your ownership? You will be asked to upload the confirmation letter or email in the next step.\r\n\r\nFor more information visit [Bass Fishing Guidance - GOV.UK](https://www.gov.uk/government/publications/bass-industry-guidance-2025/bass-fishing-guidance-2025#vessel-replacement-and-transfer-of-authorisation)\r\n\r\n### For over 10m vessels only\r\n\r\n1 . Does the vessel have Cod 7d eligibility or are you are using a licence entitlement with Cod 7d eligibility to license the vessel?  All entitlements that include engine power used to licence the vessel must have Cod 7d eligibility.\r\n\r\nFor more information visit [Rules on Cod in ICES area VIId - GOV.UK](https://www.gov.uk/government/publications/manage-your-fishing-effort-cod-in-ices-area-viid/rules-on-cod-in-ices-area-viid)\r\n\r\n2 . Does the vessel have Sole Recovery Zone eligibility or are you using a licence entitlement with SRZ eligibility to license the vessel?  All entitlements that include engine power used to licence the vessel must have SRZ eligibility.\r\n\r\nFor more information visit [Sole Recovery Zone rules - GOV.UK](https://www.gov.uk/government/publications/manage-your-fishing-effort-sole-recovery-zone/sole-recovery-zone-rules)",
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": " Please tell us if any of these points relate to your vessel and licence",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_83",
+      "next": "step_84"
+    },
+    "step_84": {
+      "type": "input",
+      "name": "Please upload your retained bass letter or email confirmation from MMO",
+      "metadata": {
+        "forms_step_id": "xSBcuvmt",
+        "position": 84,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "file",
+        "hint_text": null,
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Please upload your retained bass letter or email confirmation from MMO",
+      "schema": {
+        "kind": "file_ref",
+        "allow_skip": true
+      },
+      "assign": "answers.step_84",
+      "next": "step_85"
+    },
+    "step_85": {
+      "type": "input",
+      "name": "What is your name",
+      "metadata": {
+        "forms_step_id": "QrB8eTyS",
+        "position": 85,
+        "page_heading": "Applicant details",
+        "guidance_markdown": "We need to know who is completing this application in case we need to discuss the application with you.\r\n\r\n* if there is more than one owner, you will be applying on behalf of all owners and must have their permission\r\n\r\n* if you are an authorised signatory or have power of attorney for the owner(s) we will ask you for your contact details \r\n\r\n* if you are applying on behalf of a company, only a company director has the authority to apply. We will need your name to check you are shown as a director on Companies House\r\n\r\n",
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is your name?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_85",
+      "next": "step_86"
+    },
+    "step_86": {
+      "type": "input",
+      "name": "Are you applying on behalf of a registered company",
+      "metadata": {
+        "forms_step_id": "jsX9Yma3",
+        "position": 86,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are you applying on behalf of a registered company?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_86",
+      "next": "step_86_routing"
+    },
+    "step_86_routing": {
+      "type": "choice",
+      "name": "Route from step_86",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_86"
+          },
+          "next": "step_90"
+        }
+      ],
+      "default": "step_87"
+    },
+    "step_87": {
+      "type": "input",
+      "name": "What is your position in the company",
+      "metadata": {
+        "forms_step_id": "M4xVvTa6",
+        "position": 87,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "Only registered directors have the authority to complete an application on behalf of a company.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your position in the company?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_87",
+      "next": "step_88"
+    },
+    "step_88": {
+      "type": "input",
+      "name": "Is the company you are applying for based in Jersey, Guernsey or the Isle of Man",
+      "metadata": {
+        "forms_step_id": "1BAgj4Wz",
+        "position": 88,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Is the company you are applying for based in Jersey, Guernsey or the Isle of Man?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_88",
+      "next": "step_88_routing"
+    },
+    "step_88_routing": {
+      "type": "choice",
+      "name": "Route from step_88",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_88"
+          },
+          "next": "step_90"
+        }
+      ],
+      "default": "step_89"
+    },
+    "step_89": {
+      "type": "input",
+      "name": "Please upload the certificate of registration and the list of company directors.",
+      "metadata": {
+        "forms_step_id": "tfGmYwvs",
+        "position": 89,
+        "page_heading": "Jersey, Guernsey and Isle of Man Companies",
+        "guidance_markdown": " If you are applying on behalf of a Jersey, Guernsey or Isle of Man company we need you to provide us with: \r\n\r\n* A valid certificate of registration\r\n\r\n* A list of Company Directors",
+        "answer_type": "file",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "Please upload the certificate of registration and the list of company directors.",
+      "schema": {
+        "kind": "file_ref",
+        "allow_skip": false
+      },
+      "assign": "answers.step_89",
+      "next": "step_90"
+    },
+    "step_90": {
+      "type": "input",
+      "name": "Have you already provided your contact email and mobile phone number in this application",
+      "metadata": {
+        "forms_step_id": "wysWNu5k",
+        "position": 90,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": "We need to make sure we have contact details for you in case we need to discuss your application. If you select 'No', you will be asked to provide your email address and mobile phone number. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Have you already provided your contact email and mobile phone number in this application?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_90",
+      "next": "step_90_routing"
+    },
+    "step_90_routing": {
+      "type": "choice",
+      "name": "Route from step_90",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "answers.step_90"
+          },
+          "next": "step_93"
+        }
+      ],
+      "default": "step_91"
+    },
+    "step_91": {
+      "type": "input",
+      "name": "What is your email address",
+      "metadata": {
+        "forms_step_id": "nLyfF5gc",
+        "position": 91,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": "We will use this if we need to contact you about your application. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your email address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_91",
+      "next": "step_92"
+    },
+    "step_92": {
+      "type": "input",
+      "name": "What is your mobile phone number",
+      "metadata": {
+        "forms_step_id": "Tavodyzd",
+        "position": 92,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "If you don't have a mobile phone number, please provide a landline number. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your mobile phone number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_92",
+      "next": "step_93"
+    },
+    "step_93": {
+      "type": "input",
+      "name": "Are you already registered on the Fish Hub Electronic Reporting System",
+      "metadata": {
+        "forms_step_id": "jFATqx32",
+        "position": 93,
+        "page_heading": "Electronic Reporting System (ERS)",
+        "guidance_markdown": "The FishHub Electronic Reporting System (ERS) is an online portal.\r\n\r\nIt can be used to view vessel data and submit sales notes of first-sale fish if you are a registered buyer or seller.\r\n\r\n'First-sale fish' refers to fish from a United Kingdom fishing vessel which is offered for sale for the first time. This includes undersize fish.",
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Are you already registered on the Fish Hub Electronic Reporting System?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_93",
+      "next": "step_93_routing"
+    },
+    "step_93_routing": {
+      "type": "choice",
+      "name": "Route from step_93",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "answers.step_93"
+          },
+          "next": "step_98"
+        }
+      ],
+      "default": "step_94"
+    },
+    "step_94": {
+      "type": "input",
+      "name": "Do you want to register on the FishHub Electronic Reporting System",
+      "metadata": {
+        "forms_step_id": "dFbYshhp",
+        "position": 94,
+        "page_heading": "Electronic Reporting System (ERS)",
+        "guidance_markdown": "By selecting yes, indicating you want to view vessel data, you will be set up as a Vessel Administrator.\r\n\r\nA Vessel Administrator can see the vessel’s logbooks, sales notes and data.\r\n\r\nAn Administrator has the ability to add delegated persons to view the logbooks, create landing declarations and also if required to view any relevant sales notes for your vessel.\r\n\r\nPlease note this question does not relate to setting up on the Catch Recording system. You will receive a separate email invitation for Catch Recording. ",
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to register on the FishHub Electronic Reporting System?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.step_94",
+      "next": "step_94_routing"
+    },
+    "step_94_routing": {
+      "type": "choice",
+      "name": "Route from step_94",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.step_94"
+          },
+          "next": "step_99"
+        }
+      ],
+      "default": "step_95"
+    },
+    "step_95": {
+      "type": "input",
+      "name": "Do you want to register on ERS using your own details or somebody else's",
+      "metadata": {
+        "forms_step_id": "91k3Wxnk",
+        "position": 95,
+        "page_heading": "Who do you want to register on ERS?",
+        "guidance_markdown": "The person you want to register on ERS will be set up as an Administrator.\r\n\r\nAn Administrator can see the vessel’s logbooks, sales notes and data.\r\n\r\nAn Administrator has the ability to add delegated persons to view the logbooks, create landing declarations and also if required to view any relevant sales notes for your vessel.",
+        "answer_type": "selection",
+        "hint_text": "If you choose to register using your own details we will use the applicant details (your name and email address) already supplied in this form.\r\n\r\nThis person will be sent an email to confirm the registration.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "I want to use my details",
+              "value": "I want to use my details",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "I want to use somebody else's details",
+              "value": "I want to use somebody else's details",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you want to register on ERS using your own details or somebody else's?",
+      "schema": {
+        "kind": "select_one",
+        "options": [
+          {
+            "value": "I want to use my details",
+            "label": "I want to use my details"
+          },
+          {
+            "value": "I want to use somebody else's details",
+            "label": "I want to use somebody else's details"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_95",
+      "next": "step_95_routing"
+    },
+    "step_95_routing": {
+      "type": "choice",
+      "name": "Route from step_95",
+      "metadata": {},
+      "rules": [
+        {
+          "when": {
+            "op": "eq",
+            "path": "answers.step_95",
+            "value": "I want to use my details"
+          },
+          "next": "step_99"
+        }
+      ],
+      "default": "step_96"
+    },
+    "step_96": {
+      "type": "input",
+      "name": "What is the name of the person you want to register on ERS",
+      "metadata": {
+        "forms_step_id": "V4hqQLtg",
+        "position": 96,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is the name of the person you want to register on ERS?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_96",
+      "next": "step_97"
+    },
+    "step_97": {
+      "type": "input",
+      "name": "What is their email address",
+      "metadata": {
+        "forms_step_id": "eKvBycfk",
+        "position": 97,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is their email address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_97",
+      "next": "step_98"
+    },
+    "step_98": {
+      "type": "input",
+      "name": "What is the user ID or email address associated with the FishHub account",
+      "metadata": {
+        "forms_step_id": "BfyAJM6e",
+        "position": 98,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "The vessel will be linked to the associated user as indicated. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is the user ID or email address associated with the FishHub account?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_98",
+      "next": "step_99"
+    },
+    "step_99": {
+      "type": "input",
+      "name": "Please upload a copy of your certificate of registry.",
+      "metadata": {
+        "forms_step_id": "chGRArhb",
+        "position": 99,
+        "page_heading": "Certificate of Registry",
+        "guidance_markdown": "We must have a copy of your certificate of registry for the vessel you are licensing so that we can progress your application. \r\n\r\nAfter uploading the file, please continue with the form. \r\n\r\n",
+        "answer_type": "file",
+        "hint_text": "After uploading your file, you will see a message confirming 'your file has been uploaded'. \r\n\r\nThis does not mean the form has been completed and submitted. Please continue with the application form.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Please upload a copy of your certificate of registry.",
+      "schema": {
+        "kind": "file_ref",
+        "allow_skip": false
+      },
+      "assign": "answers.step_99",
+      "next": "step_100"
+    },
+    "step_100": {
+      "type": "input",
+      "name": "Upload your proof of authorisation to act on behalf of the current holder.",
+      "metadata": {
+        "forms_step_id": "dKGNX5NX",
+        "position": 100,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "file",
+        "hint_text": null,
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "Upload your proof of authorisation to act on behalf of the current holder.",
+      "schema": {
+        "kind": "file_ref",
+        "allow_skip": true
+      },
+      "assign": "answers.step_100",
+      "next": "step_101"
+    },
+    "step_101": {
+      "type": "input",
+      "name": "Please can you tell us about your experience of completing this form today.",
+      "metadata": {
+        "forms_step_id": "YddQqyQZ",
+        "position": 101,
+        "page_heading": "Feedback",
+        "guidance_markdown": "We would welcome your feedback on your experience of completing this form for a fishing licence for a British registered fishing vessel. \r\n\r\nThis could include;\r\n\r\n* telling us about how easy or difficult you found completing it\r\n\r\n* suggesting any improvements we could make\r\n\r\nPlease note, we are unable to reply to your comments individually, but we do use your feedback to improve our services.\r\n",
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "long_text",
+          "title_needed": null
+        }
+      },
+      "prompt": "Please can you tell us about your experience of completing this form today.",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_101",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "We aim to process your fishing vessel licence application within 5 working days.\r\n\r\nYou must wait until you receive your fishing vessel licence before you can go fishing.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}
