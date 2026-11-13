@@ -1,0 +1,2795 @@
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<title>GOV.UK agentic app</title>
+<style>
+  :root{
+    /* Palette lifted from the Figma file's own variables */
+    --brand:#1D70B8;
+    --brand-dark:#0F385C;
+    --success:#0F7A52;
+    --green-tint:#F3F8F6;
+    --page:#E8F1F8;
+    --template:#F4F8FB;
+    --surface:#FFFFFF;
+    --ink:#0B0C0C;
+    --ink-2:#484949;
+    --ink-3:#9A9A9A;
+    --ink-4:#B1B4B6;
+    --panel:#F7F7F7;
+    --panel-2:#F2F2F2;
+    --divider:#E6E6E6;
+    --hairline:rgba(0,0,0,.14);
+    --secondary-bg:#F2F2F7;
+    --warning:#FEBC2F;
+    --tag-them:#D0E6E7;
+    --tag-you:#D2E2F1;
+    --chip:rgba(120,120,128,.16);
+    --stage:#151b22;
+    --stage-2:#0d1218;
+    --font:"GDS Transport",Arial,"Helvetica Neue",Helvetica,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:radial-gradient(120% 90% at 50% 0%,var(--stage) 0%,var(--stage-2) 100%);
+    color:var(--ink);
+    font-family:var(--font);
+    -webkit-font-smoothing:antialiased;
+    min-height:100dvh;
+  }
+
+  /* ---------- stage ---------- */
+  .stage{
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:22px;
+    padding:28px 16px 40px;
+  }
+  .stage-foot{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+  }
+  .ghost{
+    appearance:none;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05);
+    color:#cfd9e4;
+    font-family:var(--font);
+    font-size:13px;
+    padding:8px 14px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  .ghost:hover{background:rgba(255,255,255,.12)}
+  .ghost:focus-visible{outline:2px solid #8fb4d8;outline-offset:2px}
+
+  /* ---------- device ----------
+     Geometry taken from the iPhone 15 Pro community frame and scaled from its
+     393pt screen to the 375pt screen the Personalised Planning file is drawn at
+     (×0.954): 6px titanium rail, 10px bezel, 52px screen radius,
+     118×34 Dynamic Island 8px down. */
+  .device{position:relative;flex:none}
+  .phone{
+    position:relative;
+    width:375px;
+    height:824px;                       /* 812 screen + 6px shell each side */
+    max-height:calc(100dvh - 120px);
+    border-radius:44px;
+    background:#000;
+    padding:6px;
+    box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.08);
+  }
+  .screen{
+    position:relative;
+    width:100%;
+    height:100%;
+    border-radius:38px;
+    overflow:hidden;
+    background:var(--page);
+    display:flex;
+    flex-direction:column;
+  }
+  .island,.side,.ant{display:none}
+
+  /* framed — Natural Titanium */
+  .device.framed{
+    padding:6px;
+    border-radius:68px;
+    background:linear-gradient(158deg,
+      #efece6 0%,#b5b0a6 8%,#7b776f 19%,#dcd7ce 31%,#9b968e 43%,
+      #6d6963 55%,#d0cbc2 68%,#8a8680 80%,#e8e4dd 91%,#928d87 100%);
+    box-shadow:
+      0 0 0 .5px rgba(0,0,0,.55),
+      0 34px 80px -22px rgba(0,0,0,.85),
+      0 6px 18px rgba(0,0,0,.35);
+  }
+  .device.framed .phone{
+    border-radius:62px;
+    padding:10px;                       /* bezel */
+    height:832px;                       /* 812 screen + 10px bezel each side */
+    max-height:calc(100dvh - 140px);
+    background:#08080a;
+    box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16);
+  }
+  .device.framed .screen{border-radius:52px}
+  .device.framed .island,
+  .device.framed .side,
+  .device.framed .ant{display:block}
+
+  .island{
+    position:absolute;left:50%;transform:translateX(-50%);
+    top:18px;width:118px;height:34px;border-radius:17px;
+    background:#000;z-index:30;pointer-events:none;
+  }
+  .island .cam{
+    position:absolute;right:9px;top:50%;transform:translateY(-50%);
+    width:17px;height:17px;border-radius:50%;
+    background:radial-gradient(circle at 38% 34%,#2b3440 0%,#141a21 45%,#05070a 100%);
+    box-shadow:inset 0 0 0 1px rgba(120,140,165,.22);
+  }
+
+  .side{
+    position:absolute;width:8px;z-index:1;
+    background:linear-gradient(90deg,#5c5952 0%,#a49f96 42%,#cfcac1 58%,#6f6b65 100%);
+    box-shadow:0 1px 3px rgba(0,0,0,.55);
+  }
+  .side.l{left:-2px;border-radius:3px 0 0 3px}
+  .side.r{right:-2px;border-radius:0 3px 3px 0;
+    background:linear-gradient(270deg,#5c5952 0%,#a49f96 42%,#cfcac1 58%,#6f6b65 100%)}
+  /* ratios of the whole device height, straight off the Figma frame */
+  .side.action  {top:19.58%;height:4.10%}
+  .side.volup   {top:27.03%;height:7.65%}
+  .side.voldown {top:36.71%;height:7.65%}
+  .side.power   {top:32.30%;height:12.05%}
+
+  .ant{position:absolute;left:0;right:0;height:5px;z-index:2;pointer-events:none}
+  .ant::before,.ant::after{
+    content:"";position:absolute;top:0;width:6px;height:5px;background:rgba(58,55,50,.6);
+  }
+  .ant::before{left:0;border-radius:3px 0 0 3px}
+  .ant::after{right:0;border-radius:0 3px 3px 0}
+  .ant.a{top:11.26%}
+  .ant.b{top:89.46%}
+
+  @media (max-width:520px){
+    .stage{padding:0;gap:0;justify-content:flex-start}
+    .stage-foot{display:none}
+    .device,.device.framed{padding:0;border-radius:0;background:none;box-shadow:none}
+    .device .island,.device .side,.device .ant,
+    .device.framed .island,.device.framed .side,.device.framed .ant{display:none}
+    .phone,.device.framed .phone{
+      width:100%;height:100dvh;max-height:none;border-radius:0;padding:0;box-shadow:none;
+    }
+    .screen,.device.framed .screen{border-radius:0}
+  }
+
+  /* ---------- status bar + nav ---------- */
+  .statusbar{
+    flex:none;
+    height:41px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",var(--font);
+    font-size:12.7px;
+    font-weight:600;
+    letter-spacing:-.35px;
+    color:var(--ink);
+  }
+  .statusbar.on-brand{color:#fff}
+  .statusbar .icons{display:flex;align-items:center;gap:5px}
+
+  .nav{
+    flex:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:8px 16px 16px;
+  }
+  .nav-left{display:flex;align-items:center;gap:16px;min-width:0}
+  .backbtn{
+    appearance:none;border:0;cursor:pointer;
+    width:48px;height:48px;border-radius:48px;
+    background:var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    flex:none;padding:0;
+  }
+  .backbtn.chip{background:var(--chip)}
+  .backbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .nav-label{font-size:16px;font-weight:300;letter-spacing:-.4px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nav-label.sm{font-size:14px}
+  .avatar{
+    appearance:none;border:0;padding:0;cursor:pointer;flex:none;
+    width:40px;height:40px;border-radius:40px;
+    background:var(--brand-dark);
+    color:#fff;font-size:15px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .avatar:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+  /* ---------- scroll body ---------- */
+  .body{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    padding:0 16px 40px;
+  }
+  .body.flush{padding:0}
+  .body.white{background:var(--surface)}
+  /* Task detail is a white frame end to end, so the status bar and nav
+     sit on white and the heading reads as spaced, not butted up against a seam. */
+  .screen.white{background:var(--surface)}
+  .screen.white .body{padding-top:4px}
+  .stack{display:flex;flex-direction:column;gap:16px}
+
+  /* ---------- type ---------- */
+  h1.title{font-size:34px;line-height:1.15;font-weight:700;margin:0;padding:0 12px;text-wrap:balance}
+  h2.title-sm{font-size:21px;line-height:1.2;font-weight:700;margin:0;padding:0 12px;text-wrap:balance}
+  .intro{font-size:16px;line-height:1.4;font-weight:300;color:var(--ink-2);padding:0 12px;margin:0}
+  .intro.on-ink{color:var(--ink)}
+  .section-h{font-size:20px;line-height:24px;font-weight:700;letter-spacing:.076px;padding:0 12px;margin:0}
+  .section-h.big{font-size:21px;letter-spacing:0;padding:0 16px}
+  .sub{font-size:16px;font-weight:300;color:var(--ink-2);padding:0 12px;margin:0;line-height:1.4}
+
+  /* ---------- cards ---------- */
+  .card{background:var(--surface);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+  .card-pad{background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:8px}
+  .card-title{font-size:21px;font-weight:700;line-height:22px;letter-spacing:-.086px;margin:0}
+  .card-body{font-size:16px;font-weight:300;line-height:1.4;margin:0}
+  .step-head{background:var(--surface);padding:24px 16px}
+  .step-head .card-title{line-height:1.2}
+
+  .rowlink{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:var(--surface);border:0;width:100%;
+    padding:0 16px;min-height:60px;
+    font-family:var(--font);font-size:16px;font-weight:300;color:var(--ink);
+    text-align:left;cursor:pointer;
+  }
+  .rowlink:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+  .rowlink[disabled]{cursor:default;color:var(--ink-3)}
+
+  .updaterow{
+    display:flex;align-items:center;gap:12px;
+    background:var(--surface);border:0;width:100%;
+    padding:16px;cursor:pointer;font-family:var(--font);text-align:left;
+  }
+  .updaterow:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+  .updaterow .badge{
+    width:40px;height:40px;border-radius:20px;background:var(--template);
+    display:flex;align-items:center;justify-content:center;flex:none;
+  }
+  .updaterow .lbl{flex:1;font-size:21px;font-weight:700;color:var(--ink)}
+
+  /* two data tiles: status + tasks */
+  .tiles{display:flex;gap:1px;background:var(--divider)}
+  .tile{
+    flex:1;min-width:0;background:var(--surface);
+    display:flex;align-items:center;gap:12px;
+    padding:8px 16px;min-height:72px;
+  }
+  .tile .lbl{min-width:0}
+  .tile .k{font-size:16px;font-weight:700;line-height:1.25}
+  .tile .v{font-size:14px;font-weight:300;line-height:1.3;color:var(--ink)}
+
+  .detailsrow{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:var(--surface);border:0;width:100%;
+    padding:12px 16px;font-family:var(--font);font-size:16px;font-weight:300;
+    color:var(--ink);text-align:left;cursor:pointer;
+  }
+  .detailsrow:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+
+  /* ---------- task cards ---------- */
+  .task{
+    background:var(--surface);border-radius:10px;padding:16px;
+    display:flex;flex-direction:column;gap:0;width:100%;
+    border:2px solid transparent;
+  }
+  .task.selectable{cursor:pointer}
+  .task.picked{border-color:var(--success)}
+  .task-top{display:flex;align-items:center;gap:15px;width:100%}
+  .task-check{
+    appearance:none;border:0;background:none;padding:0;margin:0;flex:none;
+    position:relative;
+    width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;border-radius:40px;
+  }
+  .task-check:focus-visible{outline:2px solid var(--brand);outline-offset:0}
+  .task-check::after{
+    content:"";position:absolute;left:6px;top:6px;right:6px;bottom:6px;
+    border-radius:50%;border:2px solid var(--success);opacity:0;pointer-events:none;
+  }
+  .task-check.pulse::after{animation:ringwave .62s ease-out both}
+  .task-check.pulse svg{animation:checkpop .44s cubic-bezier(.34,1.56,.64,1) both}
+  .task-check.pulse .tickpath{animation:draw .32s .1s ease-out both}
+  .task-check.pulse.off::after{animation:none}
+  .task-check.pulse.off svg{animation:uncheck .34s ease both}
+
+  @keyframes checkpop{0%{transform:scale(.35);opacity:.25}55%{transform:scale(1.16);opacity:1}100%{transform:scale(1);opacity:1}}
+  @keyframes uncheck{0%{transform:scale(1)}45%{transform:scale(.78);opacity:.55}100%{transform:scale(1);opacity:1}}
+  @keyframes ringwave{0%{transform:scale(.7);opacity:.6}100%{transform:scale(2.1);opacity:0}}
+  @keyframes draw{from{stroke-dashoffset:32}to{stroke-dashoffset:0}}
+  @keyframes cardflash{0%{background:#E4F2EB}70%{background:#F4FAF7}100%{background:var(--surface)}}
+  .task.flash{animation:cardflash .9s ease both}
+  .task-name{transition:color .3s ease}
+  .dotwrap.swap svg{animation:checkpop .4s cubic-bezier(.34,1.56,.64,1) both}
+  .ringprog{transition:stroke-dashoffset .55s cubic-bezier(.4,0,.2,1),stroke .35s ease}
+  .task-name{
+    flex:1;min-width:0;font-size:16px;font-weight:700;line-height:1.25;
+    text-align:left;background:none;border:0;padding:0;font-family:var(--font);
+    color:var(--ink);cursor:pointer;
+  }
+  .task-name:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:2px}
+  .task.done .task-name{color:var(--ink-2)}
+  .tagrow{display:flex;align-items:center;gap:15px;margin-top:4px}
+  .tagrow .spacer{width:40px;flex:none}
+  .tags{display:flex;gap:8px;flex-wrap:wrap}
+  .tag{
+    height:28px;padding:0 12px;border-radius:999px;
+    display:inline-flex;align-items:center;
+    font-size:14px;font-weight:300;color:var(--ink);
+  }
+  .tag.them{background:var(--tag-them)}
+  .tag.you{background:var(--tag-you)}
+
+  /* ---------- task detail ---------- */
+  .btn{
+    appearance:none;border:0;width:100%;height:48px;border-radius:12px;
+    font-family:var(--font);font-size:18px;font-weight:300;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    cursor:pointer;
+  }
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .btn.primary{background:var(--brand);color:#fff}
+  .btn.done{background:var(--success);color:#fff}
+  .btn[data-act="toggle"]{transition:background-color .35s ease}
+  .btn.cheer .tickpath{animation:draw .34s .06s ease-out both}
+  .btn.cheer svg{animation:checkpop .44s cubic-bezier(.34,1.56,.64,1) both}
+  .btn.green{background:var(--success);color:#fff;font-size:16px}
+  .btn.plain{background:var(--surface);color:var(--ink);font-size:16px}
+
+  .callout{
+    background:var(--secondary-bg);
+    border-left:4px solid var(--brand);
+    border-radius:4px;padding:24px;
+    font-size:16px;font-weight:300;line-height:1.25;
+  }
+  .callout.warn{border-left-color:var(--warning)}
+
+  .kvgroup{background:var(--divider);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+  .kv{
+    background:var(--surface);display:flex;align-items:flex-start;justify-content:space-between;
+    gap:16px;padding:19px 16px;min-height:60px;
+  }
+  .kv .k{font-size:16px;font-weight:700;flex:none;max-width:45%}
+  .kv .v{font-size:16px;font-weight:300;text-align:right;line-height:1.35}
+
+  .panel{background:var(--panel);border-radius:12px;padding:24px 16px;display:flex;flex-direction:column;gap:14px}
+  .panel p{margin:0;font-size:16px;font-weight:300;line-height:1.4}
+  .panel ul,.panel ol{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:4px}
+  .panel li{font-size:16px;font-weight:300;line-height:1.4}
+  .minilabel{font-size:16px;font-weight:700;padding:0 16px;margin:0}
+
+  .needlist{background:var(--panel);border-radius:12px;padding:0 16px;display:flex;flex-direction:column}
+  .needlist div{
+    padding:19px 0;font-size:16px;font-weight:300;line-height:1.35;
+    border-bottom:.5px solid #999;
+  }
+  .needlist div:last-child{border-bottom:0}
+
+  .extlink{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+    background:var(--page);border:0;border-radius:12px;min-height:60px;padding:12px 18px;
+    color:var(--brand);font-family:var(--font);font-size:16px;font-weight:300;
+    text-align:left;text-decoration:none;cursor:pointer;
+    transition:background-color .18s ease;
+  }
+  .extlink:hover{background:#DCEAF6}
+  .extlink:active{background:#CFE2F3}
+  .extlink:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+  /* ---------- what you've told us ---------- */
+  .kvcard{background:var(--divider);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+  .kvcard .row{
+    background:var(--surface);display:flex;align-items:center;justify-content:space-between;
+    gap:16px;padding:16px;min-height:80px;
+  }
+  .kvcard .row .lbl{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .kvcard .row .lbl b{font-size:16px;font-weight:700}
+  .kvcard .row .lbl span{font-size:16px;font-weight:300;line-height:1.3}
+  .editbtn{
+    appearance:none;border:0;background:none;padding:6px 10px;border-radius:12px;
+    color:var(--brand);font-family:var(--font);font-size:16px;font-weight:300;cursor:pointer;flex:none;
+  }
+  .editbtn:focus-visible{outline:2px solid var(--brand);outline-offset:0}
+
+  /* ---------- profile selection ---------- */
+  .profile-screen{background:var(--brand)}
+  .profile-screen .body{padding:0 12px 32px}
+  .brandtitle{text-align:center;color:#fff;font-size:32px;line-height:1.25;padding:0 12px;margin:0 0 24px}
+  .brandtitle b{font-weight:700;display:block}
+  .brandtitle span{font-weight:300;display:block}
+  /* Figma lays the profiles out as a 300px-wide row starting 23px from the
+     frame edge, so the next card peeks in — a horizontal carousel, not a stack. */
+  .profiles{
+    display:flex;gap:16px;align-items:stretch;
+    overflow-x:auto;overflow-y:hidden;
+    scroll-snap-type:x mandatory;
+    scroll-padding-left:23px;
+    -webkit-overflow-scrolling:touch;
+    margin:0 -12px;
+    padding:0 23px 6px;
+    scrollbar-width:none;
+  }
+  .profiles::-webkit-scrollbar{display:none}
+  .pcard{
+    background:#fff;border-radius:16px;padding:24px;
+    display:flex;flex-direction:column;gap:16px;
+    flex:0 0 300px;max-width:300px;
+    scroll-snap-align:start;
+  }
+  .pcard .btn{margin-top:auto}
+  .pcard .head{display:flex;align-items:center;gap:16px;padding:8px 0}
+  .pcard .head .glyph{
+    width:64px;height:64px;border-radius:32px;flex:none;
+    background:var(--page);display:flex;align-items:center;justify-content:center;
+  }
+  .pcard .head h3{margin:0;font-size:34px;font-weight:700;line-height:1}
+  .pcard .desc{margin:0;font-size:16px;font-weight:300;line-height:1.35;color:var(--ink)}
+  .facts{display:flex;flex-direction:column;gap:8px}
+  .fact{display:flex;align-items:center;gap:16px;font-size:14px;font-weight:300;color:var(--ink-3);line-height:1.3}
+  .fact svg{flex:none}
+  .selectnote{color:#fff;font-size:16px;font-weight:300;text-align:center;margin:24px 0 0;padding:0 12px}
+
+  /* ---------- chat ---------- */
+  .chatbody{
+    flex:1;min-height:0;overflow-y:auto;padding:16px;
+    display:flex;flex-direction:column;gap:16px;
+  }
+  .msg{display:flex;width:100%}
+  .msg.a{justify-content:flex-start}
+  .msg.u{justify-content:flex-end}
+  .bubble{
+    border-radius:18px;padding:16px;font-size:16px;font-weight:300;line-height:20px;
+    animation:pop .28s ease both;
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .bubble{overflow-wrap:anywhere}
+  .msg.a .bubble{background:var(--surface);color:var(--ink);width:100%}
+  .msg.u .bubble{background:var(--brand-dark);color:#fff;max-width:88%}
+  .bubble p{margin:0 0 10px}
+  .bubble p:last-child{margin:0}
+  .bubble ul{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:2px}
+  .typing{display:flex;gap:5px;align-items:center;padding:4px 2px}
+  .typing i{width:7px;height:7px;border-radius:7px;background:var(--ink-4);animation:blink 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.18s}
+  .typing i:nth-child(3){animation-delay:.36s}
+  @keyframes blink{0%,60%,100%{opacity:.28;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+  .plancard{background:var(--surface);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;width:100%}
+  .plancard .name{font-size:18px;font-weight:700;line-height:20px;padding:8px 0 8px 8px;margin:0}
+
+  .composer{
+    flex:none;background:var(--page);padding:8px 16px 24px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .hint{font-size:12px;color:var(--ink-2);text-align:center;margin:0;min-height:15px}
+  .inputrow{display:flex;align-items:flex-end;gap:6px}
+  .field{
+    flex:1;min-width:0;min-height:48px;max-height:150px;
+    border-radius:24px;background:var(--surface);
+    padding:14px 18px;
+    font-size:16px;font-weight:300;line-height:20px;color:var(--ink);
+    overflow-y:auto;overflow-wrap:anywhere;white-space:normal;
+    transition:min-height .18s ease;
+  }
+  .field.empty{color:#4d4d4d}
+  .send{
+    appearance:none;border:0;width:36px;height:36px;border-radius:30px;margin-bottom:6px;
+    background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;flex:none;transition:opacity .2s,transform .2s;
+  }
+  .send[disabled]{opacity:.35;cursor:default}
+  .send:not([disabled]):hover{transform:scale(1.06)}
+  .send:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  /* ---------- update flow ---------- */
+  .voicecard{background:var(--panel-2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .voicecard .top{display:flex;align-items:center;gap:15px}
+  .voicecard .wave{
+    width:40px;height:40px;border-radius:20px;background:var(--brand-dark);flex:none;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .voicecard .quote{flex:1;font-size:16px;font-weight:300;line-height:1.35;color:var(--ink-2)}
+  .voicecard .meta{font-size:14px;font-weight:300;color:var(--ink-4);padding-left:55px}
+  .successcard{
+    background:var(--green-tint);border:2px solid var(--success);border-radius:10px;
+    padding:24px;display:flex;flex-direction:column;gap:12px;
+  }
+  .successcard b{color:var(--success);font-size:16px;font-weight:700}
+  .successcard p{margin:0;font-size:16px;font-weight:300;line-height:1.4}
+
+  .toast{
+    position:absolute;left:16px;right:16px;bottom:24px;
+    background:var(--brand-dark);color:#fff;border-radius:12px;
+    padding:14px 16px;font-size:15px;font-weight:300;line-height:1.35;
+    box-shadow:0 12px 30px rgba(0,0,0,.28);
+    animation:pop .3s ease both;z-index:5;
+  }
+
+  /* ---------- in-app browser ---------- */
+  .chrome{
+    flex:none;display:flex;align-items:center;gap:12px;
+    background:#F6F6F8;border-bottom:.5px solid rgba(0,0,0,.16);
+    padding:8px 14px 12px;
+  }
+  .chrome .done{
+    appearance:none;border:0;background:none;padding:4px 2px;cursor:pointer;
+    font-family:var(--font);font-size:16px;font-weight:300;color:var(--brand);flex:none;
+  }
+  .chrome .done:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+  .chrome .url{
+    flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;
+    font-size:13px;color:#484949;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .chrome .spacer{width:44px;flex:none}
+
+  .gov{flex:1;min-height:0;overflow-y:auto;background:#fff}
+  .govmast{background:#0b0c0c;padding:13px 16px;display:flex;align-items:center;gap:8px}
+  .govmast .wordmark{color:#fff;font-size:21px;font-weight:700;letter-spacing:.01em;line-height:1}
+  .govmast.nhs{background:#005EB8}
+  .govmast.nhs .wordmark{font-size:19px;letter-spacing:.06em}
+  .govphase{
+    display:flex;align-items:center;gap:10px;padding:12px 16px;
+    border-bottom:1px solid #b1b4b6;font-size:13px;color:#0b0c0c;
+  }
+  .govphase span:nth-child(2){color:#505a5f}
+  .govpage{padding:20px 16px 40px;max-width:100%}
+  .govpage h1{font-size:29px;line-height:1.1;font-weight:700;margin:0 0 8px;color:#0b0c0c;text-wrap:balance}
+  .govpage .lede{font-size:17px;line-height:1.5;font-weight:300;color:#0b0c0c;margin:0 0 22px}
+  .govpage h2{font-size:20px;line-height:1.25;font-weight:700;margin:26px 0 10px;color:#0b0c0c}
+  .govpage p{font-size:17px;line-height:1.5;font-weight:300;margin:0 0 16px;color:#0b0c0c}
+  .govpage ul{margin:0 0 16px;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+  .govpage li{font-size:17px;line-height:1.5;font-weight:300;color:#0b0c0c}
+  .govstart{
+    display:inline-flex;align-items:center;gap:10px;
+    background:#00703c;color:#fff;border:0;border-bottom:2px solid rgba(0,0,0,.25);
+    font-family:var(--font);font-size:18px;font-weight:700;
+    padding:12px 18px;border-radius:4px;margin:4px 0 24px;cursor:pointer;
+  }
+  .govstart:focus-visible{outline:3px solid #ffdd00;outline-offset:0}
+  .govrule{border:0;border-top:1px solid #b1b4b6;margin:28px 0 18px}
+  .govfoot{font-size:14px;line-height:1.5;font-weight:300;color:#484949}
+  .govfoot a{color:var(--brand)}
+  .govurl{font-family:var(--mono);font-size:12.5px;color:#484949;overflow-wrap:anywhere;margin-top:6px}
+
+  .fade{animation:fadein .26s ease both}
+  @keyframes fadein{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+  .fade.back{animation:fadeback .26s ease both}
+  @keyframes fadeback{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  }
+
+  /* ---------- sandwich carer additions ----------
+     Layout: phone on the left, "How this works" panel on the right; stacks below 980px. */
+  :root{
+    color-scheme:dark;
+    --side-bg:rgba(255,255,255,.045);
+    --side-line:rgba(255,255,255,.11);
+    --side-ink:#e3eaf1;
+    --side-mute:#9fb0c2;
+    --st-today:#5fd09a;
+    --st-pilot:#8cc0f0;
+    --st-imagined:#f2c25c;
+    --tag-kids:#F1E3C6;
+    --lv-auto-bg:#DCEFE5; --lv-auto-ink:#0B5A3C;
+    --lv-prep-bg:#D2E2F1; --lv-prep-ink:#0F385C;
+    --lv-book-bg:#D0E6E7; --lv-book-ink:#134B4E;
+    --lv-you-bg:#ECECEC;  --lv-you-ink:#333;
+  }
+  .duo{display:flex;gap:32px;align-items:center;justify-content:center;width:100%;max-width:1100px}
+  .sidepanel{
+    flex:0 1 400px;min-width:0;align-self:stretch;max-height:calc(100dvh - 120px);overflow-y:auto;
+    background:var(--side-bg);border:1px solid var(--side-line);border-radius:20px;
+    padding:24px;color:var(--side-ink);font-family:var(--font);
+    display:flex;flex-direction:column;gap:18px;
+  }
+  .sidepanel[hidden]{display:none!important}
+  .sp-eyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--side-mute);margin:0}
+  .sp-title{font-size:24px;line-height:1.2;font-weight:700;margin:0;text-wrap:balance}
+  .sp-body{font-size:15px;line-height:1.5;font-weight:300;margin:0;color:var(--side-ink)}
+  .sp-h{font-size:13px;font-weight:700;color:var(--side-mute);margin:0;letter-spacing:.02em}
+  .sp-rows{display:flex;flex-direction:column;gap:10px}
+  .sp-row{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;font-weight:300}
+  .pill{flex:none;font-size:11px;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:999px;white-space:nowrap;margin-top:1px}
+  .pill.today{color:var(--st-today);background:rgba(95,208,154,.14)}
+  .pill.pilot{color:var(--st-pilot);background:rgba(140,192,240,.14)}
+  .pill.imagined{color:var(--st-imagined);background:rgba(242,194,92,.14)}
+  .sp-yes{border-top:1px solid var(--side-line);padding-top:14px;display:flex;flex-direction:column;gap:6px}
+  .sp-yes p{margin:0;font-size:14px;line-height:1.45;font-weight:300}
+  .sp-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:8px;border-top:1px solid var(--side-line)}
+  .sp-ladder{display:flex;flex-direction:column;gap:10px}
+  .sp-ladder .lvrow{display:flex;flex-direction:column;gap:4px}
+  .sp-ladder .lvrow span:last-child{font-size:14px;line-height:1.4;font-weight:300;color:var(--side-ink)}
+  .ghost[disabled]{opacity:.4;cursor:default}
+
+  @media (max-width:980px){
+    .duo{flex-direction:column;align-items:center}
+    .sidepanel{flex:none;width:100%;max-width:420px;max-height:none}
+  }
+  @media (max-width:520px){
+    .duo{gap:0}
+    .sidepanel{border-radius:0;border-left:0;border-right:0;max-width:none}
+    .stage-foot{display:flex;padding:16px}
+  }
+
+  /* help level + status chips */
+  .lv{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+  .lv i{width:7px;height:7px;border-radius:7px;background:currentColor;flex:none}
+  .lv-auto{background:var(--lv-auto-bg);color:var(--lv-auto-ink)}
+  .lv-prep{background:var(--lv-prep-bg);color:var(--lv-prep-ink)}
+  .lv-book{background:var(--lv-book-bg);color:var(--lv-book-ink)}
+  .lv-you{background:var(--lv-you-bg);color:var(--lv-you-ink)}
+  .lv-checked{background:var(--surface);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--ink-4)}
+  .st{font-size:13px;font-weight:300;color:var(--ink-2);white-space:nowrap}
+  .st.due{color:#8a5a00;font-weight:700}
+  .st.ok{color:var(--success);font-weight:700}
+  .st.wait{color:var(--ink-2)}
+  .tag.kids{background:var(--tag-kids)}
+
+  /* plan task rows inside step cards */
+  .trow{
+    display:flex;flex-direction:column;gap:8px;width:100%;
+    background:var(--surface);border:0;padding:14px 16px;text-align:left;cursor:pointer;font-family:var(--font);
+  }
+  .trow:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+  .trow .t1{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .trow .tn{font-size:16px;font-weight:700;line-height:1.25;color:var(--ink)}
+  .trow.isdone .tn{color:var(--ink-2)}
+  .trow .t2{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .trow.locked .tn{color:var(--ink-3)}
+
+  .needs{background:var(--surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  .needs .card-title{font-size:18px}
+  .linkrow{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--divider);font-size:15px;font-weight:300;line-height:1.4}
+  .linkrow:first-of-type{border-top:0}
+  .linkrow b{font-weight:700}
+  .linkrow .n{flex:none;width:24px;height:24px;border-radius:12px;background:var(--template);color:var(--brand-dark);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .textbtn{appearance:none;border:0;background:none;padding:0;color:var(--brand);font-family:var(--font);font-size:15px;font-weight:300;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .textbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .changed{background:var(--green-tint);border:2px solid var(--success);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .changed b{color:var(--success)}
+  .changed p{margin:0;font-size:15px;font-weight:300;line-height:1.4}
+
+  /* task detail level banner */
+  .lvbanner{margin:0 12px;padding:16px;border-radius:12px;background:var(--panel);display:flex;flex-direction:column;gap:8px}
+  .lvbanner p{margin:0;font-size:15px;line-height:1.4;font-weight:300}
+  .receipt{background:var(--green-tint);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;margin:0 12px}
+  .receipt b{color:var(--success);font-size:15px}
+  .receipt div{font-size:14px;font-weight:300;line-height:1.4}
+
+  /* flows */
+  .src{display:inline-block;font-size:12px;font-weight:700;color:var(--ink-2);background:var(--panel-2);border-radius:6px;padding:2px 6px;margin-top:6px}
+  .src.told{background:var(--tag-you)}
+  .src.gov{background:var(--lv-auto-bg);color:var(--lv-auto-ink)}
+  .kv .v{min-width:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .kv .v .src{max-width:100%;margin-top:0;text-align:right}
+  .choice{display:flex;flex-direction:column;gap:8px}
+  .opt{
+    appearance:none;width:100%;text-align:left;cursor:pointer;font-family:var(--font);
+    background:var(--surface);border:2px solid var(--divider);border-radius:12px;padding:14px 16px;
+    font-size:16px;font-weight:300;color:var(--ink);display:flex;justify-content:space-between;gap:10px;align-items:center;
+  }
+  .opt.on{border-color:var(--brand);background:#F2F7FC}
+  .opt:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .opt small{font-size:13px;color:var(--ink-2)}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg .opt{width:auto;flex:1 1 56px;justify-content:center;padding:10px 8px;font-size:15px}
+  .check{display:flex;gap:12px;align-items:flex-start;font-size:15px;font-weight:300;line-height:1.4;cursor:pointer;padding:4px 12px}
+  .check input{width:22px;height:22px;margin:0;flex:none;accent-color:var(--success)}
+  .obs{background:#FFF7E6;border-left:4px solid var(--warning);border-radius:4px;padding:16px;font-size:15px;font-weight:300;line-height:1.4;display:flex;flex-direction:column;gap:6px}
+  .obs b{font-weight:700}
+  .runlist{display:flex;flex-direction:column;gap:2px;background:var(--divider);border-radius:12px;overflow:hidden}
+  .runlist div{background:var(--surface);padding:14px 16px;font-size:15px;font-weight:300;display:flex;gap:12px;align-items:center;opacity:.35;transition:opacity .3s}
+  .runlist div.on{opacity:1}
+  .runlist .dot{width:22px;height:22px;flex:none;border-radius:11px;border:2px solid var(--ink-4)}
+  .runlist div.on .dot{background:var(--success);border-color:var(--success)}
+  .mum{background:var(--brand-dark);color:#fff;border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px}
+  .mum h3{margin:0;font-size:24px;line-height:1.25}
+  .mum p{margin:0;font-size:18px;line-height:1.45;font-weight:300}
+  .mum ul{margin:0;padding-left:22px;font-size:17px;line-height:1.5;font-weight:300}
+  .mum .btn.plain{color:var(--ink)}
+  .result{background:var(--surface);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:1px;background:var(--divider)}
+  .result .r{background:var(--surface);padding:14px 16px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;font-size:15px;font-weight:300;line-height:1.35}
+  .result .r b{font-weight:700;flex:none;max-width:50%}
+  .result .r span{text-align:right}
+  .good{color:var(--success);font-weight:700}
+  .bad{color:#B42318;font-weight:700}
+  .warnc{color:#8a5a00;font-weight:700}
+  .num{font-variant-numeric:tabular-nums}
+  .draft{background:var(--panel);border-radius:12px;padding:16px;font-size:15px;font-weight:300;line-height:1.5;white-space:pre-line}
+  .consentcard{background:var(--surface);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;width:100%;border:2px solid var(--brand)}
+  .consentcard b{font-size:17px}
+  .consentcard ul{margin:0;padding-left:22px;font-size:15px;font-weight:300;line-height:1.45}
+  .consentcard p{margin:0;font-size:14px;font-weight:300;color:var(--ink-2)}
+  .consentcard .row2{display:flex;gap:8px}
+  .consentcard .done-note{color:var(--success);font-weight:700;font-size:15px}
+  .bubble .srcline{display:block;font-size:12px;color:var(--ink-2);margin-top:8px}
+  .intro-screen{background:var(--brand)}
+  .intro-screen .brandtitle{font-size:30px;margin:0 0 18px}
+  .intro-screen .brandtitle span{font-size:17px;margin-top:4px;white-space:nowrap;opacity:.9}
+  .intro-screen .pcard{padding:20px;gap:12px}
+  .intro-screen .pcard .head{padding:0}
+  .intro-screen .pcard .head .glyph{width:48px;height:48px}
+  .intro-screen .pcard .head h3{font-size:28px}
+  .intro-screen .selectnote{margin-top:14px;font-size:14px}
+  .intro-screen .pcard{flex:none;max-width:none;margin:0 4px}
+  .demo-note{font-size:12px;color:var(--ink-2);text-align:center;margin:4px 0 0}
+  .screen{color-scheme:light}
+  /* one colour for anything the agent does */
+  :root{
+    /* palette from the agentic services mark */
+    --navy:#02064A; --violet:#BC52FF; --cyan:#12E2F7; --mist:#C0EAFD;
+    --agent:var(--cyan); --agent-ink:var(--navy); --agent-on-dark:var(--cyan);
+    --brand:var(--navy); --brand-dark:var(--navy);
+    --page:#EEF1FB; --template:#E4F7FD;
+    --stage:#1d1f23; --stage-2:#111214;
+    --tag-them:var(--mist); --tag-you:#EBD9FF; --tag-kids:#DEE2F7;
+    --st-pilot:#86cdd8; --st-imagined:#c3a2dd; --st-today:#8cc5a6;
+  }
+  .btn.green{background:var(--navy)}
+  .intro-screen{background:var(--navy)}
+  .badge-logo{width:30px;height:30px;border-radius:15px;background:var(--navy);display:flex;align-items:center;justify-content:center;flex:none}
+  .changed{background:#E9FBFE;border-color:var(--cyan)}
+  .changed b{color:var(--navy)}
+  .pill.pilot{background:rgba(18,226,247,.13)}
+  .pill.imagined{background:rgba(188,82,255,.18)}
+  .logo{flex:none;display:block;overflow:visible}
+  .logo g{isolation:isolate}
+  .logo .c2{mix-blend-mode:screen}
+  .logo circle{transform-box:view-box}
+  .logo.moving .c1{animation:markswap1 3.5s cubic-bezier(.65,0,.35,1) var(--d,0ms) infinite}
+  .logo.moving .c2{animation:markswap2 3.5s cubic-bezier(.65,0,.35,1) var(--d,0ms) infinite}
+  @keyframes markswap1{0%,10%{transform:translateY(0)}45%,55%{transform:translateY(412px)}90%,100%{transform:translateY(0)}}
+  @keyframes markswap2{0%,10%{transform:translateY(0)}45%,55%{transform:translateY(-412px)}90%,100%{transform:translateY(0)}}
+  @media (prefers-reduced-motion:reduce){.logo.moving .c1,.logo.moving .c2{animation:none}}
+  .runlist .slot{width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center}
+  .runlist .ring{width:22px;height:22px;border-radius:11px;border:2px solid var(--ink-4)}
+  .runlist .rtick{width:24px;height:24px;border-radius:12px;background:var(--success);display:flex;align-items:center;justify-content:center}
+  .runlist .rtick svg{width:14px;height:14px}
+  .runlist .rtick.pop{animation:checkpop .44s cubic-bezier(.34,1.56,.64,1) both}
+  .runlist div.now{opacity:1;font-weight:700}
+  .gathercard{background:var(--surface);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;width:100%;animation:pop .28s ease both}
+  .gathercard b{font-size:17px}
+  .gathercard .runlist div{padding:12px 4px}
+  .gathercard .runlist{background:var(--divider)}
+  .agentbox .agentbtn{background:var(--navy);color:#fff;margin-top:6px}
+  .agentbox .abnote{font-size:14px;opacity:.85}
+  .btn.outline{box-shadow:inset 0 0 0 1px var(--ink-4)}
+  .waitcard{margin:0 12px;background:var(--panel);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px}
+  .waitcard p{margin:0;font-size:16px;font-weight:300;line-height:1.4}
+  .device{position:relative}
+  .mumphone{position:absolute;left:calc(100% + 28px);top:16%;z-index:20;width:236px;display:flex;flex-direction:column;gap:8px;animation:mumin .35s cubic-bezier(.2,.8,.2,1) both}
+  .mumphone[hidden]{display:none}
+  @keyframes mumin{from{opacity:0;transform:translateX(-24px) scale(.96)}to{opacity:1;transform:none}}
+  .mumlabel{margin:0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#cfd6de;text-align:center}
+  .mini{background:#0d0e10;border-radius:34px;padding:8px;box-shadow:0 30px 70px -20px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.12)}
+  .miniscreen{background:#fff;border-radius:27px;overflow:hidden;min-height:440px;display:flex;flex-direction:column;color:var(--ink);font-family:var(--font)}
+  .minihead{background:#0b0c0c;color:#fff;font-weight:700;font-size:16px;padding:22px 16px 10px}
+  .minibody{padding:18px 16px;display:flex;flex-direction:column;gap:12px}
+  .minibody h4{margin:0;font-size:19px;line-height:1.25}
+  .minibody p{margin:0;font-size:15px;line-height:1.4;font-weight:300}
+  .minibody .minimute{font-size:13px;color:var(--ink-2)}
+  .minibody .btn{height:44px;font-size:16px}
+  @media (max-width:980px){.mumphone{left:auto;right:-12px;top:auto;bottom:40px;width:200px}.miniscreen{min-height:380px}}
+  .bubble.acting{display:flex;align-items:center;gap:14px;color:var(--ink-2)}
+  .updating{position:absolute;inset:0;background:rgba(238,241,251,.88);display:flex;align-items:center;justify-content:center;z-index:6;animation:fadein .25s ease both;padding:24px}
+  .upcard{background:var(--surface);border-radius:18px;padding:28px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;box-shadow:0 12px 30px rgba(2,6,74,.12)}
+  .upcard b{font-size:20px}
+  .upcard p{margin:0;font-size:16px;font-weight:300;line-height:1.4;color:var(--ink-2)}
+  /* the explanation panel sits back from the phone */
+  :root{--side-bg:rgba(255,255,255,.03);--side-line:rgba(255,255,255,.07);--side-ink:#c4c9d0;--side-mute:#878d96}
+  .sp-title{font-size:21px;color:#dde1e6}
+  .pill.today{background:rgba(140,197,166,.1)}
+  .pill.pilot{background:rgba(134,205,216,.1)}
+  .pill.imagined{background:rgba(195,162,221,.1)}
+  .sp-lv.ag{color:var(--side-ink)}
+  .trow{display:grid;grid-template-columns:18px 1fr 12px;gap:12px;align-items:start;padding:14px 16px;border-top:1px solid var(--divider)}
+  .trow .tg{padding-top:0;display:flex;justify-content:center}
+  .trow .tm{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .trow .tc{padding-top:3px;display:flex}
+  .keyline{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:300;color:var(--ink-2);padding-right:12px}
+  .keyline svg{color:var(--agent)}
+  .agentbox,.youbox{margin:0 12px;padding:18px;border-radius:12px;display:flex;flex-direction:column;gap:8px}
+  .agentbox{background:var(--agent);color:var(--agent-ink)}
+  .youbox{background:var(--panel);color:var(--ink)}
+  .ab-h{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700}
+  .agentbox p,.youbox p{margin:0;font-size:15px;line-height:1.45;font-weight:300}
+  .sp-lv{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--side-ink)}
+  .sp-lv.ag{color:var(--agent-on-dark)}
+
+  /* ---------- app version: home, lock screen, permissions ---------- */
+  .homehead{flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px}
+  .homehead .wordmark{font-weight:700;font-size:20px;letter-spacing:.01em;color:var(--ink)}
+  .greet{display:flex;flex-direction:column;gap:2px}
+  .greet .sub{padding:0 12px}
+  .nextup{border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .nextup.agent{background:var(--agent);color:var(--agent-ink)}
+  .nextup.warn{background:var(--surface);box-shadow:inset 5px 0 0 var(--warning)}
+  .nextup.quiet{background:var(--surface)}
+  .nu-eyebrow{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.02em}
+  .nu-eyebrow .badge-logo{width:24px;height:24px}
+  .nextup.warn .nu-eyebrow{color:#8a5a00}
+  .nextup.quiet .nu-eyebrow{color:var(--ink-2)}
+  .nu-title{margin:0;font-size:21px;font-weight:700;line-height:1.2}
+  .nu-body{margin:0;font-size:15px;font-weight:300;line-height:1.45}
+  .nextup .agentbtn{background:var(--navy);color:#fff;font-size:16px;margin-top:4px}
+  .homecard{background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;border:0;width:100%;text-align:left;font-family:var(--font);color:var(--ink)}
+  button.homecard{cursor:pointer}
+  button.homecard:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .hc-top{display:flex;justify-content:space-between;align-items:center}
+  .hc-eyebrow{font-size:13px;font-weight:700;color:var(--ink-2);letter-spacing:.02em}
+  .hc-row{display:flex;gap:12px;align-items:center}
+  .hc-row b{display:block;font-size:17px;line-height:1.25}
+  .hc-sub{display:block;font-size:14px;font-weight:300;color:var(--ink-2);margin-top:4px}
+  .listcard{background:var(--surface);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+  .since-row{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-top:1px solid var(--divider);font-size:15px;font-weight:300;line-height:1.4}
+  .since-row:first-child{border-top:0}
+  .since-row .lv{align-self:flex-start}
+  .rel{display:grid;grid-template-columns:36px 1fr;gap:12px;padding:14px 16px;border-top:1px solid var(--divider)}
+  .rel:first-child{border-top:0}
+  .rel .ri svg{width:34px;height:34px}
+  .rel .rm{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .rel b{font-size:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .rel .rl{font-size:14px;font-weight:300;color:var(--ink-2);line-height:1.4}
+  .rel .st{margin-top:2px}
+  .rel .rnote{font-size:13px;font-weight:300;color:var(--agent-ink);background:#E9FBFE;border-radius:8px;padding:8px 10px;margin-top:6px;line-height:1.4}
+  .newchip{font-size:11px;font-weight:700;background:var(--cyan);color:var(--navy);border-radius:999px;padding:2px 8px}
+  .st.warnst{color:#8a5a00;font-weight:700}
+  .homeask{border-top:1px solid rgba(2,6,74,.06);padding-top:12px}
+  .askfield{appearance:none;border:0;text-align:left;cursor:text;font-family:var(--font)}
+  .lock{background:linear-gradient(172deg,#24337a 0%,#02064A 52%,#3b1d72 100%);color:#fff}
+  .lockbody{flex:1;display:flex;flex-direction:column;align-items:center;padding:12px 12px 24px;gap:2px}
+  .locktime{font-size:84px;font-weight:300;letter-spacing:-2px;line-height:1;margin-top:22px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",var(--font)}
+  .lockdate{font-size:18px;font-weight:500;opacity:.9;margin:6px 0 40px;font-family:-apple-system,BlinkMacSystemFont,var(--font)}
+  .notes{display:flex;flex-direction:column;gap:8px;width:100%}
+  .note{appearance:none;border:0;cursor:pointer;text-align:left;width:100%;background:rgba(255,255,255,.88);color:var(--ink);border-radius:20px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;font-family:-apple-system,BlinkMacSystemFont,var(--font);animation:pop .45s ease both}
+  .note:nth-child(2){animation-delay:.2s}
+  .note:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .napp{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);margin-bottom:2px}
+  .nicon{width:20px;height:20px;border-radius:5px;background:var(--navy);display:flex;align-items:center;justify-content:center}
+  .nwhen{margin-left:auto}
+  .note b{font-size:15px}
+  .ntext{font-size:14px;line-height:1.35}
+  .lockhint{text-align:center;font-size:13px;opacity:.7;margin:0 0 30px}
+  .permrow{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;padding:16px;border-top:1px solid var(--divider);cursor:pointer}
+  .permrow:first-child{border-top:0}
+  .pm{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .pm b{font-size:16px;line-height:1.3}
+  .pm span{font-size:14px;font-weight:300;line-height:1.4;color:var(--ink-2)}
+  .pm .pmsince{font-size:12px;font-weight:700}
+  .switch{appearance:none;-webkit-appearance:none;flex:none;width:51px;height:31px;border-radius:31px;background:#E3E3E8;position:relative;cursor:pointer;margin:0;transition:background .2s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s}
+  .switch:checked{background:var(--success)}
+  .switch:checked::after{transform:translateX(20px)}
+  .switch:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .readrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--divider);font-size:15px;font-weight:300}
+  .readrow:first-child{border-top:0}
+  .readrow small{display:block;font-size:13px;color:var(--ink-2)}
+  .ctxcard{background:var(--surface);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:6px;width:100%;box-shadow:inset 5px 0 0 var(--warning);animation:pop .28s ease both}
+  .ctx-eyebrow{font-size:12px;font-weight:700;color:var(--ink-2);letter-spacing:.06em;text-transform:uppercase}
+  .ctxcard b{font-size:17px}
+  .ctxcard span{font-size:14px;font-weight:300;line-height:1.4}
+  .ctxcard .ctx-why{font-weight:700;color:#8a5a00}
+  .fixrows{display:flex;flex-direction:column}
+  .fr{display:flex;flex-direction:column;gap:3px;padding:10px 0;border-top:1px solid var(--divider)}
+  .fr .k{font-size:13px;font-weight:700;color:var(--ink-2)}
+  .fr .v{font-size:15px;font-weight:300;line-height:1.35}
+  .fr .src{align-self:flex-start;margin-top:3px}
+
+  /* ---------- home, glanceable version ---------- */
+  .homehead .hh{display:flex;flex-direction:column;gap:2px}
+  .homehead .hdate{font-size:13px;font-weight:300;color:var(--ink-2)}
+  .nu-row{display:flex;gap:14px;align-items:center}
+  .nu-m{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .nextup .nu-eyebrow{font-size:13px;font-weight:700}
+  .nextup .nu-title,.homecard .nu-title{display:block;margin:0;font-size:19px;font-weight:700;line-height:1.2}
+  .nu-title.sm{font-size:16px !important}
+  .nu-line{font-size:14px;font-weight:300;line-height:1.35}
+  .datetile{flex:none;width:56px;height:60px;border-radius:12px;background:#fff;color:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 1px 0 rgba(2,6,74,.08)}
+  .datetile .dm{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C0362C}
+  .datetile .dd{font-size:24px;font-weight:700;line-height:1}
+  .datetile.ag{background:var(--navy)}
+  .nextup.warn .datetile{background:#FFF4D6}
+  .nextup.warn .nu-eyebrow{color:#8a5a00}
+  .nextup.quiet{padding:14px 16px}
+  .okdot{flex:none;width:32px;height:32px;border-radius:16px;background:var(--success);display:flex;align-items:center;justify-content:center}
+  .duerow{display:flex;gap:14px;align-items:center;background:var(--surface);border:0;border-radius:16px;padding:12px 16px;width:100%;text-align:left;font-family:var(--font);color:var(--ink);cursor:pointer}
+  .duerow .datetile{width:48px;height:52px;background:var(--page)}
+  .duerow .datetile .dd{font-size:20px}
+  .sincebar{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:0;padding:14px 16px;font-family:var(--font);text-align:left;cursor:pointer;color:var(--ink)}
+  .sincebar .count{flex:none;min-width:28px;height:28px;border-radius:14px;background:var(--navy);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .sincebar .sb-t{flex:1;font-size:16px;font-weight:700}
+  .sincebar .sb-c{display:flex;transition:transform .2s}
+  .sincebar .sb-c.open{transform:rotate(90deg)}
+  .sincelist{border-top:1px solid var(--divider)}
+  .planrow{flex-direction:row;align-items:center;gap:14px;padding:14px 16px}
+  .startplan{gap:8px}
+  .egs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+  .egs span{font-size:13px;background:var(--template);color:var(--navy);border-radius:999px;padding:5px 10px}
+  .hc-foot{font-size:13px;font-weight:300;color:var(--ink-2);text-align:center}
+  .svcgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .svc{background:var(--surface);border:0;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:6px;text-align:left;font-family:var(--font);color:var(--ink);cursor:pointer;min-height:112px}
+  .svc:focus-visible,.duerow:focus-visible,.sincebar:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .svc-i{display:flex;align-items:center;justify-content:space-between}
+  .svc-i svg{width:36px;height:36px}
+  .svc-n{font-size:16px;font-weight:700}
+  .svc-s{font-size:13px;font-weight:300;color:var(--ink-2);line-height:1.3}
+  .svc-s.due{color:#8a5a00;font-weight:700}
+
+  /* ---------- planning entry as a one-off activity ---------- */
+  .startplan{background:var(--surface);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:12px;padding:0 0 16px}
+  .startplan > :not(.sp-top){margin-left:16px;margin-right:16px}
+  .sp-top{display:flex;gap:14px;align-items:center;padding:16px;background:linear-gradient(120deg,#E4F7FD 0%,#F1E6FF 100%)}
+  .sp-top svg{flex:none}
+  .sp-kicker{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B2FA0}
+  .startplan .nu-title{font-size:19px}
+  .sp-lede{margin:0;font-size:15px;font-weight:300;line-height:1.4}
+  .sp-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;counter-reset:st}
+  .sp-steps li{display:flex;gap:12px;align-items:center;font-size:15px;font-weight:300;padding:8px 0;position:relative}
+  .sp-steps li + li::before{content:"";position:absolute;left:17px;top:-8px;height:16px;border-left:2px dotted var(--ink-4)}
+  .sp-steps .si{flex:none;width:36px;height:36px;border-radius:18px;background:var(--template);display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+  .startplan .btn{width:auto}
+  .sp-egs{margin:0;font-size:13px;font-weight:300;color:var(--ink-2);line-height:1.4}
+
+  /* ---------- dated alerts inside Your services ---------- */
+  .svc.alert{grid-column:1/-1;padding:0;min-height:0;gap:0;cursor:default;box-shadow:inset 4px 0 0 var(--cyan)}
+  .svc.alert.warn{box-shadow:inset 4px 0 0 var(--warning)}
+  .al-head{display:flex;gap:14px;align-items:center;width:100%;background:none;border:0;padding:14px 16px;font-family:var(--font);color:var(--ink);text-align:left;cursor:pointer;border-radius:16px}
+  .al-head:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+  .svc.alert .datetile{background:var(--page)}
+  .svc.alert.warn .datetile{background:#FFF4D6}
+  .al-head .sb-c{display:flex;transition:transform .2s;transform:rotate(90deg)}
+  .al-head .sb-c.open{transform:rotate(-90deg)}
+  .al-body{display:flex;flex-direction:column;gap:12px;padding:2px 16px 16px;animation:pop .25s ease both}
+  .al-title{margin:0;font-size:18px;font-weight:700;line-height:1.25}
+  .al-text{margin:0;font-size:15px;font-weight:300;line-height:1.4}
+  .al-kv{display:flex;flex-direction:column;background:var(--panel);border-radius:12px;padding:2px 14px}
+  .al-kv div{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--divider)}
+  .al-kv div:first-child{border-top:0}
+  .al-kv span{font-size:13px;font-weight:300;color:var(--ink-2)}
+  .al-kv b{font-size:15px;font-weight:700;line-height:1.35}
+  .al-note{display:flex;gap:10px;align-items:flex-start;font-size:14px;font-weight:300;line-height:1.4;color:var(--agent-ink);background:#E9FBFE;border-radius:12px;padding:10px 12px}
+  .al-note .badge-logo{width:24px;height:24px}
+  .svc.alert .agentbtn{background:var(--navy);color:#fff;font-size:16px}
+
+  /* ---------- streamlined side panel ---------- */
+  .sidepanel{gap:14px;align-self:center;max-height:none}
+  .sp-needs{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45;font-weight:300;color:var(--side-ink)}
+  .sp-modes{display:flex;flex-direction:column;gap:6px}
+  .sp-modes p{margin:0;font-size:14px;line-height:1.45;font-weight:300;color:var(--side-ink)}
+  .sp-modes b{color:var(--agent-on-dark);font-weight:700}
+  .sp-h{margin-top:6px}
+
+  /* ---------- simple splash ---------- */
+  .splash{display:flex;flex-direction:column;justify-content:space-between;padding:0 24px 40px}
+  .splash-mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
+  .splash-title{margin:0;color:#fff;text-align:center;display:flex;flex-direction:column;line-height:1}
+  .splash-title b{font-size:46px;font-weight:700;letter-spacing:-1px}
+  .splash-title b + b{font-weight:300;margin-top:6px}
+  .splash-sub{margin:-8px 0 0;color:#fff;opacity:.85;font-size:17px;font-weight:300;line-height:1.4;text-align:center;max-width:250px}
+  .splash-foot{display:flex;flex-direction:column;gap:6px}
+  .splash-foot .btn{color:var(--navy);font-weight:700}
+  .sp-foot{margin:4px 0 0;padding-top:12px;border-top:1px solid var(--side-line);font-size:13px;line-height:1.45;color:var(--side-mute)}
+
+  /* ---------- path choice in the side panel ---------- */
+  .sp-choices{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+  .sp-choice{appearance:none;text-align:left;cursor:pointer;font-family:var(--font);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;color:var(--side-ink);transition:background .15s,border-color .15s}
+  .sp-choice:hover{background:rgba(18,226,247,.1);border-color:rgba(18,226,247,.45)}
+  .sp-choice:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .sp-choice b{font-size:16px;color:#fff}
+  .sp-choice span{font-size:13px;font-weight:300;color:var(--side-mute)}
+
+  .wronglink{appearance:none;align-self:flex-start;border:0;background:none;padding:2px 0;color:var(--brand);font-family:var(--font);font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .wronglink:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  #qbtn[aria-pressed="true"]{background:rgba(18,226,247,.15);border-color:rgba(18,226,247,.55);color:#fff}
+
+  .sp-qs{display:flex;flex-direction:column;gap:8px}
+  .sp-q{appearance:none;text-align:left;cursor:pointer;font-family:var(--font);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;color:var(--side-ink);transition:background .15s,border-color .15s}
+  .sp-q:hover{background:rgba(18,226,247,.1);border-color:rgba(18,226,247,.45)}
+  .sp-q:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .sp-q .q{font-size:15px;line-height:1.4;color:#fff}
+  .sp-q .w{font-size:13px;color:var(--agent-on-dark)}
+</style>
+
+<div class="stage">
+  <div class="duo">
+    <div class="device framed" id="device">
+      <span class="side l action"></span>
+      <span class="side l volup"></span>
+      <span class="side l voldown"></span>
+      <span class="side r power"></span>
+      <span class="ant a"></span>
+      <span class="ant b"></span>
+      <div class="phone">
+        <div class="screen" id="screen"></div>
+        <div class="island"><span class="cam"></span></div>
+      </div>
+      <div class="mumphone" id="mumphone" hidden></div>
+    </div>
+    <aside class="sidepanel" id="side" aria-live="polite" aria-label="How this works"></aside>
+  </div>
+
+  <div class="stage-foot">
+    <button class="ghost" id="paneltoggle" type="button" aria-pressed="true">How this works: on</button>
+    <button class="ghost" id="jump" type="button" disabled>Jump to 18 November</button>
+    <button class="ghost" id="frametoggle" type="button" aria-pressed="true">Device frame: on</button>
+    <button class="ghost" id="qbtn" type="button" aria-pressed="false">Questions this raises</button>
+    <button class="ghost" id="restart" type="button">Start again</button>
+  </div>
+</div>
+<script>
+const I = {
+  chevronL: (c='#0B0C0C') => `<svg width="12" height="20" viewBox="0 0 12 20" fill="none" aria-hidden="true"><path d="M10 2 2.5 10 10 18" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  chevronR: (c='#0B0C0C',s=1) => `<svg width="${9*s}" height="${15*s}" viewBox="0 0 9 15" fill="none" aria-hidden="true"><path d="M1.5 1.5 7 7.5l-5.5 6" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  arrowUp: `<svg width="15" height="17" viewBox="0 0 15 17" fill="none" aria-hidden="true"><path d="M7.5 16V2M1.5 8 7.5 1.6 13.5 8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  arrowOut: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path d="M3 12 12 3M4.5 3H12v7.5" stroke="#1D70B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  lock: `<svg width="9" height="11" viewBox="0 0 9 11" fill="#484949" aria-hidden="true"><path d="M4.5 0a2.6 2.6 0 0 0-2.6 2.6V4H1.5A1.5 1.5 0 0 0 0 5.5v4A1.5 1.5 0 0 0 1.5 11h6A1.5 1.5 0 0 0 9 9.5v-4A1.5 1.5 0 0 0 7.5 4h-.4V2.6A2.6 2.6 0 0 0 4.5 0Zm1.4 4H3.1V2.6a1.4 1.4 0 1 1 2.8 0V4Z"/></svg>`,
+  refresh: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 8a7 7 0 0 1 12-3.2M17 12a7 7 0 0 1-12 3.2" stroke="#1D70B8" stroke-width="1.9" stroke-linecap="round"/><path d="M14.6 1.6 15.3 5l-3.4.6M5.4 18.4 4.7 15l3.4-.6" stroke="#1D70B8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  wave: `<svg width="20" height="16" viewBox="0 0 20 16" fill="none" aria-hidden="true"><g stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M2 6v4M6 3.5v9M10 1v14M14 3.5v9M18 6v4"/></g></svg>`,
+  plusCircle: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#0F7A52"/><path d="M14 8v12M8 14h12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+  emptyCircle: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12.6" stroke="#B1B4B6" stroke-width="1.8"/></svg>`,
+  tickCircle: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#0F7A52"/><path class="tickpath" d="M8 14.4 12.3 18.5 20 10.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="32"/></svg>`,
+  tickWhite: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path class="tickpath" d="M3 9.3 7.1 13.4 15 4.8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="32"/></svg>`,
+  person: `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><circle cx="10" cy="7.6" r="3.1"/><path d="M3.8 17.2a6.4 6.4 0 0 1 12.4 0 9.9 9.9 0 0 1-12.4 0Z"/></svg>`,
+  work: `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M7.4 6.2V5.4c0-.8.6-1.4 1.4-1.4h2.4c.8 0 1.4.6 1.4 1.4v.8h1.6c.9 0 1.6.7 1.6 1.6v6.6c0 .9-.7 1.6-1.6 1.6H5.8c-.9 0-1.6-.7-1.6-1.6V7.8c0-.9.7-1.6 1.6-1.6h1.6Zm1.5 0h2.2v-.7H8.9v.7Z"/></svg>`,
+  money: `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M12.6 5.4a3.9 3.9 0 0 0-5.5 3.5v1.2H5.9v1.4h1.2v1.2c0 .5-.1 1-.4 1.4l-.5.7h7.4v-1.6H8.9c.1-.5.2-1 .2-1.5v-1.2h3v-1.4h-3V8.9a2.3 2.3 0 0 1 3.4-2l.7-1.4Z"/></svg>`,
+  house: `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="m10 3.9 6.2 5.2-1 1.2-.6-.5v5.6c0 .5-.4.9-.9.9h-2.5v-3.9H8.8v3.9H6.3c-.5 0-.9-.4-.9-.9V9.8l-.6.5-1-1.2L10 3.9Z"/></svg>`,
+  health: `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M6.2 4v3.6a3.1 3.1 0 0 0 2.4 3v1.5a2.4 2.4 0 1 0 4.8 0v-.9a1.9 1.9 0 1 0-1.5 0v.9a.9.9 0 1 1-1.8 0v-1.5a3.1 3.1 0 0 0 2.4-3V4H10.9v3.6a1.6 1.6 0 0 1-3.2 0V4H6.2Z"/></svg>`,
+  avatarGlyph: `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#1D70B8" opacity=".14"/><circle cx="20" cy="16.4" r="6" fill="#1D70B8"/><path d="M7.6 34.6a12.8 12.8 0 0 1 24.8 0A19.9 19.9 0 0 1 7.6 34.6Z" fill="#1D70B8"/></svg>`,
+  statusDot(state){
+    const map = {none:['#FFFFFF','#B1B4B6'], part:['#FFC44D','#E9A400'], done:['#0F7A52','#0F7A52']};
+    const [fill,stroke] = map[state];
+    if(state==='done') return `<svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true"><circle cx="18" cy="18" r="12" fill="${fill}"/><path d="M12.4 18.4 16.3 22 23.6 13.9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    return `<svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true"><circle cx="18" cy="18" r="11" fill="${fill}" stroke="${stroke}" stroke-width="2"/></svg>`;
+  },
+  ring(done,total){
+    const r = 14, c = 2*Math.PI*r, pct = total ? done/total : 0;
+    return `<svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <circle cx="18" cy="18" r="${r}" stroke="#E1E7ED" stroke-width="4"/>
+      <circle class="ringprog" data-ring cx="18" cy="18" r="${r}" stroke="${done===total&&total>0?'#0F7A52':'#02064A'}" stroke-width="4"
+        stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct)}"
+        transform="rotate(-90 18 18)"/>
+    </svg>`;
+  },
+  statusIcons: `<svg width="64" height="12" viewBox="0 0 64 12" fill="currentColor" aria-hidden="true">
+    <rect x="0" y="4" width="3" height="4" rx="1"/><rect x="4.5" y="2.5" width="3" height="5.5" rx="1"/>
+    <rect x="9" y="1" width="3" height="7" rx="1"/><rect x="13.5" y="0" width="3" height="8" rx="1" opacity=".35"/>
+    <path d="M27.5 2.2a7.4 7.4 0 0 1 9 0l-1 1.2a5.9 5.9 0 0 0-7 0l-1-1.2Zm2 2.4a4.4 4.4 0 0 1 5 0l-1 1.3a2.9 2.9 0 0 0-3 0l-1-1.3ZM32 8.6l1.6-1.9a2 2 0 0 0-3.2 0L32 8.6Z"/>
+    <rect x="46" y="1" width="15" height="7" rx="2.2" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+    <rect x="47.5" y="2.5" width="11" height="4" rx="1"/><rect x="62" y="3.2" width="1.6" height="2.6" rx=".8" opacity=".5"/>
+  </svg>`
+};
+
+/* ============================================================
+   Sandwich carer: plan, then do.
+   A designed fiction. Rates are 2026 to 2027 as used in the
+   adult social care prototype; earnings figures are illustrative.
+   ============================================================ */
+
+/* The agentic services mark: two overlapping circles, stacked vertically.
+   The overlap colour comes from screen-blending violet and cyan.
+   moving=true runs the swap; a negative delay keeps every copy in step. */
+const MARK_MS = 3500;
+const LOGO = (h=20, moving=false) => `<svg class="logo${moving?" moving":""}" width="${Math.round(h/1.62)}" height="${h}" viewBox="141 78 620 1032" aria-hidden="true"${moving?` style="--d:-${Math.round(performance.now()%MARK_MS)}ms"`:""}><g><circle class="c1" cx="451" cy="388" r="310" fill="#BC52FF"/><circle class="c2" cx="451" cy="800" r="310" fill="#12E2F7"/></g></svg>`;
+const SPARK = (c="currentColor",s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="${c}" aria-hidden="true"><path d="M8 1c.6 3.7 2.3 5.4 6 6-3.7.6-5.4 2.3-6 6-.6-3.7-2.3-5.4-6-6 3.7-.6 5.4-2.3 6-6Z"/></svg>`;
+const LEVELS = {
+  auto:   {label:"Done for you", agent:true,
+           banner:"I can complete this whole task for you, using your government records with your permission."},
+  prep:   {label:"Prepared for you", agent:true,
+           banner:"I can fill this in from government records. You check it before it's sent."},
+  you:    {label:"Only you can do this", agent:false,
+           banner:"Only you can do this. I can explain it and help you get ready."},
+  none:   {label:"", agent:false, banner:""},
+  checked:{label:"Checked for you", agent:true,
+           banner:"I checked this against the service's published rules, so you don't have to."}
+};
+
+const WHO = {
+  mum:  {label:"For your mum", cls:"them"},
+  you:  {label:"For you", cls:"you"},
+  kids: {label:"For Leo and Ava", cls:"kids"}
+};
+
+const TASKS = {
+  needs_assess:{
+    title:"Book a care needs assessment for your mum", who:["mum"], level:"prep",
+    intro:"Leeds City Council will look at what help your mum needs at home. It's free. It can lead to carers visiting, equipment or changes to her home.",
+    details:[["Who decides","A social worker or occupational therapist"],["Where","Your mum's home"],["Cost","Free"],["Run by","Leeds City Council"]],
+    action:"Choose a time", flow:"needs",
+    agentText:"I can book this for you and share what you've already told me, so your mum does not have to repeat it. The council makes the decision.",
+    manual:"Contact Leeds City Council yourself"
+  },
+  aa_claim:{
+    title:"Apply for Attendance Allowance for your mum", who:["mum"], level:"prep",
+    intro:"Attendance Allowance is money to help with the extra costs of care. Your mum's income and savings do not affect it. Do this first. You need it before you can get Carer's Allowance or a council tax discount for your mum.",
+    details:[["You could get","£76.70 a week, or £114.60 if she needs help day and night"],["Who decides","DWP"],["How long it takes","Usually a few weeks"],["You'll need","Your mum's agreement"]],
+    action:"Auto-fill from records", flow:"aa", manual:"Fill in the form yourself"
+  },
+  pension_credit:{
+    title:"Pension Credit for mum", who:["mum"], level:"checked",
+    intro:"I checked whether mum can get Pension Credit. Her state pension and work pension come to about £345 a week, which is above the level Pension Credit tops up to, even with Attendance Allowance. I'll check again if her income changes.",
+    details:[["Result","Not eligible at the moment"],["Checked against","DWP's published rules for 2026 to 2027"]],
+    flow:null
+  },
+  council_tax:{
+    title:"Apply for a council tax discount for your mum", who:["mum"], level:"prep",
+    blockedText:"Waiting for your mum's Attendance Allowance",
+    intro:"Your mum may not have to pay council tax because she lives alone and has dementia. She needs to get Attendance Allowance first. Her GP will need to sign a form.",
+    details:[["Your mum could save","About £1,800 a year"],["Who decides","Leeds City Council"],["You'll need","A form signed by her GP"]],
+    action:"Auto-fill from records", flow:"ctax", manual:"Apply to Leeds City Council yourself"
+  },
+  hours:{
+    title:"Check how working fewer days would affect you", who:["you"], level:"none",
+    intro:"Working fewer days would change your Carer's Allowance and your childcare. Compare the options before you talk to your employer.",
+    details:[["Affects","Carer's Allowance, Tax-Free Childcare and 30 hours childcare"],["Rules from","DWP and HMRC"]],
+    action:"Compare your options", flow:"whatif"
+  },
+  flex_request:{
+    title:"Ask your employer for flexible working", who:["you"], level:"you",
+    intro:"You can ask for flexible working from your first day in a job. I've written a request based on the days you chose. Only you can send it.",
+    details:[["Your employer must reply","Within 2 months"],["Who to contact","Your employer"]],
+    action:"See your request", flow:"flex"
+  },
+  reconfirm:{
+    title:"Reconfirm your childcare", who:["kids"], level:"auto", due:"Due in 12 days",
+    intro:"You need to reconfirm every 3 months to keep Tax-Free Childcare and 30 hours childcare. If you do not, Leo and Ava's codes will stop working. I can do this for you using your HMRC record.",
+    details:[["Due","26 October 2026"],["Covers","Tax-Free Childcare and 30 hours childcare for Leo and Ava"],["Run by","HMRC"]],
+    action:"Reconfirm for me", flow:"reconfirm", manual:"Reconfirm yourself on GOV.UK"
+  },
+  carers_assess:{
+    title:"Book a carer's assessment for yourself", who:["you"], level:"prep",
+    intro:"A carer's assessment is about you. The council will ask how caring affects your health, work and family, and what would help, such as regular breaks. It can happen at the same visit as your mum's assessment.",
+    details:[["Cost","Free"],["Run by","Leeds City Council"]],
+    action:"Book it for me", flow:"needs",
+    agentText:"I can book this for you, at the same visit as your mum's assessment if you like.",
+    manual:"Contact Leeds City Council yourself"
+  },
+  carers_allowance:{
+    title:"Apply for Carer's Allowance", who:["you"], level:"prep",
+    blockedText:"Waiting for your mum's Attendance Allowance",
+    intro:"You could get £86.45 a week if you care for your mum for at least 35 hours a week and earn £204 a week or less, after some costs are taken off. You can apply once your mum gets Attendance Allowance. It can be backdated to when her award started.",
+    details:[["You could get","£86.45 a week"],["Earnings limit","£204 a week, after some costs are taken off"],["Run by","DWP"]],
+    action:"Auto-fill from records", flow:"ca", manual:"Fill in the form yourself"
+  },
+  lpa:{
+    title:"Talk to your mum about a lasting power of attorney", who:["mum","you"], level:"you",
+    intro:"A lasting power of attorney lets your mum choose someone to make decisions for her if she cannot in future. She can only make one while she can still make decisions herself. She must sign it herself.",
+    details:[["Cost","£92 to register each one"],["How long it takes","8 to 10 weeks to register"],["Run by","Office of the Public Guardian"]],
+    action:"Help me get ready", flow:"lpa"
+  }
+};
+
+const STEPS = [
+  {id:"s1", title:"Get your mum safe and supported at home",
+   desc:"Start with your mum's needs assessment and Attendance Allowance. Other support depends on Attendance Allowance, so apply as soon as you can.",
+   tasks:["needs_assess","aa_claim","council_tax"]},
+  {id:"s2", title:"Decide your working hours",
+   desc:"Working fewer days affects your Carer's Allowance and your childcare. Check the options before you talk to your employer.",
+   tasks:["hours","flex_request"]},
+  {id:"s3", title:"Keep your childcare",
+   desc:"Reconfirm by 26 October or Leo and Ava's codes will stop working.",
+   tasks:["reconfirm"]},
+  {id:"s4", title:"Get support as a carer",
+   desc:"Your carer's assessment can happen at the same visit as your mum's. You can apply for Carer's Allowance once your mum gets Attendance Allowance.",
+   tasks:["carers_assess","carers_allowance"]},
+  {id:"s5", title:"Plan ahead with your mum",
+   desc:"Your mum can only make a lasting power of attorney while she can still make decisions herself.",
+   tasks:["lpa"]}
+];
+
+/* Hours options. Salary £30,000 full time, 5% pension, £40 a day paid childcare
+   while working. Counted earnings follow the Carer's Allowance rules: net of tax,
+   NI and half of pension, less care costs up to half of net earnings. */
+const HOURS = {
+  5:{label:"5 days", take:454, counted:269, change:0,    ca:false, child:"keep",    note:"No change to your pay."},
+  4:{label:"4 days", take:377, counted:228, change:-77,  ca:false, child:"keep",    note:"You would earn too much for Carer's Allowance, so you lose a day's pay and get nothing back."},
+  3:{label:"3 days", take:299, counted:188, change:-69,  ca:true,  child:"keep",    note:"Some childcare costs are taken off your earnings, which brings you under £204. You could get Carer's Allowance and have more money than on 4 days."},
+  2:{label:"2 days", take:219, counted:145, change:-149, ca:true,  child:"close",   note:"You could get Carer's Allowance. Your earnings would be close to the minimum for childcare support, so a short month could put your codes at risk."},
+  0:{label:"Stop work",   take:0,   counted:0,   change:-368, ca:true,  child:"depends", note:"You would keep your childcare only if you get Carer's Allowance. If you stop work before your mum gets Attendance Allowance, your codes could stop at your next reconfirmation."}
+};
+
+const GATHER = ["Work and earnings","Childcare account","Child Benefit"];
+const CHAT = [
+  {r:"a",t:"Hello. I can help you work out what to do and what support you can get. Tell me what's happening."},
+  {r:"u",t:"My mum had a fall last week. She's been diagnosed with dementia and she isn't coping on her own. I've got two little ones, I work full time and I honestly don't know where to start."},
+  {r:"a",t:"That's a lot to deal with. I'll help you work out what to do first. I can check your GOV.UK records so you do not have to type everything out."},
+  {r:"consent"},
+  {r:"gather"},
+  {r:"a",t:"Here's what I found:",
+   bullets:["You work full time for Leeds Teaching Hospitals and earn about £30,000 a year","Tom works full time","Leo (3) and Ava (1) get 30 hours childcare at Little Acorns Nursery","You use Tax-Free Childcare and need to reconfirm by 26 October","You get Child Benefit for Leo and Ava"],
+   src:"From HMRC"},
+  {r:"a",t:"Now some questions about your mum. How old is she and where does she live?"},
+  {r:"u",t:"She's 81. She lives on her own in Leeds, about ten minutes from us."},
+  {r:"a",t:"Does she get any disability benefits, such as Attendance Allowance?"},
+  {r:"u",t:"No. Just her state pension and a small pension from work."},
+  {r:"a",t:"Can she still make her own decisions? Does she have a lasting power of attorney?"},
+  {r:"u",t:"Yes, she's still very much herself most days. No power of attorney."},
+  {r:"a",t:"How many hours a week do you spend looking after her?"},
+  {r:"u",t:"Every evening and most of the weekend. Probably 35 hours, maybe more."},
+  {r:"a",t:"Are you thinking about changing how much you work?"},
+  {r:"u",t:"I've been thinking about going part time, but I'm worried about money and about losing the childcare."},
+  {r:"a",t:"Last question. What would help most right now?"},
+  {r:"u",t:"Knowing mum is safe, and not dropping the ball on everything else."},
+  {r:"a",t:"Thank you. I've made your plan. Some of these services affect each other, so the order matters. I'll show you what to do first."},
+  {r:"plan"}
+];
+
+const TOLD = [
+  ["About you",[
+    ["Where you live","Leeds","told"],
+    ["Your work","Full time, Leeds Teaching Hospitals, about £30,000","gov"],
+    ["Your partner","Tom, works full time","gov"],
+    ["Your children","Leo (3) and Ava (1), at Little Acorns Nursery","gov"],
+    ["Childcare","Tax-Free Childcare and 30 hours childcare. Reconfirm by 26 October","gov"],
+    ["Caring","About 35 hours a week, evenings and weekends","told"],
+    ["Thinking about","Working fewer days","told"]]],
+  ["About your mum",[
+    ["Age and home","81, lives alone in Leeds, 10 minutes away","told"],
+    ["Health","Dementia, recently diagnosed. Fell last week","told"],
+    ["Income","State pension and a small work pension","told"],
+    ["Benefits","None","told"],
+    ["Decisions","Makes her own decisions. No lasting power of attorney","told"]]]
+];
+
+/* The backstop conversation, opened from a failed reconfirmation in January */
+const FIX = [
+  {r:"context"},
+  {r:"a",t:"To keep Leo and Ava's codes, Tom needs to be working too. HMRC doesn't show a new job for him since December. What's happened with his work?"},
+  {r:"u",t:"He changed jobs. He finished at the old place at Christmas and started at Leeds Bradford Airport on 11 January. He hasn't been paid yet."},
+  {r:"a",t:"Thanks, that explains it. His new employer won't show up in HMRC's records until they first pay him. I can tell HMRC when he started. Is he full time, and will he earn about the same as before?"},
+  {r:"u",t:"Yes, full time. A bit more, actually."},
+  {r:"a",t:"Here's what I'll send to HMRC. Check it before I send it."},
+  {r:"fixcard"}
+];
+/* A quick question, answered from GOV.UK, which turns into a standing check */
+const QA = [
+  {r:"u",t:"We want to visit Tom's family in India next spring. Do we need visas?"},
+  {r:"a",t:"Yes. British citizens need a visa to visit India, including children.",
+   bullets:["Apply online for an e-Visa at least 4 days before you travel","Your passport must be valid for at least 6 months from the day you arrive, with 2 blank pages","Leo and Ava need their own passports and visas"],
+   src:"From GOV.UK foreign travel advice for India"},
+  {r:"a",t:"Your passport is valid until 2031, so you're fine."},
+  {r:"alert"}
+];
+/* Correcting a record: Nadia's employer is out of date in HMRC's payroll data */
+const empName = () => state.newJob ? "Leeds Community Healthcare" : "Leeds Teaching Hospitals";
+const withEmp = t => String(t).replace("Leeds Teaching Hospitals", empName());
+function corrScript(fromForm){
+  if(state.newJob) return [...(fromForm ? [{r:"corrctx"}] : []),
+    {r:"a",t:"I already have your new job at Leeds Community Healthcare, from 1 October. I'll check HMRC's records match after your first payday."},
+    {r:"corrback"}];
+  return [
+    ...(fromForm ? [{r:"corrctx"}] : []),
+    {r:"u",t: fromForm ? "That's my old job. I started somewhere new on 1 October." : "My work details are out of date. I started a new job on 1 October."},
+    {r:"a",t:"Thanks for telling me. HMRC's records still show Leeds Teaching Hospitals. A new job usually shows up after the first payday. Who's your new employer, and has your pay changed?"},
+    {r:"u",t:"Leeds Community Healthcare. Same hours, and about the same pay, £30,000."},
+    {r:"a",t:"Your pay hasn't changed, so your childcare and your plan stay the same. Here's what I'll update."},
+    {r:"corrcard"}
+  ];
+}
+const SC = () => state.script==="fix" ? FIX : state.script==="qa" ? QA : state.script==="corr" ? state.corrScript : state.script==="choose" ? [] : CHAT;
+
+/* ============================================================
+   Side panel: what is happening for Nadia, and what has to
+   exist to make it work. Short, plain, one idea per note.
+   ============================================================ */
+const PANEL = {
+  intro:{eyebrow:"About this prototype", title:"Meet Nadia",
+    body:"Follow Nadia over 3 months as she uses the GOV.UK app.",
+    facts:["38, lives in Leeds","Works full time at a hospital","Leo is 3 and Ava is 1, both at nursery","Her mum, 81, has dementia and has just had a fall","Uses Tax-Free Childcare and 30 hours childcare"],
+    foot:"This is a vision prototype, for illustration. Nadia is not a real person and the figures are made up."},
+  home_now:{eyebrow:"Opening the app", title:"Her services in one place",
+    body:"Nadia sees the services she already uses. Anything due shows with its date.",
+    needs:["One sign-in that shows records from different departments","Departments sharing those records, with her permission"]},
+  chat:{eyebrow:"Starting a plan", title:"She describes her life, not services",
+    body:"Nadia doesn't know which services exist. The assistant asks about her situation and works out what's relevant.",
+    needs:["An assistant that asks good follow-up questions","A map of government services and how they connect"]},
+  consent:{eyebrow:"Starting a plan", title:"Asked once, in plain terms",
+    body:"The assistant asks to check her records, so she doesn't have to type everything out.",
+    needs:["Permissions she can see and change later","A common way for departments to share records"]},
+  plan:{eyebrow:"The plan", title:"Steps in the right order",
+    body:"Some support depends on other support, so the order matters. Each task says whether the assistant can do it, help with it or only explain it.",
+    needs:["Knowing which services depend on each other","Services that let an assistant do some of the work"]},
+  home_plan:{eyebrow:"Back on the home page", title:"The plan sits beside her services",
+    body:"Her plan is one part of the page. Childcare stays with childcare.",
+    needs:["Plans saved to her account, so she can come back to them"]},
+  told:{eyebrow:"The plan", title:"Where each fact came from",
+    body:"Every fact shows whether Nadia said it or it came from a government record.",
+    needs:["Facts stored once and reused, so she isn't asked twice"]},
+  whatif:{eyebrow:"Comparing options", title:"Rules from different departments, side by side",
+    body:"Working fewer days changes her Carer's Allowance and her childcare. The assistant shows both together.",
+    needs:["Eligibility rules published in a form a computer can run"]},
+  reconfirm:{eyebrow:"Done for you", title:"The assistant fills it in. Nadia confirms.",
+    body:"It uses her HMRC record. Nothing is sent until she says it's right.",
+    needs:["HMRC accepting a form prepared by an assistant","A record of what was sent and who agreed"]},
+  needs:{eyebrow:"Booking help", title:"A professional still decides",
+    body:"The assistant books the visit and passes on what Nadia said, so her mum doesn't have to repeat it.",
+    needs:["Councils publishing appointment times","A way to send a referral to the council"]},
+  aa:{eyebrow:"Applying for mum", title:"Mum agrees on her own phone",
+    body:"Nadia can only apply for her mum with her permission. The assistant drafts the claim and they both check it.",
+    needs:["A way for one person to act for another, with permission","DWP accepting claims prepared by an assistant"]},
+  checked:{eyebrow:"Ruled out", title:"Saying what doesn't apply",
+    body:"The assistant checked Pension Credit and explains why mum can't get it.",
+    needs:["Rules that say which cases they cover"]},
+  ctax:{eyebrow:"Unlocked by a decision", title:"One decision opens the next step",
+    body:"Mum now gets Attendance Allowance, so she can get a council tax discount. Her GP still signs.",
+    needs:["Councils accepting a GP's certificate online"]},
+  flex:{eyebrow:"Outside government", title:"The plan covers her whole situation",
+    body:"Flexible working is between Nadia and her employer. The assistant drafts the request and she sends it."},
+  ca:{eyebrow:"Prepared for you", title:"One form, three sources",
+    body:"The claim uses her pay, her childcare costs and mum's award, so Nadia doesn't have to gather them.",
+    needs:["DWP reading mum's award, with permission","Childcare costs shared from her childcare account"]},
+  lpa:{eyebrow:"Only you can do this", title:"Some things stay human",
+    body:"Mum must make and sign a lasting power of attorney herself. The assistant explains and prepares."},
+  change:{eyebrow:"Telling government once", title:"One update, every service",
+    body:"Nadia records a voice note. The assistant works out what it affects and tells each service.",
+    needs:["Each service saying what counts as a change","Services accepting updates from an assistant"]},
+  later:{eyebrow:"5 weeks later", title:"The plan updates itself",
+    body:"DWP decided mum's claim. Two tasks unlocked without Nadia doing anything.",
+    needs:["Services sending decisions the assistant can act on"]},
+  lock_later:{eyebrow:"5 weeks later", title:"A notification, not a chat",
+    body:"A decision on mum's claim means Nadia can now claim Carer's Allowance. The claim is filled in and waiting for her.",
+    needs:["Services sending news of decisions, with permission"]},
+  home_later:{eyebrow:"5 weeks later", title:"What happened while she was away",
+    body:"The page shows decisions, what the assistant checked, and anything ready for her.",
+    modes:[["She asks","It does it."],["It prepares","She checks and sends."],["It acts","With her permission, then tells her."],["It watches","And only speaks up if something changes."]]},
+  lock_jan:{eyebrow:"2 months later", title:"When records and real life don't match",
+    body:"HMRC's records don't show Tom's new job yet. The assistant can't fix that alone, so it stops and asks.",
+    needs:["An assistant that stops when records don't match, instead of guessing"]},
+  home_jan:{eyebrow:"2 months later", title:"From plan to everyday",
+    body:"Carer's Allowance has been awarded, so it moves from the plan to her services. Car tax was never part of the plan.",
+    needs:["Plans that hand finished items to the rest of the app"]},
+  fix:{eyebrow:"Back to conversation", title:"It already knows the problem",
+    body:"The chat opens with the task, the deadline and what HMRC shows. Nadia only has to explain what's changed.",
+    needs:["Chat that picks up context from the page","HMRC accepting a change before payroll shows it"]},
+  choose:{eyebrow:"Try it", title:"Choose what Nadia does",
+    body:"The same assistant can answer a quick question or help with something bigger.",
+    choices:[["qa","Ask a quick question","Nadia asks about visas for a family trip"],["plan","Get help with a big change","Nadia's mum has had a fall"],["corr","Fix something that's wrong","Nadia's employer is out of date"]]},
+  corr:{eyebrow:"Correcting a record", title:"Chat for the messy part",
+    body:"A form can't know what HMRC's records don't show yet. Nadia explains in a sentence, then confirms the change on a card.",
+    needs:["Facts she gives used everywhere, with their source","A check against HMRC once payroll catches up"]},
+  qa:{eyebrow:"A quick question", title:"An answer, not a search",
+    body:"Nadia asks in her own words. The answer comes from GOV.UK travel advice and checks her passport record.",
+    needs:["Answers drawn from GOV.UK content, with the source shown","Her passport record, with her permission"]},
+  qa_alert:{eyebrow:"A quick question", title:"From one answer to a standing check",
+    body:"Nadia will visit often, so the assistant offers to watch for changes. It only tells her if something changes.",
+    needs:["Travel advice that can be checked for changes"]},
+  questions:{eyebrow:"To discuss", title:"Questions this raises",
+    body:"This experience is driven by a rich user profile: what someone has told us, the services they use, their deadlines and their permissions.",
+    qs:[["screen","When is chat the right way to interact, and when is a purpose-built screen better?","A form with a way into chat"],
+        ["joined","How does a change made in one place reach everywhere else, in a joined-up way?","Correcting an employer"],
+        ["change","How do we handle changes in someone's circumstances?","A voice note that updates the plan"],
+        ["trust","How do we reduce friction for people while staying transparent and accountable?","What the assistant can do without asking"]],
+    foot:"This is a vision prototype, not a design proposal. It's here to start a conversation."},
+  perms:{eyebrow:"Permissions", title:"What the assistant can do on its own",
+    body:"Nadia can see everything she has agreed to and turn any of it off.",
+    needs:["A record of permissions that services can check"]},
+  vtax:{eyebrow:"Outside the plan", title:"Everyday tasks too",
+    body:"Car tax is due every year. The assistant checks the MOT and insurance, and Nadia approves the renewal.",
+    needs:["DVLA letting an assistant renew, with her approval"]}
+};
+
+/* ============================================================
+   State
+   ============================================================ */
+const START_STATUS = {
+  needs_assess:"todo", aa_claim:"todo", pension_credit:"ruled", council_tax:"blocked",
+  hours:"todo", flex_request:"todo", reconfirm:"todo",
+  carers_assess:"todo", carers_allowance:"blocked", lpa:"todo"
+};
+const state = {
+  view:"intro", stepId:null, taskId:null,
+  status:{...START_STATUS}, receipts:{},
+  hours:null, phase:"now", panel:true,
+  flow:null,                 // {task, stage, data}
+  chatIndex:0, chatLog:[], chatBusy:false, typing:false, consented:false, gatherOn:0,
+  toast:null, dir:"fwd", reachedPlan:false,
+  script:"plan", standing:{reconfirm:false, recheck:true, earnings:true, travel:false, payroll:false}, alertDecided:false, newJob:false, corrFrom:null,
+  fromHome:false, caAwarded:false, vtax:"later", fixed:false
+};
+const T = id => TASKS[id];
+
+/* ============================================================
+   Render helpers
+   ============================================================ */
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const el = document.getElementById("screen");
+const side = document.getElementById("side");
+
+function statusBar(onBrand, noTime){
+  return `<div class="statusbar${onBrand?" on-brand":""}"><span>${noTime?"":"9:41"}</span><span class="icons">${I.statusIcons}</span></div>`;
+}
+function nav({back,label,small,chip}){
+  return `<div class="nav">
+    <div class="nav-left">
+      ${back?`<button class="backbtn${chip?" chip":""}" data-act="back" type="button" aria-label="Back">${I.chevronL()}</button>`:""}
+      ${label?`<span class="nav-label${small?" sm":""}">${esc(label)}</span>`:""}
+    </div>
+    <button class="avatar" data-act="perms" type="button" aria-label="What I can do without asking">N</button>
+  </div>`;
+}
+const lvChip = lv => `<span class="lv ${LEVELS[lv].cls}"><i></i>${esc(LEVELS[lv].label)}</span>`;
+const whoTags = who => who.map(w=>`<span class="tag ${WHO[w].cls}">${esc(WHO[w].label)}</span>`).join("");
+
+function statusText(id){
+  const s = state.status[id], t = T(id);
+  if(s==="todo")      return t.due ? `<span class="st due">${esc(t.due)}</span>` : `<span class="st">To do</span>`;
+  if(s==="ready")     return `<span class="st due">Ready to check</span>`;
+  if(s==="blocked")   return `<span class="st wait">${esc(t.blockedText||"Waiting")}</span>`;
+  if(s==="booked")    return `<span class="st ok">Booked</span>`;
+  if(s==="submitted") return `<span class="st wait">Sent. Waiting for a decision</span>`;
+  if(s==="waiting")   return `<span class="st wait">Waiting for the GP</span>`;
+  if(s==="done")      return `<span class="st ok">Done</span>`;
+  if(s==="ruled")     return `<span class="st">Not eligible</span>`;
+  if(s==="attention") return `<span class="st due">Needs you. Due 26 January</span>`;
+  return "";
+}
+const isDone = s => ["done","booked","submitted","waiting"].includes(s);
+const stepCounts = step => {
+  const ids = step.tasks.filter(id=>state.status[id]!=="ruled");
+  return {done:ids.filter(id=>isDone(state.status[id])).length, total:ids.length};
+};
+const stepStatus = step => {
+  const {done,total} = stepCounts(step);
+  if(done===0) return {label:"Not started",key:"none"};
+  if(done<total) return {label:"In progress",key:"part"};
+  return {label:"Complete",key:"done"};
+};
+function tiles(step){
+  const {done,total} = stepCounts(step), st = stepStatus(step);
+  return `<div class="tiles">
+    <div class="tile"><span>${I.statusDot(st.key)}</span><span class="lbl"><span class="k">Status</span><br><span class="v">${st.label}</span></span></div>
+    <div class="tile"><span>${I.ring(done,total)}</span><span class="lbl"><span class="k">Tasks</span><br><span class="v">${done} of ${total}</span></span></div>
+  </div>`;
+}
+function taskRow(id){
+  const t = T(id), s = state.status[id], ag = LEVELS[t.level].agent;
+  return `<button class="trow${isDone(s)?" isdone":""}${s==="blocked"?" locked":""}" data-act="task" data-task="${id}" type="button">
+    <span class="tg" ${ag?'title="I can help with this"':''}>${ag?LOGO(20):""}</span>
+    <span class="tm"><span class="tn">${esc(t.title)}</span>${statusText(id)}</span>
+    <span class="tc">${I.chevronR("#0B0C0C",1)}</span>
+  </button>`;
+}
+
+/* ============================================================
+   Screens
+   ============================================================ */
+function viewIntro(){
+  return `<div class="screen intro-screen">
+    ${statusBar(true)}
+    <div class="body splash">
+      <div class="splash-mid">
+        ${LOGO(64)}
+        <h1 class="splash-title"><b>GOV.UK</b><b>agentic app</b></h1><p class="splash-sub">A vision of the GOV.UK app in an agentic future</p>
+      </div>
+      <div class="splash-foot">
+        <button class="btn plain" data-act="begin" type="button">Start</button>
+        <p class="selectnote">A vision prototype, for illustration</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function fixRows(){
+  const rows = [["Tom's work","Full time at Leeds Bradford Airport, from 11 January","You told us"],
+    ["Tom's earnings in the next 3 months","About the same as before, or a bit more","You told us"],
+    ["Your work", state.changeDone?`${empName()}, 4 days a week in January and February`:empName(), state.newJob?"You told us":"From HMRC payroll"]];
+  if(state.caAwarded) rows.push(["Carer's Allowance","£86.45 a week","From DWP"]);
+  return rows;
+}
+function messageHTML(m){
+  if(m.r==="corrctx") return `<div class="msg a"><div class="ctxcard">
+      <span class="ctx-eyebrow">About</span><b>${state.corrFrom && state.corrFrom.flow && state.corrFrom.flow.task==="carers_allowance" ? "Your Carer's Allowance claim" : "Reconfirm your childcare"}</b>
+      <span>Your employer: ${state.newJob?"Leeds Community Healthcare, from what you told me":"Leeds Teaching Hospitals, from HMRC payroll"}</span>
+    </div></div>`;
+  if(m.r==="corrcard") return `<div class="msg a"><div class="consentcard" id="corrcard">
+      <b>Update your work details</b>
+      <div class="fixrows">
+        <div class="fr"><span class="k">Employer</span><span class="v">Leeds Community Healthcare, from 1 October</span><span class="src told">You told us</span></div>
+        <div class="fr"><span class="k">Pay</span><span class="v">About £30,000 a year. No change</span><span class="src told">You told us</span></div>
+      </div>
+      <p>I'll use this wherever your employer comes up. After your first payday, I'll check HMRC's records match.</p>
+      ${state.newJob ? `<span class="done-note">Updated</span>` : `<button class="btn green" data-act="corryes" type="button">Use these details</button>`}
+    </div></div>`;
+  if(m.r==="corrback") return `<div class="msg a"><div class="plancard"><button class="btn green" data-act="corrback" type="button">${esc(corrBackLabel())}</button></div></div>`;
+  if(m.r==="alert") return `<div class="msg a"><div class="consentcard" id="alertcard">
+      <b>Keep an eye on this?</b>
+      <p>I'll tell you if the travel advice or entry rules for India change.</p>
+      ${state.alertDecided
+        ? `<span class="done-note">${state.standing.travel?"Turned on":"Not now"}</span>`
+        : `<div class="row2"><button class="btn green" data-act="travelyes" type="button">Yes, tell me</button><button class="btn plain" data-act="travelno" type="button" style="box-shadow:inset 0 0 0 1px var(--ink-4)">No thanks</button></div>`}
+    </div></div>`;
+  if(m.r==="home") return `<div class="msg a"><div class="plancard"><button class="btn green" data-act="back" type="button">Back to home</button></div></div>`;
+  if(m.r==="context") return `<div class="msg a"><div class="ctxcard">
+      <span class="ctx-eyebrow">About</span><b>Reconfirm your childcare</b>
+      <span>Due 26 January. Tax-Free Childcare and 30 hours childcare for Leo and Ava.</span>
+      <span class="ctx-why">HMRC's records show Tom's job ended on 31 December.</span>
+    </div></div>`;
+  if(m.r==="fixcard") return `<div class="msg a"><div class="consentcard">
+      <b>Reconfirm your childcare</b>
+      <div class="fixrows">${fixRows().map(([k,v,src])=>`<div class="fr"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span><span class="src ${src.startsWith("You")?"told":"gov"}">${esc(src)}</span></div>`).join("")}</div>
+      <p>After Tom's first payday at the end of January, I'll check HMRC's records match. I'll only tell you if they don't.</p>
+      ${state.fixed?`<span class="done-note">Sent to HMRC</span>`:`<button class="btn green" data-act="fixsend" type="button">Send to HMRC</button>`}
+    </div></div>`;
+  if(m.r==="plan") return `<div class="msg a"><div class="plancard">
+      <p class="name">Looking after your mum, work and childcare</p>
+      <button class="btn green" data-act="startplan" type="button">View your plan</button>
+    </div></div>`;
+  if(m.r==="gather") return `<div class="msg a"><div class="gathercard">
+      <b>Checking your GOV.UK records</b>
+      <div class="runlist" id="gatherlist">${GATHER.map((x,i)=>`<div class="${i<state.gatherOn?"on":i===state.gatherOn?"now":""}"><span class="slot">${runSlot(i,state.gatherOn)}</span><span>${esc(x)}</span></div>`).join("")}</div>
+    </div></div>`;
+  if(m.r==="consent") return `<div class="msg a"><div class="consentcard" id="consentcard">
+      <b>Check your GOV.UK records?</b>
+      <ul><li>Work and earnings (HMRC)</li><li>Childcare account (HMRC)</li><li>Child Benefit (HMRC)</li></ul>
+      <p>Only you can see this. You can change your data settings at any time in your GOV.UK account.</p>
+      ${state.consented
+        ? `<span class="done-note">Allowed</span>`
+        : `<div class="row2"><button class="btn green" data-act="allow" type="button">Allow</button><button class="btn plain" data-act="allow" type="button" style="box-shadow:inset 0 0 0 1px var(--ink-4)">Not now</button></div>`}
+    </div></div>`;
+  if(m.r==="a"){
+    const bl = m.bullets ? `<ul>${m.bullets.map(b=>`<li>${esc(withEmp(b))}</li>`).join("")}</ul>` : "";
+    const src = m.src ? `<span class="srcline">${esc(m.src)}</span>` : "";
+    return `<div class="msg a"><div class="bubble"><p>${esc(m.t)}</p>${bl}${src}</div></div>`;
+  }
+  return `<div class="msg u"><div class="bubble">${esc(m.t)}</div></div>`;
+}
+const typingHTML = () => `<div class="msg a typing-msg"><div class="bubble"><span class="typing"><i></i><i></i><i></i></span></div></div>`;
+
+function viewChat(){
+  return `<div class="screen">
+    ${statusBar()}
+    <div class="nav"><div class="nav-left"><button class="backbtn" data-act="back" type="button" aria-label="Back">${I.chevronL()}</button><span class="nav-label">${state.script==="corr"&&state.corrFrom&&(state.corrFrom.flow||state.corrFrom.view==="told")?"Back":"Home"}</span></div>
+      <button class="avatar" data-act="perms" type="button" aria-label="What I can do without asking">N</button></div>
+    <div class="chatbody" id="chatbody"></div>
+    <div class="composer">
+      <p class="hint">&nbsp;</p>
+      <div class="inputrow">
+        <div class="field empty">Ask or tell me something</div>
+        <button class="send" data-act="send" type="button" disabled aria-label="Send reply">${I.arrowUp}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function chatUpdate(opts={}){
+  const cb = el.querySelector("#chatbody");
+  if(!cb) return;
+  const typingNode = cb.querySelector(".typing-msg");
+  const rendered = cb.querySelectorAll(".msg:not(.typing-msg)").length;
+  for(let i=rendered;i<state.chatLog.length;i++){
+    const holder = document.createElement("div");
+    holder.innerHTML = messageHTML(state.chatLog[i]);
+    const node = holder.firstElementChild;
+    if(opts.instant) node.querySelector(".bubble,.plancard,.consentcard,.gathercard,.ctxcard")?.style.setProperty("animation","none");
+    cb.insertBefore(node, typingNode || null);
+  }
+  if(state.typing && !typingNode){
+    const holder = document.createElement("div");
+    holder.innerHTML = typingHTML();
+    cb.appendChild(holder.firstElementChild);
+  } else if(!state.typing && typingNode){
+    typingNode.remove();
+  }
+  const next = SC()[state.chatIndex];
+  const pending = (!state.chatBusy && next && next.r==="u") ? next.t : null;
+  const field = el.querySelector(".field"), send = el.querySelector(".send"), hint = el.querySelector(".hint");
+  if(field){ field.textContent = pending || "Ask or tell me something"; field.classList.toggle("empty", !pending); }
+  if(send) send.disabled = !pending;
+  if(hint) hint.innerHTML = pending ? "Tap send to reply" : state.script==="choose" ? "Choose what Nadia does, in the panel" : "&nbsp;";
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  requestAnimationFrame(()=>cb.scrollTo({top:cb.scrollHeight, behavior:(opts.instant||reduce)?"auto":"smooth"}));
+}
+
+function chatStep(){
+  if(state.chatIndex >= SC().length){ state.chatBusy=false; state.typing=false; chatUpdate(); return; }
+  const item = SC()[state.chatIndex];
+  if(item.r==="u"){ state.chatBusy=false; state.typing=false; chatUpdate(); return; }
+  if(item.r==="gather"){
+    state.chatLog.push(item); state.chatIndex++; state.chatBusy=true; state.typing=false;
+    state.gatherOn = 0; chatUpdate();
+    const run = state.run;
+    const tick = ()=>{
+      if(run!==state.run) return;
+      state.gatherOn++;
+      advanceRun(state.gatherOn, "#gatherlist");
+      if(state.gatherOn<GATHER.length) setTimeout(tick, 1100);
+      else setTimeout(()=>{ if(run===state.run) chatStep(); }, 600);
+    };
+    setTimeout(tick, 1100);
+    return;
+  }
+  if(item.r==="consent" || item.r==="alert" || item.r==="corrcard"){
+    state.chatLog.push(item); state.chatIndex++; state.chatBusy=true; state.typing=false;
+    chatUpdate(); renderSide(); return;          // waits for Allow
+  }
+  state.chatBusy = true; state.typing = true; chatUpdate();
+  const dwell = item.r==="plan" ? 700 : Math.min(1500, 420 + (item.t?item.t.length:0)*7);
+  const run = state.run;
+  setTimeout(()=>{
+    if(run!==state.run) return;
+    state.typing = false;
+    state.chatLog.push(item); state.chatIndex++;
+    if(state.view==="chat") chatUpdate();
+    setTimeout(()=>{ if(run===state.run) chatStep(); }, 320);
+  }, dwell);
+}
+function sendReply(){
+  const item = SC()[state.chatIndex];
+  if(!item || item.r!=="u" || state.chatBusy) return;
+  state.chatBusy = true;
+  state.chatLog.push(item); state.chatIndex++;
+  chatUpdate();
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, 420);
+}
+
+function viewPlan(){
+  const steps = STEPS.map(s=>`<div class="card">
+      <div class="step-head" style="padding-bottom:16px"><p class="card-title">${esc(s.title)}</p></div>
+      ${tiles(s)}
+      ${s.tasks.map(taskRow).join("")}
+      <button class="detailsrow" data-act="step" data-step="${s.id}" type="button"><span>About this step</span>${I.chevronR("#0B0C0C",1.2)}</button>
+    </div>`).join("");
+
+  const changed = state.phase==="jan" ? (state.caAwarded ? `<div class="changed">
+      <b>What's changed</b>
+      <p>Your Carer's Allowance was awarded on 9 December. It's now under Benefits on your home page.</p>
+      <p>Most of this plan is done. What's left is below.</p>
+    </div>` : "") : state.phase==="later" ? `<div class="changed">
+      <b>What's changed</b>
+      <p>Your mum's Attendance Allowance was approved on 18 November. She'll get £76.70 a week, backdated to when you applied.</p>
+      <p>You can now apply for Carer's Allowance and your mum's council tax discount. I've filled in both for you.</p>
+    </div>` : "";
+
+
+  return `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label:"Home"})}
+    <div class="body"><div class="stack">
+      <h1 class="title" style="font-size:28px">Looking after your mum, work and childcare</h1>
+      ${changed}
+      <div class="card">
+        <div class="card-pad">
+          <p class="card-title">Your plan</p>
+          <p class="card-body">This plan covers support for your mum, for you as her carer, and for Leo and Ava's childcare. I can do some tasks for you. Others need you, your mum or a professional. Each task tells you which.</p>
+        </div>
+        <button class="rowlink" data-act="told" type="button"><span>What your plan is based on</span>${I.chevronR("#0B0C0C",1.2)}</button>
+      </div>
+      ${state.phase!=="now" ? `<div class="card"><button class="updaterow" data-act="change" type="button">
+         <span class="badge">${I.refresh}</span><span class="lbl">Update your plan</span>${I.chevronR("#0B0C0C",1.2)}</button></div>` : ""}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:8px"><h2 class="section-h big">Steps</h2><span class="keyline">${LOGO(16)}I can help with this</span></div>
+      ${steps}
+    </div></div>
+    ${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}
+    ${state.updating?`<div class="updating"><div class="upcard">${LOGO(56,true)}<b>Six weeks later</b><p>DWP has made a decision on your mum's Attendance Allowance. Updating your plan.</p></div></div>`:""}
+  </div>`;
+}
+
+const CHG_CHECK = ["Carer's Allowance","Tax-Free Childcare and 30 hours childcare","Your mum's council tax discount","Your mum's care plan"];
+const chgRun = () => ["submitted","done"].includes(state.status.carers_allowance)
+  ? ["Change reported to DWP","Carer's Allowance paused from 4 January to 28 February","Restarts on 1 March","January childcare reconfirmation updated"]
+  : ["Added to your Carer's Allowance application","January and February marked as over the earnings limit","January childcare reconfirmation updated"];
+function viewChange(){
+  const c = state.change;
+  const shell = (title, inner) => `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label:"Back to plan"})}
+    <div class="body"><div class="stack">
+      <h2 class="title-sm">${esc(title)}</h2>
+      ${inner}
+    </div></div>
+  </div>`;
+  if(c.stage==="tell") return shell("Update your plan", `
+    <p class="intro">Tell me if anything has changed. I'll check what it affects.</p>
+    <div class="card"><div class="card-pad" style="gap:12px">
+      <p class="name" style="font-size:18px;font-weight:700;margin:0;padding:8px 0 8px 8px">Recent voice note</p>
+      <div class="voicecard">
+        <div class="top"><span class="wave">${I.wave}</span><span class="quote">“Work have asked me to do 4 days a week in January and February to cover for a colleague.”</span></div>
+        <div class="meta">Recorded 2 December 2026</div>
+      </div>
+      <button class="btn green" data-act="chgcheck" type="button">Update my plan</button>
+    </div></div>`);
+  if(c.stage==="check") return shell("Checking your plan", `
+    <p class="intro">I'm checking everything in your plan that this could affect.</p>
+    ${runList(CHG_CHECK, c.on||0)}`);
+  if(c.stage==="result"){
+    const applied = ["submitted","done"].includes(state.status.carers_allowance);
+    const caText = applied
+      ? "You'll earn about £228 a week in January and February, which is over the £204 limit. Carer's Allowance will stop for those weeks and restart in March. If DWP knows now, you will not have to pay anything back."
+      : "You'll earn about £228 a week in January and February, which is over the £204 limit. I'll add this to your Carer's Allowance application so it's right from the start.";
+    return shell("This affects 2 services", `
+      <p class="intro">Here's what needs to change.</p>
+      <div class="agentbox" style="margin:0"><div class="ab-h"><span class="badge-logo">${LOGO(22)}</span><span>Carer's Allowance</span></div>
+        <p>${esc(caText)}</p><p class="abnote">I'll tell DWP for you.</p></div>
+      <div class="agentbox" style="margin:0"><div class="ab-h"><span class="badge-logo">${LOGO(22)}</span><span>Tax-Free Childcare and 30 hours</span></div>
+        <p>You'll still earn enough to keep Leo and Ava's codes.</p><p class="abnote">I'll add the extra days to your January reconfirmation.</p></div>
+      <div class="youbox" style="margin:0"><div class="ab-h"><span>Little Acorns Nursery</span></div>
+        <p>You may need childcare for an extra day each week. Only you can arrange this with the nursery.</p></div>
+      <h2 class="section-h" style="margin-top:4px">Not affected</h2>
+      <div class="kvgroup">
+        <div class="kv"><span class="k">Your mum's council tax discount</span><span class="v">No change</span></div>
+        <div class="kv"><span class="k">Your mum's care plan</span><span class="v">No change</span></div>
+      </div>
+      <label class="check" style="padding:4px 0"><input type="checkbox" id="att-change" data-act="chgatt" ${c.att?"checked":""}><span>This is correct. Tell DWP and HMRC for me.</span></label>
+      <button class="btn green" data-act="chgsend" type="button" ${c.att?"":"disabled style='opacity:.45'"}>Send updates</button>`);
+  }
+  if(c.stage==="run") return shell("Sending updates", `${runList(c.items, c.on||0)}`);
+  return shell("","");
+}
+function runChange(items, then){
+  const c = state.change, run = state.run;
+  c.on = 0; render();
+  const tick = ()=>{
+    if(run!==state.run || state.change!==c) return;
+    c.on++; advanceRun(c.on);
+    if(c.on<items.length) setTimeout(tick, 1100);
+    else setTimeout(()=>{ if(run===state.run && state.change===c) then(); }, 700);
+  };
+  setTimeout(tick, 1100);
+}
+
+function viewTold(){
+  const groups = TOLD.map(([h,rows])=>`<h2 class="section-h">${esc(h)}</h2><div class="kvcard">${rows.map(([k,v,src])=>{
+    const work = k==="Your work", s2 = work && state.newJob ? "told" : src;
+    return `<div class="row"><span class="lbl"><b>${esc(k)}</b><span>${esc(withEmp(v))}</span>
+      <span class="src ${s2}" style="width:max-content">${s2==="gov"?"From HMRC":"You told us"}</span></span>
+      <button class="editbtn" type="button" data-act="${work?"corr":"noop"}">Edit</button></div>`;}).join("")}</div>`).join("");
+  return `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label:"Back to plan"})}
+    <div class="body"><div class="stack">
+      <h2 class="title-sm">What your plan is based on</h2>
+      <p class="intro">If anything is wrong, change it and your plan will update.</p>
+      ${groups}
+    </div></div>
+  </div>`;
+}
+
+function viewStep(){
+  const s = STEPS.find(x=>x.id===state.stepId);
+  return `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label:"Back to plan"})}
+    <div class="body"><div class="stack">
+      <h1 class="title">${esc(s.title)}</h1>
+      <div class="card">
+        <div class="step-head" style="padding-bottom:16px"><p class="card-body">${esc(s.desc)}</p></div>
+        ${tiles(s)}
+      </div>
+      <h2 class="section-h" style="margin-top:8px">Tasks</h2>
+      <div class="card">${s.tasks.map(taskRow).join("")}</div>
+    </div></div>
+  </div>`;
+}
+
+function viewTask(){
+  const id = state.taskId, t = T(id), s = state.status[id];
+  const details = t.details.map(([k,v])=>`<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("");
+  const rec = state.receipts[id];
+  const receipt = rec ? `<div class="receipt"><b>${esc(rec.title)}</b>${rec.lines.map(l=>`<div>${esc(l)}</div>`).join("")}</div>` : "";
+
+  const L = LEVELS[t.level];
+  const open = t.flow && !isDone(s) && s!=="blocked" && s!=="ruled";
+  let box = "", after = "";
+  if(L.agent){
+    const btn = open ? `<button class="btn agentbtn" data-act="flow" data-task="${id}" type="button">${esc(t.action)}</button>` : "";
+    box = `<div class="agentbox"><div class="ab-h"><span class="badge-logo">${LOGO(22)}</span><span>${esc(L.label)}</span></div>
+      <p>${esc(t.agentText||L.banner)}</p>${t.note?`<p class="abnote">${esc(t.note)}</p>`:""}${btn}</div>`;
+    if(open && t.manual) after = `<div style="padding:0 12px"><button class="btn plain outline" data-act="manual" type="button">${esc(t.manual)}</button></div>`;
+  } else if(t.level==="you"){
+    box = `<div class="youbox"><div class="ab-h"><span>${esc(L.label)}</span></div><p>${esc(L.banner)}</p></div>`;
+  }
+  if(s==="attention"){
+    box = `<div class="obs" style="margin:0 12px"><b>I couldn't reconfirm this</b>HMRC's records show Tom's job ended on 31 December. I need you to tell me what's happened.</div>`;
+    after = `<div style="padding:0 12px"><button class="btn green" data-act="fix" type="button">Tell me what's happened</button></div>`;
+  } else if(s==="blocked"){
+    after = `<div style="padding:0 12px"><div class="callout warn">${esc(t.blockedText)}. I'll get this ready when DWP makes a decision and let you know.</div></div>`;
+  } else if(!L.agent && t.flow){
+    after = !isDone(s)
+      ? `<div style="padding:0 12px"><button class="btn primary" data-act="flow" data-task="${id}" type="button">${esc(t.action)}</button></div>`
+      : `<div style="padding:0 12px"><button class="btn plain outline" data-act="flow" data-task="${id}" type="button">Look again</button></div>`;
+  }
+
+  return `<div class="screen white">
+    ${statusBar()}
+    ${nav({back:true,label:"Back",small:true,chip:true})}
+    <div class="body white"><div class="stack">
+      <h2 class="title-sm">${esc(t.title)}</h2>
+      <div style="padding:0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">${whoTags(t.who)}${statusText(id)}</div>
+      <p class="intro on-ink">${esc(t.intro)}</p>
+      ${box}
+      ${receipt}
+      ${after}
+      <h2 class="section-h big" style="padding:0 18px;margin-top:8px">Details</h2>
+      <div style="padding:0 18px"><div class="kvgroup">${details}</div></div>
+    </div></div>
+    ${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}
+  </div>`;
+}
+
+/* ============================================================
+   App home, lock screen and standing permissions
+   ============================================================ */
+const CAR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M6.3 6.2c.2-.6.8-1 1.4-1h4.6c.6 0 1.2.4 1.4 1l1 2.8h.3c.6 0 1 .4 1 1v3.2c0 .4-.3.8-.8.8h-.6v1c0 .4-.3.8-.8.8h-.6c-.4 0-.8-.4-.8-.8v-1H7.6v1c0 .4-.4.8-.8.8h-.6c-.5 0-.8-.4-.8-.8v-1h-.6c-.5 0-.8-.4-.8-.8V10c0-.6.4-1 1-1h.3l1-2.8Zm1.3.4L6.8 9h6.4l-.8-2.4H7.6ZM6.8 11a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Zm6.4 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Z"/></svg>`;
+const PLANE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M15.2 4.8c.5.5.5 1.3 0 1.8l-2.3 2.3 1.2 5.4-.9.9-2.4-4.3-2.2 2.2.3 1.6-.7.7-1.1-2-2-1.1.7-.7 1.6.3 2.2-2.2L5.3 7.3l.9-.9 5.4 1.2 2.3-2.3c.5-.5 1.3-.5 1.8 0Z"/></svg>`;
+const DATES = {now:"Wednesday 14 October", later:"Wednesday 18 November", jan:"Wednesday 20 January"};
+
+/* A due date drawn as a calendar tile, so a deadline reads as a deadline */
+const dateTile = (mon, day) => `<span class="datetile"><span class="dm">${mon}</span><span class="dd">${day}</span></span>`;
+const agentTile = () => `<span class="datetile ag">${LOGO(22)}</span>`;
+
+function nextCard(o){
+  return `<div class="nextup ${o.kind}">
+    <div class="nu-row">${o.tile}
+      <span class="nu-m"><span class="nu-eyebrow">${esc(o.eyebrow)}</span><span class="nu-title">${esc(o.title)}</span><span class="nu-line">${esc(o.line)}</span></span>
+    </div>
+    ${o.btn?`<button class="btn ${o.kind==="agent"?"agentbtn":"green"}" data-act="${o.btn[1]}" ${o.btn[2]?`data-task="${o.btn[2]}"`:""} type="button">${esc(o.btn[0])}</button>`:""}
+  </div>`;
+}
+const quietCard = (title, line) => `<div class="nextup quiet"><div class="nu-row"><span class="okdot">${I.tickWhite}</span>
+    <span class="nu-m"><span class="nu-title sm">${esc(title)}</span><span class="nu-line">${esc(line)}</span></span></div></div>`;
+/* Only plan items surface at the top. Anything due on a service sits with that service. */
+function homeNext(){
+  if(state.phase!=="later") return "";
+  const s = state.status, ok = state.hours!==null && HOURS[state.hours].ca;
+  if(ok && s.carers_allowance==="ready") return nextCard({kind:"agent", tile:agentTile(), eyebrow:"Ready for you to check",
+    title:"Your Carer's Allowance claim", line:"Filled in for you. Backdated to 18 November", btn:["Check and send","homeflow","carers_allowance"]});
+  if(s.council_tax==="ready") return nextCard({kind:"agent", tile:agentTile(), eyebrow:"Ready for you to check",
+    title:"Your mum's council tax discount", line:"Filled in. Needs her GP to sign", btn:["Check and send","homeflow","council_tax"]});
+  return "";
+}
+
+function sinceItems(){
+  const p = state.phase, s = state.status, out = [];
+  if(p==="later"){
+    out.push(["decision","DWP approved your mum's Attendance Allowance. £76.70 a week, backdated to 14 October."]);
+    out.push(["done","Your mum's care needs assessment happened on 22 October. Carers now visit her 3 mornings a week."]);
+    out.push(["checked","I rechecked Pension Credit for your mum now she gets Attendance Allowance. She still can't get it."]);
+  }
+  if(p==="jan"){
+    if(state.caAwarded) out.push(["decision","DWP awarded your Carer's Allowance on 9 December. It's now under Benefits."]);
+    if(s.council_tax==="done") out.push(["decision","Leeds City Council applied your mum's council tax discount from 18 November."]);
+    if(state.changeDone) out.push(["done","DWP and HMRC know you're working 4 days a week in January and February."]);
+    if(state.caAwarded) out.push(["checked","I checked your December pay against the Carer's Allowance limit. You're under it."]);
+  }
+  return out;
+}
+const SINCE_LV = {decision:["lv-prep","Decision"], done:["lv-auto","Done"], checked:["lv-checked","Checked for you"]};
+function sinceHTML(){
+  const items = sinceItems();
+  if(!items.length) return "";
+  const list = state.sinceOpen ? `<div class="sincelist">${items.map(([k,t])=>`<div class="since-row"><span class="lv ${SINCE_LV[k][0]}"><i></i>${SINCE_LV[k][1]}</span><span>${esc(t)}</span></div>`).join("")}</div>` : "";
+  return `<div class="listcard"><button class="sincebar" data-act="since" type="button" aria-expanded="${!!state.sinceOpen}">
+      <span class="count">${items.length}</span><span class="sb-t">updates since you were last here</span>
+      <span class="sb-c${state.sinceOpen?" open":""}">${I.chevronR("#0B0C0C",1)}</span></button>${list}</div>`;
+}
+
+function planCard(){
+  const all = STEPS.flatMap(x=>x.tasks).filter(id=>state.status[id]!=="ruled");
+  const done = all.filter(id=>isDone(state.status[id])).length;
+  const ready = all.filter(id=>["ready","attention"].includes(state.status[id])).length;
+  return `<button class="homecard planrow" data-act="plan" type="button">
+    ${I.ring(done,all.length)}
+    <span class="nu-m"><span class="hc-eyebrow">Your plan</span><span class="nu-title sm">Looking after your mum</span>
+      <span class="nu-line">${done} of ${all.length} done${ready?`. ${ready} ready for you`:""}</span></span>
+    ${I.chevronR("#0B0C0C",1)}
+  </button>`;
+}
+/* Planning is a one-off activity with an outcome, so the card shows the process and what you end up with */
+const PLAN_ICON = `<svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden="true"><rect x="9" y="7" width="26" height="32" rx="4" fill="#fff" stroke="#02064A" stroke-width="2"/><rect x="16" y="4" width="12" height="7" rx="2" fill="#02064A"/><path d="m14 19 2.5 2.5L21 17M14 28l2.5 2.5L21 26" stroke="#0F7A52" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 19.5h6M24 28.5h6" stroke="#02064A" stroke-width="2" stroke-linecap="round"/><circle cx="35" cy="9" r="6" fill="#BC52FF"/><path d="M35 5.6c.3 1.9 1.2 2.8 3.1 3.1-1.9.3-2.8 1.2-3.1 3.1-.3-1.9-1.2-2.8-3.1-3.1 1.9-.3 2.8-1.2 3.1-3.1Z" fill="#fff"/></svg>`;
+const STEP_ICONS = {
+  talk:`<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h9A2.5 2.5 0 0 1 18 5.5v6a2.5 2.5 0 0 1-2.5 2.5H10l-4 3.5V14h0a2 2 0 0 1-2-2V5.5Z" stroke="#02064A" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  find:`<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><circle cx="9.5" cy="9.5" r="5.5" stroke="#02064A" stroke-width="1.8"/><path d="m13.6 13.6 4.4 4.4" stroke="#02064A" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  plan:`<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="m4 6 1.8 1.8L9 4.6M4 14l1.8 1.8L9 12.6" stroke="#0F7A52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6.5h6M12 14.5h6" stroke="#02064A" stroke-width="1.8" stroke-linecap="round"/></svg>`
+};
+const startCard = () => `<div class="startplan">
+    <div class="sp-top">${PLAN_ICON}<span class="nu-m"><span class="sp-kicker">Make a plan</span><span class="nu-title">Going through a big change?</span></span></div>
+    <p class="sp-lede">Get a step-by-step plan of what to do and the support you can get.</p>
+    <ol class="sp-steps">
+      <li><span class="si">${STEP_ICONS.talk}</span><span>Tell me what's happening</span></li>
+      <li><span class="si">${STEP_ICONS.find}</span><span>I find what applies to you</span></li>
+      <li><span class="si">${STEP_ICONS.plan}</span><span>You get a plan to work through</span></li>
+    </ol>
+    <p class="sp-egs">For things like caring for someone, having a baby, losing your job or a death in the family.</p>
+    <button class="btn green" data-act="homechat" type="button">Start planning</button>
+    <span class="hc-foot">Takes about 5 minutes. You can stop at any time.</span>
+  </div>`;
+
+/* Services as a grid of tiles: an icon, a name, and a one-line status.
+   Anything due belongs to its service, so it shows as a dated tile that expands to explain. */
+function svcTile(icon, name, status, tone, isNew){
+  return `<button class="svc" data-act="svc" data-name="${esc(name)}" type="button">
+    <span class="svc-i">${icon}${isNew?`<span class="newchip">New</span>`:""}</span>
+    <span class="svc-n">${esc(name)}</span>
+    <span class="svc-s ${tone||""}">${esc(status)}</span>
+  </button>`;
+}
+function alertTile(key, name, mon, day, status, o){
+  const open = state.svcOpen===key;
+  const note = o.note ? `<div class="al-note"><span class="badge-logo">${LOGO(16)}</span><span>${esc(o.note)}</span></div>` : "";
+  return `<div class="svc alert${open?" open":""}${o.warn?" warn":""}">
+    <button class="al-head" data-act="svcopen" data-k="${key}" type="button" aria-expanded="${open}">
+      ${dateTile(mon,day)}
+      <span class="nu-m"><span class="svc-n">${esc(name)}</span><span class="svc-s due">${esc(status)}</span></span>
+      <span class="sb-c${open?" open":""}">${I.chevronR("#0B0C0C",1)}</span>
+    </button>
+    ${open?`<div class="al-body">
+      <p class="al-title">${esc(o.title)}</p>
+      <p class="al-text">${esc(o.text)}</p>
+      <div class="al-kv">${o.rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
+      ${note}
+      <button class="btn ${o.warn?"green":"agentbtn"}" data-act="${o.btn[1]}" ${o.btn[2]?`data-task="${o.btn[2]}"`:""} type="button">${esc(o.btn[0])}</button>
+    </div>`:""}
+  </div>`;
+}
+function relationships(){
+  const p = state.phase, s = state.status, alerts = [], tiles = [];
+  if(p==="now" && s.reconfirm!=="done") alerts.push(alertTile("childcare","Childcare","Oct","26","Reconfirm in 12 days",{
+    title:"Reconfirm your childcare",
+    text:"You need to reconfirm every 3 months. If you miss it, Leo and Ava's codes stop working.",
+    rows:[["Covers","Tax-Free Childcare and 30 hours childcare"],["Codes valid until","26 October 2026"],["Run by","HMRC"]],
+    note:"I can fill this in from your HMRC record. You check it before it's sent.",
+    btn:["Reconfirm for me","homeflow","reconfirm"]}));
+  if(p==="jan" && s.reconfirm==="attention") alerts.push(alertTile("childcare","Childcare","Jan","26","Needs you. 6 days left",{warn:true,
+    title:"I couldn't reconfirm your childcare",
+    text:(state.standing.reconfirm?"I went to reconfirm on 19 January, as you asked. ":"I filled in your reconfirmation on 19 January. ")+"HMRC's records don't match what I expected, so I stopped.",
+    rows:[["HMRC's records show","Tom's job ended on 31 December. No new job since"],["Why it matters","Tom needs to be working for you to keep the codes"],["Codes valid until","26 January 2027"]],
+    btn:["Tell me what's happened","fix"]}));
+  if(p==="jan" && state.vtax==="due") alerts.push(alertTile("vehicle","Vehicle","Jan","31","Tax due in 11 days",{
+    title:"Tax your Ford Focus",
+    text:"Your car tax runs out on 31 January. After that, you can't drive it on the road until it's taxed.",
+    rows:[["MOT","Valid until 14 June 2027"],["Insurance","Insured"],["Cost","£195 a year, or £17.06 a month"]],
+    note:"Your MOT and insurance are in date, so I can renew it. You check it first.",
+    btn:["Renew for me","homeflow","vtax"]}));
+
+  if(p==="jan" && state.caAwarded) tiles.push(svcTile(I.money,"Benefits", state.changeDone?"Carer's Allowance paused until March":"Carer's Allowance, £86.45 a week","",true));
+  if(!alerts.some(a=>a.includes('data-k="childcare"'))) tiles.push(svcTile(I.person,"Childcare","Codes up to date","ok"));
+  tiles.push(svcTile(I.house,"Child Benefit","Paid every 4 weeks","ok"));
+  tiles.push(svcTile(I.work,"Work and tax", state.newJob?"New job added":"Nothing to do","ok"));
+  if(!alerts.some(a=>a.includes('data-k="vehicle"'))) tiles.push(svcTile(CAR,"Vehicle", state.vtax==="done"?"Taxed until January 2028":"Taxed and MOT'd","ok"));
+  tiles.push(svcTile(PLANE,"Travel", state.standing.travel?"Watching advice for India":"Passport in date","ok"));
+  return alerts.join("") + tiles.join("");
+}
+
+function viewHome(){
+  const p = state.phase;
+  return `<div class="screen">
+    ${statusBar()}
+    <div class="homehead"><span class="hh"><span class="wordmark">GOV.UK</span><span class="hdate">${DATES[p]}</span></span>
+      <button class="avatar" data-act="perms" type="button" aria-label="What I can do without asking">N</button></div>
+    <div class="body"><div class="stack">
+      <h1 class="title" style="font-size:28px">Hello, Nadia</h1>
+      ${homeNext()}
+      ${sinceHTML()}
+      ${state.reachedPlan ? planCard() : ""}
+      <h2 class="section-h">Your services</h2>
+      <div class="svcgrid">${relationships()}</div>
+      ${state.reachedPlan ? "" : startCard()}
+    </div></div>
+    <div class="composer homeask">
+      <div class="inputrow">
+        <button class="field empty askfield" data-act="ask" type="button">Ask or tell me something</button>
+        <button class="send" type="button" disabled aria-label="Send">${I.arrowUp}</button>
+      </div>
+    </div>
+    ${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}
+  </div>`;
+}
+
+function viewLock(){
+  const p = state.phase;
+  const ok = state.hours!==null && HOURS[state.hours].ca;
+  const notes = p==="later"
+    ? [["now", ok?"Your Carer's Allowance claim is ready":"Your mum's council tax discount is ready",
+        ok?"Your mum's Attendance Allowance was approved. I've filled in your Carer's Allowance claim. Check it and send it when you're ready."
+          :"Your mum's Attendance Allowance was approved. I've filled in her council tax discount form. Check it when you're ready."]]
+    : [["now","Your childcare needs you","I couldn't reconfirm your childcare. HMRC needs to know about Tom's work. Due 26 January."],
+       ["Yesterday","Car tax due 31 January","Your Ford Focus needs taxing. I can renew it for you."]];
+  return `<div class="screen lock">
+    ${statusBar(true,true)}
+    <div class="lockbody">
+      <div class="locktime">${p==="later"?"8:12":"7:46"}</div>
+      <div class="lockdate">${DATES[p]}</div>
+      <div class="notes">${notes.map(([when,title,text])=>`<button class="note" data-act="lockopen" type="button">
+        <span class="napp"><span class="nicon">${LOGO(14)}</span><span>GOV.UK</span><span class="nwhen">${esc(when)}</span></span>
+        <b>${esc(title)}</b><span class="ntext">${esc(text)}</span></button>`).join("")}</div>
+    </div>
+    <p class="lockhint">Tap a notification to open the app</p>
+  </div>`;
+}
+
+function viewPerms(){
+  const S = state.standing;
+  const row = (k,title,desc,since) => `<label class="permrow"><span class="pm"><b>${esc(title)}</b><span>${esc(desc)}</span>${since?`<span class="pmsince">${esc(since)}</span>`:""}</span>
+    <input type="checkbox" class="switch" data-act="perm" data-k="${k}" ${S[k]?"checked":""} aria-label="${esc(title)}"></label>`;
+  const reads = [["Work and earnings","HMRC"],["Childcare account","HMRC"],["Child Benefit","HMRC"],["Vehicle","DVLA"]];
+  if(state.caAwarded) reads.push(["Carer's Allowance","DWP"]);
+  return `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label:"Home"})}
+    <div class="body"><div class="stack">
+      <h2 class="title-sm">What I can do without asking</h2>
+      <p class="intro">These are the things you've let me do on my own. You can stop any of them. Anything else, I ask you first.</p>
+      <h2 class="section-h">I do these, then tell you</h2>
+      <div class="listcard">${row("reconfirm","Reconfirm your childcare every 3 months","I fill it in from your HMRC record, send it and tell you when it's done. If anything doesn't match, I stop and ask you.", S.reconfirm?"You turned this on when you reconfirmed in October":"Off. I'll ask you each time")}</div>
+      <h2 class="section-h">I check these quietly</h2>
+      <div class="listcard">
+        ${state.standing.travel||state.alertDecided?row("travel","Tell you if travel advice for India changes","Including visas and entry rules. I only tell you if something changes.","Agreed on 14 October"):""}
+        ${!state.reachedPlan?"":row("recheck","Recheck your plan when something changes","When your income, your mum's benefits or the rules change, I check again. I only tell you if the answer changes.","Agreed on 14 October, when you made your plan")}
+        ${!state.reachedPlan && !state.alertDecided && !state.newJob ? `<div class="readrow"><span>Nothing yet</span></div>` : ""}
+        ${state.newJob?row("payroll","Check HMRC's records match your new job","After your first payday at the end of October. I'll only tell you if they don't match.","Agreed on 14 October"):""}
+        ${state.caAwarded?row("earnings","Check your pay against the Carer's Allowance limit","Each month, from your payslip. I tell you if you're getting close to £204 a week.","Agreed on 9 December"):""}
+      </div>
+      <h2 class="section-h">Records I can read</h2>
+      <div class="listcard">${reads.map(([k,v])=>`<div class="readrow"><span>${esc(k)}<small>${esc(v)}</small></span><button class="textbtn" data-act="stopread" type="button">Stop</button></div>`).join("")}</div>
+    </div></div>
+    ${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}
+  </div>`;
+}
+
+/* ---------- flows ---------- */
+function flowShell(title, inner, {label="Cancel"}={}){
+  return `<div class="screen white">
+    ${statusBar()}
+    ${nav({back:true,label,small:true,chip:true})}
+    <div class="body white"><div class="stack">
+      <h2 class="title-sm">${esc(title)}</h2>
+      ${inner}
+    </div></div>
+    ${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}
+  </div>`;
+}
+const kvSrc = rows => `<div style="padding:0 12px"><div class="kvgroup">${rows.map(([k,v,src])=>`<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v)}${src?`<span class="src ${src.startsWith("You")?"told":"gov"}">${esc(src)}</span>`:""}</span></div>`).join("")}</div></div>`;
+const pad = h => `<div style="padding:0 12px;display:flex;flex-direction:column;gap:12px">${h}</div>`;
+const TICK = `<span class="rtick">${I.tickWhite}</span>`;
+const runSlot = (i,on) => i<on ? TICK : i===on ? LOGO(22,true) : `<span class="ring"></span>`;
+const runList = (items,on) => `<div style="padding:0 12px"><div class="runlist" id="runlist">${items.map((x,i)=>`<div class="${i<on?"on":i===on?"now":""}"><span class="slot">${runSlot(i,on)}</span><span>${esc(x)}</span></div>`).join("")}</div></div>`;
+function advanceRun(on, sel="#runlist"){
+  const rows = el.querySelectorAll(sel+" > div");
+  rows.forEach((row,i)=>{
+    const want = i<on ? "on" : i===on ? "now" : "";
+    if(row.className===want) return;
+    row.className = want;
+    row.querySelector(".slot").innerHTML = runSlot(i,on);
+    if(i<on) row.querySelector(".rtick").classList.add("pop");
+  });
+}
+
+const RUNS = {
+  reconfirm:["Sent to HMRC","Eligibility checked","Tax-Free Childcare confirmed until 26 January 2027","30 hours childcare confirmed for Leo and Ava"],
+  aa:["Checked against DWP's rules","Your mum's permission added","Sent to DWP","Reference: AA 7Q4 2219"],
+  ca:["Checked against DWP's rules","Your mum's Attendance Allowance confirmed","Sent to DWP","Reference: CA 3R8 5510"],
+  fix:["Tom's new job sent to HMRC","Eligibility checked","Tax-Free Childcare confirmed until 26 April 2027","30 hours childcare confirmed for Leo and Ava"],
+  vtax:["MOT and insurance checked","Direct Debit set up","Ford Focus taxed until 31 January 2028"]
+};
+
+function viewFlow(){
+  const f = state.flow, d = f.data;
+  const hrs = state.hours;
+
+  if(f.task==="reconfirm"){
+    if(f.stage==="review"){
+      const change = hrs===null||hrs===5 ? "No change" : hrs===0 ? "Stopping work from 1 December" : `${HOURS[hrs].label} a week from 1 December`;
+      const earn = hrs===null||hrs===5 ? "About £7,500" : hrs===0 ? "About £2,500, then none" : `About £${(hrs===4?6900:hrs===3?6000:5100).toLocaleString()}`;
+      const note = hrs===0
+        ? `<div class="obs"><b>Check before you send</b>You'll only stay eligible if you get Carer's Allowance. You cannot get it until your mum's Attendance Allowance is approved. If you stop work before then, your codes could stop in January.</div>`
+        : hrs && hrs<5 ? `<div class="callout">On ${HOURS[hrs].label.toLowerCase()} a week you'll still earn enough to keep both codes.</div>` : "";
+      return flowShell("Reconfirm your childcare", `
+        <p class="intro on-ink">I've filled this in from your HMRC record. Check it before I send it.</p>
+        ${kvSrc([["Employer",state.newJob?"Leeds Community Healthcare, from 1 October":"Leeds Teaching Hospitals",state.newJob?"You told us":"From HMRC payroll"],["Expected earnings in the next 3 months",earn,hrs&&hrs<5?"You told us":"From HMRC payroll"],["Changes coming up",change,hrs===null?"":"From your plan"],["Tom's work","Full time","From HMRC payroll"],["Universal Credit","No one in your household gets it","From DWP"],["Children","Leo (3) and Ava (1)","From HMRC"]])}
+        ${pad(`<button class="wronglink" data-act="corr" type="button">Something not right? Tell me</button>${note}`)}
+        <label class="check"><input type="checkbox" id="att-reconfirm" data-act="attest" ${d.att?"checked":""}><span>This information is correct. I'll tell HMRC if anything changes.</span></label>
+        ${pad(`<button class="btn green" data-act="next" type="button" ${d.att?"":"disabled style='opacity:.45'"}>Send to HMRC</button>`)}
+      `);
+    }
+    if(f.stage==="run") return flowShell("Sending to HMRC", `${runList(RUNS.reconfirm,d.on||0)}${d.on>=RUNS.reconfirm.length?pad(`<button class="btn green" data-act="next" type="button">Continue</button>`):""}`, {label:"Back"});
+    if(f.stage==="share") return flowShell("Tell the nursery", `
+      <p class="intro on-ink">Little Acorns Nursery needs to check Leo and Ava's codes before next term. Do you want to share them now?</p>
+      ${kvSrc([["We'll share","Both codes, valid until 26 January 2027"]])}
+      <label class="check"><input type="checkbox" id="opt-standing" data-act="standing" ${state.standing.reconfirm?"checked":""}><span>From now on, reconfirm for me every 3 months and tell me when it's done</span></label>
+      ${pad(`<button class="btn green" data-act="share" data-v="1" type="button">Share codes</button><button class="btn plain" style="box-shadow:inset 0 0 0 1px var(--ink-4)" data-act="share" data-v="0" type="button">Not now</button>`)}
+    `, {label:"Back"});
+  }
+
+  if(f.task==="needs_assess" || f.task==="carers_assess"){
+    const slots = ["Tuesday 20 October, 2pm","Thursday 22 October, 10am","Monday 26 October, 11:30am"];
+    if(d.slot===undefined) d.slot=1;
+    if(d.share===undefined) d.share=true;
+    if(d.both===undefined) d.both=true;
+    return flowShell("Book a home visit", `
+      <p class="intro on-ink">Choose a time for Leeds City Council to visit your mum.</p>
+      ${pad(`<div class="choice">${slots.map((s,i)=>`<button class="opt${d.slot===i?" on":""}" data-act="slot" data-v="${i}" type="button"><span>${esc(s)}</span><small>Home visit</small></button>`).join("")}</div>`)}
+      <label class="check"><input type="checkbox" id="opt-share" data-act="tog" data-k="share" ${d.share?"checked":""}><span>Share what you've told me about your mum's needs, so she does not have to repeat it</span></label>
+      <label class="check"><input type="checkbox" id="opt-both" data-act="tog" data-k="both" ${d.both?"checked":""}><span>Book my carer's assessment at the same visit</span></label>
+      ${pad(`<div class="callout">The council will ask your mum if she agrees to the assessment. It's her decision.</div><button class="btn green" data-act="book" type="button">Book visit</button>`)}
+    `);
+  }
+
+  if(f.task==="aa_claim"){
+    if(f.stage==="ask") return flowShell("Your mum's permission", `
+      <p class="intro on-ink">You can apply for your mum with her permission. She makes her own decisions, so she needs to agree first.</p>
+      <div class="agentbox"><div class="ab-h"><span class="badge-logo">${LOGO(22)}</span><span>You can send a request</span></div>
+        <p>You've proved your identity with GOV.UK One Login, so I can send your mum a request to let you act for her on this application.</p></div>
+      ${pad(`<button class="btn green" data-act="next" type="button">Send request to your mum</button>`)}
+    `);
+    if(f.stage==="mum" || f.stage==="mumdata") return flowShell("Waiting for your mum", `
+      <div class="waitcard"><span class="typing"><i></i><i></i><i></i></span>
+        <p>We've sent a request to your mum's phone. You can carry on once she agrees.</p></div>
+      <p class="demo-note">Your mum's phone is shown alongside</p>
+    `, {label:"Back"});
+    if(f.stage==="review"){
+      const nights = ["No","Sometimes","Most nights"];
+      const ready = d.night!==undefined && d.att;
+      return flowShell("Check your mum's application", `
+        <p class="intro on-ink">I've filled in your mum's answers from what you told me. Check them with her. There's one question you need to answer.</p>
+        ${kvSrc([["Washing and dressing","Needs reminding most mornings and help with buttons","You told us"],["Eating and medicines","Forgets to eat lunch. Needs her tablets set out","You told us"],["Staying safe","Left the gas on twice this month","You told us"],
+          ["GP", d.records===false?"Add this yourself":"Dr Okafor, Chapel Allerton Surgery", d.records===false?"":"From NHS, with your mum's permission"],
+          ["Diagnosis", d.records===false?"Add this yourself":"Dementia, diagnosed in September 2026", d.records===false?"":"From NHS, with your mum's permission"]])}
+        ${pad(`<p class="minilabel" style="padding:0">Does she need help at night?</p>
+          <div class="seg">${nights.map((n,i)=>`<button class="opt${d.night===i?" on":""}" data-act="night" data-v="${i}" type="button">${n}</button>`).join("")}</div>
+          <div class="obs"><b>The form does not ask about falls</b>Your mum fell on 6 October. I've added a note about this for the person who decides.</div>`)}
+        <label class="check"><input type="checkbox" id="att-aa" data-act="attest" ${d.att?"checked":""}><span>My mum and I have checked these answers and they're correct.</span></label>
+        ${pad(`<button class="btn green" data-act="next" type="button" ${ready?"":"disabled style='opacity:.45'"}>Send to DWP</button>`)}
+      `, {label:"Back"});
+    }
+    if(f.stage==="run") return flowShell("Sending to DWP", `${runList(RUNS.aa,d.on||0)}${d.on>=RUNS.aa.length?pad(`<div class="callout">DWP will write to your mum. I'll update your plan when they make a decision.</div><button class="btn green" data-act="finish" type="button">Back to plan</button>`):""}`, {label:"Back"});
+  }
+
+  if(f.task==="hours"){
+    if(d.pick===undefined) d.pick = hrs===null ? 3 : hrs;
+    const h = HOURS[d.pick];
+    const childTxt = h.child==="keep" ? `<span class="good">Yes</span>`
+                   : h.child==="close" ? `<span class="warnc">Yes, but only just</span>`
+                   : `<span class="warnc">Only once you get Carer's Allowance</span>`;
+    const caTxt = h.ca ? `<span class="good">Yes, £86.45 a week</span>` : `<span class="bad">No, you would earn too much</span>`;
+    const chg = h.change===0 ? "No change" : `${h.change<0?"−":"+"}£${Math.abs(h.change)} a week`;
+    return flowShell("If you worked fewer days", `
+      <p class="intro on-ink">How many days a week are you thinking of working?</p>
+      ${pad(`<div class="seg">${[5,4,3,2,0].map(k=>`<button class="opt${d.pick===k?" on":""}" data-act="pick" data-v="${k}" type="button">${HOURS[k].label}</button>`).join("")}</div>`)}
+      <div style="padding:0 12px"><div class="result">
+        <div class="r"><b>Change in weekly pay, including Carer's Allowance</b><span class="num">${chg}</span></div>
+        <div class="r"><b>Earnings that count for Carer's Allowance</b><span class="num">£${h.counted} a week<br><small style="color:var(--ink-2)">limit £204</small></span></div>
+        <div class="r"><b>Carer's Allowance</b><span>${caTxt}</span></div>
+        <div class="r"><b>Keep your childcare support</b><span>${childTxt}</span></div>
+      </div></div>
+      ${pad(`<div class="${d.pick===0||d.pick===2?"obs":"callout"}">${esc(h.note)}</div>
+        ${d.pick===3?`<div class="callout">For Carer's Allowance, some of what you pay for childcare while you work is taken off your earnings. That's why 3 days leaves you better off than 4.</div>`:""}
+        <button class="btn green" data-act="choosehours" type="button">Plan around ${d.pick===0?"stopping work":h.label.toLowerCase()+" a week"}</button>
+        <p class="demo-note">Example figures: a £30,000 salary and £40 a day for childcare. A real version would use your payslips.</p>`)}
+    `);
+  }
+
+  if(f.task==="flex_request"){
+    const days = hrs===null||hrs===5 ? 3 : hrs;
+    const text = days===0
+      ? "Dear Priya,\n\nI'd like to talk about a career break or unpaid leave so I can care for my mother, who has dementia.\n\nCould we meet next week?\n\nNadia"
+      : `Dear Priya,\n\nI'd like to make a flexible working request to work ${days} days a week from 1 December 2026, so I can care for my mother, who has dementia.\n\nI've thought about how my work would be covered and I'm happy to talk it through. I'd also like to use carer's leave for my mother's assessment on 22 October.\n\nNadia`;
+    return flowShell("Your request", `
+      <p class="intro on-ink">I've written a request based on the days you chose. You can change it. Only you can send it.</p>
+      ${pad(`<div class="draft">${esc(text)}</div>
+        <button class="btn plain" style="box-shadow:inset 0 0 0 1px var(--ink-4)" data-act="copy" type="button">Copy request</button>
+        <button class="btn green" data-act="markdone" type="button">I've sent it</button>`)}
+    `);
+  }
+
+  if(f.task==="carers_allowance"){
+    if(f.stage==="review"){
+      const ok = hrs!==null && HOURS[hrs].ca;
+      const pay = hrs===null||hrs===5 ? "£577" : hrs===4 ? "£462" : hrs===3 ? "£346" : hrs===2 ? "£231" : "£0";
+      const care = hrs===null||hrs===5 ? "£200" : hrs===0 ? "£0" : `£${hrs*40}`;
+      const counted = hrs===null ? 269 : HOURS[hrs].counted;
+      return flowShell("Check your application", `
+        <p class="intro on-ink">I've filled this in using information from DWP, HMRC and your childcare account. Check it before I send it.</p>
+        ${kvSrc([["Person you care for","Margaret Hughes, gets Attendance Allowance","From DWP, with your mum's permission"],["Hours caring","35 or more a week","You told us"],["Your pay from 1 December",`${pay} a week before tax`,hrs!==null&&hrs<5?"From your plan":"From HMRC payroll"],["Childcare costs while you work",`${care} a week`,"From your childcare account"],["Earnings that count",`£${counted} a week (limit £204)`,""]])}
+        ${pad(`<button class="wronglink" data-act="corr" type="button">Something not right? Tell me</button>`)}
+        ${ok ? pad(`<div class="obs"><b>Only one person can apply</b>Tom helps your mum at weekends. Only one of you can get Carer's Allowance, so I've said you're her main carer.</div>`)
+             : pad(`<div class="callout warn">On your current hours you would earn too much for Carer's Allowance. <button class="textbtn" data-act="task" data-task="hours" type="button">Compare your options</button></div>`)}
+        ${ok?`<label class="check"><input type="checkbox" id="att-ca" data-act="attest" ${d.att?"checked":""}><span>This is correct. I'll tell DWP if my earnings or caring change.</span></label>`:""}
+        ${ok?pad(`<button class="btn green" data-act="next" type="button" ${d.att?"":"disabled style='opacity:.45'"}>Send to DWP</button>`):""}
+      `);
+    }
+    if(f.stage==="run") return flowShell("Sending to DWP", `${runList(RUNS.ca,d.on||0)}${d.on>=RUNS.ca.length?pad(`<div class="callout">Backdated to 18 November, when your mum's award started. I'll let you know when DWP makes a decision.</div><button class="btn green" data-act="finish" type="button">Back to plan</button>`):""}`, {label:"Back"});
+  }
+
+  if(f.task==="council_tax"){
+    return flowShell("Your mum's council tax", `
+      <p class="intro on-ink">Your mum may not have to pay council tax. This is because she lives alone, has dementia and gets Attendance Allowance. Leeds City Council needs a form signed by her GP.</p>
+      ${kvSrc([["Council tax account","Leeds, Band B","From Leeds City Council"],["Attendance Allowance","Approved 18 November","From DWP"],["GP","Dr Okafor, Chapel Allerton Surgery","From NHS"]])}
+      ${pad(`<div class="callout">Only her GP can sign the form. I can send it to the surgery with your mum's details filled in.</div>
+        <button class="btn green" data-act="gp" type="button">Send form to GP surgery</button>`)}
+    `);
+  }
+
+  if(f.task==="lpa"){
+    return flowShell("Lasting power of attorney", `
+      <p class="intro on-ink">Things that might help when you talk to your mum:</p>
+      ${pad(`<div class="panel"><ul>
+          <li>She chooses who she trusts. It's only used if she cannot make decisions in future.</li>
+          <li>There are 2 types: one for money and property, one for health and care. She can make one or both.</li>
+          <li>If she makes one now, she decides. Otherwise a court may have to.</li>
+          <li>Someone who knows her must confirm she understands it and is not being pressured.</li>
+        </ul></div>
+        <div class="callout">When she's ready, I can start the application online with your details filled in. Your mum reads it and signs it herself.</div>
+        <button class="btn green" data-act="lpastart" type="button">Start the application</button>`)}
+    `);
+  }
+  if(f.task==="vtax"){
+    if(f.stage==="review"){
+      if(d.pick===undefined) d.pick = 0;
+      const opts = [["12 months","£195, taken once"],["Monthly Direct Debit","£17.06 a month"]];
+      return flowShell("Tax your Ford Focus", `
+        <p class="intro on-ink">I've checked DVLA's records. Choose how to pay and I'll renew it.</p>
+        ${kvSrc([["Vehicle","Ford Focus, YH19 KPF","From DVLA"],["MOT","Valid until 14 June 2027","From DVLA"],["Insurance","Insured","From the Motor Insurance Database"],["Tax runs out","31 January 2027","From DVLA"]])}
+        ${pad(`<div class="choice">${opts.map(([a,b],i)=>`<button class="opt${d.pick===i?" on":""}" data-act="pick" data-v="${i}" type="button"><span>${a}</span><small>${b}</small></button>`).join("")}</div>
+          <div class="callout">I'll use the account ending 4471 that you paid from last year. Nothing is taken until you confirm.</div>
+          <button class="btn green" data-act="next" type="button">Renew car tax</button>`)}
+      `);
+    }
+    if(f.stage==="run") return flowShell("Taxing your car", `${runList(RUNS.vtax,d.on||0)}${d.on>=RUNS.vtax.length?pad(`<button class="btn green" data-act="vtaxdone" type="button">Back to home</button>`):""}`, {label:"Back"});
+  }
+  if(f.task==="fix"){
+    return flowShell("Sending to HMRC", `${runList(RUNS.fix,d.on||0)}${d.on>=RUNS.fix.length?pad(`<button class="btn green" data-act="fixdone" type="button">Back to home</button>`):""}`, {label:"Back"});
+  }
+  return flowShell("", "");
+}
+
+/* ============================================================
+   Mum's phone: a second, simplified device shown only while
+   she is asked for permission
+   ============================================================ */
+const NADIA_SKETCH = `<svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="36" fill="#E4F7FD"/><path d="M14 66c3-13 12-19 22-19s19 6 22 19" fill="#02064A"/><path d="M21 33c0-12 6-19 15-19s15 7 15 19c0 6-2 12-3 15H24c-1-3-3-9-3-15Z" fill="#3B2A22"/><ellipse cx="36" cy="33" rx="10.5" ry="12.5" fill="#C98E6B"/><path d="M25 29c2-7 7-10 13-10 5 0 8 3 9 7-6 0-14-1-22 3Z" fill="#3B2A22"/><path d="M32 39c2 1.6 6 1.6 8 0" stroke="#7a4a35" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="32" cy="33" r="1.3" fill="#2a1a12"/><circle cx="40" cy="33" r="1.3" fill="#2a1a12"/></svg>`;
+function renderMum(){
+  const box = document.getElementById("mumphone");
+  const f = state.flow;
+  const stage = f && f.task==="aa_claim" ? f.stage : null;
+  const show = stage==="mum" || stage==="mumdata";
+  box.hidden = !show;
+  if(!show) return;
+  const key = "mum"+stage;
+  if(box.dataset.key===key) return;
+  box.dataset.key = key;
+  box.innerHTML = `<p class="mumlabel">Your mum's phone</p><div class="mini"><div class="miniscreen">${stage==="mum" ? `
+      <div class="minihead">GOV.UK</div>
+      <div class="minibody">
+        <div style="display:flex;justify-content:center">${NADIA_SKETCH}</div>
+        <h4>Nadia wants to help you apply for Attendance Allowance</h4>
+        <p>If you agree, Nadia can fill in this application with you and send it to DWP.</p>
+        <p class="minimute">Nadia has proved who she is with GOV.UK One Login.</p>
+        <button class="btn green" data-mum="yes" type="button">Yes, I agree</button>
+        <button class="btn plain outline" data-mum="no" type="button">No</button>
+      </div>` : `
+      <div class="minihead">GOV.UK</div>
+      <div class="minibody">
+        <h4>Can we use your GOV.UK records for this application?</h4>
+        <p>We'll fill in your GP and your diagnosis from your NHS record. You and Nadia can check them before anything is sent.</p>
+        <button class="btn green" data-mum="records" type="button">Yes</button>
+        <button class="btn plain outline" data-mum="norecords" type="button">No, we'll fill them in</button>
+      </div>`}</div></div>`;
+}
+document.getElementById("mumphone").addEventListener("click", e=>{
+  const b = e.target.closest("[data-mum]"); if(!b || !state.flow) return;
+  const v = b.dataset.mum, f = state.flow;
+  if(v==="no"){ state.flow=null; go("task",{back:true}); toast("Your mum said no. You can ask again later."); return; }
+  if(v==="yes"){ f.stage="mumdata"; render(); return; }
+  f.data.records = v==="records";
+  f.stage = "review"; render();
+});
+
+/* ============================================================
+   Side panel
+   ============================================================ */
+function panelKey(){
+  if(state.showQs) return "questions";
+  if(state.view==="home" && state.phase==="jan" && state.fixed && state.vtax==="done") return "questions";
+  if(state.view==="intro") return "intro";
+  if(state.view==="home") return state.phase==="now" ? (state.reachedPlan?"home_plan":"home_now") : "home_"+state.phase;
+  if(state.view==="lock") return "lock_"+state.phase;
+  if(state.view==="perms") return "perms";
+  if(state.view==="chat" && state.script==="fix") return "fix";
+  if(state.view==="chat" && state.script==="choose") return "choose";
+  if(state.view==="chat" && state.script==="corr") return "corr";
+  if(state.view==="chat" && state.script==="qa") return state.chatLog.some(m=>m.r==="alert") ? "qa_alert" : "qa";
+  if(state.view==="chat") return state.chatLog.some(m=>m.r==="consent") ? "consent" : "chat";
+  if(state.view==="told") return "told";
+  if(state.view==="change") return "change";
+  if(state.view==="plan" || state.view==="step") return state.phase==="later" ? "later" : state.phase==="jan" ? "home_jan" : "plan";
+  const id = state.view==="flow" ? state.flow.task : state.taskId;
+  const map = {reconfirm:"reconfirm",needs_assess:"needs",carers_assess:"needs",aa_claim:"aa",pension_credit:"checked",council_tax:"ctax",hours:"whatif",flex_request:"flex",carers_allowance:"ca",lpa:"lpa",vtax:"vtax",fix:"fix"};
+  return map[id] || "plan";
+}
+function renderSide(){
+  side.hidden = !state.panel;
+  if(!state.panel) return;
+  const p = PANEL[panelKey()];
+  const modes = p.modes ? `<p class="sp-h">How the assistant acts</p><div class="sp-modes">${p.modes.map(([m,t])=>`<p><b>${esc(m)}.</b> ${esc(t)}</p>`).join("")}</div>` : "";
+  const choices = p.choices ? `<div class="sp-choices">${p.choices.map(([k,t,d])=>`<button class="sp-choice" data-side="${k}" type="button"><b>${esc(t)}</b><span>${esc(d)}</span></button>`).join("")}</div>` : "";
+  const qs = p.qs ? `<div class="sp-qs">${p.qs.map(([k,q,where])=>`<button class="sp-q" data-q="${k}" type="button"><span class="q">${esc(q)}</span><span class="w">See it: ${esc(where)} →</span></button>`).join("")}</div>` : "";
+  const facts = p.facts ? `<ul class="sp-needs">${p.facts.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>` : "";
+  const foot = p.foot ? `<p class="sp-foot">${esc(p.foot)}</p>` : "";
+  const needs = p.needs ? `<p class="sp-h">What has to exist</p><ul class="sp-needs">${p.needs.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>` : "";
+  side.innerHTML = `<p class="sp-eyebrow">${esc(p.eyebrow)}</p>
+    <h2 class="sp-title">${esc(p.title)}</h2>
+    <p class="sp-body">${esc(p.body)}</p>${p.body2?`<p class="sp-body">${esc(p.body2)}</p>`:""}
+    ${choices}${qs}${facts}${modes}${needs}${foot}`;
+}
+
+/* ============================================================
+   Render + routing
+   ============================================================ */
+function render(){
+  if(state.view==="chat" && el.querySelector("#chatbody")){ chatUpdate(); renderSide(); return; }
+  const map = {intro:viewIntro,home:viewHome,lock:viewLock,perms:viewPerms,chat:viewChat,plan:viewPlan,told:viewTold,step:viewStep,task:viewTask,flow:viewFlow,change:viewChange};
+  const key = state.view + state.phase + (state.taskId||"") + (state.stepId||"") + (state.flow?state.flow.task+state.flow.stage:"") + (state.view==="change"&&state.change?state.change.stage:"");
+  const same = el.dataset.view === key;
+  const prevScroll = el.querySelector(".body")?.scrollTop || 0;
+  el.innerHTML = map[state.view]();
+  const scr = el.firstElementChild;
+  if(!same){ scr.classList.add("fade"); if(state.dir==="back") scr.classList.add("back"); }
+  else { const b = el.querySelector(".body"); if(b) b.scrollTop = prevScroll; }
+  el.dataset.view = key;
+  if(state.view==="chat") chatUpdate({instant:true});
+  renderSide();
+  renderMum();
+  const jb = document.getElementById("jump");
+  jb.disabled = !state.reachedPlan || state.phase==="jan";
+  jb.textContent = state.phase==="now" ? "Jump to 18 November" : "Jump to 20 January";
+}
+function go(view,opts={}){
+  setQs(false);
+  state.dir = opts.back ? "back" : "fwd";
+  state.view = view;
+  if(opts.stepId!==undefined) state.stepId = opts.stepId;
+  if(opts.taskId!==undefined) state.taskId = opts.taskId;
+  render();
+}
+function goBack(){
+  switch(state.view){
+    case "flow": state.flow=null; if(state.fromHome){ state.fromHome=false; go("home",{back:true}); } else go("task",{back:true}); break;
+    case "chat": if(state.script==="corr"){ corrBack(); break; } state.run++; go("home",{back:true}); break;
+    case "perms": go("home",{back:true}); break;
+    case "change": state.run++; state.change=null; go("plan",{back:true}); break;
+    case "task": go(state.stepId?"step":"plan",{back:true}); break;
+    case "step": state.stepId=null; go("plan",{back:true}); break;
+    case "told": go("plan",{back:true}); break;
+    case "plan": go("home",{back:true}); break;
+    default: go("intro",{back:true});
+  }
+}
+function toast(msg){
+  state.toast = msg; render();
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ state.toast=null; render(); }, 3400);
+}
+function startFlow(id){
+  const stage = {reconfirm:"review",aa_claim:"ask",carers_allowance:"review",vtax:"review"}[id] || "main";
+  state.taskId = id;
+  state.flow = {task:id, stage, data:{}};
+  go("flow");
+}
+function runSteps(n){
+  const f = state.flow, run = state.run;
+  f.data.on = 0; render();
+  const tick = ()=>{
+    if(run!==state.run || state.flow!==f) return;
+    f.data.on++;
+    if(f.data.on<n){ advanceRun(f.data.on); setTimeout(tick, 1300); }
+    else { advanceRun(f.data.on); setTimeout(()=>{ if(run===state.run && state.flow===f) render(); }, 450); }
+  };
+  setTimeout(tick, 1300);
+}
+function finishTo(id, status, receipt, msg){
+  state.status[id] = status;
+  if(receipt) state.receipts[id] = receipt;
+  state.flow = null;
+  if(state.fromHome){ state.fromHome=false; go("home",{back:true}); if(msg) toast(msg); return; }
+  state.taskId = id;
+  go("task",{back:true});
+  if(msg) toast(msg);
+}
+
+function jumpAhead(){
+  if(state.phase==="jan" || !state.reachedPlan) return;
+  state.run++;
+  state.flow = null; state.stepId = null; state.taskId = null; state.change = null;
+  state.fromHome = false; state.script = "plan"; state.toast = null; state.sinceOpen = false;
+  if(state.phase==="now") applyLater(); else applyJan();
+}
+function applyLater(){
+  if(state.hours===null){
+    state.hours = 3;
+    state.status.hours = "done";
+    state.receipts.hours = {title:"You chose 3 days a week",lines:["Carer's Allowance: you could get it once your mum gets Attendance Allowance","Childcare: you keep your codes"]};
+    state.status.flex_request = "done";
+    state.receipts.flex_request = {title:"Your employer agreed",lines:["3 days a week from 1 December"]};
+  }
+  state.updating = false;
+  state.phase = "later";
+  if(state.status.reconfirm!=="done"){
+    state.status.reconfirm = "done";
+    state.receipts.reconfirm = {title:"Reconfirmed on 20 October",lines:["Tax-Free Childcare and both 30 hours codes valid until 26 January 2027","Codes shared with Little Acorns Nursery"]};
+  }
+  if(!isDone(state.status.aa_claim)){
+    state.receipts.aa_claim = {title:"Sent to DWP on 14 October",lines:["Reference AA 7Q4 2219","Your mum gave permission on her phone","You and your mum checked the answers"]};
+  }
+  state.status.aa_claim = "done";
+  state.receipts.aa_claim = {title:"Approved on 18 November",lines:["£76.70 a week, backdated to 14 October","Reference AA 7Q4 2219","Your mum gave permission on her phone"]};
+  if(state.status.needs_assess!=="done"){
+    state.status.needs_assess = "done";
+    state.receipts.needs_assess = {title:"Assessment done on 22 October",lines:["Care plan agreed: carers visit 3 mornings a week","Grab rails and a key safe being fitted"]};
+  }
+  if(state.status.carers_assess!=="done"){
+    state.status.carers_assess = "done";
+    state.receipts.carers_assess = {title:"Assessment done on 22 October",lines:["One day of respite a month","Put in touch with Carers Leeds"]};
+  }
+  state.status.carers_allowance = "ready";
+  state.status.council_tax = "ready";
+  state.flow = null; state.stepId = null; state.taskId = null;
+  go("lock");
+}
+function applyJan(){
+  state.phase = "jan";
+  if(state.status.carers_allowance==="submitted"){
+    state.status.carers_allowance = "done";
+    state.caAwarded = true;
+    state.receipts.carers_allowance = {title:"Awarded on 9 December",lines:["£86.45 a week, backdated to 18 November","Now under Benefits on your home page"].concat(state.changeDone?["Paused 4 January to 28 February, restarts 1 March"]:[])};
+  }
+  if(state.status.council_tax==="waiting"){
+    state.status.council_tax = "done";
+    state.receipts.council_tax = {title:"Discount applied on 2 December",lines:["Your mum won't pay council tax from 18 November","Dr Okafor signed the certificate"]};
+  }
+  state.status.reconfirm = "attention";
+  state.vtax = "due";
+  go("lock");
+}
+function startFix(){
+  state.run++;
+  state.script = "fix"; state.flow = null;
+  state.chatIndex = 1; state.chatLog = [FIX[0]]; state.chatBusy = false; state.typing = false;
+  go("chat");
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, 700);
+}
+
+/* ---------- events ---------- */
+el.addEventListener("click", e=>{
+  const btn = e.target.closest("[data-act]");
+  if(!btn) return;
+  const act = btn.dataset.act;
+  const f = state.flow;
+
+  if(act==="noop"){ e.preventDefault(); return; }
+  if(act==="back"){ goBack(); return; }
+  if(act==="restart"){ restart(); return; }
+  if(act==="begin"){ go("home"); return; }
+  if(act==="homechat"){ startChat(); return; }
+  if(act==="corr"){ startCorr(); return; }
+  if(act==="corrback"){ corrBack(); return; }
+  if(act==="corryes"){
+    if(state.newJob) return;
+    state.newJob = true; state.standing.payroll = true;
+    const b = el.querySelector("#corrcard [data-act=corryes]");
+    if(b) b.outerHTML = `<span class="done-note">Updated</span>`;
+    state.chatIndex = state.corrScript.length; state.chatBusy = true; state.typing = true; chatUpdate();
+    const run = state.run;
+    setTimeout(()=>{
+      if(run!==state.run) return;
+      state.typing = false;
+      state.chatLog.push({r:"a",t:"Done. Your new employer is now used across your plan and your forms."});
+      state.chatLog.push({r:"corrback"});
+      state.chatBusy = false; chatUpdate();
+    }, 900);
+    return;
+  }
+  if(act==="travelyes" || act==="travelno"){
+    if(state.alertDecided) return;
+    const yes = act==="travelyes";
+    state.alertDecided = true; state.standing.travel = yes;
+    const card = el.querySelector("#alertcard .row2");
+    if(card) card.outerHTML = `<span class="done-note">${yes?"Turned on":"Not now"}</span>`;
+    state.chatIndex = QA.length; state.chatBusy = true; state.typing = true; chatUpdate();
+    const run = state.run;
+    setTimeout(()=>{
+      if(run!==state.run) return;
+      state.typing = false;
+      state.chatLog.push({r:"a",t: yes ? "Done. I'll keep an eye on India and let you know if anything changes. You can stop this at any time." : "No problem. Ask me again any time."});
+      state.chatLog.push({r:"home"});
+      state.chatBusy = false; chatUpdate(); renderSide();
+    }, 900);
+    return;
+  }
+  if(act==="ask"){
+    if(!state.reachedPlan){ startChoose(); return; }
+    else toast("You can ask or tell me anything here. In this demo the conversations are scripted.");
+    return;
+  }
+  if(act==="perms"){ state.flow=null; go("perms"); return; }
+  if(act==="perm"){ state.standing[btn.dataset.k] = btn.checked; render(); return; }
+  if(act==="stopread"){ toast("In a real version, this would stop me reading this record."); return; }
+  if(act==="standing"){ state.standing.reconfirm = btn.checked; return; }
+  if(act==="lockopen"){ state.svcOpen = state.phase==="jan" ? "childcare" : null; go("home"); return; }
+  if(act==="svcopen"){ state.svcOpen = state.svcOpen===btn.dataset.k ? null : btn.dataset.k; render(); return; }
+  if(act==="since"){ state.sinceOpen = !state.sinceOpen; render(); return; }
+  if(act==="svc"){ toast(`In a real version, this opens your ${btn.dataset.name.toLowerCase()} details.`); return; }
+  if(act==="plan"){ state.stepId=null; go("plan"); return; }
+  if(act==="homeflow"){ state.fromHome = true; startFlow(btn.dataset.task); return; }
+  if(act==="fix"){ startFix(); return; }
+  if(act==="fixsend"){
+    if(state.fixed) return;
+    state.fromHome = true; state.taskId = "fix";
+    state.flow = {task:"fix", stage:"run", data:{}};
+    go("flow"); runSteps(RUNS.fix.length);
+    return;
+  }
+  if(act==="fixdone"){
+    state.fixed = true;
+    state.status.reconfirm = "done";
+    state.receipts.reconfirm = {title:"Reconfirmed on 20 January",lines:["Codes valid until 26 April 2027","Tom's new job added. I'll check HMRC's records match after his first payday"]};
+    state.flow = null; state.fromHome = false; state.script = "plan"; state.svcOpen = null;
+    go("home",{back:true});
+    toast("Childcare reconfirmed until 26 April.");
+    return;
+  }
+  if(act==="vtaxdone"){
+    state.vtax = "done"; state.flow = null; state.fromHome = false; state.svcOpen = null;
+    go("home",{back:true});
+    toast("Car tax renewed until 31 January 2028.");
+    return;
+  }
+  if(act==="send"){ sendReply(); return; }
+  if(act==="allow"){
+    if(state.consented) return;
+    state.consented = true;
+    const card = el.querySelector("#consentcard .row2");
+    if(card) card.outerHTML = `<span class="done-note">Allowed</span>`;
+    state.chatBusy = false;
+    const run = state.run;
+    setTimeout(()=>{ if(run===state.run) chatStep(); }, 380);
+    return;
+  }
+  if(act==="startplan"){ state.reachedPlan = true; state.stepId=null; go("plan"); return; }
+  if(act==="told"){ go("told"); return; }
+  if(act==="step"){ go("step",{stepId:btn.dataset.step}); return; }
+  if(act==="task"){ state.flow=null; state.fromHome=false; go("task",{taskId:btn.dataset.task}); return; }
+  if(act==="flow"){ startFlow(btn.dataset.task); return; }
+  if(act==="manual"){ toast("This would open the service on GOV.UK."); return; }
+  if(act==="change"){ state.change = {stage:"tell"}; go("change"); return; }
+  if(act==="chgcheck"){ state.change.stage="check"; runChange(CHG_CHECK, ()=>{ state.change.stage="result"; state.change.on=0; render(); }); return; }
+  if(act==="chgatt"){ state.change.att = btn.checked; render(); return; }
+  if(act==="chgsend"){
+    if(!state.change.att) return;
+    state.change.stage="run";
+    state.change.items = chgRun();
+    const applied = ["submitted","done"].includes(state.status.carers_allowance);
+    runChange(state.change.items, ()=>{
+      const line = applied ? "Change reported on 2 December: paused 4 January to 28 February, restarts 1 March" : "Your application includes 4 days a week in January and February";
+      if(state.receipts.carers_allowance) state.receipts.carers_allowance.lines.push(line);
+      else state.receipts.carers_allowance = applied ? {title:"Change reported on 2 December",lines:["Paused 4 January to 28 February, restarts 1 March"]} : {title:"Change added on 2 December",lines:[line]};
+      if(state.receipts.reconfirm) state.receipts.reconfirm.lines.push("January reconfirmation includes 4 days a week in January and February");
+      state.changeDone = true;
+      state.change = null;
+      go("plan",{back:true});
+      toast(applied ? "DWP and HMRC have been told. Nothing to pay back." : "Your application and childcare reconfirmation are updated.");
+    });
+    return;
+  }
+
+  if(act==="attest"){ f.data.att = btn.checked; render(); return; }
+  if(act==="tog"){ f.data[btn.dataset.k] = btn.checked; return; }
+  if(act==="slot"){ f.data.slot = +btn.dataset.v; render(); return; }
+  if(act==="night"){ f.data.night = +btn.dataset.v; render(); return; }
+  if(act==="pick"){ f.data.pick = +btn.dataset.v; render(); return; }
+
+  if(act==="next"){
+    if(f.task==="reconfirm"){
+      if(f.stage==="review"){ if(!f.data.att) return; f.stage="run"; runSteps(RUNS.reconfirm.length); return; }
+      if(f.stage==="run"){ f.stage="share"; render(); return; }
+    }
+    if(f.task==="aa_claim"){
+      if(f.stage==="ask"){ f.stage="mum"; render(); return; }
+      if(f.stage==="mum"){ f.stage="review"; render(); return; }
+      if(f.stage==="review"){ if(f.data.night===undefined||!f.data.att) return; f.stage="run"; runSteps(RUNS.aa.length); return; }
+    }
+    if(f.task==="vtax" && f.stage==="review"){ f.stage="run"; runSteps(RUNS.vtax.length); return; }
+    if(f.task==="carers_allowance" && f.stage==="review"){ if(!f.data.att) return; f.stage="run"; runSteps(RUNS.ca.length); return; }
+    return;
+  }
+  if(act==="share"){
+    state.svcOpen = null;
+    const shared = btn.dataset.v==="1";
+    finishTo("reconfirm","done",{title:"Reconfirmed on 14 October",lines:["Tax-Free Childcare and both 30 hours codes valid until 26 January 2027", shared?"Codes shared with Little Acorns Nursery":"Codes not shared with the nursery",state.standing.reconfirm?"From now on I'll reconfirm every 3 months and tell you when it's done":"Next reconfirmation: I'll fill it in for you in January"]},
+      "Childcare reconfirmed until 26 January.");
+    return;
+  }
+  if(act==="book"){
+    const slots = ["Tuesday 20 October, 2pm","Thursday 22 October, 10am","Monday 26 October, 11:30am"];
+    const when = slots[f.data.slot];
+    state.status.needs_assess = "booked";
+    state.receipts.needs_assess = {title:`Booked for ${when}`,lines:["Home visit from Leeds City Council adult social care", f.data.share?"What you told me about your mum's needs has been shared":"Nothing shared in advance","The council will ask your mum if she agrees"]};
+    if(f.data.both){
+      state.status.carers_assess = "booked";
+      state.receipts.carers_assess = {title:`Booked for ${when}`,lines:["At the same visit as your mum's assessment"]};
+    }
+    finishTo(f.task,"booked",state.receipts[f.task]||{title:`Booked for ${when}`,lines:["On its own visit"]},
+      f.data.both ? "Both assessments booked for the same visit." : "Visit booked.");
+    return;
+  }
+  if(act==="choosehours"){
+    state.hours = f.data.pick;
+    const h = HOURS[state.hours];
+    finishTo("hours","done",{title:`You chose ${state.hours===0?"to stop work":h.label.toLowerCase()+" a week"}`,lines:[h.ca?"Carer's Allowance: you could get it once your mum gets Attendance Allowance":"Carer's Allowance: you would earn too much", h.child==="keep"?"Childcare: you keep your codes":"Childcare: check the timing first","I've written your flexible working request"]},
+      "Your plan now uses the days you chose.");
+    return;
+  }
+  if(act==="copy"){
+    const txt = el.querySelector(".draft")?.textContent || "";
+    try{ navigator.clipboard.writeText(txt).then(()=>toast("Request copied."),()=>toast("Select the text to copy it.")); }catch(err){ toast("Select the text to copy it."); }
+    return;
+  }
+  if(act==="markdone"){
+    finishTo("flex_request","done",{title:"You sent your request",lines:["Your employer must reply within 2 months","I'll remind you in 4 weeks if you haven't heard"]},"Marked as sent.");
+    return;
+  }
+  if(act==="finish"){
+    const id = f.task;
+    if(id==="aa_claim") finishTo(id,"submitted",{title:"Sent to DWP on 14 October",lines:["Reference AA 7Q4 2219","Your mum gave permission on her phone","You and your mum checked the answers","I added a note about your mum's fall"]},"Your mum's application has been sent to DWP.");
+    if(id==="carers_allowance") finishTo(id,"submitted",{title:"Sent to DWP on 25 November",lines:["Reference CA 3R8 5510","Backdated to 18 November","Earnings worked out from your pay and childcare costs"]},"Your Carer's Allowance application has been sent.");
+    return;
+  }
+  if(act==="gp"){
+    finishTo("council_tax","waiting",{title:"Form sent to Chapel Allerton Surgery",lines:["Waiting for Dr Okafor to sign","The council will apply the discount once it has the certificate"]},"Form sent to mum's GP.");
+    return;
+  }
+  if(act==="lpastart"){
+    finishTo("lpa","done",{title:"Application started",lines:["Your details are filled in","Next, your mum reads it and signs it. Then someone who knows her signs to confirm she understands it","Then register it with the Office of the Public Guardian (£92)"]},"Application started. Your mum signs it herself.");
+    return;
+  }
+});
+el.addEventListener("change", e=>{
+  const t = e.target;
+  if(t.matches('input[data-act="attest"]') && state.flow){ state.flow.data.att = t.checked; render(); }
+  if(t.matches('input[data-act="tog"]') && state.flow){ state.flow.data[t.dataset.k] = t.checked; }
+  if(t.matches('input[data-act="standing"]')) state.standing.reconfirm = t.checked;
+});
+
+function startChat(){
+  state.run++;
+  state.chatIndex=0; state.chatLog=[]; state.chatBusy=false; state.typing=false; state.consented=false; state.gatherOn=0;
+  state.script="plan";
+  go("chat");
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, 420);
+}
+function startChoose(){
+  state.run++;
+  state.script = "choose"; state.chatIndex = 0; state.chatLog = []; state.chatBusy = false; state.typing = false;
+  if(!state.panel) setPanel(true);
+  go("chat");
+}
+function startQA(){
+  state.run++;
+  state.script = "qa"; state.chatIndex = 0; state.chatLog = []; state.chatBusy = false; state.typing = false; state.alertDecided = false;
+  el.dataset.view = ""; go("chat");
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, 300);
+}
+/* Each question in the panel jumps to the place in the prototype that shows it best */
+function showQuestion(k){
+  state.run++;
+  state.flow = null; state.change = null; state.toast = null; state.fromHome = false; state.script = "plan";
+  state.view = "home"; el.dataset.view = "";
+  if(k==="screen"){ state.fromHome = true; startFlow("reconfirm"); return; }
+  if(k==="joined"){ startCorr(); return; }
+  if(k==="change"){
+    state.reachedPlan = true;
+    if(state.phase==="now") applyLater();
+    state.change = {stage:"tell"}; go("change"); return;
+  }
+  go("perms");
+}
+side.addEventListener("click", e=>{
+  const q = e.target.closest("[data-q]"); if(q){ showQuestion(q.dataset.q); return; }
+  const b = e.target.closest("[data-side]"); if(!b) return;
+  if(b.dataset.side==="qa") startQA();
+  else if(b.dataset.side==="corr") startCorr();
+  else { el.dataset.view = ""; startChat(); }
+});
+function startCorr(){
+  state.run++;
+  const fromForm = state.view==="flow" && state.flow;
+  state.corrFrom = {flow: fromForm ? state.flow : null, view: state.view==="told" ? "told" : "home"};
+  if(fromForm) state.flow.data.att = false;
+  state.flow = null;
+  state.script = "corr"; state.corrScript = corrScript(!!fromForm);
+  state.chatBusy = false; state.typing = false;
+  if(fromForm){ state.chatLog = [state.corrScript[0]]; state.chatIndex = 1; } else { state.chatLog = []; state.chatIndex = 0; }
+  el.dataset.view = ""; go("chat");
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, fromForm ? 600 : 300);
+}
+function corrBackLabel(){
+  const f = state.corrFrom && state.corrFrom.flow;
+  if(f) return f.task==="carers_allowance" ? "Back to your claim" : "Back to your reconfirmation";
+  return state.corrFrom && state.corrFrom.view==="told" ? "Back to your plan details" : "Back to home";
+}
+function corrBack(){
+  state.run++;
+  const from = state.corrFrom || {}; state.corrFrom = null; state.script = "plan";
+  if(from.flow){ state.flow = from.flow; go("flow",{back:true}); }
+  else go(from.view==="told" ? "told" : "home", {back:true});
+}
+function restart(){
+  state.run++;
+  Object.assign(state,{updating:false,change:null,changeDone:false,view:"intro",stepId:null,taskId:null,status:{...START_STATUS},receipts:{},hours:null,phase:"now",flow:null,
+    chatIndex:0,chatLog:[],chatBusy:false,typing:false,consented:false,toast:null,reachedPlan:false,
+    script:"plan",standing:{reconfirm:false,recheck:true,earnings:true,travel:false,payroll:false},alertDecided:false,newJob:false,corrFrom:null,fromHome:false,caAwarded:false,vtax:"later",fixed:false});
+  el.dataset.view="";
+  render();
+}
+state.run = 0;
+
+/* ---------- stage controls ---------- */
+const deviceEl = document.getElementById("device");
+const frameBtn = document.getElementById("frametoggle");
+function setFrame(on){
+  deviceEl.classList.toggle("framed", on);
+  frameBtn.textContent = `Device frame: ${on?"on":"off"}`;
+  frameBtn.setAttribute("aria-pressed", String(on));
+  try{ localStorage.setItem("sc-frame", on?"1":"0"); }catch(e){}
+}
+let framedPref = true;
+try{ const v = localStorage.getItem("sc-frame"); if(v!==null) framedPref = v==="1"; }catch(e){}
+setFrame(framedPref);
+frameBtn.addEventListener("click", ()=> setFrame(!deviceEl.classList.contains("framed")));
+
+const panelBtn = document.getElementById("paneltoggle");
+function setPanel(on){
+  state.panel = on;
+  panelBtn.textContent = `How this works: ${on?"on":"off"}`;
+  panelBtn.setAttribute("aria-pressed", String(on));
+  try{ localStorage.setItem("sc-panel", on?"1":"0"); }catch(e){}
+  renderSide();
+}
+try{ const v = localStorage.getItem("sc-panel"); if(v!==null) state.panel = v==="1"; }catch(e){}
+panelBtn.addEventListener("click", ()=> setPanel(!state.panel));
+document.getElementById("jump").addEventListener("click", jumpAhead);
+document.getElementById("restart").addEventListener("click", restart);
+function setQs(on){
+  state.showQs = on;
+  const b = document.getElementById("qbtn");
+  if(b) b.setAttribute("aria-pressed", String(on));
+}
+document.getElementById("qbtn").addEventListener("click", ()=>{
+  setQs(!state.showQs);
+  if(!state.panel) setPanel(true); else renderSide();
+});
+
+setPanel(state.panel);
+render();
+</script>
