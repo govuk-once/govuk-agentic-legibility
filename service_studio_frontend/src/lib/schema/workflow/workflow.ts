@@ -19,21 +19,20 @@ import { processSchema } from './process';
 	   api_call in section 1.9, so api_call is used, to match the name of the state. notify is not a
 	   state type, so it is accepted and not used until the executor team explains it.
 	5. workflow_id is a number or text, as the document says, because the two examples differ.
-	6. The document gives the schema value as "Workflow/0.2". The example services and the older executor files say
-	   "sfsm/0.2", so both are accepted for now. A draft that Service Studio writes uses the document's value.
-	   When the checking service is in use, it can decide whether the older value is still allowed.
-	7. A null means the same as a key that is not there: nothing has been given yet. The form converter writes null for
-	   what it cannot fill in, such as the owner of a form, so the owner, the contact and the optional manifest and
-	   executor keys accept null. The key for the owner and the contact must still be there. Nothing here changes
-	   a null to a missing key, so a workflow that is saved again says what it said when it was loaded. Asking for a
-	   real owner and contact is left to the policy review, before a workflow is published.
+	6. The document gives the schema value as "Workflow/0.2", and the published schema accepts "Workflow/x.y" with
+	   any two numbers. The older value "sfsm/0.2" is refused. A draft that Service Studio writes uses "Workflow/0.2".
+	7. A null means the same as a key that is not there: nothing has been given yet. A form made from an existing form
+	   has no owner, and may have no contact, so the owner and the contact may be missing or null, and so may the
+	   optional manifest and executor keys. Nothing here changes a null to a missing key, so a workflow that is saved
+	   again says what it said when it was loaded. Asking for a real owner and contact is left to the policy review,
+	   before a workflow is published.
 */
 
-// The schema values a manifest may carry. The first is the one in the unified class structure document.
-export const schemaVersions = ['Workflow/0.2', 'sfsm/0.2'] as const;
+// The schema value of a manifest is the word Workflow, a slash and two numbers, such as Workflow/0.2.
+const schemaValueSchema = z.string().regex(/^Workflow\/\d+\.\d+$/, 'Must be a schema value such as "Workflow/0.2"');
 
 // The schema value that Service Studio writes into a new draft.
-export const currentSchemaVersion = schemaVersions[0];
+export const currentSchemaVersion = 'Workflow/0.2';
 
 // How the executor runs and names each execution of the workflow.
 const executorSchema = z.strictObject({
@@ -58,11 +57,11 @@ const processReferenceSchema = z.strictObject({
 
 export const manifestSchema = z.strictObject({
 	workflow_id: z.union([z.string().min(1), z.number().int()]),
-	schema: z.enum(schemaVersions),
+	schema: schemaValueSchema,
 	id: z.string().regex(/^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$/, 'Must be a namespaced id such as "dwp.maternity_allowance"'),
 	version: versionSchema,
-	owner: z.string().min(1).nullable(),
-	contact: z.email().nullable(),
+	owner: z.string().min(1).nullish(),
+	contact: z.email().nullish(),
 	description: z.string(),
 	state: z.enum(['draft', 'live', 'deprecated', 'retired']),
 	metadata: metadataSchema.nullish(),

@@ -14,7 +14,7 @@
     },
     "states": {
         "confirm_intent": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Would you like to apply for Maternity Allowance?",
             "schema": {
                 "kind": "boolean"
@@ -23,7 +23,7 @@
             "next": "branch_intent"
         },
         "branch_intent": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -36,13 +36,13 @@
             "default": "say_cancelled"
         },
         "say_cancelled": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Application cancelled. You can return to GOV.UK at any time to start your claim.",
             "next": "end_cancelled"
         },
         "check_all_eligibility_gates": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "To receive Maternity Allowance, you must meet ALL of the following criteria:\n\n• You are NOT receiving Statutory Maternity Pay (SMP) from any employer.\n• You were employed or self-employed for at least 26 weeks in your 66-week Test Period.\n(Note: Your Test Period is the 66 weeks up to and including the week before your baby is due. The 26 weeks of work do not need to be consecutive, and can be spread across one or multiple jobs).\n• If doing unpaid work for a partner's business, your partner is NOT a salaried director.\n\nDo you meet all these requirements and wish to proceed with your claim?",
             "schema": {
                 "kind": "boolean"
@@ -51,7 +51,7 @@
             "next": "branch_all_eligibility_gates"
         },
         "branch_all_eligibility_gates": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -64,13 +64,13 @@
             "default": "say_ineligible_guidance"
         },
         "say_ineligible_guidance": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "You cannot proceed with this Maternity Allowance claim because you do not meet the core statutory eligibility rules. Please read Page 6 (SMP Rules) and Page 11 (Business/Director Rules) of the MA1 Notes. Alternative support may be available via Universal Credit or the Sure Start Maternity Grant (Form SF100).",
             "next": "end_ineligible"
         },
         "check_all_core_evidence": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Before continuing, please confirm you have or can obtain the required evidence to upload during this online application:\n• An official MAT B1 maternity certificate (or doctor/midwife letter confirming due date).\n• An SMP1 form from each employer you worked for during the 15th week before your due week (if applicable).",
             "schema": {
                 "kind": "boolean"
@@ -79,7 +79,7 @@
             "next": "branch_all_core_evidence"
         },
         "branch_all_core_evidence": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -92,13 +92,13 @@
             "default": "say_missing_evidence_guidance"
         },
         "say_missing_evidence_guidance": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "You cannot complete your application online without uploading official evidence. You must obtain a MAT B1 certificate from your midwife or GP and an SMP1 form from your employer if SMP was refused.",
             "next": "end_missing_evidence"
         },
         "check_benefits_impact_gate": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Important Notice: Claiming Maternity Allowance may reduce or affect payments for other benefits you or your partner get (including Universal Credit, Employment and Support Allowance, or Carer's Allowance).\nDo you confirm you understand these effects and wish to continue claiming Maternity Allowance?",
             "schema": {
                 "kind": "boolean"
@@ -107,7 +107,7 @@
             "next": "branch_benefits_impact_gate"
         },
         "branch_benefits_impact_gate": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -120,25 +120,25 @@
             "default": "say_cancelled"
         },
         "announce_section1": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "We will now ask questions about you, this will include collecting your National Insurance Number, personal contact details, and residential address.",
             "next": "invoke_section1_about_you"
         },
         "invoke_section1_about_you": {
-            "type": "invoke",
+            "state_type": "invoke",
             "process": "about_you",
             "assign": "section1_data",
             "next": "announce_section2"
         },
         "announce_section2": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "We will now ask you questions about your baby, in particular your expected or actual childbirth date and maternity evidence.",
             "next": "invoke_section2_about_baby"
         },
         "invoke_section2_about_baby": {
-            "type": "invoke",
+            "state_type": "invoke",
             "process": "about_baby",
             "assign": "section2_data",
             "catch": [
@@ -158,13 +158,13 @@
             "next": "announce_section3"
         },
         "announce_section3": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "We will now ask about all employments you've had during your 66-week Test Period. Note that you must have worked for at least 26 weeks across all your employments combined.",
             "next": "invoke_section3_about_work"
         },
         "invoke_section3_about_work": {
-            "type": "invoke",
+            "state_type": "invoke",
             "process": "about_work",
             "input": {
                 "nino": {
@@ -191,25 +191,25 @@
             "next": "announce_section4"
         },
         "say_offramp_paper_rti": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Because your employment or earnings records could not be verified automatically online, you must complete your claim using the paper MA1 form and post physical copies of your payslips to: Mail Handling Site A, Wolverhampton, WV98 2FR.",
             "next": "end_offramp_paper"
         },
         "say_offramp_paper_general": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "You cannot complete your application using the online service. Please complete your claim using the paper MA1 form and post it along with your supporting evidence to: Mail Handling Site A, Wolverhampton, WV98 2FR.",
             "next": "end_offramp_paper"
         },
         "announce_section4": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Finally, we will ask about your current status, as well as your preferred payment frequency and bank details.",
             "next": "invoke_section4_about_payment"
         },
         "invoke_section4_about_payment": {
-            "type": "invoke",
+            "state_type": "invoke",
             "process": "about_payment",
             "input": {
                 "is_baby_born": {
@@ -229,54 +229,54 @@
             "next": "summary_section4"
         },
         "summary_section4": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Payment preferences recorded for {{section4_data.bank_details.account_holder_name}}. Your 39-week Maternity Allowance Period runs from {{section4_data.chosen_ma_start_date}} to {{section4_data.map_end_date}}.",
             "next": "say_submission_complete"
         },
         "say_submission_complete": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your Maternity Allowance application is complete and has been submitted successfully.\nIf your application is successful, you will receive a letter in a few working days at this address: {{section1_data.identity.address.address_line_1}}, {{section1_data.identity.address.postcode}}. Otherwise we may reach out to clarify your details.",
             "next": "end_complete"
         },
         "end_complete": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "claim_submitted_online"
         },
         "end_cancelled": {
-            "type": "end",
+            "state_type": "end",
             "status": "cancelled",
             "outcome": "user_cancelled"
         },
         "end_ineligible": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "ineligible_statutory_criteria"
         },
         "end_too_early": {
-            "type": "end",
+            "state_type": "end",
             "status": "cancelled",
             "outcome": "claim_submitted_too_early"
         },
         "end_missing_evidence": {
-            "type": "end",
+            "state_type": "end",
             "status": "cancelled",
             "outcome": "claim_paused_missing_evidence"
         },
         "end_offramp_paper": {
-            "type": "end",
+            "state_type": "end",
             "status": "offramp",
             "outcome": "offramp_to_paper_ma1"
         },
         "end_bereavement_offramp": {
-            "type": "end",
+            "state_type": "end",
             "status": "offramp",
             "outcome": "bereavement_paper_fallback"
         },
         "end_exception": {
-            "type": "end",
+            "state_type": "end",
             "status": "needs_attention",
             "outcome": "system_exception"
         }

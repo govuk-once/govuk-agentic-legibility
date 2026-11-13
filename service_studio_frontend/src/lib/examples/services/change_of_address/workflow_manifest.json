@@ -1,6 +1,6 @@
 {
   "workflow_id": 1,
-  "schema": "sfsm/0.2",
+  "schema": "Workflow/0.2",
   "id": "dvla.change_of_address",
   "version": "0.1.0",
   "owner": "DVLA",

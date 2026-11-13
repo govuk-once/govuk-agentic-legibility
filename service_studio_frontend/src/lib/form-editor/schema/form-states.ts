@@ -17,7 +17,7 @@ export type FormStateAccess = 'editable' | 'read only';
 
 // The record is keyed by every kind of state, so adding a kind to the schema without saying how a form treats it
 // fails to compile.
-export const formStateAccess: Record<State['type'], FormStateAccess> = {
+export const formStateAccess: Record<State['state_type'], FormStateAccess> = {
 	input: 'editable',
 	output: 'editable',
 	choice: 'editable',
@@ -30,13 +30,13 @@ export const formStateAccess: Record<State['type'], FormStateAccess> = {
 
 // The kinds of state that are developer steps in a form. They are drawn smaller and greyed, and are hidden until the
 // person asks to see developer steps. More kinds can be added here when they are too technical for most people.
-export const formDeveloperStateTypes: readonly State['type'][] = ['assign'];
+export const formDeveloperStateTypes: readonly State['state_type'][] = ['assign'];
 
 /**
  * Tells whether a person can change a state in the form editor. A read only state is shown with its values as text.
  */
 export function isEditableInForm(state: WorkingState): boolean {
-	return formStateAccess[state.type] === 'editable';
+	return formStateAccess[state.state_type] === 'editable';
 }
 
 /**

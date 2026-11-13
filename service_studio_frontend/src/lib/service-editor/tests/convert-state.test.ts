@@ -8,7 +8,7 @@ const state = (value: unknown) => value as State;
 const sourceTypes = ['input', 'output', 'api_call', 'assign', 'invoke', 'wait'] as const;
 
 const input = state({
-	type: 'input',
+	state_type: 'input',
 	name: 'Ask',
 	metadata: { description: 'Asks it.' },
 	prompt: 'Is it right?',
@@ -23,7 +23,7 @@ describe('convertState', () => {
 	it('keeps the title, the notes and the next state, and carries the question across as the message', () => {
 		const converted = convertState(input, 'output', 'ask');
 		expect(converted).toEqual({
-			type: 'output',
+			state_type: 'output',
 			name: 'Ask',
 			metadata: { description: 'Asks it.' },
 			channel: 'transcript',
@@ -33,37 +33,37 @@ describe('convertState', () => {
 	});
 
 	it('carries the message of a transcript output across as the question of an input', () => {
-		const converted = convertState(state({ type: 'output', channel: 'transcript', message: 'Hello', next: 'done' }), 'input', 'say hello');
-		expect(converted).toMatchObject({ type: 'input', prompt: 'Hello', schema: { kind: 'string' }, assign: 'answer_say_hello', next: 'done' });
+		const converted = convertState(state({ state_type: 'output', channel: 'transcript', message: 'Hello', next: 'done' }), 'input', 'say hello');
+		expect(converted).toMatchObject({ state_type: 'input', prompt: 'Hello', schema: { kind: 'string' }, assign: 'answer_say_hello', next: 'done' });
 	});
 
 	it('uses a placeholder question or message when the old step had no words', () => {
-		const wait = state({ type: 'wait', duration: 'PT1S', next: 'done' });
+		const wait = state({ state_type: 'wait', duration: 'PT1S', next: 'done' });
 		expect(convertState(wait, 'input', 'a')).toMatchObject({ prompt: placeholderQuestion });
 		expect(convertState(wait, 'output', 'a')).toMatchObject({ message: placeholderMessage });
-		expect(convertState(state({ type: 'output', channel: 'email', template: 'receipt', next: 'done' }), 'input', 'a')).toMatchObject({
+		expect(convertState(state({ state_type: 'output', channel: 'email', template: 'receipt', next: 'done' }), 'input', 'a')).toMatchObject({
 			prompt: placeholderQuestion
 		});
 	});
 
 	it('makes a call that is not connected to a service yet, and a wait with a placeholder duration', () => {
 		const call = convertState(input, 'api_call', 'ask');
-		expect(call).toMatchObject({ type: 'api_call', next: 'done', assign: 'ok' });
-		expect(isUnconnectedApiCall(call as Extract<State, { type: 'api_call' }>)).toBe(true);
-		expect(convertState(input, 'wait', 'ask')).toMatchObject({ type: 'wait', duration: placeholderWaitDuration, next: 'done' });
+		expect(call).toMatchObject({ state_type: 'api_call', next: 'done', assign: 'ok' });
+		expect(isUnconnectedApiCall(call as Extract<State, { state_type: 'api_call' }>)).toBe(true);
+		expect(convertState(input, 'wait', 'ask')).toMatchObject({ state_type: 'wait', duration: placeholderWaitDuration, next: 'done' });
 	});
 
 	it('keeps a key that both types have, such as where a result is saved and the error routes', () => {
-		const call = state({ type: 'api_call', method: 'GET', service: 's', url: '/u', assign: 'res', catch: [{ on: 'any', next: 'sorry' }], next: 'done' });
-		const invoke = state({ type: 'invoke', process: 'p', assign: 'res', catch: [{ on: 'any', next: 'sorry' }], next: 'done' });
+		const call = state({ state_type: 'api_call', method: 'GET', service: 's', url: '/u', assign: 'res', catch: [{ on: 'any', next: 'sorry' }], next: 'done' });
+		const invoke = state({ state_type: 'invoke', process: 'p', assign: 'res', catch: [{ on: 'any', next: 'sorry' }], next: 'done' });
 
 		expect(convertState(call, 'input', 'a')).toMatchObject({ assign: 'res' });
 		expect(convertState(invoke, 'api_call', 'a')).toMatchObject({ assign: 'res', catch: [{ on: 'any', next: 'sorry' }] });
 	});
 
 	it('returns a decision, an end or a step that is already that type as it is', () => {
-		const choice = state({ type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'x' }], default: 'y' });
-		const end = state({ type: 'end', status: 'success' });
+		const choice = state({ state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'a' }, next: 'x' }], default: 'y' });
+		const end = state({ state_type: 'end', status: 'success' });
 		expect(convertState(choice, 'output', 'a')).toBe(choice);
 		expect(convertState(end, 'output', 'a')).toBe(end);
 		expect(convertState(input, 'input', 'a')).toBe(input);
@@ -83,7 +83,7 @@ describe('convertState', () => {
 			for (const target of convertTargetTypes) {
 				const converted = convertState(state(real), target, 'some state-code');
 				expect(stateSchema.safeParse(converted).success, `${source} to ${target}`).toBe(true);
-				expect(converted.type).toBe(target);
+				expect(converted.state_type).toBe(target);
 			}
 		}
 	});
@@ -105,33 +105,33 @@ describe('lostByConversion', () => {
 
 	it('counts the words as lost when the other type has none', () => {
 		expect(lostByConversion(input, 'wait')).toContain('the question');
-		expect(lostByConversion(state({ type: 'output', channel: 'email', template: 'receipt', next: 'done' }), 'input')).toEqual([
+		expect(lostByConversion(state({ state_type: 'output', channel: 'email', template: 'receipt', next: 'done' }), 'input')).toEqual([
 			'the channel',
 			'the template'
 		]);
 	});
 
 	it('names the three keys of a request once', () => {
-		const call = state({ type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done' });
+		const call = state({ state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'done' });
 		expect(lostByConversion(call, 'wait')).toEqual(['the request']);
 	});
 
 	it('lists nothing when the type does not change or nothing is lost', () => {
 		expect(lostByConversion(input, 'input')).toEqual([]);
-		expect(lostByConversion(state({ type: 'wait', duration: 'PT1S', next: 'done' }), 'assign')).toEqual(['how long it waits']);
-		expect(lostByConversion(state({ type: 'assign', set: {}, next: 'done' }), 'wait')).toEqual(['the values it sets']);
+		expect(lostByConversion(state({ state_type: 'wait', duration: 'PT1S', next: 'done' }), 'assign')).toEqual(['how long it waits']);
+		expect(lostByConversion(state({ state_type: 'assign', set: {}, next: 'done' }), 'wait')).toEqual(['the values it sets']);
 	});
 
 	it('lists nothing for a decision or an end', () => {
-		expect(lostByConversion(state({ type: 'end', status: 'success' }), 'output')).toEqual([]);
+		expect(lostByConversion(state({ state_type: 'end', status: 'success' }), 'output')).toEqual([]);
 	});
 });
 
 describe('isConvertible', () => {
 	it('is true for every type with one next state and false for a decision or an end', () => {
-		for (const type of sourceTypes) expect(isConvertible(state({ type }))).toBe(true);
-		expect(isConvertible(state({ type: 'choice' }))).toBe(false);
-		expect(isConvertible(state({ type: 'end' }))).toBe(false);
+		for (const type of sourceTypes) expect(isConvertible(state({ state_type: type }))).toBe(true);
+		expect(isConvertible(state({ state_type: 'choice' }))).toBe(false);
+		expect(isConvertible(state({ state_type: 'end' }))).toBe(false);
 	});
 });
 

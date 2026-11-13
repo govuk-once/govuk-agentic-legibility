@@ -7,7 +7,7 @@
     },
     "states": {
         "submit": {
-            "type": "api_call",
+            "state_type": "api_call",
             "method": "POST",
             "service": "dvla",
             "url": "/app/dvla/v1/licence/address",
@@ -38,7 +38,7 @@
             "next": "branch_accepted"
         },
         "branch_accepted": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -52,19 +52,19 @@
             "default": "say_update_rejected"
         },
         "say_update_accepted": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your driving licence address update has been submitted. Please wait while your application is processed (this background check typically takes up to 24 hours to complete).",
             "next": "end_ok"
         },
         "say_update_rejected": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your address update could not be submitted. Please contact DVLA customer support.",
             "next": "end_rejected"
         },
         "end_ok": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "updated",
             "return": {
@@ -72,12 +72,12 @@
             }
         },
         "end_rejected": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "rejected"
         },
         "end_api_failure": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "api_failure"
         }

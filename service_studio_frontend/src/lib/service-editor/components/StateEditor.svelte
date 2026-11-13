@@ -53,7 +53,7 @@
 	let confirmingRemoval = $state(false);
 
 	// What the state is called on the graph, for the words of the confirmation.
-	const noun = $derived(currentState.type === 'choice' ? 'decision' : currentState.type === 'end' ? 'end' : 'step');
+	const noun = $derived(currentState.state_type === 'choice' ? 'decision' : currentState.state_type === 'end' ? 'end' : 'step');
 
 	// Makes the id of each field unique, so the labels stay correct if two forms are ever on the page.
 	const fieldId = $props.id();
@@ -62,7 +62,7 @@
 	// The form is shown afresh for each state, so it only needs the values the state had when it opened.
 	// The type chosen in the list. It starts as the current type, so nothing changes unless the person picks
 	// another one. It is held as text because it comes from a list of choices.
-	let draftType = $state<string>(untrack(() => currentState.type));
+	let draftType = $state<string>(untrack(() => currentState.state_type));
 	let draftText = $state(untrack(() => textOf(currentState)));
 	let draftTitle = $state(untrack(() => currentState.name ?? ''));
 	let draftDescription = $state(untrack(() => descriptionOf(currentState)));
@@ -70,12 +70,12 @@
 	let draftNext = $state(untrack(() => (hasNext(currentState) ? (currentState.next ?? '') : '')));
 	// Where each rule of a choice leads, in the order of its rules, and where its default leads. A state that
 	// is not a choice has none, so these stay empty for it and are not used.
-	let draftRuleTargets = $state(untrack(() => (currentState.type === 'choice' ? currentState.rules.map((rule) => rule.next) : [])));
-	let draftDefault = $state(untrack(() => (currentState.type === 'choice' ? currentState.default : '')));
+	let draftRuleTargets = $state(untrack(() => (currentState.state_type === 'choice' ? currentState.rules.map((rule) => rule.next) : [])));
+	let draftDefault = $state(untrack(() => (currentState.state_type === 'choice' ? currentState.default : '')));
 
 	// The types offered. Invoke is only listed on a step that already is one, because nothing can be changed
 	// into it.
-	const typeChoices = $derived<string[]>(currentState.type === 'invoke' ? [...convertTargetTypes, 'invoke'] : [...convertTargetTypes]);
+	const typeChoices = $derived<string[]>(currentState.state_type === 'invoke' ? [...convertTargetTypes, 'invoke'] : [...convertTargetTypes]);
 
 	// What changing to the chosen type would remove, in plain words, shown before the person applies.
 	const lost = $derived(
@@ -174,7 +174,7 @@
 		</div>
 	{/if}
 
-	{#if currentState.type === 'choice'}
+	{#if currentState.state_type === 'choice'}
 		<!-- The conditions are shown as sentences and are not changed here. Only where each one leads can be. -->
 		{#each currentState.rules as rule, index (index)}
 			<div class="govuk-form-group">
@@ -199,9 +199,9 @@
 
 	<!-- Moving the start of the journey, or ending it here, changes the shape of the whole journey rather than
 		this one state, so these sit apart from the fields above them. Each only shows when it would do something. -->
-	{#if (!isStart && currentState.type !== 'end') || canEnd}
+	{#if (!isStart && currentState.state_type !== 'end') || canEnd}
 		<div class="state-editor__journey-actions">
-			{#if !isStart && currentState.type !== 'end'}
+			{#if !isStart && currentState.state_type !== 'end'}
 				<button
 					type="button"
 					class="govuk-link govuk-body"

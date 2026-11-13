@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { stateSchema } from '$lib/schema/workflow/process';
+import { stateUnionSchema } from '$lib/schema/workflow/process';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import { checkFormWorkflow, formDeveloperStateTypes, formStateAccess, isEditableInForm } from '../schema/form-states';
 
-const stateTypes = stateSchema.options.map((option) => option.shape.type.value);
+const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
 
 // A state with only the key the rules read. The cast is needed because each test gives only the keys it uses.
-const state = (type: string) => ({ type }) as unknown as WorkingState;
+const state = (type: string) => ({ state_type: type }) as unknown as WorkingState;
 
 describe('formStateAccess', () => {
 	it('says how a form treats every kind of state in the schema, and no others', () => {

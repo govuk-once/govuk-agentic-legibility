@@ -95,7 +95,7 @@ describe('inputTimeoutSchema', () => {
 
 describe('inputStateSchema', () => {
 	const question = {
-		type: 'input',
+		state_type: 'input',
 		prompt: 'Is your address correct?',
 		schema: { kind: 'boolean' },
 		assign: 'address_confirmed',
@@ -113,7 +113,7 @@ describe('inputStateSchema', () => {
 		expect(inputStateSchema.safeParse(state).success).toBe(true);
 	});
 
-	it('accepts the notes that the form converter writes: text, a number, true or false, and null', () => {
+	it('accepts the notes the form files carry: text, a number, true or false, null and nested answer settings', () => {
 		const state = {
 			...question,
 			name: 'Are you applying for yourself',
@@ -124,7 +124,12 @@ describe('inputStateSchema', () => {
 				answer_type: 'selection',
 				hint_text: 'Choose one answer.',
 				optional: false,
-				repeatable: false
+				repeatable: false,
+				answer_settings: {
+					only_one_option: 'true',
+					selection_options: [{ name: 'Yes', value: 'Yes', is_other: false, requires_text: false }],
+					input_type: null
+				}
 			}
 		};
 		expect(inputStateSchema.safeParse(state).success).toBe(true);

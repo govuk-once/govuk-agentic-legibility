@@ -38,7 +38,7 @@ describe('apiCallStateSchema with the real examples', () => {
 });
 
 describe('apiCallStateSchema', () => {
-	const call = { type: 'api_call', method: 'GET', service: 'dvla', url: '/drivers/{{driver_id}}', next: 'show_driver' };
+	const call = { state_type: 'api_call', method: 'GET', service: 'dvla', url: '/drivers/{{driver_id}}', next: 'show_driver' };
 
 	it('accepts a minimal call', () => {
 		expect(apiCallStateSchema.safeParse(call).success).toBe(true);

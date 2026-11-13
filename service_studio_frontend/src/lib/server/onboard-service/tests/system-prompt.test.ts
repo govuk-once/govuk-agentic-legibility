@@ -16,6 +16,15 @@ describe('SERVICE_SYSTEM_PROMPT', () => {
 		expect(schema.required).toEqual(expect.arrayContaining(['process_id', 'version', 'start', 'states']));
 	});
 
+	it('tells the model to name the kind of a state with state_type, which is the key in the published schema', () => {
+		const schema = JSON.parse(schemaText.trim());
+		const input = schema.properties.states.additionalProperties.oneOf.find(
+			(state: { properties: { state_type: { const: string } } }) => state.properties.state_type.const === 'input'
+		);
+		expect(input.required).toContain('state_type');
+		expect(JSON.stringify(schema)).not.toContain('"type":"input"');
+	});
+
 	it('names the placeholder values from the shared constants, so the model writes what the app recognises', () => {
 		expect(instructions).toContain(JSON.stringify(undecidedRule));
 		expect(instructions).toContain(JSON.stringify(unconnectedApiCallDetails));
@@ -46,10 +55,10 @@ describe('SERVICE_SYSTEM_PROMPT', () => {
 			start: 'ask',
 			vars: {},
 			states: {
-				ask: { type: 'input', name: 'Ask', prompt: 'Yes or no?', schema: { kind: 'boolean' }, assign: 'answer', next: 'decide' },
-				decide: { type: 'choice', rules: [{ when: { ...undecidedRule }, next: 'look_up' }], default: 'finish' },
-				look_up: { type: 'api_call', ...unconnectedApiCallDetails, next: 'finish' },
-				finish: { type: 'end', status: 'success' }
+				ask: { state_type: 'input', name: 'Ask', prompt: 'Yes or no?', schema: { kind: 'boolean' }, assign: 'answer', next: 'decide' },
+				decide: { state_type: 'choice', rules: [{ when: { ...undecidedRule }, next: 'look_up' }], default: 'finish' },
+				look_up: { state_type: 'api_call', ...unconnectedApiCallDetails, next: 'finish' },
+				finish: { state_type: 'end', status: 'success' }
 			}
 		};
 		const result = parseProcess(process);

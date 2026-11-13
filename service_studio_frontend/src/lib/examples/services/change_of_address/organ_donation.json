@@ -23,7 +23,7 @@
     },
     "states": {
         "get_organ_status": {
-            "type": "api_call",
+            "state_type": "api_call",
             "method": "GET",
             "service": "dvla",
             "url": "/app/dvla/v1/organs/{{input.driver_id}}",
@@ -47,7 +47,7 @@
             "next": "prompt_organ_status"
         },
         "prompt_organ_status": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Your current NHS Organ Donor preferences on file:\n• All Organs: {{organ_data.anyOrgans}}\n• Kidneys: {{organ_data.kidneys}}\n• Liver: {{organ_data.liver}}\n• Heart: {{organ_data.heart}}\n• Pancreas: {{organ_data.pancreas}}\n• Cornea: {{organ_data.cornea}}\n• Lungs: {{organ_data.lungs}}\n\nWould you like to update your preferences on the NHS Organ Donor Register?",
             "schema": {
                 "kind": "boolean"
@@ -56,7 +56,7 @@
             "next": "branch_organ"
         },
         "prompt_organ_status_fallback": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Would you like to register or update your preferences on the NHS Organ Donor Register?",
             "schema": {
                 "kind": "boolean"
@@ -65,7 +65,7 @@
             "next": "branch_organ"
         },
         "branch_organ": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -78,7 +78,7 @@
             "default": "say_no_change"
         },
         "prompt_decision": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Select your new NHS Organ Donation decision:",
             "schema": {
                 "kind": "select_one",
@@ -90,19 +90,19 @@
             "next": "say_preference_submitted"
         },
         "say_preference_submitted": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your organ donation preference has been submitted to the NHS Organ Donor Register.",
             "next": "end_updated"
         },
         "say_no_change": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "No changes have been made to your Organ Donation preferences.",
             "next": "end_no_change"
         },
         "end_updated": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "organ_preference_updated",
             "return": {
@@ -110,10 +110,9 @@
             }
         },
         "end_no_change": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
-            "outcome": "organ_preference_unchanged",
-            "return": null
+            "outcome": "organ_preference_unchanged"
         }
     }
 }

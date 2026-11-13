@@ -13,14 +13,16 @@ import { durationOrRefSchema, metadataSchema, stateRefSchema, variablePathSchema
 	   real example state includes it and the document gives no default for it.
 	3. An output on the transcript channel needs a message, and an output on email or sms needs a
 	   template, because the document says each channel reads a different one of the two.
+	4. The return of an end state is a map of names to expressions, as the document says. A state that hands
+	   nothing back leaves the key out, and null is refused.
 */
 
 /**
  * The keys of the BaseState class in section 1.7 of the unified class structure document that every state
  * shares: the optional title and the notes. Each state schema spreads these in, so they are described once.
- * The document names the state type key state_type, as a field of BaseState. In a file it is the key type, which is
- * how the executor and the form converter write it, so the key here is type. Each state gives it its own fixed
- * value, so it is written in each state schema and not here.
+ * The document names the state type key state_type, as a field of BaseState. Each state gives it its own fixed value,
+ * so it is written in each state schema and not here. A file may also say type, which is accepted when it is read.
+ * See acceptTypeAlias in process.ts.
  */
 export const baseStateFields = {
 	name: z.string().min(1).optional(),
@@ -30,7 +32,7 @@ export const baseStateFields = {
 // Emits a message to the person or sends a notification. A new person facing step is usually this.
 export const outputStateSchema = z
 	.strictObject({
-		type: z.literal('output'),
+		state_type: z.literal('output'),
 		...baseStateFields,
 		channel: z.enum(['transcript', 'email', 'sms']),
 		message: z.string().optional(),
@@ -53,7 +55,7 @@ export const outputStateSchema = z
 
 // Sets process variables. Each key is the variable to change and each value is an expression.
 export const assignStateSchema = z.strictObject({
-	type: z.literal('assign'),
+	state_type: z.literal('assign'),
 	...baseStateFields,
 	set: z.record(variablePathSchema, expressionSchema),
 	next: stateRefSchema
@@ -61,7 +63,7 @@ export const assignStateSchema = z.strictObject({
 
 // Pauses the workflow for a set time, for example between two checks of a remote service.
 export const waitStateSchema = z.strictObject({
-	type: z.literal('wait'),
+	state_type: z.literal('wait'),
 	...baseStateFields,
 	duration: durationOrRefSchema,
 	next: stateRefSchema
@@ -72,11 +74,11 @@ export const completionStatusSchema = z.enum(['success', 'cancelled', 'failed', 
 
 // Finishes the process. A sub process hands its return value back to the state that invoked it.
 export const endStateSchema = z.strictObject({
-	type: z.literal('end'),
+	state_type: z.literal('end'),
 	...baseStateFields,
 	status: completionStatusSchema,
 	outcome: z.string().min(1).optional(),
-	return: expressionSchema.optional()
+	return: z.record(z.string(), expressionSchema).optional()
 });
 
 export type OutputState = z.infer<typeof outputStateSchema>;

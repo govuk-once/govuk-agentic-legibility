@@ -9,10 +9,10 @@ const build = (start: string, states: Record<string, unknown>) =>
 
 describe('stateRows', () => {
 	const process = build('ask', {
-		ask: { type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'check' },
-		check: { type: 'choice', name: 'Is it right?', rules: [{ when: { op: 'is_true', path: 'ok' }, next: 'say' }], default: 'finish' },
-		say: { type: 'output', channel: 'transcript', message: 'Thank you.', next: 'finish' },
-		finish: { type: 'end', status: 'success', outcome: 'all_done' }
+		ask: { state_type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'check' },
+		check: { state_type: 'choice', name: 'Is it right?', rules: [{ when: { op: 'is_true', path: 'ok' }, next: 'say' }], default: 'finish' },
+		say: { state_type: 'output', channel: 'transcript', message: 'Thank you.', next: 'finish' },
+		finish: { state_type: 'end', status: 'success', outcome: 'all_done' }
 	});
 	const rows = stateRows(processToGraph(process).nodes);
 
@@ -38,9 +38,9 @@ describe('stateRows', () => {
 
 describe('targetOptions', () => {
 	const process = build('ask', {
-		ask: { type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'check' },
-		check: { type: 'choice', name: 'Right?', rules: [{ when: { op: 'is_true', path: 'ok' }, next: 'finish' }], default: 'finish' },
-		finish: { type: 'end', status: 'success', outcome: 'all_done' }
+		ask: { state_type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'check' },
+		check: { state_type: 'choice', name: 'Right?', rules: [{ when: { op: 'is_true', path: 'ok' }, next: 'finish' }], default: 'finish' },
+		finish: { state_type: 'end', status: 'success', outcome: 'all_done' }
 	});
 
 	it('names a box by its number and title, a diamond and an end dot by their shape, and leaves out the start', () => {

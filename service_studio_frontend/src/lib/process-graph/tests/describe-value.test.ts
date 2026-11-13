@@ -66,7 +66,7 @@ describe('describeCondition', () => {
 		for (const example of serviceExamples) {
 			for (const process of Object.values(example.workflow?.processes ?? {})) {
 				for (const state of Object.values(process.states)) {
-					if (state.type === 'choice') conditions.push(...state.rules.map((rule) => rule.when));
+					if (state.state_type === 'choice') conditions.push(...state.rules.map((rule) => rule.when));
 				}
 			}
 		}
@@ -96,6 +96,9 @@ describe('describeExpression', () => {
 		expect(sentence({ op: 'date_add', path: 'start', value: '39 weeks' })).toBe('start plus 39 weeks');
 		expect(sentence({ op: 'date_subtract', path: 'due', value: '66 weeks' })).toBe('due minus 66 weeks');
 		expect(sentence({ op: 'now_plus', value_path: 'settings.wait' })).toBe('now plus settings.wait');
+		expect(sentence({ op: 'append', path: 'answers.step_3', value_path: 'repeat.step_3.current' })).toBe(
+			'answers.step_3 with repeat.step_3.current added to the end'
+		);
 	});
 
 	it('writes a date comparison like a condition', () => {

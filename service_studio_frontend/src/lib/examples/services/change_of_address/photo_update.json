@@ -11,7 +11,7 @@
     },
     "states": {
         "check_photocard": {
-            "type": "api_call",
+            "state_type": "api_call",
             "method": "GET",
             "service": "dvla",
             "url": "/app/dvla/v1/photo_expiry/{{input.driver_id}}",
@@ -30,7 +30,7 @@
             "next": "branch_photocard_expired"
         },
         "branch_photocard_expired": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -43,7 +43,7 @@
             "default": "prompt_optional_upload"
         },
         "prompt_optional_upload": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Your photocard photo is up to date. Would you still like to upload a new photo?",
             "schema": {
                 "kind": "boolean"
@@ -52,7 +52,7 @@
             "next": "branch_optional_upload"
         },
         "branch_optional_upload": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -65,19 +65,19 @@
             "default": "say_photo_up_to_date"
         },
         "say_photo_up_to_date": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your current photocard photo will be kept.",
             "next": "end_photo_reused"
         },
         "prompt_mandatory_upload": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your photocard photo has expired and must be updated.",
             "next": "prompt_photo_upload"
         },
         "prompt_photo_upload": {
-            "type": "input",
+            "state_type": "input",
             "prompt": "Please upload a new passport-style photo file:",
             "schema": {
                 "kind": "file_ref"
@@ -86,7 +86,7 @@
             "next": "validate_photo_api"
         },
         "validate_photo_api": {
-            "type": "api_call",
+            "state_type": "api_call",
             "method": "POST",
             "service": "dvla",
             "url": "/app/dvla/v1/photo_validity",
@@ -117,7 +117,7 @@
             "next": "branch_photo_validation"
         },
         "branch_photo_validation": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -130,13 +130,13 @@
             "default": "increment_attempt_counter"
         },
         "say_photo_accepted": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Your uploaded photo has been validated and accepted.",
             "next": "end_uploaded_photo"
         },
         "increment_attempt_counter": {
-            "type": "assign",
+            "state_type": "assign",
             "set": {
                 "upload_attempts": {
                     "op": "add",
@@ -147,7 +147,7 @@
             "next": "check_retry_limit"
         },
         "check_retry_limit": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -161,19 +161,19 @@
             "default": "say_invalid_photo_retry"
         },
         "say_invalid_photo_retry": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "The uploaded photo was invalid. Please try uploading again (Attempt {{upload_attempts}} of 3).",
             "next": "prompt_photo_upload"
         },
         "say_max_attempts_exceeded": {
-            "type": "output",
+            "state_type": "output",
             "channel": "transcript",
             "message": "Maximum photo upload attempts exceeded. Please try again later.",
             "next": "end_invalid_photo"
         },
         "end_photo_reused": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "photo_reused",
             "return": {
@@ -181,7 +181,7 @@
             }
         },
         "end_uploaded_photo": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "photo_updated",
             "return": {
@@ -189,12 +189,12 @@
             }
         },
         "end_invalid_photo": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "invalid_photo"
         },
         "end_api_failure": {
-            "type": "end",
+            "state_type": "end",
             "status": "failed",
             "outcome": "api_failure"
         }

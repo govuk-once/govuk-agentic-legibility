@@ -16,6 +16,9 @@ import { dynamicRefSchema, variablePathSchema } from './primitives';
 	   of being saved as data.
 	3. A literal object or list may hold further expressions, because the examples build objects such
 	   as { "driver_id": { "$": "driver.driver_id" } } from several references.
+	4. append is not in the document, but the form files use it to keep each answer of a question that is asked more
+	   than once. The executor keeps its assign operations in a register, and the published schema accepts any
+	   expression, so it is accepted. The list of operations is a question for the executor team.
 */
 
 // Integer addition on a variable, used to count attempts, for example upload_attempts plus 1.
@@ -39,6 +42,13 @@ const nowPlusExpression = z.strictObject({
 	value_path: variablePathSchema
 });
 
+// Adds the value held at value_path to the end of the list held at path, used to keep every answer of a repeated question.
+const appendExpression = z.strictObject({
+	op: z.literal('append'),
+	path: variablePathSchema,
+	value_path: variablePathSchema
+});
+
 // A date comparison gives a true or false value. It has the same shape as the date comparisons in
 // a condition, so it reuses that schema and only narrows the operator to the two date operators.
 const dateComparisonExpression = comparisonCondition.refine(
@@ -50,6 +60,7 @@ const operationExpressionSchema = z.discriminatedUnion('op', [
 	arithmeticExpression,
 	dateOffsetExpression,
 	nowPlusExpression,
+	appendExpression,
 	dateComparisonExpression
 ]);
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { expressionSchema } from '../expression';
+import { assignStateSchema } from '../states';
 
-type Example = { states?: Record<string, { type: string; [key: string]: unknown }> };
+type Example = { states?: Record<string, { state_type: string; [key: string]: unknown }> };
 
 // Every process file in the two example services, loaded as parsed JSON.
 const exampleFiles = import.meta.glob('../../../examples/services/*/*.json', {
@@ -21,7 +22,7 @@ function collectExpressions(): unknown[] {
 	const found: unknown[] = [];
 	for (const file of Object.values(exampleFiles)) {
 		for (const state of Object.values(file.states ?? {})) {
-			const field = fields[state.type];
+			const field = fields[state.state_type];
 			if (field && field in state) found.push(state[field]);
 		}
 	}
@@ -102,6 +103,29 @@ describe('expressionSchema operations', () => {
 	it('rejects date arithmetic with a missing or numeric offset', () => {
 		expect(expressionSchema.safeParse({ op: 'date_add', path: 'a' }).success).toBe(false);
 		expect(expressionSchema.safeParse({ op: 'date_add', path: 'a', value: 39 }).success).toBe(false);
+	});
+
+	describe('append, as the form files write it', () => {
+		const append = { op: 'append', path: 'answers.step_3', value_path: 'repeat.step_3.current' };
+
+		it('accepts adding the value at value_path to the list at path', () => {
+			expect(expressionSchema.safeParse(append).success).toBe(true);
+		});
+
+		it.each(['path', 'value_path'])('refuses an append with no %s', (key) => {
+			const { [key]: _removed, ...incomplete } = append as Record<string, string>;
+			expect(expressionSchema.safeParse(incomplete).success).toBe(false);
+		});
+
+		it('refuses an append with a key it does not use, or a path that is not a variable path', () => {
+			expect(expressionSchema.safeParse({ ...append, value: 1 }).success).toBe(false);
+			expect(expressionSchema.safeParse({ ...append, path: 'not a path' }).success).toBe(false);
+		});
+
+		it('is accepted in the set of an assign state, as the form files use it', () => {
+			const state = { state_type: 'assign', name: 'Append Answer', metadata: {}, set: { 'answers.step_3': append }, next: 'step_3_more' };
+			expect(assignStateSchema.safeParse(state).success).toBe(true);
+		});
 	});
 
 	it('accepts now_plus with a value_path', () => {

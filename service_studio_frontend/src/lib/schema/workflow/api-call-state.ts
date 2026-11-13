@@ -53,7 +53,7 @@ export const captureSpecSchema = z.union([
 
 // Calls an HTTP service. The service name is turned into a real address when the workflow runs.
 export const apiCallStateSchema = z.strictObject({
-	type: z.literal('api_call'),
+	state_type: z.literal('api_call'),
 	...baseStateFields,
 	method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
 	service: z.string().min(1),

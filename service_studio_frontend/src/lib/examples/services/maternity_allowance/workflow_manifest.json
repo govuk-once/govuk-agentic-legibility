@@ -1,6 +1,6 @@
 {
   "workflow_id": 2,
-  "schema": "sfsm/0.2",
+  "schema": "Workflow/0.2",
   "id": "dwp.maternity_allowance_ma1_claim",
   "version": "0.1.0",
   "owner": "DWP",

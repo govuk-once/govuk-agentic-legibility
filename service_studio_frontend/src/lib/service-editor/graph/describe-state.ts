@@ -20,7 +20,7 @@ export type StateRouteDescription = { label: string; kind: Route['kind']; target
 export type StateDescription = {
 	code: string;
 	// The schema's own name for the type of state, such as input or invoke.
-	stateType: WorkingState['type'];
+	stateType: WorkingState['state_type'];
 	facts: StateFact[];
 	routes: StateRouteDescription[];
 	// Set only on an invoke state, so the panel can offer to open the process it runs.
@@ -32,7 +32,7 @@ export type StateDescription = {
  * and the switch covers every type, so adding a state type without handling it here fails to compile.
  */
 function factsOf(state: WorkingState): StateFact[] {
-	switch (state.type) {
+	switch (state.state_type) {
 		case 'input': {
 			const options = state.schema.kind === 'select_one' || state.schema.kind === 'select_many' ? state.schema.options : undefined;
 			return [
@@ -99,14 +99,14 @@ function routeLabel(state: WorkingState, route: Route): string {
 		case 'on_invalid':
 			return 'If the answer is not valid';
 		case 'timeout':
-			return state.type === 'input' ? `If there is no answer after ${describeDuration(state.timeout?.after ?? '')}` : 'If it takes too long';
+			return state.state_type === 'input' ? `If there is no answer after ${describeDuration(state.timeout?.after ?? '')}` : 'If it takes too long';
 		case 'rule':
-			return state.type === 'choice' ? `If ${describeCondition(state.rules[Number(route.path[1])].when)}` : 'If a rule matches';
+			return state.state_type === 'choice' ? `If ${describeCondition(state.rules[Number(route.path[1])].when)}` : 'If a rule matches';
 		case 'catch': {
-			if (state.type !== 'api_call' && state.type !== 'invoke') return 'If it goes wrong';
+			if (state.state_type !== 'api_call' && state.state_type !== 'invoke') return 'If it goes wrong';
 			const clause = state.catch?.[Number(route.path[1])];
 			if (!clause || clause.on === 'any') return 'If anything goes wrong';
-			return state.type === 'api_call' ? `If the call fails with ${clause.on}` : `If the process ends with ${clause.on}`;
+			return state.state_type === 'api_call' ? `If the call fails with ${clause.on}` : `If the process ends with ${clause.on}`;
 		}
 	}
 }
@@ -119,7 +119,7 @@ function routeLabel(state: WorkingState, route: Route): string {
 export function describeState(state: WorkingState, code: string, titleOf: (code: string) => string | undefined): StateDescription {
 	return {
 		code,
-		stateType: state.type,
+		stateType: state.state_type,
 		facts: factsOf(state),
 		routes: routesOf(state).map((route) => ({
 			label: routeLabel(state, route),
@@ -127,6 +127,6 @@ export function describeState(state: WorkingState, code: string, titleOf: (code:
 			targetId: route.target,
 			targetTitle: titleOf(route.target) ?? `${route.target} (missing)`
 		})),
-		opensProcess: state.type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined
+		opensProcess: state.state_type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined
 	};
 }

@@ -96,7 +96,7 @@ export const inputTimeoutSchema = z.strictObject({
 
 // Asks one question and stores the answer in a variable before moving on.
 export const inputStateSchema = z.strictObject({
-	type: z.literal('input'),
+	state_type: z.literal('input'),
 	...baseStateFields,
 	prompt: z.string().min(1),
 	schema: answerDefinitionSchema,

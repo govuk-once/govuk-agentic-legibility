@@ -12,7 +12,7 @@
     },
     "states": {
         "compute_dates": {
-            "type": "assign",
+            "state_type": "assign",
             "set": {
                 "test_period_start": {
                     "op": "date_subtract",
@@ -38,7 +38,7 @@
             "next": "evaluate_if_too_early"
         },
         "evaluate_if_too_early": {
-            "type": "assign",
+            "state_type": "assign",
             "set": {
                 "is_too_early": {
                     "op": "date_before",
@@ -49,7 +49,7 @@
             "next": "branch_check_backdating"
         },
         "branch_check_backdating": {
-            "type": "choice",
+            "state_type": "choice",
             "rules": [
                 {
                     "when": {
@@ -62,7 +62,7 @@
             "default": "end_dates_computed"
         },
         "evaluate_backdating": {
-            "type": "assign",
+            "state_type": "assign",
             "set": {
                 "is_claim_backdated_over_3_months": {
                     "op": "date_diff_greater_than",
@@ -73,7 +73,7 @@
             "next": "end_dates_computed"
         },
         "end_dates_computed": {
-            "type": "end",
+            "state_type": "end",
             "status": "success",
             "outcome": "dates_calculated",
             "return": {

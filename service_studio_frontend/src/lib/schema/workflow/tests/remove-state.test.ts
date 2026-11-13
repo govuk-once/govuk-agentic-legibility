@@ -5,9 +5,9 @@ import { processSchema, type Process } from '../process';
 import { routesOf } from '../routes';
 import { deleteFromJourney } from '../remove-state';
 
-const finish = { type: 'end', status: 'success' };
-const wait = (next: string) => ({ type: 'wait', duration: 'PT1S', next });
-const call = (next: string, extra: object = {}) => ({ type: 'api_call', method: 'GET', service: 's', url: '/u', next, ...extra });
+const finish = { state_type: 'end', status: 'success' };
+const wait = (next: string) => ({ state_type: 'wait', duration: 'PT1S', next });
+const call = (next: string, extra: object = {}) => ({ state_type: 'api_call', method: 'GET', service: 's', url: '/u', next, ...extra });
 const rule = (next: string, path = 'x') => ({ when: { op: 'is_true', path }, next });
 
 // Builds a process from a map of states. The cast is needed because each test gives only the keys it uses.
@@ -42,7 +42,7 @@ describe('deleteFromJourney taking out a step', () => {
 		expect(process.states.b).toBeUndefined();
 		// Taking a step out does not take out what it led on to.
 		expect(process.states.c).toBeDefined();
-		expect(Object.keys(process.states).some((code) => process.states[code].type === 'end' && code !== 'end')).toBe(false);
+		expect(Object.keys(process.states).some((code) => process.states[code].state_type === 'end' && code !== 'end')).toBe(false);
 	});
 
 	it('moves the start on to what the removed first step led to', () => {
@@ -51,7 +51,7 @@ describe('deleteFromJourney taking out a step', () => {
 	});
 
 	it('takes the way on out of a decision, and leaves the decision out when one way is left', () => {
-		const process = build('d', { d: { type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish });
+		const process = build('d', { d: { state_type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish });
 		const result = ok(deleteFromJourney(process, { stateCodes: ['a'], lines: [] }));
 		// The decision has one way on left, so it goes and the start leads straight to the other.
 		expect(result.states.d).toBeUndefined();
@@ -60,13 +60,13 @@ describe('deleteFromJourney taking out a step', () => {
 
 	it('keeps a decision with two ways on left, and makes the last rule the default when the default goes', () => {
 		const process = build('d', {
-			d: { type: 'choice', rules: [rule('a'), rule('b', 'y')], default: 'c' },
+			d: { state_type: 'choice', rules: [rule('a'), rule('b', 'y')], default: 'c' },
 			a: finish,
 			b: finish,
 			c: finish
 		});
 		const result = ok(deleteFromJourney(process, { stateCodes: ['c'], lines: [] }));
-		expect(result.states.d).toMatchObject({ type: 'choice', rules: [{ next: 'a' }], default: 'b' });
+		expect(result.states.d).toMatchObject({ state_type: 'choice', rules: [{ next: 'a' }], default: 'b' });
 	});
 
 	it('takes out a named error route and an invalid answer route that led to it', () => {
@@ -82,7 +82,7 @@ describe('deleteFromJourney taking out a step', () => {
 	it('takes out a decision and leaves the step before it with nothing after it, with its branches checked', () => {
 		const process = build('a', {
 			a: wait('d'),
-			d: { type: 'choice', rules: [rule('x')], default: 'y' },
+			d: { state_type: 'choice', rules: [rule('x')], default: 'y' },
 			x: wait('end'),
 			y: wait('end'),
 			end: finish
@@ -140,7 +140,7 @@ describe('deleteFromJourney taking out a line', () => {
 
 	it('takes one way on out of a decision, and the branch that only it led to', () => {
 		const process = build('d', {
-			d: { type: 'choice', rules: [rule('a'), rule('b', 'y')], default: 'c' },
+			d: { state_type: 'choice', rules: [rule('a'), rule('b', 'y')], default: 'c' },
 			a: finish,
 			b: finish,
 			c: finish
@@ -154,7 +154,7 @@ describe('deleteFromJourney taking out a line', () => {
 		const process = build('a', {
 			a: call('end', { catch: [{ on: 'any', next: 'sorry' }] }),
 			sorry: wait('failed'),
-			failed: { type: 'end', status: 'failed' },
+			failed: { state_type: 'end', status: 'failed' },
 			end: finish
 		});
 		const result = ok(deleteFromJourney(process, { stateCodes: [], lines: [{ source: 'a', path: ['catch', 0, 'next'], target: 'sorry' }] }));
@@ -164,7 +164,7 @@ describe('deleteFromJourney taking out a line', () => {
 
 	it('takes out a timeout together with its time', () => {
 		const process = build('a', {
-			a: { type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'end', timeout: { after: 'PT5S', next: 'gave_up' } },
+			a: { state_type: 'input', prompt: 'Q', schema: { kind: 'boolean' }, assign: 'a', next: 'end', timeout: { after: 'PT5S', next: 'gave_up' } },
 			gave_up: finish,
 			end: finish
 		});
@@ -175,7 +175,7 @@ describe('deleteFromJourney taking out a line', () => {
 
 describe('deleteFromJourney for a step that has nothing after it', () => {
 	it('has no line to take out, so nothing is changed', () => {
-		const process = build('a', { a: { type: 'wait', duration: 'PT1S' }, end: finish });
+		const process = build('a', { a: { state_type: 'wait', duration: 'PT1S' }, end: finish });
 		const result = deleteFromJourney(process, { stateCodes: [], lines: [{ source: 'a', path: ['next'], target: 'end' }] });
 		expect(result.ok).toBe(false);
 	});

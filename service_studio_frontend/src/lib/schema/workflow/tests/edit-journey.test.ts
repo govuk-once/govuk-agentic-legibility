@@ -5,8 +5,8 @@ import { isUndecidedRule } from '../placeholders';
 import { processSchema, type Process } from '../process';
 import { routesOf } from '../routes';
 
-const finish = { type: 'end', status: 'success' };
-const wait = (next: string) => ({ type: 'wait', duration: 'PT1S', next });
+const finish = { state_type: 'end', status: 'success' };
+const wait = (next: string) => ({ state_type: 'wait', duration: 'PT1S', next });
 const rule = (next: string) => ({ when: { op: 'is_true', path: 'x' }, next });
 
 // Builds a process from a map of states. The cast is needed because each test gives only the keys it uses.
@@ -30,9 +30,9 @@ describe('routeToTargets', () => {
 
 	it('puts a decision before several targets, with the last as the default', () => {
 		const routed = routeToTargets(line(), ['b', 'c', 'end']);
-		expect(routed.process.states[routed.entry]).toMatchObject({ type: 'choice', default: 'end', rules: [{ next: 'b' }, { next: 'c' }] });
+		expect(routed.process.states[routed.entry]).toMatchObject({ state_type: 'choice', default: 'end', rules: [{ next: 'b' }, { next: 'c' }] });
 		const choice = routed.process.states[routed.entry];
-		if (choice.type === 'choice') expect(choice.rules.every((r) => isUndecidedRule(r.when))).toBe(true);
+		if (choice.state_type === 'choice') expect(choice.rules.every((r) => isUndecidedRule(r.when))).toBe(true);
 	});
 });
 
@@ -40,8 +40,8 @@ describe('drawLine', () => {
 	it('puts a decision after a step that already goes on, holding the old route and the new one', () => {
 		const result = ok(drawLine(line(), 'a', 'c'));
 		const a = result.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
-		expect(result.process.states[a.next]).toMatchObject({ type: 'choice', rules: [{ next: 'b' }], default: 'c' });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		expect(result.process.states[a.next]).toMatchObject({ state_type: 'choice', rules: [{ next: 'b' }], default: 'c' });
 		expect(processSchema.safeParse(result.process).success).toBe(true);
 	});
 
@@ -55,7 +55,7 @@ describe('drawLine', () => {
 
 	it('keeps an end that something else still leads to', () => {
 		const process = build('d', {
-			d: { type: 'choice', rules: [rule('a')], default: 'b' },
+			d: { state_type: 'choice', rules: [rule('a')], default: 'b' },
 			a: wait('stop'),
 			b: wait('stop'),
 			c: wait('end'),
@@ -67,10 +67,10 @@ describe('drawLine', () => {
 	});
 
 	it('gives a decision a new rule before its default', () => {
-		const process = build('d', { d: { type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish, c: finish });
+		const process = build('d', { d: { state_type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish, c: finish });
 		const result = ok(drawLine(process, 'd', 'c'));
 		const choice = result.process.states.d;
-		if (choice.type !== 'choice') throw new Error('expected a choice');
+		if (choice.state_type !== 'choice') throw new Error('expected a choice');
 		expect(choice.rules.map((r) => r.next)).toEqual(['a', 'c']);
 		expect(isUndecidedRule(choice.rules[1].when)).toBe(true);
 		expect(choice.default).toBe('b');
@@ -95,14 +95,14 @@ describe('endJourneyAt', () => {
 	it('points a step at a new end and takes out what only its old route led to', () => {
 		const result = ok(endJourneyAt(line(), 'a'));
 		const a = result.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
-		expect(result.process.states[a.next]).toMatchObject({ type: 'end', status: 'success' });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		expect(result.process.states[a.next]).toMatchObject({ state_type: 'end', status: 'success' });
 		expect(result.process.states.b).toBeUndefined();
 		expect(processSchema.safeParse(result.process).success).toBe(true);
 	});
 
 	it('gives a decision the end as a new rule', () => {
-		const process = build('d', { d: { type: 'choice', rules: [rule('a')], default: 'a' }, a: finish });
+		const process = build('d', { d: { state_type: 'choice', rules: [rule('a')], default: 'a' }, a: finish });
 		const result = ok(endJourneyAt(process, 'd'));
 		expect(routesOf(result.process.states.d)).toHaveLength(3);
 	});
@@ -117,7 +117,7 @@ describe('endJourneyAt', () => {
 describe('addLooseStep', () => {
 	it('adds a message step with nothing after it and no end', () => {
 		const added = addLooseStep(line());
-		expect(added.process.states[added.code]).toMatchObject({ type: 'output', channel: 'transcript' });
+		expect(added.process.states[added.code]).toMatchObject({ state_type: 'output', channel: 'transcript' });
 		expect(added.process.states[added.code]).not.toHaveProperty('next');
 		expect(Object.keys(added.process.states).sort()).toEqual(['a', 'b', 'c', 'end', added.code].sort());
 	});
@@ -143,8 +143,8 @@ describe('addLooseStep', () => {
 		const added = addLooseStep(line());
 		const drawn = ok(drawLine(added.process, 'a', added.code));
 		const a = drawn.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
-		expect(drawn.process.states[a.next]).toMatchObject({ type: 'choice', rules: [{ next: 'b' }], default: added.code });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		expect(drawn.process.states[a.next]).toMatchObject({ state_type: 'choice', rules: [{ next: 'b' }], default: added.code });
 	});
 });
 
@@ -161,8 +161,8 @@ describe('addBranch', () => {
 	it('gives a step a decision holding its old route and the new targets', () => {
 		const result = ok(addBranch(line(), 'a', ['c', 'end']));
 		const a = result.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
-		expect(result.process.states[a.next]).toMatchObject({ type: 'choice', rules: [{ next: 'b' }, { next: 'c' }], default: 'end' });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		expect(result.process.states[a.next]).toMatchObject({ state_type: 'choice', rules: [{ next: 'b' }, { next: 'c' }], default: 'end' });
 		expect(result.code).toBe(a.next);
 	});
 
@@ -171,39 +171,39 @@ describe('addBranch', () => {
 		const result = ok(addBranch(process, 'a', ['b', 'c']));
 		expect(result.process.states.stop).toBeUndefined();
 		const a = result.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
-		expect(result.process.states[a.next]).toMatchObject({ type: 'choice', rules: [{ next: 'b' }], default: 'c' });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
+		expect(result.process.states[a.next]).toMatchObject({ state_type: 'choice', rules: [{ next: 'b' }], default: 'c' });
 	});
 
 	it('does not repeat a way on a decision already has', () => {
-		const process = build('d', { d: { type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish, c: finish });
+		const process = build('d', { d: { state_type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish, c: finish });
 		const result = ok(addBranch(process, 'd', ['a', 'c']));
 		const choice = result.process.states.d;
-		if (choice.type !== 'choice') throw new Error('expected a choice');
+		if (choice.state_type !== 'choice') throw new Error('expected a choice');
 		expect(choice.rules.map((r) => r.next)).toEqual(['a', 'c']);
 	});
 });
 
 describe('a step with nothing after it', () => {
-	const unfinished = () => build('a', { a: { type: 'wait', duration: 'PT1S' }, b: wait('end'), c: wait('end'), end: finish });
+	const unfinished = () => build('a', { a: { state_type: 'wait', duration: 'PT1S' }, b: wait('end'), c: wait('end'), end: finish });
 
 	it('takes a line drawn from it as its next', () => {
 		const result = ok(drawLine(unfinished(), 'a', 'b'));
-		expect(result.process.states.a).toMatchObject({ type: 'wait', next: 'b' });
+		expect(result.process.states.a).toMatchObject({ state_type: 'wait', next: 'b' });
 	});
 
 	it('is ended with a new end and nothing else is taken out', () => {
 		const result = ok(endJourneyAt(unfinished(), 'a'));
 		const a = result.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should now continue somewhere');
-		expect(result.process.states[a.next]).toMatchObject({ type: 'end', status: 'success' });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should now continue somewhere');
+		expect(result.process.states[a.next]).toMatchObject({ state_type: 'end', status: 'success' });
 		expect(Object.keys(result.process.states).sort()).toEqual(['a', 'b', 'c', 'end', a.next].sort());
 	});
 
 	it('is given a decision of only the new targets when it branches', () => {
 		const result = ok(addBranch(unfinished(), 'a', ['b', 'c']));
 		const a = result.process.states.a;
-		if (a.type !== 'wait' || a.next === undefined) throw new Error('a should now continue somewhere');
-		expect(result.process.states[a.next]).toMatchObject({ type: 'choice', rules: [{ next: 'b' }], default: 'c' });
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should now continue somewhere');
+		expect(result.process.states[a.next]).toMatchObject({ state_type: 'choice', rules: [{ next: 'b' }], default: 'c' });
 	});
 });

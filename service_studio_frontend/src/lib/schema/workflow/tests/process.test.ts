@@ -15,20 +15,20 @@ describe('processSchema with the real examples', () => {
 
 describe('stateSchema', () => {
 	it('picks the right schema from the type', () => {
-		expect(stateSchema.safeParse({ type: 'end', status: 'success' }).success).toBe(true);
-		expect(stateSchema.safeParse({ type: 'wait', duration: 'PT5S', next: 'a' }).success).toBe(true);
-		expect(stateSchema.safeParse({ type: 'output', channel: 'transcript', message: 'Hello', next: 'a' }).success).toBe(true);
+		expect(stateSchema.safeParse({ state_type: 'end', status: 'success' }).success).toBe(true);
+		expect(stateSchema.safeParse({ state_type: 'wait', duration: 'PT5S', next: 'a' }).success).toBe(true);
+		expect(stateSchema.safeParse({ state_type: 'output', channel: 'transcript', message: 'Hello', next: 'a' }).success).toBe(true);
 	});
 
 	it('applies the rules of the matching state only', () => {
 		// A wait state may not have a status, which only an end state uses.
-		expect(stateSchema.safeParse({ type: 'wait', duration: 'PT5S', next: 'a', status: 'success' }).success).toBe(false);
+		expect(stateSchema.safeParse({ state_type: 'wait', duration: 'PT5S', next: 'a', status: 'success' }).success).toBe(false);
 		// An output rule still applies when the output sits inside the union.
-		expect(stateSchema.safeParse({ type: 'output', channel: 'transcript', next: 'a' }).success).toBe(false);
+		expect(stateSchema.safeParse({ state_type: 'output', channel: 'transcript', next: 'a' }).success).toBe(false);
 	});
 
 	it('rejects an unknown type and a state with no type', () => {
-		expect(stateSchema.safeParse({ type: 'decide', rules: [], default: 'a' }).success).toBe(false);
+		expect(stateSchema.safeParse({ state_type: 'decide', rules: [], default: 'a' }).success).toBe(false);
 		expect(stateSchema.safeParse({ next: 'a' }).success).toBe(false);
 	});
 });
@@ -41,13 +41,13 @@ describe('processSchema', () => {
 		vars: { attended: null },
 		states: {
 			ask: {
-				type: 'input',
+				state_type: 'input',
 				prompt: 'Did you attend?',
 				schema: { kind: 'boolean' },
 				assign: 'attended',
 				next: 'finish'
 			},
-			finish: { type: 'end', status: 'success' }
+			finish: { state_type: 'end', status: 'success' }
 		}
 	};
 
@@ -77,7 +77,7 @@ describe('processSchema', () => {
 	});
 
 	it('rejects an invalid state inside the process', () => {
-		const broken = { ...process, states: { ...process.states, finish: { type: 'end' } } };
+		const broken = { ...process, states: { ...process.states, finish: { state_type: 'end' } } };
 		expect(processSchema.safeParse(broken).success).toBe(false);
 	});
 
@@ -96,5 +96,56 @@ describe('processSchema', () => {
 
 	it('rejects parent_process, which the invoke state makes unnecessary', () => {
 		expect(processSchema.safeParse({ ...process, parent_process: null }).success).toBe(false);
+	});
+});
+
+describe('the type alias for state_type', () => {
+	const wait = { duration: 'PT5S', next: 'a' };
+
+	it('accepts the key type, as the executor and the form files write it, and gives it back as state_type', () => {
+		const result = stateSchema.safeParse({ type: 'wait', ...wait });
+		expect(result.success).toBe(true);
+		expect(result.data).toEqual({ state_type: 'wait', ...wait });
+	});
+
+	it('accepts the key state_type as it is', () => {
+		const result = stateSchema.safeParse({ state_type: 'wait', ...wait });
+		expect(result.data).toEqual({ state_type: 'wait', ...wait });
+	});
+
+	it('refuses a state that has both keys, and says the key that is extra', () => {
+		const result = stateSchema.safeParse({ type: 'wait', state_type: 'wait', ...wait });
+		expect(result.success).toBe(false);
+		expect(result.error?.issues[0].message).toContain('type');
+	});
+
+	it('refuses a state that has neither key', () => {
+		expect(stateSchema.safeParse(wait).success).toBe(false);
+	});
+
+	it('still flags a misspelt key on a state that uses the alias', () => {
+		expect(stateSchema.safeParse({ type: 'wait', ...wait, nxt: 'b' }).success).toBe(false);
+	});
+
+	it('does not change anything that is not an object', () => {
+		for (const value of [null, 'wait', 3, ['wait']]) expect(stateSchema.safeParse(value).success).toBe(false);
+	});
+
+	it('loads every process file of the example services written with the key type, with state_type coming out', () => {
+		for (const file of exampleProcessFiles() as { states: Record<string, Record<string, unknown>> }[]) {
+			const withAlias = {
+				...file,
+				states: Object.fromEntries(
+					Object.entries(file.states).map(([code, state]) => {
+						const { state_type, ...rest } = state;
+						return [code, { type: state_type, ...rest }];
+					})
+				)
+			};
+			const result = processSchema.safeParse(withAlias);
+			expect(result.success, JSON.stringify(result.error?.issues.slice(0, 3))).toBe(true);
+			for (const state of Object.values(result.data?.states ?? {})) expect(state).toHaveProperty('state_type');
+			for (const state of Object.values(result.data?.states ?? {})) expect(state).not.toHaveProperty('type');
+		}
 	});
 });

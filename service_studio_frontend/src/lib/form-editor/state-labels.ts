@@ -7,7 +7,7 @@ import type { State } from '$lib/schema/workflow/process';
 */
 
 // The record is keyed by every kind of state, so adding a kind to the schema without a label here fails to compile.
-export const stateLabels: Record<State['type'], string> = {
+export const stateLabels: Record<State['state_type'], string> = {
 	input: 'Question',
 	output: 'Message',
 	choice: 'Decision',

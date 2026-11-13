@@ -26,7 +26,7 @@ import { firstVersion, slugOf, type OnboardDetails } from '../shared/onboard-det
  * route is added here and not by the model, because where an error should lead depends on the real service.
  */
 export function withFailureRoutes(process: Process): Process {
-	const needsRoute = (state: Process['states'][string]) => state.type === 'api_call' && !state.catch?.length;
+	const needsRoute = (state: Process['states'][string]) => state.state_type === 'api_call' && !state.catch?.length;
 	if (!Object.values(process.states).some(needsRoute)) return process;
 
 	// The end is named after the states that are already there, so it cannot replace one of them.
@@ -34,7 +34,7 @@ export function withFailureRoutes(process: Process): Process {
 	const states = Object.fromEntries(
 		Object.entries(process.states).map(([code, state]) => [
 			code,
-			state.type === 'api_call' && needsRoute(state) ? { ...state, catch: [{ on: 'any', next: endCode }] } : state
+			state.state_type === 'api_call' && needsRoute(state) ? { ...state, catch: [{ on: 'any', next: endCode }] } : state
 		])
 	);
 

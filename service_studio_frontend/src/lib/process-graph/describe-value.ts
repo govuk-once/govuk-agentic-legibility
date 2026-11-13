@@ -118,6 +118,8 @@ export function describeExpression(expression: Expression): string {
 				return `${operation.path} minus ${operation.value}`;
 			case 'now_plus':
 				return `now plus ${operation.value_path}`;
+			case 'append':
+				return `${operation.path} with ${operation.value_path} added to the end`;
 			default:
 				return describeCondition(operation);
 		}

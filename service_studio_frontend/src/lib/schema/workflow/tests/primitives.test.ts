@@ -4,6 +4,7 @@ import {
 	durationSchema,
 	dynamicRefSchema,
 	metadataSchema,
+	textNoteKeys,
 	processRefSchema,
 	stateRefSchema,
 	variablePathSchema,
@@ -108,16 +109,39 @@ describe('metadataSchema', () => {
 		expect(metadataSchema.safeParse({ description: 'Checks the licence number.' }).success).toBe(true);
 	});
 
-	it('accepts a null note, which means it has not been given', () => {
-		expect(metadataSchema.safeParse({ hint_text: null }).success).toBe(true);
+	it('accepts a value of any kind that JSON can hold, in a note that Service Studio does not read', () => {
+		const notes = {
+			position: 3,
+			optional: true,
+			repeatable: false,
+			language: null,
+			available_languages: ['en', 'cy'],
+			answer_settings: { only_one_option: 'true', selection_options: [{ name: 'Yes', value: 'Yes', is_other: false }] }
+		};
+		expect(metadataSchema.safeParse(notes).success).toBe(true);
 	});
 
-	it('accepts a number and true or false, as the form converter writes for the position and for optional', () => {
-		expect(metadataSchema.safeParse({ position: 3, optional: true, repeatable: false }).success).toBe(true);
+	it('keeps every note exactly as it was written, including nested ones', () => {
+		const notes = { position: 3, answer_settings: { selection_options: [{ name: 'Yes' }] }, hint_text: null };
+		expect(metadataSchema.parse(notes)).toEqual(notes);
 	});
 
-	it('rejects nested data, in an object or a list', () => {
-		expect(metadataSchema.safeParse({ nested: { a: 'b' } }).success).toBe(false);
-		expect(metadataSchema.safeParse({ options: ['a', 'b'] }).success).toBe(false);
+	it.each(textNoteKeys)('accepts the note %s as text, as null, or not at all', (key) => {
+		expect(metadataSchema.safeParse({ [key]: 'Some words.' }).success).toBe(true);
+		expect(metadataSchema.safeParse({ [key]: null }).success).toBe(true);
+		expect(metadataSchema.safeParse({}).success).toBe(true);
+	});
+
+	it.each(textNoteKeys)('refuses the note %s when it is not text, because it is shown as words', (key) => {
+		for (const value of [3, true, ['a'], { a: 'b' }]) {
+			const result = metadataSchema.safeParse({ [key]: value });
+			expect(result.success, `${key}: ${JSON.stringify(value)}`).toBe(false);
+			expect(result.error?.issues[0].path).toEqual([key]);
+		}
+	});
+
+	it('refuses a value that JSON cannot hold', () => {
+		expect(metadataSchema.safeParse({ when: new Date() }).success).toBe(false);
+		expect(metadataSchema.safeParse({ nothing: undefined }).success).toBe(false);
 	});
 });

@@ -17,10 +17,12 @@ import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema }
 	   A process with no variables writes an empty object.
 	3. The document says window is a map holding a start and an end date, but names no keys. The keys
 	   start and end are assumed, and a date or a date and time are both accepted.
+	4. The key that names the kind of state is state_type, as in the document. The key type is accepted when a
+	   file is read, because the executor reads it and the form files use it. See acceptTypeAlias.
 */
 
-// Any one of the eight states, picked by its type. The type decides which keys are allowed.
-export const stateSchema = z.discriminatedUnion('type', [
+// Any one of the eight states, picked by its state_type. The state_type decides which keys are allowed.
+export const stateUnionSchema = z.discriminatedUnion('state_type', [
 	inputStateSchema,
 	outputStateSchema,
 	apiCallStateSchema,
@@ -30,6 +32,23 @@ export const stateSchema = z.discriminatedUnion('type', [
 	waitStateSchema,
 	endStateSchema
 ]);
+
+/**
+ * Lets a file name the kind of state with the key type as well as state_type. The document and the published schema
+ * call the key state_type. The executor reads either, and the form files and the older executor examples use type, so
+ * both are accepted when a file is read. The state that comes out always has state_type, so a workflow that is saved
+ * again says state_type. A state with both keys is passed on as it is, and the check reports the extra key.
+ */
+function acceptTypeAlias(value: unknown): unknown {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+	if (!('type' in value) || 'state_type' in value) return value;
+
+	const { type, ...rest } = value as Record<string, unknown>;
+	return { state_type: type, ...rest };
+}
+
+// A state as it is read from a file, with the alias accepted.
+export const stateSchema = z.preprocess(acceptTypeAlias, stateUnionSchema);
 
 // The dates between which a process is open, used for services that only run for a set period.
 const windowSchema = z.strictObject({

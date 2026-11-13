@@ -61,14 +61,25 @@ export const stateRefSchema = z.string().min(1, 'Give the name of a state');
  */
 export const processRefSchema = z.string().min(1, 'Give the name of a process');
 
+// The notes that Service Studio reads and shows as words, so each must be text, or null when it has not been given.
+// Every other note is only carried through and is never read here.
+export const textNoteKeys = ['description', 'hint_text', 'page_heading', 'guidance_markdown', 'answer_type'] as const;
+
 /**
- * Notes about a workflow, a process or a state, stored as entries of a name and a value. A value is text, a
- * number, true or false, or null. Nested data is refused, because it would have no agreed meaning. The executor
- * ignores this map and only Service Studio and the channels read it. The form converter writes the position of
- * a question as a number and whether it is optional as true or false, so those are accepted. A null value means
- * the note has not been given, as a missing note does.
+ * Notes about a workflow, a process or a state, stored as entries of a name and a value. A value can be anything that
+ * a JSON file can hold: text, a number, true or false, null, a list or a nested object. The notes carry whatever a
+ * form needs to be rebuilt later, such as its position or its answer settings, and Service Studio keeps them exactly
+ * as they were loaded. The only values it checks are the notes in textNoteKeys, which it shows as words and so must be
+ * text, or null when not given.
  */
-export const metadataSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]));
+export const metadataSchema = z.record(z.string(), z.json()).superRefine((notes, context) => {
+	for (const key of textNoteKeys) {
+		const note = notes[key];
+		if (note !== undefined && note !== null && typeof note !== 'string') {
+			context.addIssue({ code: 'custom', path: [key], message: `The note ${key} must be text, because it is shown as words` });
+		}
+	}
+});
 
 export type VariablePath = z.infer<typeof variablePathSchema>;
 export type Duration = z.infer<typeof durationSchema>;

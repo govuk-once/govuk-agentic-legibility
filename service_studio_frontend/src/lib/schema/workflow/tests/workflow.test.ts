@@ -25,7 +25,7 @@ describe('workflowSchema with the real examples', () => {
 describe('manifestSchema', () => {
 	const manifest = {
 		workflow_id: 1,
-		schema: 'sfsm/0.2',
+		schema: 'Workflow/0.2',
 		id: 'dvla.change_of_address',
 		version: '0.1.0',
 		owner: 'DVLA',
@@ -51,11 +51,15 @@ describe('manifestSchema', () => {
 		expect(manifestSchema.safeParse({ ...manifest, owner: null, contact: null }).success).toBe(true);
 	});
 
-	it('still needs the owner and the contact keys to be there', () => {
+	it('accepts a manifest with no owner and no contact, which also means they are not set yet', () => {
+		const { owner: _owner, contact: _contact, ...withoutThem } = manifest;
+		expect(manifestSchema.safeParse(withoutThem).success).toBe(true);
+	});
+
+	it('keeps a missing owner missing, and does not fill it in', () => {
 		const { owner: _owner, ...withoutOwner } = manifest;
-		const { contact: _contact, ...withoutContact } = manifest;
-		expect(manifestSchema.safeParse(withoutOwner).success).toBe(false);
-		expect(manifestSchema.safeParse(withoutContact).success).toBe(false);
+		const parsed = manifestSchema.parse(withoutOwner);
+		expect('owner' in parsed).toBe(false);
 	});
 
 	it('still rejects an empty owner and a contact that is not an email address', () => {
@@ -90,7 +94,7 @@ describe('manifestSchema', () => {
 		expect(manifestSchema.safeParse(adjusted).success).toBe(true);
 	});
 
-	it.each(['workflow_id', 'schema', 'id', 'version', 'owner', 'contact', 'description', 'state', 'entry', 'executor', 'defaults', 'processes'])(
+	it.each(['workflow_id', 'schema', 'id', 'version', 'description', 'state', 'entry', 'executor', 'defaults', 'processes'])(
 		'rejects a manifest with no %s',
 		(key) => {
 			const { [key as keyof typeof manifest]: _removed, ...incomplete } = manifest;
@@ -98,13 +102,16 @@ describe('manifestSchema', () => {
 		}
 	);
 
-	it.each(['Workflow/0.2', 'sfsm/0.2'])('accepts the schema value %s', (schema) => {
+	it.each(['Workflow/0.2', 'Workflow/1.0', 'Workflow/10.25'])('accepts the schema value %s', (schema) => {
 		expect(manifestSchema.safeParse({ ...manifest, schema }).success).toBe(true);
 	});
 
-	it.each(['sfsm/0.1', 'Workflow/0.1', 'workflow/0.2', 'sfsm'])('rejects the schema value %s', (schema) => {
-		expect(manifestSchema.safeParse({ ...manifest, schema }).success).toBe(false);
-	});
+	it.each(['sfsm/0.2', 'sfsm/0.1', 'workflow/0.2', 'WORKFLOW/0.2', 'Workflow/0.2.1', 'Workflow/0', 'Workflow/', 'Workflow', ' Workflow/0.2', 'Workflow/0.2 '])(
+		'refuses the schema value "%s"',
+		(schema) => {
+			expect(manifestSchema.safeParse({ ...manifest, schema }).success).toBe(false);
+		}
+	);
 
 	it('writes the value from the document into a new draft', () => {
 		expect(currentSchemaVersion).toBe('Workflow/0.2');

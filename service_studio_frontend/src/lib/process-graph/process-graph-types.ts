@@ -10,7 +10,7 @@ import type { CompletionStatus } from '$lib/schema/workflow/states';
 // for it, such as input or api_call, so a label for the person can be chosen later without changing this.
 export type ProcessStepNodeData = StepNodeData & {
 	stateId: string;
-	stateType: State['type'];
+	stateType: State['state_type'];
 	// Set on a box for a developer state. It takes no step number, and an editor can hide it from the graph.
 	developer?: boolean;
 };

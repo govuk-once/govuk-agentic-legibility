@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { stateSchema } from '$lib/schema/workflow/process';
+import { stateUnionSchema } from '$lib/schema/workflow/process';
 import { startLabel, stateLabels } from '../state-labels';
 
 // Every kind of state in the schema, read from the schema itself so a new kind is noticed here.
-const stateTypes = stateSchema.options.map((option) => option.shape.type.value);
+const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
 
 describe('stateLabels', () => {
 	it('has a label for every kind of state in the schema, and no others', () => {

@@ -75,7 +75,7 @@ function checkProcess(process: Process, pathPrefix = ''): WorkflowIssue[] {
 		}
 	}
 
-	if (!Object.values(process.states).some((state) => state.type === 'end')) {
+	if (!Object.values(process.states).some((state) => state.state_type === 'end')) {
 		issues.push({ path: `${pathPrefix}states`, message: 'A process needs at least one end state' });
 	}
 
@@ -139,7 +139,7 @@ function checkWorkflow(workflow: Workflow): WorkflowIssue[] {
 		issues.push(...checkProcess(process, `processes.${key}.`));
 
 		for (const [name, state] of Object.entries(process.states)) {
-			if (state.type === 'invoke' && !(state.process in processes)) {
+			if (state.state_type === 'invoke' && !(state.process in processes)) {
 				issues.push({
 					path: `processes.${key}.states.${name}.process`,
 					message: `Runs "${state.process}", but the workflow has no process with that name`
@@ -184,12 +184,12 @@ function warnAboutWorkflow(workflow: Workflow): WorkflowIssue[] {
 		warnings.push(...warnAboutProcess(process, `processes.${key}.`));
 
 		for (const [name, state] of Object.entries(process.states)) {
-			if (state.type !== 'invoke') continue;
+			if (state.state_type !== 'invoke') continue;
 
 			// The names an invoke can catch are the outcomes of the end states of the process it runs.
 			// The name "any" catches everything, so it is never checked.
 			const outcomes = new Set(
-				Object.values(processes[state.process].states).flatMap((end) => (end.type === 'end' && end.outcome ? [end.outcome] : []))
+				Object.values(processes[state.process].states).flatMap((end) => (end.state_type === 'end' && end.outcome ? [end.outcome] : []))
 			);
 			(state.catch ?? []).forEach((clause, index) => {
 				if (clause.on !== 'any' && !outcomes.has(clause.on)) {
@@ -213,7 +213,7 @@ function warnAboutWorkflow(workflow: Workflow): WorkflowIssue[] {
 		const process = processes[id];
 		for (const name of reachableInOrder(process)) {
 			const state = process.states[name];
-			if (state.type === 'invoke') waiting.push(state.process);
+			if (state.state_type === 'invoke') waiting.push(state.process);
 		}
 	}
 
