@@ -7,6 +7,7 @@
 	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
+	import { questionBefore } from '$lib/schema/workflow/choice-answers';
 	import { applyStateEdit } from '$lib/schema/workflow/edit-journey';
 	import { descriptionOf } from '$lib/schema/workflow/edit-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
@@ -14,6 +15,7 @@
 	import { formPaletteTools } from '../palette-tools';
 	import { formDeveloperStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
+	import DecisionEditCard from './DecisionEditCard.svelte';
 	import DeveloperStateCard from './DeveloperStateCard.svelte';
 	import StateEditCard from './StateEditCard.svelte';
 
@@ -69,13 +71,22 @@
 	const selectedStateId = $derived(selection.code);
 
 	/**
-	 * Tells whether a state has a card of its own to open: a question or a message, which a person edits, or a
-	 * state that a developer sets up, which is shown with its values as words. A decision and an end are only
+	 * Tells whether a state has a card of its own to open: a question, a message or a decision, which a person
+	 * edits, or a state that a developer sets up, which is shown with its values as words. An end is only
 	 * highlighted.
 	 */
 	function hasCard(state: WorkingState | undefined): boolean {
-		if (!state) return false;
-		return state.state_type === 'input' || state.state_type === 'output' || !isEditableInForm(state);
+		return state !== undefined && state.state_type !== 'end';
+	}
+
+	/**
+	 * Finds the question a decision follows, with the number and title it has in the list, for the decision card.
+	 * There is none when the decision follows no single question, or the question is not a numbered step.
+	 */
+	function questionRowBefore(code: string) {
+		const found = questionBefore(process, code);
+		const row = found && rows.find((candidate) => candidate.stateId === found.code);
+		return found && row ? { question: found.question, number: row.number, title: row.title } : undefined;
 	}
 
 	// Highlights a state without opening its card, which is what choosing a card in the list does.
@@ -117,17 +128,17 @@
 		if (selectedStateId && !(selectedStateId in result.process.states)) highlight(null);
 	}
 
-	// Applies the edit card of a step and closes it, leaving the step highlighted. The end is made in the same
-	// change when the person chose that the step ends the journey.
-	function applyEdit(code: string, updated: WorkingState, endsJourney: boolean) {
+	// Applies the edit card of a step or a decision and closes it, leaving it highlighted. The end is made in the
+	// same change when the person chose that a step ends the journey.
+	function applyEdit(code: string, updated: WorkingState, endsJourney = false) {
 		applyChange(applyStateEdit(process, code, updated, endsJourney));
 		selection = { code, open: false };
 	}
 </script>
 
 <div class="form-workspace">
-	<!-- Choosing a box on the graph opens its card, and a step that has just been added opens its card too, ready
-		for its words to be typed. -->
+	<!-- Choosing a box or a diamond on the graph opens its card, and a step that has just been added opens its card
+		too, ready for its words to be typed. -->
 	<ProcessCanvas
 		{process}
 		{graph}
@@ -166,6 +177,19 @@
 					contextItems={stepContext[code] ?? []}
 					onContextChange={(items) => onChangeStepContext(code, items)}
 					onApply={(updated, endsJourney) => applyEdit(code, updated, endsJourney)}
+					onCancel={() => (selection = { code, open: false })}
+				/>
+			{/key}
+		{:else if openState && selection.code && openState.state_type === 'choice'}
+			{@const code = selection.code}
+			<!-- Shown afresh for each decision, so what was chosen for one never carries over to another. -->
+			{#key code}
+				<DecisionEditCard
+					currentState={openState}
+					title={stateTitle(openState, code)}
+					before={questionRowBefore(code)}
+					targets={targets.filter((target) => target.stateId !== code)}
+					onApply={(updated) => applyEdit(code, updated)}
 					onCancel={() => (selection = { code, open: false })}
 				/>
 			{/key}
