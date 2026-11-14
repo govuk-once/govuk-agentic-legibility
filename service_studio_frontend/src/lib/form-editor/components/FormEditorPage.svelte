@@ -3,16 +3,43 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
+	import { noDrafts, type DraftSet } from '$lib/process-graph/drafts';
+	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
+	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
 	import type { Workflow } from '$lib/schema/workflow/workflow';
 	import { formDeveloperStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
 
-	// The page for looking at one form. A form is a single process, which the route has already checked, so the page
-	// shows the process the manifest names as its entry.
+	// The page for editing one form. A form is a single process, which the route has already checked, so the page
+	// edits the process the manifest names as its entry.
 	let { workflow }: { workflow: Workflow } = $props();
 
-	const process = $derived(workflow.processes[workflow.manifest.entry]);
+	// The form being edited. It starts as the one that was loaded and is replaced by a new copy with every change. It
+	// is not saved, and it is not checked against the schema while it is being edited, because a journey is allowed
+	// to be unfinished then.
+	let workingWorkflow = $derived<WorkingWorkflow>(workflow);
+
+	const processId = $derived(workflow.manifest.entry);
+	const process = $derived(workingWorkflow.processes[processId]);
+
+	// Takes in the changed process and keeps it as the one on the graph.
+	function changeProcess(updated: WorkingProcess) {
+		workingWorkflow = { ...workingWorkflow, processes: { ...workingWorkflow.processes, [processId]: updated } };
+	}
+
+	// Where the person has dragged boxes to. It is only how the graph is drawn, so it is not part of the form and is
+	// not saved.
+	let positions = $state<NodePositions>({});
+
+	function moveNodes(moved: NodePositions) {
+		positions = { ...positions, ...moved };
+	}
+
+	// The shapes placed from the palette that are not in the process yet. They are held here and not beside the
+	// graph, because the graph is built again when the developer states are shown or hidden. Like the positions they
+	// are only how the graph is drawn, so they are not part of the form and are not saved.
+	let drafts = $state.raw<DraftSet>(noDrafts);
 
 	// Developer states and the error routes are hidden at first so the questions are easy to follow. One tick shows both.
 	let showDeveloperStates = $state(false);
@@ -56,7 +83,8 @@
 
 		<div class="form-editor-page__toolbar-controls">
 			<label class="govuk-body-s govuk-!-margin-bottom-0 form-editor-page__toggle">
-				<input type="checkbox" bind:checked={showDeveloperStates} />
+				<!-- Showing or hiding the developer states arranges the graph again, so boxes dragged before are put back. -->
+				<input type="checkbox" bind:checked={showDeveloperStates} onchange={() => (positions = {})} />
 				Show developer states
 			</label>
 			<a class="govuk-link govuk-body-s govuk-!-margin-bottom-0" href={resolve('/edit-form')}>Choose a different form</a>
@@ -66,7 +94,15 @@
 	<!-- Shown afresh when the developer states are shown or hidden, because the graph is arranged again then. Each time
 		the view fits to the new graph and no state stays selected from the one before. -->
 	{#key showDeveloperStates}
-		<FormWorkspace {process} {showDeveloperStates} />
+		<FormWorkspace
+			{process}
+			{showDeveloperStates}
+			{positions}
+			onMoveNodes={moveNodes}
+			{drafts}
+			onChangeDrafts={(changed) => (drafts = changed)}
+			onChangeProcess={changeProcess}
+		/>
 	{/key}
 </main>
 

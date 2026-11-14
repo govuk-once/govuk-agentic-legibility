@@ -11,6 +11,12 @@ export type StepNodeData = {
 	opensProcess?: { id: string; title: string };
 	width: number;
 	height: number;
+	// Set on a box that is drawn smaller and grey, so it stands back from the steps a person reads. Its width and
+	// height are worked out for the compact size in node-sizing.ts.
+	compact?: boolean;
+	// The colour of the outline of the box, written as a CSS colour, so an editor can tell kinds of step apart.
+	// Left out, the box has the usual grey outline.
+	outlineColour?: string;
 };
 
 // A diamond. It carries no words of its own, only a label for a screen reader.

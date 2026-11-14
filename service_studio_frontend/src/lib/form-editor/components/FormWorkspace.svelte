@@ -1,21 +1,33 @@
 <script lang="ts">
-	import NodePalette from '$lib/graph-kit/NodePalette.svelte';
-	import ProcessGraph from '$lib/process-graph/ProcessGraph.svelte';
+	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
 	import StateCard from '$lib/process-graph/StateCard.svelte';
+	import type { DraftSet } from '$lib/process-graph/drafts';
+	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows } from '$lib/process-graph/state-rows';
+	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 	import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 	import { formPaletteTools } from '../palette-tools';
 	import { formDeveloperStateTypes } from '../schema/form-states';
-	import { stateLabels, stateTagColours } from '../state-labels';
+	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 
 	interface Props {
 		process: WorkingProcess;
 		// Shows the developer states and the error routes. Off, the graph and the list hold only the form's own steps.
 		showDeveloperStates: boolean;
+		// Where the person has dragged boxes to, and the call that records a drag. The page holds them, so they last
+		// when the developer states are shown or hidden and this component is shown afresh.
+		positions: NodePositions;
+		onMoveNodes: (moved: NodePositions) => void;
+		// The shapes placed from the palette that are not in the process yet, and the call that records a change to
+		// them. The page holds them for the same reason as the positions.
+		drafts: DraftSet;
+		onChangeDrafts: (drafts: DraftSet) => void;
+		// Called with the whole process after it is changed, so the page can keep the new copy.
+		onChangeProcess: (process: WorkingProcess) => void;
 	}
 
-	let { process, showDeveloperStates }: Props = $props();
+	let { process, showDeveloperStates, positions, onMoveNodes, drafts, onChangeDrafts, onChangeProcess }: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and numbers.
 	const graph = $derived(processToGraph(process, formDeveloperStateTypes));
@@ -29,22 +41,52 @@
 
 	// The state highlighted on the graph and in the list. Null when nothing is selected.
 	let selectedStateId = $state<string | null>(null);
+
+	// Why the last change could not be made, in words, shown over the canvas until it is dismissed. It is empty when
+	// there is nothing to say. The canvas shows it and can add to it, so the two share it.
+	let messages = $state<string[]>([]);
+
+	/**
+	 * Hands a changed process to the page. Any reason left over from an earlier change that could not be made is
+	 * cleared first, because it no longer describes what is on the canvas.
+	 */
+	function applyChange(updated: WorkingProcess) {
+		messages = [];
+		onChangeProcess(updated);
+	}
+
+	// Takes states and lines out of the process, and drops the selection if the selected state went with them.
+	function removeFromProcess(deleted: Pick<DeletedElements, 'stateCodes' | 'lines'>) {
+		const result = deleteFromJourney(process, deleted);
+		if (!result.ok) {
+			messages = [result.reason];
+			return;
+		}
+		applyChange(result.process);
+		if (selectedStateId && !(selectedStateId in result.process.states)) selectedStateId = null;
+	}
 </script>
 
 <div class="form-workspace">
-	<!-- The palette is drawn as it is in the other editors. Nothing can be dropped on the graph yet, because this
-		page only shows the form. -->
-	<NodePalette tools={formPaletteTools} />
-
-	<div class="form-workspace__canvas">
-		<ProcessGraph
-			{graph}
-			readOnly
-			showErrorRoutes={showDeveloperStates}
-			showDeveloperSteps={showDeveloperStates}
-			bind:selectedStateId
-		/>
-	</div>
+	<!-- A step that has just been added is highlighted, on the graph and in the list, so it is easy to find. -->
+	<ProcessCanvas
+		{process}
+		{graph}
+		paletteTools={formPaletteTools}
+		connectedStepKind="input"
+		showErrorRoutes={showDeveloperStates}
+		showDeveloperSteps={showDeveloperStates}
+		stepOutlineColours={stateOutlineColours}
+		{positions}
+		{onMoveNodes}
+		{drafts}
+		{onChangeDrafts}
+		onChangeProcess={applyChange}
+		bind:selectedStateId
+		bind:messages
+		onEditState={(code) => (selectedStateId = code)}
+		onDeleteStates={removeFromProcess}
+	/>
 
 	<aside class="form-workspace__panel" aria-label="Steps">
 		<div class="form-workspace__list">
@@ -81,12 +123,6 @@
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
-	}
-
-	.form-workspace__canvas {
-		position: relative;
-		flex: 1 1 auto;
-		min-width: 0;
 	}
 
 	.form-workspace__panel {

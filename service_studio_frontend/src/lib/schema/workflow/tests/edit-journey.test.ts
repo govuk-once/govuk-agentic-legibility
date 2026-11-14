@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addBranch, addLooseStep, addStepBeforeStart, drawLine, endJourneyAt, routeToTargets } from '../edit-journey';
+import { addBranch, addLooseStep, addStepBeforeStart, drawLine, endJourneyAt, isNewStepKind, routeToTargets } from '../edit-journey';
 import { reachableInOrder } from '../journey-order';
-import { isUndecidedRule } from '../placeholders';
+import { isUndecidedRule, placeholderMessage, placeholderQuestion } from '../placeholders';
 import { processSchema, type Process } from '../process';
 import { routesOf } from '../routes';
 
@@ -114,33 +114,68 @@ describe('endJourneyAt', () => {
 	});
 });
 
+describe('isNewStepKind', () => {
+	it('is true for a question and a message, which are the steps a person can add', () => {
+		expect(isNewStepKind('input')).toBe(true);
+		expect(isNewStepKind('output')).toBe(true);
+	});
+
+	it('is false for every other kind of state and for other text', () => {
+		for (const kind of ['choice', 'end', 'assign', 'wait', 'invoke', 'api_call', 'step', 'toString', '']) {
+			expect(isNewStepKind(kind), kind).toBe(false);
+		}
+	});
+});
+
 describe('addLooseStep', () => {
 	it('adds a message step with nothing after it and no end', () => {
-		const added = addLooseStep(line());
-		expect(added.process.states[added.code]).toMatchObject({ state_type: 'output', channel: 'transcript' });
-		expect(added.process.states[added.code]).not.toHaveProperty('next');
+		const added = addLooseStep(line(), 'output');
+		expect(added.process.states[added.code]).toEqual({ state_type: 'output', channel: 'transcript', message: placeholderMessage });
 		expect(Object.keys(added.process.states).sort()).toEqual(['a', 'b', 'c', 'end', added.code].sort());
 	});
 
+	it('adds a question step with a text answer, saved in a variable named after the step, and nothing after it', () => {
+		const added = addLooseStep(line(), 'input');
+		expect(added.process.states[added.code]).toEqual({
+			state_type: 'input',
+			prompt: placeholderQuestion,
+			schema: { kind: 'string' },
+			assign: `answer_${added.code}`
+		});
+	});
+
+	it('saves the answers of two new questions in different variables', () => {
+		const first = addLooseStep(line(), 'input');
+		const second = addLooseStep(first.process, 'input');
+		expect(second.process.states[second.code]).toMatchObject({ assign: `answer_${second.code}` });
+		expect(second.code).not.toBe(first.code);
+	});
+
+	it.each(['input', 'output'] as const)('gives a new %s step that the schema accepts once it is joined to the journey', (kind) => {
+		const added = addLooseStep(line(), kind);
+		const joined = ok(drawLine(ok(drawLine(added.process, 'c', added.code)).process, added.code, 'end'));
+		expect(processSchema.safeParse(joined.process).success).toBe(true);
+	});
+
 	it('leaves the journey as it was, so nothing leads to the new step yet', () => {
-		const added = addLooseStep(line());
+		const added = addLooseStep(line(), 'output');
 		expect(reachableInOrder(added.process)).toEqual(['a', 'b', 'end']);
 	});
 
 	it('gives each new step its own name', () => {
-		const first = addLooseStep(line());
-		const second = addLooseStep(first.process);
+		const first = addLooseStep(line(), 'output');
+		const second = addLooseStep(first.process, 'output');
 		expect(second.code).not.toBe(first.code);
 	});
 
 	it('takes a line drawn from it to another step as its next', () => {
-		const added = addLooseStep(line());
+		const added = addLooseStep(line(), 'output');
 		const drawn = ok(drawLine(added.process, added.code, 'b'));
 		expect(drawn.process.states[added.code]).toMatchObject({ next: 'b' });
 	});
 
 	it('is led to by a step that goes on, with a decision for the old route and the new one', () => {
-		const added = addLooseStep(line());
+		const added = addLooseStep(line(), 'output');
 		const drawn = ok(drawLine(added.process, 'a', added.code));
 		const a = drawn.process.states.a;
 		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
@@ -149,9 +184,10 @@ describe('addLooseStep', () => {
 });
 
 describe('addStepBeforeStart', () => {
-	it('adds a step that becomes the start and continues to the old start', () => {
-		const result = ok(addStepBeforeStart(line()));
+	it.each(['input', 'output'] as const)('adds a %s step that becomes the start and continues to the old start', (kind) => {
+		const result = ok(addStepBeforeStart(line(), kind));
 		expect(result.process.start).toBe(result.code);
+		expect(result.process.states[result.code!]).toMatchObject({ state_type: kind, next: 'a' });
 		expect(reachableInOrder(result.process)).toEqual([result.code, 'a', 'b', 'end']);
 		expect(processSchema.safeParse(result.process).success).toBe(true);
 	});

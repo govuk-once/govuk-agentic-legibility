@@ -1,3 +1,4 @@
+import type { StepOutlineColours } from '$lib/process-graph/process-graph-types';
 import type { State } from '$lib/schema/workflow/process';
 
 /*
@@ -32,4 +33,12 @@ export const stateTagColours: Record<State['state_type'], string> = {
 	wait: 'orange',
 	invoke: 'teal',
 	api_call: 'magenta'
+};
+
+// The colour of the outline of a question box and a message box on the graph, so the two can be told apart there as
+// they are by their tags. They are the blue and the purple of the GOV.UK palette. Every other kind of state keeps
+// the usual grey outline.
+export const stateOutlineColours: StepOutlineColours = {
+	input: '#1d70b8',
+	output: '#4c2c92'
 };

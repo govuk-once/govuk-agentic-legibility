@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
-import { startLabel, stateLabels, stateTagColours } from '../state-labels';
+import { startLabel, stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 
 // Every kind of state in the schema, read from the schema itself so a new kind is noticed here.
 const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
@@ -36,5 +36,16 @@ describe('stateTagColours', () => {
 		expect(stateTagColours.output).toBe('purple');
 		expect(stateTagColours.choice).toBe('yellow');
 		expect(stateTagColours.assign).toBe('grey');
+	});
+});
+
+describe('stateOutlineColours', () => {
+	it('gives a question box and a message box an outline colour, and no other kind of state', () => {
+		expect(Object.keys(stateOutlineColours).sort()).toEqual(['input', 'output']);
+	});
+
+	it('gives the two boxes different colours, each written as a CSS colour', () => {
+		expect(stateOutlineColours.input).not.toBe(stateOutlineColours.output);
+		for (const colour of Object.values(stateOutlineColours)) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
 	});
 });

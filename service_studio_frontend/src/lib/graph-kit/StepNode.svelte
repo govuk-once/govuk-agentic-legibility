@@ -22,7 +22,10 @@
 <div
 	class="journey-step-node"
 	class:journey-step-node--selected={selected}
+	class:journey-step-node--outlined={data.outlineColour}
+	class:journey-step-node--compact={data.compact}
 	class:journey-step-node--opens-process={data.opensProcess}
+	style:--step-outline-colour={data.outlineColour}
 	role="button"
 	tabindex="-1"
 	aria-pressed={selected}
@@ -78,7 +81,29 @@
 		text-decoration: underline;
 	}
 
+	/* A box that was given an outline colour is drawn with it, so one kind of step can be told from another. */
+	.journey-step-node--outlined {
+		border-color: var(--step-outline-colour);
+	}
+
+	/* A compact box has less space above and below its words and is grey, so it stands back from the other
+		steps. The padding matches the compact size in node-sizing.ts. */
+	.journey-step-node--compact {
+		padding: 5px 15px;
+		background-color: #f3f2f1;
+	}
+
+	.journey-step-node--compact .journey-step-node__title {
+		color: #505a5f;
+	}
+
 	.journey-step-node--selected {
 		border: 2px solid #1d70b8;
+	}
+
+	/* A selected box keeps its own outline colour and shows that it is selected with a thicker outline, so a
+		selected box of one kind is never mistaken for a box of another kind. */
+	.journey-step-node--outlined.journey-step-node--selected {
+		border: 3px solid var(--step-outline-colour);
 	}
 </style>

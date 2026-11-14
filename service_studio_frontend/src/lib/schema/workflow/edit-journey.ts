@@ -1,6 +1,6 @@
-import { addState, removeUnreachableStates, setStart } from './edit-process';
+import { addState, removeUnreachableStates, setStart, uniqueStateCode } from './edit-process';
 import { hasNext, replaceState } from './edit-state';
-import { defaultEndStatus, placeholderMessage, undecidedRule } from './placeholders';
+import { defaultEndStatus, placeholderInput, placeholderOutput, undecidedRule } from './placeholders';
 import type { WorkingProcess, WorkingState } from './working-process';
 import { routesOf } from './routes';
 
@@ -115,14 +115,33 @@ export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditR
 	return { ok: true, process: removeUnreachableStates(ended, oldNext === undefined ? [] : [oldNext]), code: added.code };
 }
 
+// The kinds of step a person can add to a journey: a question, which is an input, or a message, which is an output.
+export type NewStepKind = 'input' | 'output';
+
+// Builds a new step of each kind from its code, with placeholder wording and nothing after it. The record is keyed
+// by every kind, so adding a kind without saying how its step is built fails to compile.
+const newStepOfKind: Record<NewStepKind, (code: string) => Extract<WorkingState, { state_type: NewStepKind }>> = {
+	input: (code) => ({ state_type: 'input', ...placeholderInput(code) }),
+	output: () => ({ state_type: 'output', ...placeholderOutput() })
+};
+
+/**
+ * Tells whether some text names a kind of step that can be added. A palette hands over the kind as text, and
+ * this says whether it is one that addLooseStep accepts.
+ */
+export function isNewStepKind(kind: string): kind is NewStepKind {
+	return Object.hasOwn(newStepOfKind, kind);
+}
+
 /**
  * Adds a new step that is not joined to the journey yet. It has nothing after it, because the person decides
  * where it goes by drawing a line, and a step may be left that way while a journey is being built. The step is a
- * message to the person with a placeholder wording. The result carries the name of the new step.
+ * question or a message with a placeholder wording. The result carries the name of the new step.
  */
-export function addLooseStep(process: WorkingProcess): { process: WorkingProcess; code: string } {
-	const step: WorkingState = { state_type: 'output', channel: 'transcript', message: placeholderMessage };
-	return addState(process, newStepCode, step);
+export function addLooseStep(process: WorkingProcess, kind: NewStepKind): { process: WorkingProcess; code: string } {
+	// The name is chosen first, because a question names the variable for its answer after it.
+	const code = uniqueStateCode(process, newStepCode);
+	return addState(process, code, newStepOfKind[kind](code));
 }
 
 /**
@@ -130,9 +149,9 @@ export function addLooseStep(process: WorkingProcess): { process: WorkingProcess
  * start, which is what dragging a line out of the start dot onto empty canvas does. The result carries the name
  * of the new step.
  */
-export function addStepBeforeStart(process: WorkingProcess): EditResult {
-	const step: WorkingState = { state_type: 'output', channel: 'transcript', message: placeholderMessage, next: process.start };
-	const added = addState(process, newStepCode, step);
+export function addStepBeforeStart(process: WorkingProcess, kind: NewStepKind): EditResult {
+	const code = uniqueStateCode(process, newStepCode);
+	const added = addState(process, code, { ...newStepOfKind[kind](code), next: process.start });
 	return { ok: true, process: setStart(added.process, added.code), code: added.code };
 }
 

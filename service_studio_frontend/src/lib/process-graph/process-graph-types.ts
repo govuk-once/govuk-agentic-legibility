@@ -15,6 +15,10 @@ export type ProcessStepNodeData = StepNodeData & {
 	developer?: boolean;
 };
 
+// The colour of the outline of a box for each kind of state an editor wants to tell apart, written as a CSS colour.
+// A kind that is left out keeps the usual grey outline.
+export type StepOutlineColours = Partial<Record<State['state_type'], string>>;
+
 // The diamond for a choice state. Its title is only for a screen reader, the routes are on the edges.
 export type ProcessDecisionNodeData = DecisionNodeData & {
 	stateId: string;

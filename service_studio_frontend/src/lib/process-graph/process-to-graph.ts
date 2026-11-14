@@ -193,8 +193,8 @@ export function stateTitle(state: WorkingState, code: string): string {
  * graph still builds while an edit has left the process half finished.
  *
  * An editor can name state types that are developer states, such as assign. Their boxes are marked as developer
- * steps and take no number, so the numbers of the steps around them run on without a gap whether or not they
- * are shown. Hiding them is done afterwards, by visibleGraph.
+ * steps, are drawn smaller and grey, and take no number, so the numbers of the steps around them run on without
+ * a gap whether or not they are shown. Hiding them is done afterwards, by visibleGraph.
  */
 export function processToGraph(process: WorkingProcess, developerStateTypes: readonly State['state_type'][] = []): ProcessGraphElements {
 	const nodes: ProcessNode[] = [
@@ -239,7 +239,9 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 			if (!developer) stepNumber += 1;
 			// The box is sized for the words it shows, which are the number and the title, or only the title.
 			const label = developer ? title : `${stepNumber}. ${title}`;
-			const width = estimateStepNodeWidth(label);
+			// A developer step is drawn as a smaller box, so it stands back from the steps a person reads.
+			const size = developer ? 'compact' : 'standard';
+			const width = estimateStepNodeWidth(label, size);
 			// An invoke state shows a second line that opens the process it runs, so its box is taller.
 			const opensProcess =
 				state.state_type === 'invoke' ? { id: state.process, title: tidyCode(state.process) } : undefined;
@@ -253,10 +255,10 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 					stepNumber: developer ? undefined : stepNumber,
 					title,
 					stateType: state.state_type,
-					...(developer ? { developer: true } : {}),
+					...(developer ? { developer: true, compact: true } : {}),
 					opensProcess,
 					width,
-					height: estimateStepNodeHeight(label, width, opensProcess ? 1 : 0),
+					height: estimateStepNodeHeight(label, width, opensProcess ? 1 : 0, size),
 					ariaLabel: developer
 						? `Developer step, ${title}`
 						: opensProcess

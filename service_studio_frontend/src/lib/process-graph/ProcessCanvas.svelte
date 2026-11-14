@@ -1,6 +1,6 @@
 <script lang="ts">
 	import NodePalette, { type PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
-	import { addLooseStep, addStepBeforeStart } from '$lib/schema/workflow/edit-journey';
+	import { addLooseStep, addStepBeforeStart, isNewStepKind, type NewStepKind } from '$lib/schema/workflow/edit-journey';
 	import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 	import {
 		addDraft,
@@ -15,7 +15,7 @@
 		type Endpoint
 	} from './drafts';
 	import ProcessGraph from './ProcessGraph.svelte';
-	import type { DeletedElements, NodePositions, ProcessGraphElements } from './process-graph-types';
+	import type { DeletedElements, NodePositions, ProcessGraphElements, StepOutlineColours } from './process-graph-types';
 
 	/*
 		The palette, the graph and the message that explains a refused change, with everything the person can do
@@ -28,10 +28,17 @@
 		// The nodes and edges of the process, built by the editor so its list of steps uses the same ones.
 		graph: ProcessGraphElements;
 		// The shapes the palette offers. The editor says which, so an editor that allows fewer shapes shows fewer.
+		// The value of a box shape is the kind of step it adds, input or output. A decision, a start and an end are
+		// told apart by their shape.
 		paletteTools: PaletteTool[];
+		// The kind of step added when a line is let go on empty canvas, where no shape was chosen from the palette.
+		connectedStepKind: NewStepKind;
 		showErrorRoutes: boolean;
 		// Whether developer steps are drawn. It is on unless the editor turns it off.
 		showDeveloperSteps?: boolean;
+		// The colour of the outline of a box, for each kind of state the editor wants to tell apart. An editor that
+		// gives none has the usual grey outline on every box.
+		stepOutlineColours?: StepOutlineColours;
 		// Where the person has dragged boxes to, and the call that records a drag.
 		positions: NodePositions;
 		onMoveNodes: (moved: NodePositions) => void;
@@ -57,8 +64,10 @@
 		process,
 		graph,
 		paletteTools,
+		connectedStepKind,
 		showErrorRoutes,
 		showDeveloperSteps = true,
+		stepOutlineColours,
 		positions,
 		onMoveNodes,
 		drafts,
@@ -100,10 +109,23 @@
 		promote(addDraftLine(drafts, source, target));
 	}
 
+	/**
+	 * Adds what a shape dropped from the palette stands for. The shape is found among the ones the editor offers, so
+	 * the canvas adds only what that editor allows. A box adds a step of the kind its value names. A decision, a
+	 * start or an end is placed as a draft.
+	 */
+	function handleDropShape(value: string, position: { x: number; y: number }) {
+		const tool = paletteTools.find((candidate) => candidate.value === value);
+		if (!tool) return;
+
+		if (tool.shape !== 'step') handleCreateDraft(tool.shape, position);
+		else if (isNewStepKind(tool.value)) handleCreateStep(tool.value, position);
+	}
+
 	// Adds a new step where it was dropped. It is part of the process at once, with nothing after it, and its edit
 	// form opens so the question and title can be typed.
-	function handleCreateStep(position: { x: number; y: number }) {
-		const added = addLooseStep(process);
+	function handleCreateStep(kind: NewStepKind, position: { x: number; y: number }) {
+		const added = addLooseStep(process, kind);
 		onChangeProcess(added.process);
 
 		onMoveNodes({ [added.code]: position });
@@ -121,7 +143,7 @@
 	// to be joined up.
 	function handleCreateConnectedStep(source: Endpoint, position: { x: number; y: number }) {
 		if (source.kind === 'start') {
-			const result = addStepBeforeStart(process);
+			const result = addStepBeforeStart(process, connectedStepKind);
 			if (!result.ok || !result.code) return;
 
 			onChangeProcess(result.process);
@@ -130,7 +152,7 @@
 			return;
 		}
 
-		const added = addLooseStep(process);
+		const added = addLooseStep(process, connectedStepKind);
 		const joined = { kind: 'state', code: added.code } as const;
 		if (source.kind === 'draft') {
 			promote(addDraftLine(drafts, source, joined), added.process);
@@ -168,6 +190,7 @@
 		{graph}
 		{showErrorRoutes}
 		{showDeveloperSteps}
+		{stepOutlineColours}
 		{positions}
 		{onMoveNodes}
 		{drafts}
@@ -176,8 +199,7 @@
 		canConnect={(source, target) => canDraw(process, drafts, source, target)}
 		onConnect={handleConnect}
 		onCreateConnectedStep={handleCreateConnectedStep}
-		onCreateStep={handleCreateStep}
-		onCreateDraft={handleCreateDraft}
+		onDropShape={handleDropShape}
 		onDeleteElements={handleDeleteElements}
 	/>
 

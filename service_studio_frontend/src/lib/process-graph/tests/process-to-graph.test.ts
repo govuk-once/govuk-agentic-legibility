@@ -386,6 +386,21 @@ describe('developer steps', () => {
 		expect(plain.nodes.flatMap((node) => (node.type === 'step' ? [node.data.stepNumber] : []))).toEqual([1, 2, 3]);
 	});
 
+	it('draws a developer step as a compact box, which is smaller than the box it would be otherwise', () => {
+		const sizeOf = (built: ReturnType<typeof processToGraph>) => {
+			const save = built.nodes.find((node) => node.id === 'save');
+			if (save?.type !== 'step') throw new Error('save should be a box');
+			return save.data;
+		};
+		const compact = sizeOf(graph);
+		const standard = sizeOf(processToGraph(process));
+
+		expect(compact.compact).toBe(true);
+		expect(standard.compact).toBeUndefined();
+		expect(compact.width).toBeLessThan(standard.width);
+		expect(compact.height).toBeLessThan(standard.height);
+	});
+
 	it('does not count a developer step as a step, or list it or give it a number in the choices', () => {
 		expect(stepCount(graph)).toBe(2);
 		expect(stateRows(graph.nodes).map((row) => row.stateId)).toEqual(['first', 'second']);

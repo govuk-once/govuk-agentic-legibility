@@ -1,6 +1,7 @@
 import type { ApiCallState, RetryPolicy, Timeouts } from './api-call-state';
 import type { Condition } from './condition';
-import type { CompletionStatus, EndState } from './states';
+import type { InputState } from './input-state';
+import type { CompletionStatus, EndState, OutputState } from './states';
 
 /*
 	Placeholder values for details that are filled in at a later review, not while the journey is
@@ -58,19 +59,19 @@ export function isUndecidedRule(condition: Condition): boolean {
 export const defaultEndStatus: CompletionStatus = 'success';
 
 /**
- * The question given to an input that is made from another kind of step, when the old step had no words
- * to carry over. A person writes the real question after the type is changed.
+ * The question given to an input that has no words yet, because it has just been added or was made from a
+ * kind of step that had none to carry over. A person writes the real question afterwards.
  */
 export const placeholderQuestion = 'Question to be confirmed';
 
 /**
- * The message given to an output that is made from another kind of step, when the old step had no words
- * to carry over. A person writes the real message after the type is changed.
+ * The message given to an output that has no words yet, because it has just been added or was made from a
+ * kind of step that had none to carry over. A person writes the real message afterwards.
  */
 export const placeholderMessage = 'Message to be confirmed';
 
 /**
- * The answer type given to an input made from another kind of step. Text is the most general answer, so
+ * The answer type given to an input before a person has chosen one. Text is the most general answer, so
  * the step is valid straight away and the person picks the right type later.
  */
 export const placeholderAnswerKind = 'string';
@@ -87,6 +88,29 @@ export const placeholderWaitDuration = 'PT1M';
  */
 export function placeholderAnswerVariable(stateCode: string): string {
 	return `answer_${stateCode.replace(/[^A-Za-z0-9_]/g, '_')}`;
+}
+
+/**
+ * The keys an input needs before a person has filled it in: a question, a text answer and a variable to save the
+ * answer in. A new question and a step that is changed into a question both start from these, so the two are
+ * always valid in the same way. The code of the state names the variable. A question that is given is kept, and
+ * an empty one is replaced by the placeholder.
+ */
+export function placeholderInput(stateCode: string, question = ''): Pick<InputState, 'prompt' | 'schema' | 'assign'> {
+	return {
+		prompt: question || placeholderQuestion,
+		schema: { kind: placeholderAnswerKind },
+		assign: placeholderAnswerVariable(stateCode)
+	};
+}
+
+/**
+ * The keys an output needs before a person has filled it in: a message shown to the person in the transcript. A
+ * new message and a step that is changed into a message both start from these. A message that is given is kept,
+ * and an empty one is replaced by the placeholder.
+ */
+export function placeholderOutput(message = ''): Pick<OutputState, 'channel' | 'message'> {
+	return { channel: 'transcript', message: message || placeholderMessage };
 }
 
 /**

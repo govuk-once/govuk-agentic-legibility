@@ -4,7 +4,11 @@ import {
 	defaultEndStatus,
 	isUndecidedRule,
 	isUnconnectedApiCall,
+	placeholderInput,
+	placeholderMessage,
+	placeholderOutput,
 	placeholderOwner,
+	placeholderQuestion,
 	undecidedRule,
 	unconnectedApiCallDetails
 } from '../placeholders';
@@ -34,6 +38,42 @@ describe('placeholders pass validation', () => {
 		const example = exampleWorkflows()[0];
 		const manifest = { ...(example.manifest as object), ...placeholderOwner };
 		const result = parseWorkflow({ manifest, processes: example.processes });
+		expect(result.ok, JSON.stringify(!result.ok && result.issues)).toBe(true);
+	});
+});
+
+describe('placeholderInput and placeholderOutput', () => {
+	it('gives a question the placeholder wording, a text answer and a variable named after the state', () => {
+		expect(placeholderInput('new_step')).toEqual({ prompt: placeholderQuestion, schema: { kind: 'string' }, assign: 'answer_new_step' });
+	});
+
+	it('keeps a question that is given and uses the placeholder for an empty one', () => {
+		expect(placeholderInput('a', 'Is it right?').prompt).toBe('Is it right?');
+		expect(placeholderInput('a', '').prompt).toBe(placeholderQuestion);
+	});
+
+	it('names the variable from a code that holds characters a variable cannot', () => {
+		expect(placeholderInput('say hello-now').assign).toBe('answer_say_hello_now');
+	});
+
+	it('gives a message the placeholder wording in the transcript, and keeps a message that is given', () => {
+		expect(placeholderOutput()).toEqual({ channel: 'transcript', message: placeholderMessage });
+		expect(placeholderOutput('Thank you.')).toEqual({ channel: 'transcript', message: 'Thank you.' });
+	});
+
+	it('makes states that pass the process checks', () => {
+		const process = {
+			process_id: 'draft',
+			version: '0.1.0',
+			start: 'ask',
+			vars: {},
+			states: {
+				ask: { state_type: 'input', ...placeholderInput('ask'), next: 'say' },
+				say: { state_type: 'output', ...placeholderOutput(), next: 'finish' },
+				finish: { state_type: 'end', status: defaultEndStatus }
+			}
+		};
+		const result = parseProcess(process);
 		expect(result.ok, JSON.stringify(!result.ok && result.issues)).toBe(true);
 	});
 });

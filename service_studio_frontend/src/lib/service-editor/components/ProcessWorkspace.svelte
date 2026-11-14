@@ -36,9 +36,10 @@
 
 	let { process, showErrorRoutes, positions, onMoveNodes, drafts, onChangeDrafts, onChangeProcess, onOpenProcess }: Props = $props();
 
-	// The shapes the palette offers: a step, a decision, a start and an end.
+	// The shapes the palette offers: a step, a decision, a start and an end. The value of the step is the kind of
+	// state it adds, which is an output, a message to the person.
 	const paletteTools: PaletteTool[] = [
-		{ value: 'step', label: 'Step', shape: 'step' },
+		{ value: 'output', label: 'Step', shape: 'step' },
 		{ value: 'condition', label: 'Decision', shape: 'condition' },
 		{ value: 'start', label: 'Start', shape: 'start' },
 		{ value: 'end', label: 'End', shape: 'end' }
@@ -154,6 +155,7 @@
 		{process}
 		{graph}
 		{paletteTools}
+		connectedStepKind="output"
 		{showErrorRoutes}
 		{positions}
 		{onMoveNodes}

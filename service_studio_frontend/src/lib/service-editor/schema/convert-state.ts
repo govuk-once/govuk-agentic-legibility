@@ -1,14 +1,7 @@
 import { apiCallStateSchema } from '$lib/schema/workflow/api-call-state';
 import { inputStateSchema } from '$lib/schema/workflow/input-state';
 import { textOf } from '$lib/schema/workflow/edit-state';
-import {
-	placeholderAnswerKind,
-	placeholderAnswerVariable,
-	placeholderMessage,
-	placeholderQuestion,
-	placeholderWaitDuration,
-	unconnectedApiCallDetails
-} from '$lib/schema/workflow/placeholders';
+import { placeholderInput, placeholderOutput, placeholderWaitDuration, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { assignStateSchema, outputStateSchema, waitStateSchema } from '$lib/schema/workflow/states';
 
@@ -129,12 +122,8 @@ export function convertState(state: WorkingState, toType: ConvertTargetType, sta
 	const words = textOf(state);
 
 	const placeholders: Record<ConvertTargetType, Record<string, unknown>> = {
-		input: {
-			prompt: words || placeholderQuestion,
-			schema: { kind: placeholderAnswerKind },
-			assign: placeholderAnswerVariable(stateCode)
-		},
-		output: { channel: 'transcript', message: words || placeholderMessage },
+		input: placeholderInput(stateCode, words),
+		output: placeholderOutput(words),
 		api_call: { ...unconnectedApiCallDetails },
 		assign: { set: {} },
 		wait: { duration: placeholderWaitDuration }

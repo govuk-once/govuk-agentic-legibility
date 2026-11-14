@@ -5,9 +5,9 @@
 	import TerminalNode from '$lib/graph-kit/TerminalNode.svelte';
 	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
 	import { arrangeProcessGraph } from './arrange';
-	import type { Draft, DraftKind, DraftSet, Endpoint } from './drafts';
+	import type { Draft, DraftSet, Endpoint } from './drafts';
 	import { graphShape, separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
-	import type { DeletedElements, NodePositions, ProcessGraphElements } from './process-graph-types';
+	import type { DeletedElements, NodePositions, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
 
 	interface Props {
 		// The nodes and edges of the process, built by the component that owns it so the list of states uses the same ones.
@@ -20,9 +20,9 @@
 		// On by default, so every developer step the graph was built with is drawn. Off hides them, and the line before
 		// each one carries on to the state after it. The graph is arranged again when this changes.
 		showDeveloperSteps?: boolean;
-		// Off by default. On, the graph can be looked at, moved about and clicked, but no line can be drawn, no shape
-		// dropped and nothing deleted, and the connection points are hidden.
-		readOnly?: boolean;
+		// The colour of the outline of a box, for each kind of state the editor wants to tell apart. A kind that is
+		// not listed keeps the usual grey outline.
+		stepOutlineColours?: StepOutlineColours;
 		// Where the person has dragged boxes to. A box that is not listed stays where the layout put it.
 		positions?: NodePositions;
 		// Called with the new position of every box that was just dragged, when the drag ends.
@@ -38,11 +38,9 @@
 		onConnect?: (source: Endpoint, target: Endpoint) => void;
 		// Called with the end a line was dragged from and the place it was let go, when that is empty canvas.
 		onCreateConnectedStep?: (source: Endpoint, position: { x: number; y: number }) => void;
-		// Called with the place on the canvas where a step was dropped from the palette.
-		onCreateStep?: (position: { x: number; y: number }) => void;
-		// Called with the kind of shape and the place on the canvas where a decision, start or end was dropped from
-		// the palette. It stays a draft until it is joined to enough of the process.
-		onCreateDraft?: (kind: DraftKind, position: { x: number; y: number }) => void;
+		// Called with the value of the palette shape that was dropped and the place on the canvas where it landed. The
+		// component that holds the palette knows what each value stands for, so it decides what is added.
+		onDropShape?: (value: string, position: { x: number; y: number }) => void;
 		// Called once for each press of the Delete key with everything that was selected: draft shapes and lines,
 		// states of the process, and the lines between states. The page decides what each one means.
 		onDeleteElements?: (deleted: DeletedElements) => void;
@@ -53,7 +51,7 @@
 		selectedStateId = $bindable(null),
 		showErrorRoutes = false,
 		showDeveloperSteps = true,
-		readOnly = false,
+		stepOutlineColours = {},
 		positions = {},
 		onMoveNodes,
 		onOpenProcess,
@@ -61,8 +59,7 @@
 		canConnect,
 		onConnect,
 		onCreateConnectedStep,
-		onCreateStep,
-		onCreateDraft,
+		onDropShape,
 		onDeleteElements
 	}: Props = $props();
 
@@ -75,6 +72,8 @@
 	const fitViewOptions = { padding: 0.15, maxZoom: 0.9 };
 	const defaultEdgeOptions = { type: 'smoothstep' as const, markerEnd: { type: MarkerType.ArrowClosed } };
 	const proOptions = { hideAttribution: true };
+	// Either key takes out what is selected, because a keyboard may have only one of them.
+	const deleteKeys = ['Delete', 'Backspace'];
 
 	// What is shown, with the error routes on or off. Only this is laid out, so a hidden error route cannot
 	// pull a box sideways. Ticking Show error routes lays the graph out again with those routes in it.
@@ -108,6 +107,7 @@
 	const nodes = $derived<Node[]>([
 		...laidOut.map((node) => ({
 			...node,
+			data: withOutlineColour(node),
 			position: positions[node.id] ?? node.position,
 			selected: node.data.stateId === selectedStateId
 		})),
@@ -129,6 +129,15 @@
 
 	// Where the canvas is on the screen, so a shape dropped from the palette lands where the pointer was.
 	let flowInstance: FlowInstance | undefined;
+
+	/**
+	 * Returns the data of a node, with the outline colour the editor chose for its kind of state when it is a box
+	 * of a kind that has one. Every other node keeps the data it had.
+	 */
+	function withOutlineColour(node: ProcessNode): ProcessNode['data'] {
+		const outlineColour = node.type === 'step' ? stepOutlineColours[node.data.stateType] : undefined;
+		return outlineColour ? { ...node.data, outlineColour } : node.data;
+	}
 
 	/**
 	 * Builds the node a draft is drawn as: the usual diamond or dot, drawn dashed. The id is the draft's own,
@@ -186,18 +195,15 @@
 	}
 
 	/**
-	 * Drops one of the palette's shapes where it landed. A step is part of the process at once, because a step with
-	 * nothing after it is allowed while a journey is built. A decision, start or end needs something joined to it
-	 * first, so it stays a draft.
+	 * Hands over the palette shape that was dropped, with the place on the canvas where it landed. The drop carries
+	 * the value of the shape, and the place on the screen is turned into a place on the canvas.
 	 */
 	function handleDrop(event: DragEvent) {
-		const tool = event.dataTransfer?.getData('application/x-journey-node');
-		if (!tool || !flowInstance) return;
+		const value = event.dataTransfer?.getData('application/x-journey-node');
+		if (!value || !flowInstance) return;
 
 		event.preventDefault();
-		const position = flowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-		if (tool === 'step') onCreateStep?.(position);
-		else if (tool === 'condition' || tool === 'start' || tool === 'end') onCreateDraft?.(tool, position);
+		onDropShape?.(value, flowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
 	}
 
 	/**
@@ -235,7 +241,7 @@
 	}
 </script>
 
-<section class="process-graph" class:process-graph--read-only={readOnly} aria-label="Process graph">
+<section class="process-graph" aria-label="Process graph">
 	<SvelteFlow
 		{nodes}
 		{edges}
@@ -248,7 +254,6 @@
 		{proOptions}
 		nodesDraggable
 		onnodedragstop={({ nodes: dragged }) => onMoveNodes?.(Object.fromEntries(dragged.map((node) => [node.id, node.position])))}
-		nodesConnectable={!readOnly}
 		{isValidConnection}
 		onconnect={({ source, target }) => {
 			const from = endpointOf(source);
@@ -265,9 +270,9 @@
 			if (from) onCreateConnectedStep?.(from, connectionState.to);
 		}}
 		onbeforedelete={handleBeforeDelete}
-		deleteKey={readOnly ? null : ['Delete', 'Backspace']}
-		ondragover={readOnly ? undefined : handleDragOver}
-		ondrop={readOnly ? undefined : handleDrop}
+		deleteKey={deleteKeys}
+		ondragover={handleDragOver}
+		ondrop={handleDrop}
 		onnodeclick={({ node }) => {
 			// A box that runs another process opens it. Any other state is highlighted.
 			const opens = node.data.opensProcess as { id: string } | undefined;
@@ -319,11 +324,6 @@
 	.process-graph :global(.svelte-flow__handle:hover) {
 		width: 28px;
 		height: 28px;
-	}
-
-	/* A graph that cannot be edited has no use for the connection points, so they are not drawn. */
-	.process-graph--read-only :global(.svelte-flow__handle) {
-		visibility: hidden;
 	}
 
 	.process-graph :global(.journey-node-handle-hint) {
