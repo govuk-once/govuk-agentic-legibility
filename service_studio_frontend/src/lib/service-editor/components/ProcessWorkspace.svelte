@@ -7,9 +7,9 @@
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
 	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
-	import { endJourneyAt } from '$lib/schema/workflow/edit-journey';
-	import { removeUnreachableStates, setStart } from '$lib/schema/workflow/edit-process';
-	import { hasNext, replaceState } from '$lib/schema/workflow/edit-state';
+	import { applyStateEdit, endJourneyAt } from '$lib/schema/workflow/edit-journey';
+	import { setStart } from '$lib/schema/workflow/edit-process';
+	import { hasNext } from '$lib/schema/workflow/edit-state';
 	import { reachableInOrder } from '$lib/schema/workflow/journey-order';
 	import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
@@ -101,18 +101,10 @@
 		if (selectedStateId && !(selectedStateId in result.process.states)) select(null);
 	}
 
-	// Applies the edit form for a state. When the person chose that the state ends the journey, the end is made in
-	// the same change, because a second change would start from a process that does not have the edit yet. An end
-	// that only this state led to is taken out when the state stops leading to it, as it is when a line is drawn
-	// from the state to somewhere else. Nothing else it used to lead to is taken out.
+	// Applies the edit form for a state, with the end made in the same change when the person chose that the state
+	// ends the journey.
 	function applyEdit(code: string, updated: WorkingState, endsJourney: boolean) {
-		const edited = replaceState(process, code, updated);
-		const ended = endsJourney ? endJourneyAt(edited, code) : undefined;
-
-		const before = process.states[code];
-		const oldNext = before && hasNext(before) ? before.next : undefined;
-		const leftEnd = oldNext !== undefined && process.states[oldNext]?.state_type === 'end' ? [oldNext] : [];
-		applyChange(removeUnreachableStates(ended?.ok ? ended.process : edited, leftEnd));
+		applyChange(applyStateEdit(process, code, updated, endsJourney));
 	}
 
 	// Ends the journey at a state, which is the End the journey here action in the edit form.

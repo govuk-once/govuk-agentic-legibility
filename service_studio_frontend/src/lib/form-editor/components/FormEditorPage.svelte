@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import type { ContextItem } from '$lib/components/context';
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
@@ -40,6 +41,10 @@
 	// graph, because the graph is built again when the developer states are shown or hidden. Like the positions they
 	// are only how the graph is drawn, so they are not part of the form and are not saved.
 	let drafts = $state.raw<DraftSet>(noDrafts);
+
+	// The context added for the agent, by the code of the step it was added to. It lasts while the page is open. It
+	// is not part of the form and is not saved.
+	let stepContext = $state.raw<Record<string, ContextItem[]>>({});
 
 	// Developer states and the error routes are hidden at first so the questions are easy to follow. One tick shows both.
 	let showDeveloperStates = $state(false);
@@ -102,6 +107,8 @@
 			{drafts}
 			onChangeDrafts={(changed) => (drafts = changed)}
 			onChangeProcess={changeProcess}
+			{stepContext}
+			onChangeStepContext={(code, items) => (stepContext = { ...stepContext, [code]: items })}
 		/>
 	{/key}
 </main>

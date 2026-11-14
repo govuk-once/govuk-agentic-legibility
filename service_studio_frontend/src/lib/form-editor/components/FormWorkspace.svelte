@@ -1,15 +1,21 @@
 <script lang="ts">
+	import type { ContextItem } from '$lib/components/context';
 	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
 	import StateCard from '$lib/process-graph/StateCard.svelte';
+	import { describeState } from '$lib/process-graph/describe-state';
 	import type { DraftSet } from '$lib/process-graph/drafts';
 	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
-	import { processToGraph, visibleGraph } from '$lib/process-graph/process-to-graph';
-	import { stateRows } from '$lib/process-graph/state-rows';
+	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
+	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
+	import { applyStateEdit } from '$lib/schema/workflow/edit-journey';
+	import { descriptionOf } from '$lib/schema/workflow/edit-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
-	import type { WorkingProcess } from '$lib/schema/workflow/working-process';
+	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 	import { formPaletteTools } from '../palette-tools';
-	import { formDeveloperStateTypes } from '../schema/form-states';
+	import { formDeveloperStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
+	import DeveloperStateCard from './DeveloperStateCard.svelte';
+	import StateEditCard from './StateEditCard.svelte';
 
 	interface Props {
 		process: WorkingProcess;
@@ -25,9 +31,23 @@
 		onChangeDrafts: (drafts: DraftSet) => void;
 		// Called with the whole process after it is changed, so the page can keep the new copy.
 		onChangeProcess: (process: WorkingProcess) => void;
+		// The context added for the agent, by the code of the step it was added to, and the call that records a
+		// change to the context of one step. The page holds it for the same reason as the positions.
+		stepContext: Record<string, ContextItem[]>;
+		onChangeStepContext: (code: string, items: ContextItem[]) => void;
 	}
 
-	let { process, showDeveloperStates, positions, onMoveNodes, drafts, onChangeDrafts, onChangeProcess }: Props = $props();
+	let {
+		process,
+		showDeveloperStates,
+		positions,
+		onMoveNodes,
+		drafts,
+		onChangeDrafts,
+		onChangeProcess,
+		stepContext,
+		onChangeStepContext
+	}: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and numbers.
 	const graph = $derived(processToGraph(process, formDeveloperStateTypes));
@@ -39,8 +59,39 @@
 	);
 	const rows = $derived(stateRows(shown.nodes));
 
-	// The state highlighted on the graph and in the list. Null when nothing is selected.
-	let selectedStateId = $state<string | null>(null);
+	// Every state a step could continue to, named for the list of choices on the edit card. It uses the whole graph
+	// and not only what is shown, because a step can continue to a state that is hidden with the developer states.
+	const targets = $derived(targetOptions(graph.nodes));
+
+	// The state highlighted on the graph and in the list, and whether its card is open in place of the list. They
+	// are held together so choosing a different state always closes a card that was left open.
+	let selection = $state<{ code: string | null; open: boolean }>({ code: null, open: false });
+	const selectedStateId = $derived(selection.code);
+
+	/**
+	 * Tells whether a state has a card of its own to open: a question or a message, which a person edits, or a
+	 * state that a developer sets up, which is shown with its values as words. A decision and an end are only
+	 * highlighted.
+	 */
+	function hasCard(state: WorkingState | undefined): boolean {
+		if (!state) return false;
+		return state.state_type === 'input' || state.state_type === 'output' || !isEditableInForm(state);
+	}
+
+	// Highlights a state without opening its card, which is what choosing a card in the list does.
+	function highlight(code: string | null) {
+		if (code !== selection.code) selection = { code, open: false };
+	}
+
+	// Highlights a state and opens its card when it has one, which is what choosing a box on the graph, the Edit
+	// link of a card in the list, and adding a new step all do.
+	function openCard(code: string | null) {
+		selection = { code, open: code !== null && hasCard(process.states[code]) };
+	}
+
+	// The state whose card is open, with the row it has in the list when it is a numbered step.
+	const openState = $derived(selection.open && selection.code ? process.states[selection.code] : undefined);
+	const openRowIndex = $derived(rows.findIndex((row) => row.stateId === selection.code));
 
 	// Why the last change could not be made, in words, shown over the canvas until it is dismissed. It is empty when
 	// there is nothing to say. The canvas shows it and can add to it, so the two share it.
@@ -63,12 +114,20 @@
 			return;
 		}
 		applyChange(result.process);
-		if (selectedStateId && !(selectedStateId in result.process.states)) selectedStateId = null;
+		if (selectedStateId && !(selectedStateId in result.process.states)) highlight(null);
+	}
+
+	// Applies the edit card of a step and closes it, leaving the step highlighted. The end is made in the same
+	// change when the person chose that the step ends the journey.
+	function applyEdit(code: string, updated: WorkingState, endsJourney: boolean) {
+		applyChange(applyStateEdit(process, code, updated, endsJourney));
+		selection = { code, open: false };
 	}
 </script>
 
 <div class="form-workspace">
-	<!-- A step that has just been added is highlighted, on the graph and in the list, so it is easy to find. -->
+	<!-- Choosing a box on the graph opens its card, and a step that has just been added opens its card too, ready
+		for its words to be typed. -->
 	<ProcessCanvas
 		{process}
 		{graph}
@@ -82,39 +141,73 @@
 		{drafts}
 		{onChangeDrafts}
 		onChangeProcess={applyChange}
-		bind:selectedStateId
+		bind:selectedStateId={() => selectedStateId, openCard}
 		bind:messages
-		onEditState={(code) => (selectedStateId = code)}
+		onEditState={openCard}
 		onDeleteStates={removeFromProcess}
 	/>
 
 	<aside class="form-workspace__panel" aria-label="Steps">
-		<div class="form-workspace__list">
-			<div class="form-workspace__list-header">
-				<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
-				<p class="govuk-body-s govuk-!-margin-bottom-0 form-workspace__list-hint">
-					{rows.length} steps · nothing selected
-				</p>
-			</div>
-
-			{#each rows as row, index (row.stateId)}
-				<StateCard
-					stateId={row.stateId}
+		{#if openState && selection.code && (openState.state_type === 'input' || openState.state_type === 'output') && openRowIndex >= 0}
+			{@const code = selection.code}
+			{@const row = rows[openRowIndex]}
+			<!-- Shown afresh for each step, so what was typed for one step never carries over to another. -->
+			{#key code}
+				<StateEditCard
+					currentState={openState}
 					number={row.number}
 					title={row.title}
-					tagLabel={stateLabels[row.stateType]}
-					tagColour={stateTagColours[row.stateType]}
-					selected={row.stateId === selectedStateId}
-					canMoveUp={index > 0}
-					canMoveDown={index < rows.length - 1}
-					onSelect={(stateId) => (selectedStateId = stateId)}
+					totalSteps={rows.length}
+					targets={targets.filter((target) => target.stateId !== code)}
+					canOpenPrevious={openRowIndex > 0}
+					canOpenNext={openRowIndex < rows.length - 1}
+					onOpenPrevious={() => openCard(rows[openRowIndex - 1].stateId)}
+					onOpenNext={() => openCard(rows[openRowIndex + 1].stateId)}
+					contextItems={stepContext[code] ?? []}
+					onContextChange={(items) => onChangeStepContext(code, items)}
+					onApply={(updated, endsJourney) => applyEdit(code, updated, endsJourney)}
+					onCancel={() => (selection = { code, open: false })}
 				/>
-			{/each}
-		</div>
+			{/key}
+		{:else if openState && selection.code && !isEditableInForm(openState)}
+			{@const code = selection.code}
+			<DeveloperStateCard
+				title={stateTitle(openState, code)}
+				tagLabel={stateLabels[openState.state_type]}
+				tagColour={stateTagColours[openState.state_type]}
+				facts={describeState(openState, code, () => undefined).facts}
+				onClose={() => (selection = { code, open: false })}
+			/>
+		{:else}
+			<div class="form-workspace__list">
+				<div class="form-workspace__list-header">
+					<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
+					<p class="govuk-body-s govuk-!-margin-bottom-0 form-workspace__list-hint">
+						{rows.length} steps · nothing selected
+					</p>
+				</div>
 
-		<div class="form-workspace__panel-footer">
-			<button class="govuk-button govuk-!-margin-bottom-0" type="button">Send to policy review</button>
-		</div>
+				{#each rows as row, index (row.stateId)}
+					<StateCard
+						stateId={row.stateId}
+						number={row.number}
+						title={row.title}
+						description={descriptionOf(process.states[row.stateId])}
+						tagLabel={stateLabels[row.stateType]}
+						tagColour={stateTagColours[row.stateType]}
+						selected={row.stateId === selectedStateId}
+						canMoveUp={index > 0}
+						canMoveDown={index < rows.length - 1}
+						onSelect={highlight}
+						onEdit={openCard}
+					/>
+				{/each}
+			</div>
+
+			<div class="form-workspace__panel-footer">
+				<button class="govuk-button govuk-!-margin-bottom-0" type="button">Send to policy review</button>
+			</div>
+		{/if}
 	</aside>
 </div>
 

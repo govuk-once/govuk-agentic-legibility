@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addBranch, addLooseStep, addStepBeforeStart, drawLine, endJourneyAt, isNewStepKind, routeToTargets } from '../edit-journey';
+import { addBranch, addLooseStep, applyStateEdit, addStepBeforeStart, drawLine, endJourneyAt, isNewStepKind, routeToTargets } from '../edit-journey';
 import { reachableInOrder } from '../journey-order';
 import { isUndecidedRule, placeholderMessage, placeholderQuestion } from '../placeholders';
 import { processSchema, type Process } from '../process';
@@ -241,5 +241,43 @@ describe('a step with nothing after it', () => {
 		const a = result.process.states.a;
 		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should now continue somewhere');
 		expect(result.process.states[a.next]).toMatchObject({ state_type: 'choice', rules: [{ next: 'b' }], default: 'c' });
+	});
+});
+
+describe('applyStateEdit', () => {
+	const renamed = (next?: string) => ({ state_type: 'wait', duration: 'PT1S', name: 'Pause', ...(next ? { next } : {}) }) as never;
+
+	it('puts the changed state into the process and leaves the rest as it was', () => {
+		const result = applyStateEdit(line(), 'a', renamed('b'), false);
+		expect(result.states.a).toMatchObject({ name: 'Pause', next: 'b' });
+		expect(Object.keys(result.states).sort()).toEqual(['a', 'b', 'c', 'end']);
+	});
+
+	it('makes the end in the same change when the state is to end the journey, keeping the edit', () => {
+		const result = applyStateEdit(line(), 'c', renamed('end'), true);
+		// c already ended the journey, so it keeps the end it had.
+		expect(result.states.c).toMatchObject({ name: 'Pause', next: 'end' });
+
+		const ended = applyStateEdit(line(), 'b', renamed('end'), true);
+		expect(ended.states.b).toMatchObject({ name: 'Pause', next: 'end' });
+
+		const fromMiddle = applyStateEdit(build('a', { a: wait('b'), b: wait('end'), end: finish }), 'a', renamed('b'), true);
+		const a = fromMiddle.states.a;
+		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should continue to its new end');
+		expect(a.name).toBe('Pause');
+		expect(fromMiddle.states[a.next]).toMatchObject({ state_type: 'end' });
+		expect(fromMiddle.states.b).toBeUndefined();
+	});
+
+	it('takes out an end that only this state led to when it now continues somewhere else', () => {
+		const process = build('a', { a: wait('stop'), stop: finish, b: wait('end'), end: finish });
+		const result = applyStateEdit(process, 'a', renamed('b'), false);
+		expect(result.states.stop).toBeUndefined();
+		expect(result.states.a).toMatchObject({ next: 'b' });
+	});
+
+	it('keeps a step it used to lead to, because only an end is cleared away', () => {
+		const result = applyStateEdit(line(), 'a', renamed('c'), false);
+		expect(result.states.b).toBeDefined();
 	});
 });

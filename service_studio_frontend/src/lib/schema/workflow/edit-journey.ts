@@ -183,3 +183,19 @@ export function addBranch(process: WorkingProcess, sourceCode: string, targets: 
 	const changed = replaceState(routed.process, sourceCode, { ...source, next: routed.entry });
 	return { ok: true, process: removeUnreachableStates(changed, replacesEnd ? [oldNext] : []), code: routed.entry };
 }
+
+/**
+ * Puts a state that was changed in an edit form into the process. When the person chose that the state ends the
+ * journey, the end is made in the same change, because a second change would start from a process that does not
+ * have the edit yet. An end that only this state led to is taken out when the state stops leading to it, as it is
+ * when a line is drawn from the state to somewhere else. Nothing else it used to lead to is taken out.
+ */
+export function applyStateEdit(process: WorkingProcess, code: string, updated: WorkingState, endsJourney: boolean): WorkingProcess {
+	const edited = replaceState(process, code, updated);
+	const ended = endsJourney ? endJourneyAt(edited, code) : undefined;
+
+	const before = process.states[code];
+	const oldNext = before && hasNext(before) ? before.next : undefined;
+	const leftEnd = oldNext !== undefined && process.states[oldNext]?.state_type === 'end' ? [oldNext] : [];
+	return removeUnreachableStates(ended?.ok ? ended.process : edited, leftEnd);
+}

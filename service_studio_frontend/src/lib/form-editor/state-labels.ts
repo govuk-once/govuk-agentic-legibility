@@ -1,4 +1,5 @@
 import type { StepOutlineColours } from '$lib/process-graph/process-graph-types';
+import type { AnswerDefinition } from '$lib/schema/workflow/input-state';
 import type { State } from '$lib/schema/workflow/process';
 
 /*
@@ -41,4 +42,14 @@ export const stateTagColours: Record<State['state_type'], string> = {
 export const stateOutlineColours: StepOutlineColours = {
 	input: '#1d70b8',
 	output: '#4c2c92'
+};
+
+// The words a person sees for each kind of answer a question can take. The record is keyed by every kind of answer,
+// so adding a kind to the schema without a label here fails to compile.
+export const answerKindLabels: Record<AnswerDefinition['kind'], string> = {
+	string: 'Text',
+	boolean: 'Yes or no',
+	select_one: 'Choose one',
+	select_many: 'Choose several',
+	file_ref: 'File upload'
 };

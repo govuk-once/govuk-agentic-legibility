@@ -5,41 +5,65 @@ import type { WorkingProcess, WorkingState } from './working-process';
 	changed copy. Nothing here changes the object it is given, and nothing here checks the result, because
 	the whole journey is checked once, before it is passed on, and not after each change.
 
-	1. The title of a state is its name. The description is kept in the notes of the state, which are its
-	   metadata, under the key description. The executor team have agreed that the notes only carry text.
-	2. A blank title or description removes the key instead of saving an empty value, because the schema
+	1. The title of a state is its name. The description and the hint are kept in the notes of the state, which
+	   are its metadata, under the keys description and hint_text.
+	2. A blank title or note removes the key instead of saving an empty value, because the schema
 	   does not accept an empty name and an empty note would only add clutter to the saved file.
 */
 
-// The key in a state's notes that holds its description.
+// The key in a state's notes that holds its description, which is for the team and is not shown to the citizen.
 export const descriptionKey = 'description';
 
+// The key in a state's notes that holds the hint shown to the citizen under a question.
+export const hintKey = 'hint_text';
+
 /**
- * Returns the description of a state, or an empty string when it has none, so a form can show it without
- * checking that the notes exist. A note that is not text, such as null, counts as no description.
+ * Returns one of the notes of a state as text, or an empty string when it has none, so a form can show it without
+ * checking that the notes exist. A note that is not text, such as null, counts as none.
  */
-export function descriptionOf(state: WorkingState): string {
-	const note = state.metadata?.[descriptionKey];
+export function noteOf(state: WorkingState, key: string): string {
+	const note = state.metadata?.[key];
 	return typeof note === 'string' ? note : '';
 }
 
 /**
- * Returns a copy of the state with a new title and description. Blank text is trimmed away and the key is
- * removed, and the notes are removed altogether when they end up empty, so a state that has no title or
- * description saves exactly as it would if it never had one.
+ * Returns a copy of the state with one of its notes set to new text. Blank text removes the note, and the notes
+ * are removed altogether when they end up empty, so a state saves exactly as it would if it never had the note.
+ * A state whose note already says the same is returned as it is, so a note that was loaded as null, or notes that
+ * were loaded empty, are kept as they were when nothing was typed.
  */
-export function withTitleAndDescription(state: WorkingState, title: string, description: string): WorkingState {
+export function withNote(state: WorkingState, key: string, text: string): WorkingState {
+	const trimmed = text.trim();
+	if (trimmed === noteOf(state, key)) return state;
+
 	const updated: WorkingState = { ...state };
 	const notes = { ...state.metadata };
 
-	if (title.trim()) updated.name = title.trim();
-	else delete updated.name;
-
-	if (description.trim()) notes[descriptionKey] = description.trim();
-	else delete notes[descriptionKey];
+	if (trimmed) notes[key] = trimmed;
+	else delete notes[key];
 
 	if (Object.keys(notes).length > 0) updated.metadata = notes;
 	else delete updated.metadata;
+
+	return updated;
+}
+
+/**
+ * Returns the description of a state, or an empty string when it has none.
+ */
+export function descriptionOf(state: WorkingState): string {
+	return noteOf(state, descriptionKey);
+}
+
+/**
+ * Returns a copy of the state with a new title and description. Blank text is trimmed away and the key is
+ * removed, so a state that has no title or description saves exactly as it would if it never had one.
+ */
+export function withTitleAndDescription(state: WorkingState, title: string, description: string): WorkingState {
+	const updated: WorkingState = { ...withNote(state, descriptionKey, description) };
+
+	if (title.trim()) updated.name = title.trim();
+	else delete updated.name;
 
 	return updated;
 }

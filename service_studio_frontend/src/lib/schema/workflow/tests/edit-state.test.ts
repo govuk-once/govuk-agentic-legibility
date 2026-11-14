@@ -5,12 +5,15 @@ import {
 	endsTheJourney,
 	hasNext,
 	hasText,
+	hintKey,
+	noteOf,
 	nothingYet,
 	replaceState,
 	textOf,
 	withChoiceTargets,
 	withNext,
 	withNextChoice,
+	withNote,
 	withText,
 	withTitleAndDescription
 } from '../edit-state';
@@ -63,6 +66,45 @@ describe('withTitleAndDescription', () => {
 			}
 		}
 	);
+});
+
+describe('noteOf and withNote', () => {
+	const question = state({ state_type: 'input', prompt: 'Name?', schema: { kind: 'string' }, assign: 'name', next: 'done' });
+
+	it('sets a note as trimmed text and reads it back', () => {
+		const hinted = withNote(question, hintKey, '  As it is on your passport.  ');
+		expect(hinted.metadata).toEqual({ hint_text: 'As it is on your passport.' });
+		expect(noteOf(hinted, hintKey)).toBe('As it is on your passport.');
+	});
+
+	it('removes a note when the text is blank, and the notes when nothing is left', () => {
+		const hinted = withNote(question, hintKey, 'A hint.');
+		expect(withNote(hinted, hintKey, '   ')).toEqual(question);
+	});
+
+	it('keeps the other notes exactly as they were, including ones that are not text', () => {
+		const loaded = state({ ...question, metadata: { position: 2, answer_settings: { input_type: null }, hint_text: 'Old.' } });
+		expect(withNote(loaded, hintKey, 'New.').metadata).toEqual({ position: 2, answer_settings: { input_type: null }, hint_text: 'New.' });
+	});
+
+	it('returns the state as it is when the note already says the same, so a null note or empty notes are kept', () => {
+		const nullHint = state({ ...question, metadata: { hint_text: null } });
+		const emptyNotes = state({ ...question, metadata: {} });
+		expect(withNote(nullHint, hintKey, '')).toBe(nullHint);
+		expect(withNote(emptyNotes, hintKey, ' ')).toBe(emptyNotes);
+		expect(withTitleAndDescription(emptyNotes, '', '').metadata).toEqual({});
+	});
+
+	it('gives an empty string for a note that is missing or is not text', () => {
+		expect(noteOf(question, hintKey)).toBe('');
+		expect(noteOf(state({ ...question, metadata: { hint_text: null } }), hintKey)).toBe('');
+	});
+
+	it('does not change the state it is given', () => {
+		const before = JSON.stringify(question);
+		withNote(question, hintKey, 'A hint.');
+		expect(JSON.stringify(question)).toBe(before);
+	});
 });
 
 describe('descriptionOf', () => {
