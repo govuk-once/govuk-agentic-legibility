@@ -72,8 +72,25 @@ describe('answerDefinitionSchema', () => {
 		expect(answerDefinitionSchema.safeParse({ kind: 'file_ref', pattern: '^x$' }).success).toBe(false);
 	});
 
-	it('rejects the fields key, which is not modelled', () => {
-		expect(answerDefinitionSchema.safeParse({ kind: 'string', fields: [] }).success).toBe(false);
+	it('accepts the parts of an answer made of several, each with a name and an answer definition of its own', () => {
+		const answer = {
+			kind: 'string',
+			fields: [
+				{ name: 'first_name', schema: { kind: 'string', max_length: 50 } },
+				{ name: 'over_18', schema: { kind: 'boolean' } },
+				{ name: 'address', schema: { kind: 'string', fields: [{ name: 'postcode', schema: { kind: 'string' } }] } }
+			]
+		};
+		const result = answerDefinitionSchema.safeParse(answer);
+		expect(result.success).toBe(true);
+		expect(result.data).toEqual(answer);
+		expect(answerDefinitionSchema.safeParse({ kind: 'boolean', fields: [] }).success).toBe(true);
+	});
+
+	it('rejects a part with no name, with a broken answer definition, or with a key that is not listed', () => {
+		expect(answerDefinitionSchema.safeParse({ kind: 'string', fields: [{ schema: { kind: 'string' } }] }).success).toBe(false);
+		expect(answerDefinitionSchema.safeParse({ kind: 'string', fields: [{ name: 'a', schema: { kind: 'date' } }] }).success).toBe(false);
+		expect(answerDefinitionSchema.safeParse({ kind: 'string', fields: [{ name: 'a', schema: { kind: 'string' }, extra: 1 }] }).success).toBe(false);
 	});
 
 	it('rejects a kind the document does not list', () => {
@@ -147,5 +164,6 @@ describe('inputStateSchema', () => {
 
 	it('rejects a key the document does not list', () => {
 		expect(inputStateSchema.safeParse({ ...question, fields: [] }).success).toBe(false);
+		expect(inputStateSchema.safeParse({ ...question, hint: 'A hint' }).success).toBe(false);
 	});
 });

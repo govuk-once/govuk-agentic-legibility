@@ -8,8 +8,9 @@ import { durationOrRefSchema, stateRefSchema, variablePathSchema } from './primi
 
 	1. The document says the kind decides which keys of the answer definition apply. It is split by
 	   kind here, so a pattern can only sit on a string answer and options only on a choice answer.
-	2. The fields key is not modelled. The document never defines FieldDefinition and no example uses
-	   it, because each input state asks one question.
+	2. The fields key holds the parts of an answer that is made of several, each with a name and an answer
+	   definition of its own, as the published schema has it. No example uses it yet, because each input state
+	   asks one question, so nothing here reads it. It is kept as it was loaded.
 	3. normalise accepts lower_trim as well as upper_trim. The document lists only upper_trim, but
 	   the change of address example uses lower_trim for email addresses.
 	4. The document does not say which keys are required. A select answer needs options or
@@ -22,6 +23,19 @@ const commonAnswerFields = {
 	allow_skip: z.boolean().optional()
 };
 
+// One part of an answer that is made of several: its name, and the answer definition of that part. The definition
+// refers back to the full answer schema, so the getter delays that lookup until the schema has finished being built.
+const fieldDefinitionSchema = z.strictObject({
+	name: z.string().min(1),
+	get schema(): typeof answerDefinitionSchema {
+		return answerDefinitionSchema;
+	}
+});
+
+// The parts of an answer, which every kind of answer may have. It is a getter in each kind for the same reason.
+type AnswerFields = z.ZodOptional<z.ZodArray<typeof fieldDefinitionSchema>>;
+const answerFields = (): AnswerFields => z.array(fieldDefinitionSchema).optional();
+
 // One choice offered to the person. The value is stored and the label is shown.
 const optionItemSchema = z.strictObject({ value: z.string(), label: z.string() });
 
@@ -29,7 +43,10 @@ const optionItemSchema = z.strictObject({ value: z.string(), label: z.string() }
 const booleanAnswer = z.strictObject({
 	kind: z.literal('boolean'),
 	...commonAnswerFields,
-	default: z.boolean().optional()
+	default: z.boolean().optional(),
+	get fields(): AnswerFields {
+		return answerFields();
+	}
 });
 
 // A text answer, optionally checked against a pattern. The pattern is compiled here so that a
@@ -53,7 +70,10 @@ const stringAnswer = z.strictObject({
 		.optional(),
 	normalise: z.enum(['upper_trim', 'lower_trim']).optional(),
 	max_length: z.number().int().positive().optional(),
-	default: z.string().optional()
+	default: z.string().optional(),
+	get fields(): AnswerFields {
+		return answerFields();
+	}
 });
 
 // Choosing one or several options. The options are written out in full, or read at run time from a
@@ -66,7 +86,10 @@ const selectAnswer = z
 		options_from: variablePathSchema.optional(),
 		value_key: z.string().min(1).optional(),
 		label_key: z.string().min(1).optional(),
-		default: z.union([z.string(), z.array(z.string())]).optional()
+		default: z.union([z.string(), z.array(z.string())]).optional(),
+		get fields(): AnswerFields {
+			return answerFields();
+		}
 	})
 	.refine((answer) => (answer.options !== undefined) !== (answer.options_from !== undefined), {
 		message: 'Give either options or options_from, but not both and not neither'
@@ -78,7 +101,10 @@ const fileAnswer = z.strictObject({
 	...commonAnswerFields,
 	accept: z.array(z.string().min(1)).min(1).optional(),
 	max_bytes: z.number().int().positive().optional(),
-	declared_only: z.boolean().optional()
+	declared_only: z.boolean().optional(),
+	get fields(): AnswerFields {
+		return answerFields();
+	}
 });
 
 export const answerDefinitionSchema = z.discriminatedUnion('kind', [

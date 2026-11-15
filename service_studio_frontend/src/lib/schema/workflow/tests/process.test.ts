@@ -94,8 +94,15 @@ describe('processSchema', () => {
 		expect(processSchema.safeParse({ ...process, window: { start: 'soon', end: '2026-12-31' } }).success).toBe(false);
 	});
 
-	it('rejects parent_process, which the invoke state makes unnecessary', () => {
-		expect(processSchema.safeParse({ ...process, parent_process: null }).success).toBe(false);
+	it('accepts parent_process as the name of the calling process or as null, and keeps it as it was written', () => {
+		expect(processSchema.parse({ ...process, parent_process: null }).parent_process).toBeNull();
+		expect(processSchema.parse({ ...process, parent_process: 'main' }).parent_process).toBe('main');
+		expect('parent_process' in processSchema.parse(process)).toBe(false);
+	});
+
+	it('rejects a parent_process that is empty or is not text', () => {
+		expect(processSchema.safeParse({ ...process, parent_process: '' }).success).toBe(false);
+		expect(processSchema.safeParse({ ...process, parent_process: 3 }).success).toBe(false);
 	});
 });
 

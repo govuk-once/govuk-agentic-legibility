@@ -11,8 +11,9 @@ import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema }
 	in its own file and the workflow manifest lists them, so a process carries its own process_id and
 	version.
 
-	1. parent_process is not accepted. The document lists it, but a sub process is found from the
-	   invoke state that runs it, so the key would only repeat that and could disagree with it.
+	1. parent_process is accepted as the name of the calling process, or null for the entry process, as the
+	   document and the published schema have it. Nothing here reads it, because a sub process is found from the
+	   invoke state that runs it. It is kept as it was loaded.
 	2. vars is required because every example process has it, even though the document does not say.
 	   A process with no variables writes an empty object.
 	3. The document says window is a map holding a start and an end date, but names no keys. The keys
@@ -69,6 +70,7 @@ export const processSchema = z.strictObject({
 	vars: z.record(variablePathSchema, z.json()),
 	states: statesSchema,
 	performer: z.string().min(1).optional(),
+	parent_process: z.string().min(1).nullable().optional(),
 	source: z.array(z.url()).optional(),
 	window: windowSchema.nullable().optional()
 });
