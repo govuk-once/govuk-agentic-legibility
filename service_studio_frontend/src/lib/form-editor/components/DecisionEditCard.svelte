@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { describeCondition } from '$lib/process-graph/describe-value';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
-	import { answerChoices, answerOfCondition, conditionForAnswer } from '$lib/schema/workflow/choice-answers';
-	import { descriptionOf, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
-	import { isUndecidedRule } from '$lib/schema/workflow/placeholders';
+	import { descriptionOf, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import { decisionRowLabels } from '../decision-rows';
 
 	// The question a decision follows, with the number and title it has on the graph.
 	type QuestionBefore = { question: Extract<WorkingState, { state_type: 'input' }>; number: number; title: string };
@@ -17,7 +15,7 @@
 		title: string;
 		// The question the decision follows. There is none when a message leads to it, or more than one step does.
 		before: QuestionBefore | undefined;
-		// Every other state a way on could lead to, named for the list of choices.
+		// Every other state a way out could lead to, named for the list of choices.
 		targets: TargetOption[];
 		// Called with the changed decision when the person applies.
 		onApply: (updated: WorkingState) => void;
@@ -31,43 +29,23 @@
 	// Makes the id of each field unique, so the labels stay correct if two cards are ever on the page.
 	const fieldId = $props.id();
 
-	// The value in the list of answers that stands for no answer chosen yet. An answer's own value is never empty.
-	const notDecided = '';
-
-	// The answers the question offers. A question answered by typing offers none, and so does a decision that
-	// follows no question.
-	const choices = $derived(before ? answerChoices(before.question) : []);
-
-	/**
-	 * Tells whether the answer of a rule can be chosen from the list. It can when the question offers answers and
-	 * the rule is either still to be decided or already for one of them. Any other rule is shown as it is written.
-	 */
-	function isPickable(index: number): boolean {
-		const condition = currentState.rules[index].when;
-		if (!before || choices.length === 0) return false;
-		return isUndecidedRule(condition) || answerOfCondition(before.question, condition) !== undefined;
-	}
+	// The words beside each way out of the decision, one for each rule and then one for the way taken when no rule
+	// matches. They name the answer that leads that way, and cannot be changed here.
+	const rowLabels = $derived(decisionRowLabels(currentState, before?.question));
 
 	// What the person is choosing. It is held here, and not in the form being edited, until they choose Apply changes.
-	// The card is shown afresh for each decision, so it only needs the values the decision had when it opened.
+	// The card is shown afresh for each decision, so it only needs the values the decision had when it opened. The
+	// states the ways out lead to are held in the order of the labels, so the last is the one taken when no rule matches.
 	let draftTitle = $state(untrack(() => currentState.name ?? ''));
-	let draftAnswers = $state(
-		untrack(() => currentState.rules.map((rule) => (before ? answerOfCondition(before.question, rule.when) : undefined) ?? notDecided))
-	);
-	let draftTargets = $state(untrack(() => currentState.rules.map((rule) => rule.next)));
-	let draftDefault = $state(untrack(() => currentState.default));
+	let draftTargets = $state(untrack(() => [...currentState.rules.map((rule) => rule.next), currentState.default]));
 
 	/**
-	 * Builds the changed decision from what was chosen and hands it over. A rule whose answer was chosen is written
-	 * for that answer. A rule left as not decided, or one that cannot be chosen here, keeps the test it had.
+	 * Builds the changed decision from what was chosen and hands it over. Only where each way out leads and the
+	 * title are changed. The test of every rule is kept as it was.
 	 */
 	function applyChanges() {
-		const rules = currentState.rules.map((rule, index) => {
-			const chosen = before && isPickable(index) ? conditionForAnswer(before.question, draftAnswers[index]) : undefined;
-			return { when: chosen ?? rule.when, next: draftTargets[index] };
-		});
-		const titled = withTitleAndDescription({ ...currentState, rules, default: draftDefault }, draftTitle, descriptionOf(currentState));
-		onApply(titled);
+		const routed = withChoiceTargets(currentState, draftTargets.slice(0, -1), draftTargets[draftTargets.length - 1]);
+		onApply(withTitleAndDescription(routed, draftTitle, descriptionOf(currentState)));
 	}
 </script>
 
@@ -95,46 +73,18 @@
 			<input class="govuk-input" id="{fieldId}-title" name="title" type="text" bind:value={draftTitle} />
 		</div>
 
-		{#each currentState.rules as rule, index (index)}
-			<div class="decision-edit-card__way">
-				{#if isPickable(index)}
-					<div class="govuk-form-group decision-edit-card__form-group">
-						<label class="govuk-label govuk-label--s" for="{fieldId}-answer-{index}">If the answer is</label>
-						<select class="govuk-select" id="{fieldId}-answer-{index}" name="answer-{index}" bind:value={draftAnswers[index]}>
-							<option value={notDecided}>Not decided yet</option>
-							{#each choices as choice (choice.value)}
-								<option value={choice.value}>{choice.label}</option>
-							{/each}
-						</select>
-					</div>
-				{:else}
-					<!-- A rule that is not about one of the question's answers is shown in words and is not changed here. -->
-					<p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">
-						{isUndecidedRule(rule.when) ? 'Not decided yet' : `If ${describeCondition(rule.when)}`}
-					</p>
-				{/if}
-
-				<div class="govuk-form-group decision-edit-card__form-group">
-					<label class="govuk-label govuk-label--s" for="{fieldId}-target-{index}">Go to</label>
-					<select class="govuk-select" id="{fieldId}-target-{index}" name="target-{index}" bind:value={draftTargets[index]}>
-						{#each targets as target (target.stateId)}
-							<option value={target.stateId}>{target.label}</option>
-						{/each}
-					</select>
-				</div>
-			</div>
-		{/each}
-
-		<div class="decision-edit-card__way">
-			<div class="govuk-form-group decision-edit-card__form-group">
-				<label class="govuk-label govuk-label--s" for="{fieldId}-default">Otherwise, go to</label>
-				<select class="govuk-select" id="{fieldId}-default" name="default" bind:value={draftDefault}>
+		<!-- One row for every way out of the decision: the answer that leads that way, and the state it leads to. -->
+		{#each rowLabels as label, index (index)}
+			<div class="govuk-form-group decision-edit-card__form-group decision-edit-card__way">
+				<p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">{label}</p>
+				<label class="govuk-label" for="{fieldId}-target-{index}">Go to</label>
+				<select class="govuk-select" id="{fieldId}-target-{index}" name="target-{index}" bind:value={draftTargets[index]}>
 					{#each targets as target (target.stateId)}
 						<option value={target.stateId}>{target.label}</option>
 					{/each}
 				</select>
 			</div>
-		</div>
+		{/each}
 
 		<div class="decision-edit-card__actions">
 			<button class="govuk-button decision-edit-card__apply" type="submit">Apply changes</button>
@@ -193,12 +143,8 @@
 		width: 100%;
 	}
 
-	/* Each way on is set apart from the one before it, so it is clear which answer goes with which step. */
+	/* Each way out is set apart from the one before it, so it is clear which answer goes with which state. */
 	.decision-edit-card__way {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-		min-width: 0;
 		padding-top: 15px;
 		border-top: 1px solid #b1b4b6;
 	}

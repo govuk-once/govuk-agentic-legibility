@@ -57,14 +57,14 @@ describe('answerChoices', () => {
 		]);
 	});
 
-	it('offers the options of a choose one question', () => {
+	it('offers the options of a question where the person chooses one or several', () => {
 		expect(answerChoices(chooseOne).map((choice) => choice.label)).toEqual(['By post', 'Online']);
+		expect(answerChoices(question({ kind: 'select_many', options: [{ value: 'a', label: 'A' }] }))).toEqual([{ value: 'a', label: 'A' }]);
 	});
 
-	it('offers nothing for a question answered by typing, by a file, by choosing several, or with options read at run time', () => {
+	it('offers nothing for a question answered by typing, by a file, or with options read at run time', () => {
 		expect(answerChoices(question({ kind: 'string' }))).toEqual([]);
 		expect(answerChoices(question({ kind: 'file_ref' }))).toEqual([]);
-		expect(answerChoices(question({ kind: 'select_many', options: [{ value: 'a', label: 'A' }] }))).toEqual([]);
 		expect(answerChoices(question({ kind: 'select_one', options_from: 'list' }))).toEqual([]);
 	});
 });
@@ -119,19 +119,11 @@ describe('the decisions in the form examples', () => {
 		for (const each of rules) expect(each.before, `${each.slug}: ${each.code}`).toBeDefined();
 	});
 
-	it('are read as an answer of that question, and written back exactly, when it is yes or no or choose one', () => {
-		const offered = rules.filter((each) => answerChoices(each.before!.question).length > 0);
-		expect(offered).toHaveLength(43);
-
-		for (const each of offered) {
+	it('are each read as an answer of that question, and written back exactly', () => {
+		for (const each of rules) {
 			const answer = answerOfCondition(each.before!.question, each.when);
 			expect(answer, `${each.slug}: ${each.code}`).toBeDefined();
 			expect(conditionForAnswer(each.before!.question, answer!)).toEqual(each.when);
 		}
-	});
-
-	it('leave one rule that is not offered, which follows a choose several question', () => {
-		const notOffered = rules.filter((each) => answerChoices(each.before!.question).length === 0);
-		expect(notOffered.map((each) => each.before!.question.schema.kind)).toEqual(['select_many']);
 	});
 });

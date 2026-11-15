@@ -10,10 +10,10 @@ import type { WorkingProcess, WorkingState } from './working-process';
 
 	1. A decision follows a question when one route leads into it and that route is the next of an input state. A
 	   decision that something else leads to, or that several states lead to, follows no single question.
-	2. Only a question with a fixed list of answers can be offered: yes or no, and choose one. A question that is
-	   answered by typing has no list of answers, so nothing is offered for it.
+	2. Only a question with a fixed list of answers has answers to name: yes or no, choose one and choose several.
+	   A question that is answered by typing has no list of answers, so it has none.
 	3. Yes is written as is_true on the variable the answer is saved in, no as is_false, and an option as eq with
-	   the value of the option.
+	   the value of the option, which is how the form files write them.
 */
 
 // One answer a person can give to a question: the value it is told apart by, and the words shown for it.
@@ -43,14 +43,14 @@ export function questionBefore(process: WorkingProcess, choiceCode: string): { c
 }
 
 /**
- * Lists the answers a question offers, for a list of choices. A yes or no question offers yes and no. A choose
- * one question offers its options, when they are written out in the question. Every other kind of question
- * offers none, because its answer is not one of a fixed list.
+ * Lists the answers a question offers. A yes or no question offers yes and no. A question where the person
+ * chooses one or several offers its options, when they are written out in the question. Every other kind of
+ * question offers none, because its answer is not one of a fixed list.
  */
 export function answerChoices(question: Pick<InputState, 'schema'>): AnswerChoice[] {
 	const { schema } = question;
 	if (schema.kind === 'boolean') return yesOrNoChoices;
-	if (schema.kind === 'select_one') return schema.options ?? [];
+	if (schema.kind === 'select_one' || schema.kind === 'select_many') return schema.options ?? [];
 	return [];
 }
 
