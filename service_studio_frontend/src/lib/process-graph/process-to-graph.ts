@@ -269,7 +269,8 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 		}
 	}
 
-	if (process.start in process.states) {
+	// The start dot has no line while the process has no start, or names a start that is not there.
+	if (process.start !== undefined && process.start in process.states) {
 		edges.push({ id: `${startNodeId}:start`, source: startNodeId, target: process.start, data: { kind: 'start' } });
 	}
 

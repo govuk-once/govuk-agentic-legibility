@@ -21,7 +21,8 @@ import { isErrorKind, routesOf, type Route } from './routes';
 export function reachableInOrder(process: WorkingProcess, followRoute: (route: Route) => boolean = () => true): string[] {
 	const order: string[] = [];
 	const seen = new Set<string>();
-	const queue = [process.start];
+	// A process that has no start yet has nothing to follow, so nothing is reached.
+	const queue = process.start === undefined ? [] : [process.start];
 
 	while (queue.length) {
 		const name = queue.shift()!;

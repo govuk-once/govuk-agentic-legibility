@@ -16,7 +16,7 @@ import { routesOf } from './routes';
 	2. A step that only continues to an end counts as a step that ends the journey. A new line from it
 	   replaces that end, because the end only showed where the step finished and the step now continues elsewhere.
 	3. A decision gets a new way on as a new rule placed before its default, which stays the way it took when
-	   no rule matches.
+	   no rule matches. A decision with a way on that leads nowhere yet gives the line to that way on instead.
 	4. Nothing here checks the result. The whole journey is checked once, before it is passed on.
 */
 
@@ -45,8 +45,27 @@ export function routeToTargets(process: WorkingProcess, targets: string[]): { pr
 	return { process: added.process, entry: added.code };
 }
 
+// A decision as the editor holds it, where a way out may lead nowhere yet.
+type WorkingChoice = Extract<WorkingState, { state_type: 'choice' }>;
+
 /**
- * Draws a line from one state to another. A decision takes it as a new rule before its default. A step that
+ * Returns a copy of a decision with one more state to lead to. A way out that leads nowhere yet is used first,
+ * the rules in order and then the default, so a way out that lost its state takes the new line and keeps its
+ * rule. When every way out leads somewhere, the state is added as a new rule placed before the default.
+ */
+function withWayOut(choice: WorkingChoice, target: string): WorkingChoice {
+	const emptyRule = choice.rules.findIndex((rule) => rule.next === undefined);
+	if (emptyRule >= 0) {
+		return { ...choice, rules: choice.rules.map((rule, index) => (index === emptyRule ? { ...rule, next: target } : rule)) };
+	}
+	if (choice.default === undefined) return { ...choice, default: target };
+
+	return { ...choice, rules: [...choice.rules, { when: { ...undecidedRule }, next: target }] };
+}
+
+/**
+ * Draws a line from one state to another. A decision takes it as a way out, which is a new rule before its
+ * default unless one of its ways out leads nowhere yet. A step that
  * only ends the journey is given the new state in place of its end, and any other step is given a decision
  * with its old route and the new one. The result says why when the line cannot be drawn, in words a person
  * can read, so a graph can use the same answer to refuse a line while it is being dragged.
@@ -64,10 +83,8 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 		return { ok: false, reason: 'There is already a line between those two.' };
 	}
 
-	// A decision takes the new way on as a rule placed before its default.
 	if (source.state_type === 'choice') {
-		const rules = [...source.rules, { when: { ...undecidedRule }, next: targetCode }];
-		return { ok: true, process: replaceState(process, sourceCode, { ...source, rules }) };
+		return { ok: true, process: replaceState(process, sourceCode, withWayOut(source, targetCode)) };
 	}
 	if (!hasNext(source)) return { ok: false, reason: 'That step cannot start a line.' };
 
@@ -89,8 +106,8 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 
 /**
  * Ends the journey at a step by pointing it at a new end state in place of wherever it went before. Whatever
- * only the old route led to is taken out. A decision cannot be ended as a whole, so it is given the end as a
- * new way on instead.
+ * the step used to continue to is left where it is, with one less line leading to it. A decision cannot be ended
+ * as a whole, so it is given the end as a new way on instead.
  */
 export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditResult {
 	const source = process.states[sourceCode];
@@ -110,9 +127,7 @@ export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditR
 		return { ok: false, reason: 'The journey already ends there.' };
 	}
 
-	// A step with nothing after it has no old route to clear, so there is nothing to check for being left alone.
-	const ended = replaceState(added.process, sourceCode, { ...source, next: added.code });
-	return { ok: true, process: removeUnreachableStates(ended, oldNext === undefined ? [] : [oldNext]), code: added.code };
+	return { ok: true, process: replaceState(added.process, sourceCode, { ...source, next: added.code }), code: added.code };
 }
 
 // The kinds of step a person can add to a journey: a question, which is an input, or a message, which is an output.
@@ -151,8 +166,19 @@ export function addLooseStep(process: WorkingProcess, kind: NewStepKind): { proc
  */
 export function addStepBeforeStart(process: WorkingProcess, kind: NewStepKind): EditResult {
 	const code = uniqueStateCode(process, newStepCode);
-	const added = addState(process, code, { ...newStepOfKind[kind](code), next: process.start });
+	// A process with no start yet has nothing for the new step to continue to, so it is left with nothing after it.
+	const step = newStepOfKind[kind](code);
+	const added = addState(process, code, process.start === undefined ? step : { ...step, next: process.start });
 	return { ok: true, process: setStart(added.process, added.code), code: added.code };
+}
+
+/**
+ * Tells whether the journey can be ended at a state, so an editor only offers the action where it would do
+ * something. A step can be ended when it continues to a state that is not already an end, or to nothing yet.
+ */
+export function canEndJourneyAt(process: WorkingProcess, code: string): boolean {
+	const state = process.states[code];
+	return state !== undefined && hasNext(state) && (state.next === undefined || process.states[state.next]?.state_type !== 'end');
 }
 
 /**
@@ -168,8 +194,7 @@ export function addBranch(process: WorkingProcess, sourceCode: string, targets: 
 	if (source.state_type === 'choice') {
 		const existing = new Set(routesOf(source).map((route) => route.target));
 		const added = targets.filter((target) => !existing.has(target));
-		const rules = [...source.rules, ...added.map((next) => ({ when: { ...undecidedRule }, next }))];
-		return { ok: true, process: replaceState(process, sourceCode, { ...source, rules }), code: sourceCode };
+		return { ok: true, process: replaceState(process, sourceCode, added.reduce(withWayOut, source)), code: sourceCode };
 	}
 	if (!hasNext(source)) return { ok: false, reason: 'That step cannot branch.' };
 

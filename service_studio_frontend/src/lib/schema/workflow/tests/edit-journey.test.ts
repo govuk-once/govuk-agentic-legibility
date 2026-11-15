@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { addBranch, addLooseStep, applyStateEdit, addStepBeforeStart, drawLine, endJourneyAt, isNewStepKind, routeToTargets } from '../edit-journey';
+import {
+	addBranch,
+	addLooseStep,
+	applyStateEdit,
+	addStepBeforeStart,
+	canEndJourneyAt,
+	drawLine,
+	endJourneyAt,
+	isNewStepKind,
+	routeToTargets
+} from '../edit-journey';
 import { reachableInOrder } from '../journey-order';
 import { isUndecidedRule, placeholderMessage, placeholderQuestion } from '../placeholders';
 import { processSchema, type Process } from '../process';
@@ -92,12 +102,13 @@ describe('drawLine', () => {
 });
 
 describe('endJourneyAt', () => {
-	it('points a step at a new end and takes out what only its old route led to', () => {
+	it('points a step at a new end and leaves what it used to continue to where it is', () => {
 		const result = ok(endJourneyAt(line(), 'a'));
 		const a = result.process.states.a;
 		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
 		expect(result.process.states[a.next]).toMatchObject({ state_type: 'end', status: 'success' });
-		expect(result.process.states.b).toBeUndefined();
+		// Only the end is added. The step it led to before stays, with nothing leading to it.
+		expect(Object.keys(result.process.states).sort()).toEqual(['a', 'b', 'c', 'end', a.next].sort());
 		expect(processSchema.safeParse(result.process).success).toBe(true);
 	});
 
@@ -111,6 +122,45 @@ describe('endJourneyAt', () => {
 		const process = build('a', { a: wait('stop'), stop: finish });
 		expect(endJourneyAt(process, 'a').ok).toBe(false);
 		expect(endJourneyAt(process, 'stop').ok).toBe(false);
+	});
+});
+
+describe('canEndJourneyAt', () => {
+	it('is true for a step that continues to another step, or to nothing yet', () => {
+		expect(canEndJourneyAt(line(), 'a')).toBe(true);
+		expect(canEndJourneyAt(build('a', { a: { state_type: 'wait', duration: 'PT1S' } }), 'a')).toBe(true);
+	});
+
+	it('is false for a step that already continues to an end, a decision, an end and a state that is not there', () => {
+		const process = build('a', { a: wait('d'), d: { state_type: 'choice', rules: [rule('b')], default: 'b' }, b: wait('end'), end: finish });
+		for (const code of ['b', 'd', 'end', 'missing']) expect(canEndJourneyAt(process, code), code).toBe(false);
+	});
+});
+
+describe('a line drawn from a decision with a way out that leads nowhere', () => {
+	const test = { when: { op: 'is_true', path: 'x' } };
+
+	it('is given to the first rule that leads nowhere, which keeps its test', () => {
+		const process = build('d', { d: { state_type: 'choice', rules: [test, rule('a')], default: 'a' }, a: finish, b: finish });
+		const result = ok(drawLine(process, 'd', 'b'));
+		expect(result.process.states.d).toEqual({ state_type: 'choice', rules: [{ ...test, next: 'b' }, rule('a')], default: 'a' });
+	});
+
+	it('is given to the default when every rule leads somewhere and the default does not', () => {
+		const process = build('d', { d: { state_type: 'choice', rules: [rule('a')] }, a: finish, b: finish });
+		const result = ok(drawLine(process, 'd', 'b'));
+		expect(result.process.states.d).toEqual({ state_type: 'choice', rules: [rule('a')], default: 'b' });
+		expect(processSchema.safeParse(result.process).success).toBe(true);
+	});
+
+	it('fills the ways out that lead nowhere before a branch adds new rules', () => {
+		const process = build('d', { d: { state_type: 'choice', rules: [test] }, a: finish, b: finish, c: finish });
+		const result = ok(addBranch(process, 'd', ['a', 'b', 'c']));
+		const d = result.process.states.d;
+		if (d.state_type !== 'choice') throw new Error('d should still be a decision');
+		expect(d.rules.map((each) => each.next)).toEqual(['a', 'c']);
+		expect(d.default).toBe('b');
+		expect(isUndecidedRule(d.rules[1].when)).toBe(true);
 	});
 });
 
@@ -191,6 +241,13 @@ describe('addStepBeforeStart', () => {
 		expect(reachableInOrder(result.process)).toEqual([result.code, 'a', 'b', 'end']);
 		expect(processSchema.safeParse(result.process).success).toBe(true);
 	});
+
+	it('adds a step with nothing after it as the start of a process that has no start', () => {
+		const { start: _taken, ...noStart } = line();
+		const result = ok(addStepBeforeStart(noStart, 'output'));
+		expect(result.process.start).toBe(result.code);
+		expect(result.process.states[result.code!]).not.toHaveProperty('next');
+	});
 });
 
 describe('addBranch', () => {
@@ -266,7 +323,8 @@ describe('applyStateEdit', () => {
 		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should continue to its new end');
 		expect(a.name).toBe('Pause');
 		expect(fromMiddle.states[a.next]).toMatchObject({ state_type: 'end' });
-		expect(fromMiddle.states.b).toBeUndefined();
+		// The step it led to before is left where it is.
+		expect(fromMiddle.states.b).toBeDefined();
 	});
 
 	it('takes out an end that only this state led to when it now continues somewhere else', () => {

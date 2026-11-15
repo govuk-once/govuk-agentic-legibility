@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
-	import { descriptionOf, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
+	import { descriptionOf, nothingYet, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
 	import { decisionRowLabels } from '../decision-rows';
 
@@ -20,8 +21,7 @@
 		// Called with the changed decision when the person applies.
 		onApply: (updated: WorkingState) => void;
 		onCancel: () => void;
-		// Removing is drawn on every card. A page that cannot do it yet gives no call for it, and choosing it does nothing.
-		onRemove?: () => void;
+		onRemove: () => void;
 	}
 
 	let { currentState, title, before, targets, onApply, onCancel, onRemove }: Props = $props();
@@ -36,8 +36,14 @@
 	// What the person is choosing. It is held here, and not in the form being edited, until they choose Apply changes.
 	// The card is shown afresh for each decision, so it only needs the values the decision had when it opened. The
 	// states the ways out lead to are held in the order of the labels, so the last is the one taken when no rule matches.
+	// A way out that leads nowhere yet is held as nothing yet.
 	let draftTitle = $state(untrack(() => currentState.name ?? ''));
-	let draftTargets = $state(untrack(() => [...currentState.rules.map((rule) => rule.next), currentState.default]));
+	let draftTargets = $state(
+		untrack(() => [...currentState.rules.map((rule) => rule.next ?? nothingYet), currentState.default ?? nothingYet])
+	);
+
+	// Removing asks first, in place of the buttons, so one stray click does not lose a decision.
+	let confirmingRemoval = $state(false);
 
 	/**
 	 * Builds the changed decision from what was chosen and hands it over. Only where each way out leads and the
@@ -79,6 +85,7 @@
 				<p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">{label}</p>
 				<label class="govuk-label" for="{fieldId}-target-{index}">Go to</label>
 				<select class="govuk-select" id="{fieldId}-target-{index}" name="target-{index}" bind:value={draftTargets[index]}>
+					<option value={nothingYet}>Nothing yet</option>
 					{#each targets as target (target.stateId)}
 						<option value={target.stateId}>{target.label}</option>
 					{/each}
@@ -86,17 +93,23 @@
 			</div>
 		{/each}
 
-		<div class="decision-edit-card__actions">
-			<button class="govuk-button decision-edit-card__apply" type="submit">Apply changes</button>
-			<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={onCancel}>Cancel</button>
-			<button
-				type="button"
-				class="govuk-link govuk-body-s govuk-!-margin-bottom-0 decision-edit-card__remove"
-				onclick={() => onRemove?.()}
-			>
-				Remove decision
-			</button>
-		</div>
+		{#if confirmingRemoval}
+			<div class="decision-edit-card__confirm">
+				<RemoveStepConfirm noun="decision" {onRemove} onCancel={() => (confirmingRemoval = false)} />
+			</div>
+		{:else}
+			<div class="decision-edit-card__actions">
+				<button class="govuk-button decision-edit-card__apply" type="submit">Apply changes</button>
+				<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={onCancel}>Cancel</button>
+				<button
+					type="button"
+					class="govuk-link govuk-body-s govuk-!-margin-bottom-0 decision-edit-card__remove"
+					onclick={() => (confirmingRemoval = true)}
+				>
+					Remove decision
+				</button>
+			</div>
+		{/if}
 	</form>
 </div>
 
@@ -153,6 +166,11 @@
 		display: flex;
 		align-items: center;
 		gap: 20px;
+	}
+
+	/* The buttons, or the question that takes their place, are set apart from the ways out above them. */
+	.decision-edit-card__actions,
+	.decision-edit-card__confirm {
 		padding-top: 15px;
 		border-top: 1px solid #b1b4b6;
 	}

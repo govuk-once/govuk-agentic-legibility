@@ -190,6 +190,18 @@ describe('processToGraph edges', () => {
 		const noStart = processToGraph(build('nowhere', { a: finish }));
 		expect(noStart.edges).toEqual([]);
 	});
+
+	it('keeps the start dot, with no line, for a process that has no start yet', () => {
+		const { start: _taken, ...unstarted } = build('a', { a: finish });
+		const graph = processToGraph(unstarted);
+		expect(graph.nodes.map((node) => node.id)).toEqual([startNodeId, 'a']);
+		expect(graph.edges).toEqual([]);
+	});
+
+	it('draws no line for a way out of a decision that leads nowhere', () => {
+		const graph = processToGraph(build('d', { d: { state_type: 'choice', rules: [{ when: isTrue }], default: 'a' }, a: finish }));
+		expect(graph.edges.map((edge) => edge.id)).toEqual([`${startNodeId}:start`, 'd:default']);
+	});
 });
 
 describe('isErrorRoute', () => {

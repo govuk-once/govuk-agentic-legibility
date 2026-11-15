@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { assignBefore } from '../edit-process';
 import { reachableInOrder } from '../journey-order';
 import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '../move-state';
 import { processSchema, type Process } from '../process';
@@ -60,7 +61,7 @@ describe('moveLater', () => {
 		expect(moveLater(process, 'a')).toBe(process);
 	});
 
-	it('does not move a step past a point where two paths join', () => {
+	it('moves a step past a point where two paths join, and the other path still leads to the step it led to', () => {
 		const process = build('split', {
 			split: { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'x' }, next: 'a' }], default: 'b' },
 			a: wait('b'),
@@ -68,15 +69,23 @@ describe('moveLater', () => {
 			c: wait('end'),
 			end: finish
 		});
-		// b is reached from both a and the decision, so a cannot swap with it.
-		expect(canMoveLater(process, 'a')).toBe(false);
-		expect(canMoveEarlier(process, 'b')).toBe(false);
-		expect(canMoveLater(process, 'b')).toBe(true);
+		expect(canMoveLater(process, 'a')).toBe(true);
+		expect(canMoveEarlier(process, 'b')).toBe(true);
+
+		// b is reached from both a and the decision. After the swap the decision leads to b on both of its ways out.
+		const moved = moveLater(process, 'a');
+		expect(moved.states.split).toMatchObject({ rules: [{ next: 'b' }], default: 'b' });
+		expect(moved.states.b).toMatchObject({ next: 'a' });
+		expect(moved.states.a).toMatchObject({ next: 'c' });
+		expect(moveEarlier(process, 'b')).toEqual(moved);
 	});
 
-	it('does not move a step past the start of the process', () => {
+	it('moves a step past the step the process starts at, which stays the start', () => {
 		const process = build('b', { a: wait('b'), b: wait('end'), end: finish });
-		expect(canMoveLater(process, 'a')).toBe(false);
+		const moved = moveLater(process, 'a');
+		expect(moved.start).toBe('b');
+		expect(moved.states.b).toMatchObject({ next: 'a' });
+		expect(moved.states.a).toMatchObject({ next: 'end' });
 	});
 
 	it('does not swap two steps that continue to each other', () => {
@@ -126,9 +135,53 @@ describe('moving steps that have nothing after them', () => {
 		expect(moveLater(process, 'a')).toBe(process);
 	});
 
-	it('does not swap with a step that has no next', () => {
+	it('swaps with a step that has no next, which leaves the step that moved down with nothing after it', () => {
 		const process = build('a', { a: wait('b'), b: { state_type: 'wait', duration: 'PT1S' } });
-		expect(canMoveLater(process, 'a')).toBe(false);
-		expect(canMoveEarlier(process, 'b')).toBe(false);
+		const moved = moveLater(process, 'a');
+		expect(moved.start).toBe('b');
+		expect(moved.states.b).toMatchObject({ next: 'a' });
+		expect(moved.states.a).not.toHaveProperty('next');
+		expect(moveEarlier(process, 'b')).toEqual(moved);
+	});
+});
+
+describe('moving up when more than one step leads to a step', () => {
+	it('has no single step to swap with, so the step cannot move up', () => {
+		const process = build('a', { a: wait('c'), b: wait('c'), c: wait('end'), end: finish });
+		expect(canMoveEarlier(process, 'c')).toBe(false);
+		expect(moveEarlier(process, 'c')).toBe(process);
+	});
+});
+
+describe('moving with a state that travels in front of a step', () => {
+	const assign = (next: string) => ({ state_type: 'assign', set: { total: { literal: 1 } }, next });
+	// A journey where the answer to b is saved by an assign placed in front of c, as a form does.
+	const journey = () => build('a', { a: wait('b'), b: wait('save'), save: assign('c'), c: wait('d'), d: wait('end'), end: finish });
+
+	it('finds nothing in front of a step unless the editor names it', () => {
+		// Without the function the assign is a step like any other, so b swaps with it alone.
+		expect(reachableInOrder(moveLater(journey(), 'b'))).toEqual(['a', 'save', 'b', 'c', 'd', 'end']);
+	});
+
+	it('moves a step down past the assign and the step it travels in front of together', () => {
+		const moved = moveLater(journey(), 'b', assignBefore);
+		expect(reachableInOrder(moved)).toEqual(['a', 'save', 'c', 'b', 'd', 'end']);
+		expect(processSchema.safeParse(moved).success).toBe(true);
+	});
+
+	it('moves a step up with the assign in front of it, which gives the same journey', () => {
+		expect(canMoveEarlier(journey(), 'c', assignBefore)).toBe(true);
+		expect(moveEarlier(journey(), 'c', assignBefore)).toEqual(moveLater(journey(), 'b', assignBefore));
+	});
+
+	it('moves a step down with the assign in front of it, past the step after', () => {
+		const moved = moveLater(journey(), 'c', assignBefore);
+		expect(reachableInOrder(moved)).toEqual(['a', 'b', 'd', 'save', 'c', 'end']);
+		expect(moveEarlier(journey(), 'd', assignBefore)).toEqual(moved);
+	});
+
+	it('undoes a move of the two together', () => {
+		const there = moveLater(journey(), 'b', assignBefore);
+		expect(reachableInOrder(moveEarlier(there, 'b', assignBefore))).toEqual(reachableInOrder(journey()));
 	});
 });

@@ -258,9 +258,10 @@ export function parseWorkflow(input: unknown): WorkflowValidation {
 
 /**
  * Checks a workflow that is being edited, to decide whether it can be passed on for review. A person building a
- * journey can leave a step with nothing after it, and can leave pieces that are not joined to the start. Neither
- * is allowed in a saved workflow, so both are reported here, together with every problem the schema finds, so the
- * whole list can be shown at once. An empty list means the journey is ready. Other warnings, such as a process
+ * journey can leave a step with nothing after it, a decision with a way out that leads nowhere, a journey with no
+ * start, and pieces that are not joined to the start. None is allowed in a saved workflow, so all are reported
+ * here, together with every problem the schema finds, so the whole list can be shown at once. An empty list means
+ * the journey is ready. Other warnings, such as a process
  * that nothing runs, do not stop a journey being passed on, so they are not included.
  */
 export function checkBeforeProceeding(workflow: WorkingWorkflow): WorkflowIssue[] {
@@ -268,9 +269,26 @@ export function checkBeforeProceeding(workflow: WorkingWorkflow): WorkflowIssue[
 	const unjoined: WorkflowIssue[] = [];
 
 	for (const [key, process] of Object.entries(workflow.processes)) {
+		if (process.start === undefined) {
+			unfinished.push({ path: `processes.${key}.start`, message: 'Does not say which state the journey starts at' });
+		}
+
 		for (const [name, state] of Object.entries(process.states)) {
+			const statePath = `processes.${key}.states.${name}`;
 			if (hasNext(state) && state.next === undefined) {
-				unfinished.push({ path: `processes.${key}.states.${name}.next`, message: 'Does not say which state it continues to' });
+				unfinished.push({ path: `${statePath}.next`, message: 'Does not say which state it continues to' });
+			}
+
+			// A decision is unfinished for each of its ways out that leads nowhere.
+			if (state.state_type === 'choice') {
+				state.rules.forEach((rule, index) => {
+					if (rule.next === undefined) {
+						unfinished.push({ path: `${statePath}.rules.${index}.next`, message: 'Does not say which state this way out leads to' });
+					}
+				});
+				if (state.default === undefined) {
+					unfinished.push({ path: `${statePath}.default`, message: 'Does not say which state it leads to when no rule matches' });
+				}
 			}
 		}
 		for (const name of unreachableStates(process)) {
@@ -281,7 +299,7 @@ export function checkBeforeProceeding(workflow: WorkingWorkflow): WorkflowIssue[
 		}
 	}
 
-	// The schema words a missing next in its own way, so those are left out and the same thing is not said twice.
+	// The schema words a missing key in its own way, so those are left out and the same thing is not said twice.
 	const alreadyReported = new Set(unfinished.map((issue) => issue.path));
 	const result = parseWorkflow(workflow);
 	const fromSchema = result.ok ? [] : result.issues.filter((issue) => !alreadyReported.has(issue.path));

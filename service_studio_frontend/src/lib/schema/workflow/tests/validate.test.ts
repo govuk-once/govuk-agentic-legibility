@@ -375,6 +375,27 @@ describe('checkBeforeProceeding', () => {
 		]);
 	});
 
+	it('reports a journey with no start once, in plain words, with every state that nothing then leads to', () => {
+		const { start: _removed, ...noStart } = workflow.processes.section;
+		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, section: noStart } }));
+
+		expect(problems[0]).toEqual({ path: 'processes.section.start', message: 'Does not say which state the journey starts at' });
+		expect(problems.filter((problem) => problem.path === 'processes.section.start')).toHaveLength(1);
+		expect(problems.slice(1).every((problem) => problem.message.includes('Nothing leads to this state'))).toBe(true);
+	});
+
+	it('reports each way out of a decision that leads nowhere once, in plain words', () => {
+		const decide = { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'ok' } }] };
+		const section = { ...workflow.processes.section, start: 'decide', states: { decide, finish } };
+		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, section } }));
+
+		expect(problems).toEqual([
+			{ path: 'processes.section.states.decide.rules.0.next', message: 'Does not say which state this way out leads to' },
+			{ path: 'processes.section.states.decide.default', message: 'Does not say which state it leads to when no rule matches' },
+			{ path: 'processes.section.states.finish', message: expect.stringContaining('Nothing leads to this state') }
+		]);
+	});
+
 	it('reports a piece that is not joined to the start, even though the schema accepts it', () => {
 		const section = { ...workflow.processes.section, states: { ...workflow.processes.section.states, loose: finish } };
 		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, section } }));

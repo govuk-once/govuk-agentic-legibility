@@ -1,23 +1,21 @@
-import { removeUnreachableStates, redirectRoutes, routesInto } from './edit-process';
+import { routesInto } from './edit-process';
 import type { EditResult } from './edit-journey';
 import { hasNext, replaceState, withoutNext } from './edit-state';
 import type { WorkingProcess, WorkingState } from './working-process';
-import { routesOf } from './routes';
 
 /*
-	Taking steps and lines out of the journey when Delete is pressed.
+	Taking steps and lines out of the journey. Only what the person chose is taken out. Nothing is joined up or
+	pointed somewhere else for them, because a journey is allowed to be in pieces while it is being built, and the
+	pieces left over are reported when the journey is checked before it is passed on.
 
-	1. A step that loses the step it continued to is left with nothing after it. The person decides where it
-	   goes next, or gives it an end, so nothing is added for them.
-	2. A line into an end is taken out like any other line. The end goes too when nothing else leads to it,
-	   so deleting an end dot leaves the step before it with nothing after it.
-	3. A decision that loses a way on keeps the others. When only one is left the decision is not needed and
-	   whatever led to it leads straight to that one. When the default is lost, the last rule becomes it.
-	4. A route a state can do without, an answer that is not valid, a timeout or a named error, is simply taken
+	1. A step that loses the step it continued to is left with nothing after it.
+	2. A decision that loses the state one of its ways out led to keeps that way out, with its rule, leading
+	   nowhere. The decision stays however many of its ways out lead somewhere.
+	3. A route a state can do without, an answer that is not valid, a timeout or a named error, is simply taken
 	   out.
-	5. Taking a line out, or a decision, then checks what it led to. Anything nothing else leads to is taken
-	   out as well, and so on down the branch. Taking a step out does not, so what it led on to is left, and the
-	   panel tells the person that nothing leads to it.
+	4. Whatever the removed state or line led to is left where it is, with nothing leading to it.
+	5. Taking out the state the journey starts at leaves the journey with no start, so the start dot has no line
+	   until the person draws one.
 */
 
 // Everything one press of Delete removed from the process: states, and lines between states.
@@ -63,37 +61,32 @@ function withoutOptionalRoute(state: WorkingState, path: (string | number)[]): W
 }
 
 /**
+ * Returns a copy of a decision in which one way out leads nowhere. The way out is named by where it sits, a rule
+ * or the default. A rule keeps its test and its place, so the decision still knows which answer the way out is for.
+ */
+function withoutWayOut(choice: Extract<WorkingState, { state_type: 'choice' }>, path: (string | number)[]): WorkingState {
+	if (path[0] === 'default') {
+		const { default: _taken, ...rest } = choice;
+		return rest;
+	}
+
+	return {
+		...choice,
+		rules: choice.rules.map((rule, index) => {
+			if (index !== Number(path[1])) return rule;
+			const { next: _taken, ...test } = rule;
+			return test;
+		})
+	};
+}
+
+/**
  * Takes lines and states out of the process, and says why when nothing could
  * be taken out. The process that is given in is never changed.
  */
 export function deleteFromJourney(process: WorkingProcess, deleted: DeletedFromJourney): EditResult {
 	let current = process;
 	let changed = false;
-	// The states to check for being left on their own once everything is taken out.
-	const roots: string[] = [];
-
-	// Takes one way on out of a decision. The way is named by where it sits, a rule or the default.
-	function dropChoiceBranch(choiceCode: string, path: (string | number)[]) {
-		const choice = current.states[choiceCode];
-		if (choice?.state_type !== 'choice') return;
-
-		const branches = [...choice.rules.map((rule) => ({ target: rule.next, rule })), { target: choice.default, rule: undefined }];
-		const index = path[0] === 'default' ? branches.length - 1 : Number(path[1]);
-		const remaining = branches.filter((_, position) => position !== index);
-
-		// With one way on left, the decision is not needed, so whatever led to it leads straight there.
-		if (remaining.length === 1) {
-			const joined = redirectRoutes(current, choiceCode, remaining[0].target);
-			const { [choiceCode]: _gone, ...states } = joined.states;
-			current = { ...joined, states };
-			return;
-		}
-
-		// The last way on left is the default, so it loses its rule if it had one.
-		const last = remaining[remaining.length - 1];
-		const rules = remaining.slice(0, -1).flatMap((branch) => (branch.rule ? [branch.rule] : []));
-		current = replaceState(current, choiceCode, { ...choice, rules, default: last.target });
-	}
 
 	// Takes one line out. Returns whether anything was done, so a line that cannot be taken out is not counted.
 	function dropLine(sourceCode: string, path: (string | number)[]): boolean {
@@ -107,7 +100,10 @@ export function deleteFromJourney(process: WorkingProcess, deleted: DeletedFromJ
 			return true;
 		}
 		if (source.state_type === 'choice' && (path[0] === 'rules' || path[0] === 'default')) {
-			dropChoiceBranch(sourceCode, path);
+			// A way out that already leads nowhere has no line to take out.
+			const target = path[0] === 'default' ? source.default : source.rules[Number(path[1])]?.next;
+			if (target === undefined) return false;
+			current = replaceState(current, sourceCode, withoutWayOut(source, path));
 			return true;
 		}
 		if (isOptionalRoute(source, path)) {
@@ -117,40 +113,30 @@ export function deleteFromJourney(process: WorkingProcess, deleted: DeletedFromJ
 		return false;
 	}
 
-	// Takes a state out and sorts out everything that led to it.
+	// Takes a state out, with every line that led to it.
 	function dropState(code: string) {
-		const state = current.states[code];
-		if (!state) return;
+		if (!(code in current.states)) return;
 
-		// Where the journey carries on if this was the start. A decision carries on by its default.
-		const wayOn = hasNext(state) ? state.next : state.state_type === 'choice' ? state.default : undefined;
-		// Taking out a decision ends the step it came from, so the branches it led to are checked afterwards.
-		if (state.state_type === 'choice') roots.push(...routesOf(state).map((route) => route.target));
-
-		// Every route that led here is dealt with one at a time, because dealing with one can change the next.
+		// Every route that led here is taken out one at a time, until none is left or one cannot be taken out.
 		for (let guard = 0; guard < 100; guard += 1) {
 			const leadsHere = routesInto(current, code).find(({ source }) => source !== code);
 			if (!leadsHere || !dropLine(leadsHere.source, leadsHere.route.path)) break;
 		}
 
-		// The start moves on to what this state led to, or to the first state left when it led nowhere.
 		const { [code]: _gone, ...states } = current.states;
-		let start = current.start;
-		if (start === code) start = wayOn && wayOn !== code && wayOn in states ? wayOn : (Object.keys(states)[0] ?? code);
-		current = { ...current, start, states };
+		// The process is left with no start when the state it started at goes.
+		const { start, ...rest } = current;
+		current = start === code ? { ...rest, states } : { ...current, states };
 		changed = true;
 	}
 
 	for (const line of deleted.lines) {
-		if (dropLine(line.source, line.path)) {
-			changed = true;
-			roots.push(line.target);
-		}
+		if (dropLine(line.source, line.path)) changed = true;
 	}
 	for (const code of deleted.stateCodes) dropState(code);
 
 	if (!changed) {
 		return { ok: false, reason: 'There is nothing to take out there.' };
 	}
-	return { ok: true, process: removeUnreachableStates(current, roots) };
+	return { ok: true, process: current };
 }

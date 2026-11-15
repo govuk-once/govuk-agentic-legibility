@@ -125,6 +125,20 @@ describe('withRouteTarget', () => {
 	});
 });
 
+describe('routesOf for a decision with a way out that leads nowhere', () => {
+	it('leaves that way out without a route, and keeps the place of the rules after it', () => {
+		const choice = state({
+			state_type: 'choice',
+			rules: [{ when: { op: 'is_true', path: 'a' } }, { when: { op: 'is_true', path: 'b' }, next: 'second' }]
+		});
+		expect(routesOf(choice)).toEqual([{ target: 'second', path: ['rules', 1, 'next'], kind: 'rule' }]);
+	});
+
+	it('gives a decision no routes when none of its ways out leads anywhere', () => {
+		expect(routesOf(state({ state_type: 'choice', rules: [] }))).toEqual([]);
+	});
+});
+
 describe('routesOf for a step with no next yet', () => {
 	it.each(['output', 'assign', 'wait'])('gives a %s step no routes', (type) => {
 		expect(routesOf(state({ state_type: type }))).toEqual([]);

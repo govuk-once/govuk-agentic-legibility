@@ -15,8 +15,8 @@
 		canMoveUp: boolean;
 		canMoveDown: boolean;
 		onSelect: (stateId: string) => void;
-		// The edit, remove and move actions are drawn on every card, as they are in the old editor. A page that cannot
-		// do one yet gives no call for it, and choosing it does nothing.
+		// The edit, remove and move actions are drawn on every card. A page that cannot do one gives no call for it,
+		// and choosing it does nothing.
 		onEdit?: (stateId: string) => void;
 		onRemove?: (stateId: string) => void;
 		onMoveUp?: (stateId: string) => void;

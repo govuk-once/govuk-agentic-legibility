@@ -7,9 +7,8 @@
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
 	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
-	import { applyStateEdit, endJourneyAt } from '$lib/schema/workflow/edit-journey';
+	import { applyStateEdit, canEndJourneyAt, endJourneyAt } from '$lib/schema/workflow/edit-journey';
 	import { setStart } from '$lib/schema/workflow/edit-process';
-	import { hasNext } from '$lib/schema/workflow/edit-state';
 	import { reachableInOrder } from '$lib/schema/workflow/journey-order';
 	import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
@@ -114,12 +113,6 @@
 		else messages = [result.reason];
 	}
 
-	// Tells whether the journey can be ended at a state: it continues to a single next state that is not already an end, or it has not been joined to anything yet.
-	function canEndAt(code: string): boolean {
-		const state = process.states[code];
-		return state !== undefined && hasNext(state) && (state.next === undefined || process.states[state.next]?.state_type !== 'end');
-	}
-
 	// The title of a state in this process, or nothing when no state has that code. The panel uses it to
 	// name each state that a route leads to.
 	function titleOf(code: string): string | undefined {
@@ -181,7 +174,7 @@
 						canMoveDown={canMoveLater(process, code)}
 						onMove={(direction) => applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code))}
 						isStart={process.start === code}
-						canEnd={canEndAt(code)}
+						canEnd={canEndJourneyAt(process, code)}
 						onSetStart={() => applyChange(setStart(process, code))}
 						onEndJourney={() => handleEndJourney(code)}
 						onRemove={() => removeFromProcess({ stateCodes: [code], lines: [] })}

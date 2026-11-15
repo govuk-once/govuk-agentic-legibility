@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
 	import StateContext from '$lib/components/StateContext.svelte';
 	import type { ContextItem } from '$lib/components/context';
 	import StateReorderButtons from '$lib/process-graph/StateReorderButtons.svelte';
@@ -41,11 +42,11 @@
 		// step ends the journey, which needs a new end that only the owner of the process can add.
 		onApply: (updated: WorkingState, endsJourney: boolean) => void;
 		onCancel: () => void;
-		// The actions that change the shape of the journey are drawn on every card. A page that cannot do one yet
-		// gives no call for it, and choosing it does nothing.
+		// Makes this step the start of the journey, and ends the journey at this step. Each is only offered when the
+		// page gives a call for it, which it does when the action would change something.
 		onSetStart?: () => void;
 		onEndJourney?: () => void;
-		onRemove?: () => void;
+		onRemove: () => void;
 	}
 
 	let {
@@ -81,6 +82,9 @@
 	let draftDescription = $state(untrack(() => descriptionOf(currentState)));
 	let draftHint = $state(untrack(() => noteOf(currentState, hintKey)));
 	let draftNext = $state(untrack(() => currentState.next ?? nothingYet));
+
+	// Removing asks first, in place of the buttons, so one stray click does not lose a step.
+	let confirmingRemoval = $state(false);
 
 	/**
 	 * Builds the changed step from what was typed and hands it over. The hint is only put on a question. Closing
@@ -188,26 +192,36 @@
 
 		<!-- Moving the start of the journey, or ending it at this step, changes the shape of the whole journey rather
 			than this one step, so these sit apart from the fields above them. -->
-		<div class="state-edit-card__journey-actions">
-			<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={() => onSetStart?.()}>
-				Set as start step
-			</button>
-			<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={() => onEndJourney?.()}>
-				End the journey here
-			</button>
-		</div>
+		{#if onSetStart || onEndJourney}
+			<div class="state-edit-card__journey-actions">
+				{#if onSetStart}
+					<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={onSetStart}>
+						Set as start step
+					</button>
+				{/if}
+				{#if onEndJourney}
+					<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={onEndJourney}>
+						End the journey here
+					</button>
+				{/if}
+			</div>
+		{/if}
 
-		<div class="state-edit-card__actions">
-			<button class="govuk-button state-edit-card__apply" type="submit">Apply changes</button>
-			<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={onCancel}>Cancel</button>
-			<button
-				type="button"
-				class="govuk-link govuk-body-s govuk-!-margin-bottom-0 state-edit-card__remove"
-				onclick={() => onRemove?.()}
-			>
-				Remove step
-			</button>
-		</div>
+		{#if confirmingRemoval}
+			<RemoveStepConfirm noun="step" {onRemove} onCancel={() => (confirmingRemoval = false)} />
+		{:else}
+			<div class="state-edit-card__actions">
+				<button class="govuk-button state-edit-card__apply" type="submit">Apply changes</button>
+				<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0" onclick={onCancel}>Cancel</button>
+				<button
+					type="button"
+					class="govuk-link govuk-body-s govuk-!-margin-bottom-0 state-edit-card__remove"
+					onclick={() => (confirmingRemoval = true)}
+				>
+					Remove step
+				</button>
+			</div>
+		{/if}
 	</form>
 </div>
 

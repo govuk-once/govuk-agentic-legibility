@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redirectRoutes, routesInto } from '../edit-process';
+import { assignBefore, redirectRoutes, routesInto } from '../edit-process';
 import type { Process } from '../process';
 
 const finish = { state_type: 'end', status: 'success' };
@@ -24,6 +24,26 @@ describe('routesInto', () => {
 
 	it('gives an empty list for a state nothing leads to', () => {
 		expect(routesInto(branching, 'ask')).toEqual([]);
+	});
+});
+
+describe('assignBefore', () => {
+	const save = { state_type: 'assign', set: { total: { literal: 1 } }, next: 'ask' };
+	const process = build('first', {
+		first: { state_type: 'wait', duration: 'PT1S', next: 'save' },
+		save,
+		ask: { state_type: 'wait', duration: 'PT1S', next: 'done' },
+		done: finish
+	});
+
+	it('finds the assign that continues to a state', () => {
+		expect(assignBefore(process, 'ask')).toBe('save');
+	});
+
+	it('finds nothing when the state before is not an assign, or nothing leads to the state', () => {
+		expect(assignBefore(process, 'save')).toBeUndefined();
+		expect(assignBefore(process, 'done')).toBeUndefined();
+		expect(assignBefore(process, 'first')).toBeUndefined();
 	});
 });
 

@@ -210,6 +210,14 @@ describe('withChoiceTargets', () => {
 		expect(withChoiceTargets(choice, ['one'], 'fallback')).toMatchObject({ rules: [{ next: 'one' }, { next: 'second' }] });
 	});
 
+	it('leaves a way out leading nowhere when it is given nothing yet, and keeps its rule', () => {
+		const updated = withChoiceTargets(choice, [nothingYet, 'two'], nothingYet);
+		if (updated.state_type !== 'choice') throw new Error('expected a choice');
+		expect(updated.rules[0]).toEqual({ when: choice.state_type === 'choice' ? choice.rules[0].when : undefined });
+		expect(updated.rules[1]).toMatchObject({ next: 'two' });
+		expect(updated).not.toHaveProperty('default');
+	});
+
 	it('does not change the state it is given', () => {
 		const before = JSON.stringify(choice);
 		withChoiceTargets(choice, ['one', 'two'], 'other');

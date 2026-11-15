@@ -37,8 +37,8 @@ function nextRoute(next: string | undefined): Route[] {
 }
 
 /**
- * Lists every route out of a state, in the order they are written. An end state has none, and a step
- * that has not been joined to anything yet has no onward route. The switch covers each state type, so
+ * Lists every route out of a state, in the order they are written. An end state has none, a step that has
+ * not been joined to anything yet has no onward route, and a decision has none for a way out that leads nowhere yet. The switch covers each state type, so
  * adding a new type without handling it here fails to compile.
  */
 export function routesOf(state: WorkingState): Route[] {
@@ -47,10 +47,13 @@ export function routesOf(state: WorkingState): Route[] {
 			return [];
 
 		case 'choice':
-			// Rules are listed first, in the order they are tested, and the default comes last.
+			// Rules are listed first, in the order they are tested, and the default comes last. A way out that leads
+			// nowhere yet has no route, and the rules after it keep the place they have in the state.
 			return [
-				...state.rules.map((rule, index): Route => ({ target: rule.next, path: ['rules', index, 'next'], kind: 'rule' })),
-				{ target: state.default, path: ['default'], kind: 'default' }
+				...state.rules.flatMap((rule, index): Route[] =>
+					rule.next === undefined ? [] : [{ target: rule.next, path: ['rules', index, 'next'], kind: 'rule' }]
+				),
+				...(state.default === undefined ? [] : [{ target: state.default, path: ['default'], kind: 'default' } satisfies Route])
 			];
 
 		case 'input': {

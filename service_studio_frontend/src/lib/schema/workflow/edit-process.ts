@@ -25,6 +25,15 @@ export function routesInto(process: WorkingProcess, code: string): IncomingRoute
 }
 
 /**
+ * Finds the assign state that continues to a state, with its code, or nothing when there is none. A form saves
+ * an answer with an assign placed straight before the next question, so an editor that keeps the two together
+ * uses this to find it.
+ */
+export function assignBefore(process: WorkingProcess, code: string): string | undefined {
+	return routesInto(process, code).find(({ source, route }) => route.kind === 'next' && process.states[source].state_type === 'assign')?.source;
+}
+
+/**
  * Returns a copy of the process in which everything that led to one state leads to another instead. That
  * covers every kind of route and the start of the process, so a state can be taken out of the journey
  * without leaving anything pointing at it.

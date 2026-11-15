@@ -70,8 +70,8 @@
 	let draftNext = $state(untrack(() => (hasNext(currentState) ? (currentState.next ?? '') : '')));
 	// Where each rule of a choice leads, in the order of its rules, and where its default leads. A state that
 	// is not a choice has none, so these stay empty for it and are not used.
-	let draftRuleTargets = $state(untrack(() => (currentState.state_type === 'choice' ? currentState.rules.map((rule) => rule.next) : [])));
-	let draftDefault = $state(untrack(() => (currentState.state_type === 'choice' ? currentState.default : '')));
+	let draftRuleTargets = $state(untrack(() => (currentState.state_type === 'choice' ? currentState.rules.map((rule) => rule.next ?? nothingYet) : [])));
+	let draftDefault = $state(untrack(() => (currentState.state_type === 'choice' ? (currentState.default ?? nothingYet) : nothingYet)));
 
 	// The types offered. Invoke is only listed on a step that already is one, because nothing can be changed
 	// into it.
@@ -180,6 +180,7 @@
 			<div class="govuk-form-group">
 				<label class="govuk-label govuk-label--s" for="{fieldId}-rule-{index}">If {describeCondition(rule.when)}</label>
 				<select class="govuk-select state-editor__select" id="{fieldId}-rule-{index}" bind:value={draftRuleTargets[index]}>
+					<option value={nothingYet}>Nothing yet</option>
 					{#each nextChoices as target (target.stateId)}
 						<option value={target.stateId}>{target.label}</option>
 					{/each}
@@ -190,6 +191,7 @@
 		<div class="govuk-form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-default">Otherwise</label>
 			<select class="govuk-select state-editor__select" id="{fieldId}-default" bind:value={draftDefault}>
+				<option value={nothingYet}>Nothing yet</option>
 				{#each nextChoices as target (target.stateId)}
 					<option value={target.stateId}>{target.label}</option>
 				{/each}

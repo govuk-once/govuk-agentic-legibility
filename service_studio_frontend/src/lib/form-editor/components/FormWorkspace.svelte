@@ -8,8 +8,10 @@
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
 	import { questionBefore } from '$lib/schema/workflow/choice-answers';
-	import { applyStateEdit } from '$lib/schema/workflow/edit-journey';
-	import { descriptionOf } from '$lib/schema/workflow/edit-state';
+	import { applyStateEdit, canEndJourneyAt, endJourneyAt } from '$lib/schema/workflow/edit-journey';
+	import { assignBefore, setStart } from '$lib/schema/workflow/edit-process';
+	import { descriptionOf, hasNext } from '$lib/schema/workflow/edit-state';
+	import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 	import { formPaletteTools } from '../palette-tools';
@@ -103,6 +105,8 @@
 	// The state whose card is open, with the row it has in the list when it is a numbered step.
 	const openState = $derived(selection.open && selection.code ? process.states[selection.code] : undefined);
 	const openRowIndex = $derived(rows.findIndex((row) => row.stateId === selection.code));
+	// The row of the highlighted state, for the line under the heading of the list. A decision or an end has no row.
+	const selectedRow = $derived(rows[openRowIndex]);
 
 	// Why the last change could not be made, in words, shown over the canvas until it is dismissed. It is empty when
 	// there is nothing to say. The canvas shows it and can add to it, so the two share it.
@@ -117,15 +121,54 @@
 		onChangeProcess(updated);
 	}
 
+	/**
+	 * Lists a state to take out together with the assign that goes with it. A form saves an answer with an assign
+	 * placed straight before the next question or message. That assign is hidden with the developer states, so it is
+	 * taken out with its step and is not left behind where the person cannot see it.
+	 */
+	function withAttachedAssign(code: string): string[] {
+		const state = process.states[code];
+		const attached = state && isEditableInForm(state) && hasNext(state) ? assignBefore(process, code) : undefined;
+		return attached ? [attached, code] : [code];
+	}
+
 	// Takes states and lines out of the process, and drops the selection if the selected state went with them.
 	function removeFromProcess(deleted: Pick<DeletedElements, 'stateCodes' | 'lines'>) {
-		const result = deleteFromJourney(process, deleted);
+		const stateCodes = [...new Set(deleted.stateCodes.flatMap(withAttachedAssign))];
+		const result = deleteFromJourney(process, { stateCodes, lines: deleted.lines });
 		if (!result.ok) {
 			messages = [result.reason];
 			return;
 		}
 		applyChange(result.process);
 		if (selectedStateId && !(selectedStateId in result.process.states)) highlight(null);
+	}
+
+	// Takes one state out, which is what Remove on its card and the cross on its card in the list do.
+	function removeState(code: string) {
+		removeFromProcess({ stateCodes: [code], lines: [] });
+	}
+
+	// Makes a step the start of the journey and closes its card, because the card was opened before the change.
+	function makeStart(code: string) {
+		applyChange(setStart(process, code));
+		selection = { code, open: false };
+	}
+
+	// Ends the journey at a step and closes its card, because the card still holds where the step went before.
+	function endJourney(code: string) {
+		const result = endJourneyAt(process, code);
+		if (!result.ok) {
+			messages = [result.reason];
+			return;
+		}
+		applyChange(result.process);
+		selection = { code, open: false };
+	}
+
+	// Moves a step up or down the journey, taking with it the assign that saves an answer before it.
+	function moveStep(code: string, direction: 'up' | 'down') {
+		applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code, assignBefore));
 	}
 
 	// Applies the edit card of a step or a decision and closes it, leaving it highlighted. The end is made in the
@@ -178,6 +221,9 @@
 					onContextChange={(items) => onChangeStepContext(code, items)}
 					onApply={(updated, endsJourney) => applyEdit(code, updated, endsJourney)}
 					onCancel={() => (selection = { code, open: false })}
+					onSetStart={process.start === code ? undefined : () => makeStart(code)}
+					onEndJourney={canEndJourneyAt(process, code) ? () => endJourney(code) : undefined}
+					onRemove={() => removeState(code)}
 				/>
 			{/key}
 		{:else if openState && selection.code && openState.state_type === 'choice'}
@@ -191,6 +237,7 @@
 					targets={targets.filter((target) => target.stateId !== code)}
 					onApply={(updated) => applyEdit(code, updated)}
 					onCancel={() => (selection = { code, open: false })}
+					onRemove={() => removeState(code)}
 				/>
 			{/key}
 		{:else if openState && selection.code && !isEditableInForm(openState)}
@@ -207,11 +254,12 @@
 				<div class="form-workspace__list-header">
 					<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
 					<p class="govuk-body-s govuk-!-margin-bottom-0 form-workspace__list-hint">
-						{rows.length} steps · nothing selected
+						{rows.length}
+						{rows.length === 1 ? 'step' : 'steps'} · {selectedRow ? `step ${selectedRow.number} selected` : 'nothing selected'}
 					</p>
 				</div>
 
-				{#each rows as row, index (row.stateId)}
+				{#each rows as row (row.stateId)}
 					<StateCard
 						stateId={row.stateId}
 						number={row.number}
@@ -220,10 +268,13 @@
 						tagLabel={stateLabels[row.stateType]}
 						tagColour={stateTagColours[row.stateType]}
 						selected={row.stateId === selectedStateId}
-						canMoveUp={index > 0}
-						canMoveDown={index < rows.length - 1}
+						canMoveUp={canMoveEarlier(process, row.stateId, assignBefore)}
+						canMoveDown={canMoveLater(process, row.stateId, assignBefore)}
 						onSelect={highlight}
 						onEdit={openCard}
+						onRemove={removeState}
+						onMoveUp={(stateId) => moveStep(stateId, 'up')}
+						onMoveDown={(stateId) => moveStep(stateId, 'down')}
 					/>
 				{/each}
 			</div>

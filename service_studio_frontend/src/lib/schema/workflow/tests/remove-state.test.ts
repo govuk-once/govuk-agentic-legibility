@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { routesInto } from '../edit-process';
-import { removeUnreachableStates } from '../edit-process';
-import { processSchema, type Process } from '../process';
+import { removeUnreachableStates, routesInto } from '../edit-process';
+import type { Process } from '../process';
 import { routesOf } from '../routes';
 import { deleteFromJourney } from '../remove-state';
 
@@ -45,20 +44,21 @@ describe('deleteFromJourney taking out a step', () => {
 		expect(Object.keys(process.states).some((code) => process.states[code].state_type === 'end' && code !== 'end')).toBe(false);
 	});
 
-	it('moves the start on to what the removed first step led to', () => {
+	it('leaves the process with no start when the first step is removed, and moves it on to nothing', () => {
 		const process = ok(deleteFromJourney(line(), { stateCodes: ['a'], lines: [] }));
-		expect(process.start).toBe('b');
+		expect(process).not.toHaveProperty('start');
+		expect(Object.keys(process.states)).toEqual(['b', 'c', 'end']);
 	});
 
-	it('takes the way on out of a decision, and leaves the decision out when one way is left', () => {
+	it('keeps a decision that loses the state a rule led to, with the rule leading nowhere', () => {
 		const process = build('d', { d: { state_type: 'choice', rules: [rule('a')], default: 'b' }, a: finish, b: finish });
 		const result = ok(deleteFromJourney(process, { stateCodes: ['a'], lines: [] }));
-		// The decision has one way on left, so it goes and the start leads straight to the other.
-		expect(result.states.d).toBeUndefined();
-		expect(result.start).toBe('b');
+		// The decision stays with one way out left, and the rule keeps its test.
+		expect(result.states.d).toEqual({ state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'x' } }], default: 'b' });
+		expect(result.start).toBe('d');
 	});
 
-	it('keeps a decision with two ways on left, and makes the last rule the default when the default goes', () => {
+	it('keeps every rule when the state the default led to goes, and leaves the default leading nowhere', () => {
 		const process = build('d', {
 			d: { state_type: 'choice', rules: [rule('a'), rule('b', 'y')], default: 'c' },
 			a: finish,
@@ -66,7 +66,14 @@ describe('deleteFromJourney taking out a step', () => {
 			c: finish
 		});
 		const result = ok(deleteFromJourney(process, { stateCodes: ['c'], lines: [] }));
-		expect(result.states.d).toMatchObject({ state_type: 'choice', rules: [{ next: 'a' }], default: 'b' });
+		expect(result.states.d).toEqual({ state_type: 'choice', rules: [rule('a'), rule('b', 'y')] });
+	});
+
+	it('takes out every way into a state that one decision leads to more than once', () => {
+		const process = build('d', { d: { state_type: 'choice', rules: [rule('a'), rule('a', 'y')], default: 'a' }, a: finish });
+		const result = ok(deleteFromJourney(process, { stateCodes: ['a'], lines: [] }));
+		expect(routesOf(result.states.d)).toEqual([]);
+		expect(result.states.d).toMatchObject({ rules: [{ when: { path: 'x' } }, { when: { path: 'y' } }] });
 	});
 
 	it('takes out a named error route and an invalid answer route that led to it', () => {
@@ -79,7 +86,7 @@ describe('deleteFromJourney taking out a step', () => {
 		expect(result.states.a).not.toHaveProperty('catch');
 	});
 
-	it('takes out a decision and leaves the step before it with nothing after it, with its branches checked', () => {
+	it('takes out a decision and nothing else, so the step before it and its branches are left as loose pieces', () => {
 		const process = build('a', {
 			a: wait('d'),
 			d: { state_type: 'choice', rules: [rule('x')], default: 'y' },
@@ -89,9 +96,7 @@ describe('deleteFromJourney taking out a step', () => {
 		});
 		const result = ok(deleteFromJourney(process, { stateCodes: ['d'], lines: [] }));
 		expect(result.states.a).not.toHaveProperty('next');
-		// Nothing else led to the branches, so they go with the decision, as ending the journey did before.
-		expect(result.states.x).toBeUndefined();
-		expect(result.states.y).toBeUndefined();
+		expect(Object.keys(result.states)).toEqual(['a', 'x', 'y', 'end']);
 	});
 
 	it('does not change the process it was given', () => {
@@ -103,17 +108,16 @@ describe('deleteFromJourney taking out a step', () => {
 });
 
 describe('deleteFromJourney taking out a line', () => {
-	it('leaves a step that loses its next with nothing after it, and takes out what only that line led to', () => {
+	it('leaves a step that loses its next with nothing after it, and leaves what the line led to', () => {
 		const result = ok(deleteFromJourney(line(), { stateCodes: [], lines: [{ source: 'a', path: ['next'], target: 'b' }] }));
 		expect(result.states.a).not.toHaveProperty('next');
-		expect(result.states.b).toBeUndefined();
-		expect(result.states.c).toBeUndefined();
+		expect(Object.keys(result.states)).toEqual(['a', 'b', 'c', 'end']);
 	});
 
-	it('takes out a line into an end, and the end with it when nothing else leads there', () => {
+	it('takes out a line into an end and leaves the end', () => {
 		const result = ok(deleteFromJourney(line(), { stateCodes: [], lines: [{ source: 'c', path: ['next'], target: 'end' }] }));
 		expect(result.states.c).not.toHaveProperty('next');
-		expect(result.states.end).toBeUndefined();
+		expect(result.states.end).toBeDefined();
 	});
 
 	it('keeps an end that another step still leads to', () => {
@@ -138,7 +142,7 @@ describe('deleteFromJourney taking out a line', () => {
 		expect(result.states.b).toMatchObject({ next: 'c' });
 	});
 
-	it('takes one way on out of a decision, and the branch that only it led to', () => {
+	it('takes one way out of a decision by leaving its rule leading nowhere, and leaves what it led to', () => {
 		const process = build('d', {
 			d: { state_type: 'choice', rules: [rule('a'), rule('b', 'y')], default: 'c' },
 			a: finish,
@@ -146,11 +150,20 @@ describe('deleteFromJourney taking out a line', () => {
 			c: finish
 		});
 		const result = ok(deleteFromJourney(process, { stateCodes: [], lines: [{ source: 'd', path: ['rules', 0, 'next'], target: 'a' }] }));
-		expect(routesOf(result.states.d).map((route) => route.target)).toEqual(['b', 'c']);
-		expect(result.states.a).toBeUndefined();
+		expect(routesOf(result.states.d)).toEqual([
+			{ target: 'b', path: ['rules', 1, 'next'], kind: 'rule' },
+			{ target: 'c', path: ['default'], kind: 'default' }
+		]);
+		expect(result.states.a).toBeDefined();
 	});
 
-	it('takes out an error route and the branch that only it led to', () => {
+	it('has no line to take out of a way out that already leads nowhere', () => {
+		const process = build('d', { d: { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'x' } }] }, a: finish });
+		expect(deleteFromJourney(process, { stateCodes: [], lines: [{ source: 'd', path: ['rules', 0, 'next'], target: 'a' }] }).ok).toBe(false);
+		expect(deleteFromJourney(process, { stateCodes: [], lines: [{ source: 'd', path: ['default'], target: 'a' }] }).ok).toBe(false);
+	});
+
+	it('takes out an error route and leaves the branch it led to', () => {
 		const process = build('a', {
 			a: call('end', { catch: [{ on: 'any', next: 'sorry' }] }),
 			sorry: wait('failed'),
@@ -158,7 +171,8 @@ describe('deleteFromJourney taking out a line', () => {
 			end: finish
 		});
 		const result = ok(deleteFromJourney(process, { stateCodes: [], lines: [{ source: 'a', path: ['catch', 0, 'next'], target: 'sorry' }] }));
-		expect(Object.keys(result.states).sort()).toEqual(['a', 'end']);
+		expect(result.states.a).not.toHaveProperty('catch');
+		expect(Object.keys(result.states)).toEqual(['a', 'sorry', 'failed', 'end']);
 		expect(routesInto(result, 'sorry')).toEqual([]);
 	});
 

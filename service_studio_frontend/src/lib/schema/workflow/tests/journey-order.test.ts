@@ -37,6 +37,12 @@ describe('journeyOrder puts the main journey before the error routes', () => {
 });
 
 describe('reachableInOrder', () => {
+	it('reaches nothing in a process that has no start yet, and journeyOrder still lists every state', () => {
+		const { start: _taken, ...noStart } = build('a', { a: { state_type: 'wait', duration: 'PT1S', next: 'b' }, b: finish });
+		expect(reachableInOrder(noStart)).toEqual([]);
+		expect(journeyOrder(noStart)).toEqual(['a', 'b']);
+	});
+
 	it('follows a straight line of states in order', () => {
 		const process = build('a', {
 			c: finish,

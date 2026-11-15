@@ -144,17 +144,30 @@ export function withoutNext(state: WorkingState): WorkingState {
 
 /**
  * Returns a copy of a choice with a new state for each rule to lead to, in the order of its rules, and a new
- * state for its default. The conditions are not changed. Anything that is not a choice is returned as it
- * is. If fewer targets are given than there are rules, the rules without one keep the target they had.
+ * state for its default. Nothing yet leaves that way out leading nowhere. The conditions are not changed.
+ * Anything that is not a choice is returned as it is. If fewer targets are given than there are rules, the rules
+ * without one keep the target they had.
  */
 export function withChoiceTargets(state: WorkingState, ruleTargets: string[], defaultTarget: string): WorkingState {
 	if (state.state_type !== 'choice') return state;
 
-	return {
+	const updated = {
 		...state,
-		rules: state.rules.map((rule, index) => ({ ...rule, next: ruleTargets[index] ?? rule.next })),
-		default: defaultTarget
+		rules: state.rules.map((rule, index) => {
+			const target = ruleTargets[index];
+			if (target === undefined) return rule;
+
+			// The key is left out for nothing yet, and not saved as empty text, so the rule reads as leading nowhere.
+			const { next: _oldNext, ...test } = rule;
+			return target === nothingYet ? test : { ...test, next: target };
+		})
 	};
+
+	// The default keeps its place among the keys when it is given a state, so a saved file changes as little as it can.
+	if (defaultTarget === nothingYet) delete updated.default;
+	else updated.default = defaultTarget;
+
+	return updated;
 }
 
 /**

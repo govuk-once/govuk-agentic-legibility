@@ -49,7 +49,8 @@ describe('promoteDrafts', () => {
 		const a = promoted.process.states.a;
 		if (a.state_type !== 'wait' || a.next === undefined) throw new Error('a should still be a wait that continues somewhere');
 		expect(promoted.process.states[a.next]).toMatchObject({ state_type: 'end' });
-		expect(promoted.process.states.b).toBeUndefined();
+		// The step it led to before is left where it is.
+		expect(promoted.process.states.b).toBeDefined();
 		expect(promoted.set).toEqual(noDrafts);
 	});
 
