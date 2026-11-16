@@ -1,23 +1,23 @@
 # Service Studio
 
-Service Studio is an experimental prototype for the frontend work on the canonical service schema. It shows how a service is onboarded to the tool, and how a service graph is created, edited and saved.
+Service Studio is a prototype for drafting, editing and reviewing government services as visual journey graphs that also create a canonical schema in the background. A draft can be written by an LLM assistant from a short description and public links to GOV.UK information, or started from an existing GOV.UK form example. It is then edited on a visual canvas and checked before it goes on to the next review. The canonical schema is generated and updated when edited in the visual graph editor. In order to proceed to the review stages the schema must pass a validation check.
 
-It is early development.
+The forms route is the minimum viable product (MVP) with a simp;ified set of states used in the canonical schema and is being user tested. The service routes included experimental additions and more comprehensive canonical schema states to account for more complex steps in a journey.
+
+The user testing of the MVP will inform design decisions in the more complex unified schema representation for service routes.
 
 ## Prerequisites
 
 * A current version of Node
 * pnpm
+* An Amazon Bedrock Anthropic API key, only needed to generate a draft with the assistant. Bedrock keys made in the AWS console often expire after a few hours, so a new key may be needed for each session.
 
-## Dependencies
+The main libraries, which `pnpm install` adds:
 
-Beyond SvelteKit itself, the graph editor has three main dependencies:
-
-* `zod` is the validation library the canonical service schema is written with, and what every check against it runs through.
-* `@dagrejs/dagre` works out the first layout of the graph: which rank each node belongs to and where it sits. It runs once when a service is opened, and never moves a node after that.
-* `@xyflow/svelte` (Svelte Flow) is the canvas itself. It draws the nodes and the lines between them, and handles panning, zooming, dragging and connecting.
-
-The onboard route also depends on `@anthropic-ai/bedrock-sdk` and `@anthropic-ai/sdk`, to call Claude Sonnet 5 on Amazon Bedrock, see the Onboard section below.
+* `zod` writes the schema of a workflow, and every validation check of a file against the schema runs through it.
+* `@xyflow/svelte` (Svelte Flow) is the canvas. It draws the boxes and lines, and handles panning, zooming, dragging and drawing lines.
+* `@dagrejs/dagre` works out where each box sits when the graph is arranged.
+* `@anthropic-ai/bedrock-sdk` and `@anthropic-ai/sdk` call Claude on Amazon Bedrock to write a draft. In a next iteration the draft generation will be updated to use AWS Agent Core and this may change.
 
 ## Install
 
@@ -25,9 +25,12 @@ The onboard route also depends on `@anthropic-ai/bedrock-sdk` and `@anthropic-ai
 pnpm install
 ```
 
-## Run
+To generate drafts, copy `.env.example` to `.env` and fill in:
 
-Start the development server:
+* `AWS_BEARER_TOKEN_BEDROCK`, the Bedrock key
+* `AWS_REGION`, the Bedrock region, `eu-west-2` by default
+
+## Run
 
 ```sh
 pnpm run dev
@@ -46,78 +49,107 @@ pnpm test
 
 ## Routes
 
-`/edit` is the service selection: choose an example service, then open its graph editor.
+### Forms
 
-`/edit/[slug]` is the visual journey graph editor for one chosen service.
+* `/` opens the start page, `/onboard`. Start a new form from here. Starting a new service is inactive for now. However, the routes can be reached by manually typing the local urls.
+* `/onboard/form/method` asks how to draft the form: with the assistant, or from an existing GOV.UK form. Starting with a blank graph is not available yet.
+* `/onboard/form/details` takes a name, a description and links, and generates a first draft.
+* `/onboard/form/draft` shows the draft, with how many steps and branches it has. It also displays any errors that occur at generation and suggest re-running if it fails validation. Edit opens it in the form editor.
+* `/edit-form` lists the example forms. Choose one to open it.
+* `/edit-form/[slug]` is the form editor for one example form.
+* `/edit-form/draft` is the form editor for the generated draft.
+* `/tech-review/form` is a placeholder for the tech review, which comes after editing. The edited form is not carried there yet and the design of this route is incomplete.
 
-`/onboard` is the onboarding of a service journey.
+### Services, experimental
 
-### Onboard
-This route is where the onboarding process for services is developed. `/onboard/details` collects a service name, description and links to the service, then calls Claude Sonnet 5 on Amazon Bedrock to draft a canonical schema. Every link is fetched by the server first in this early iteration, and the result is validated against the same schema as everywhere else in the app before it is shown. This method will be updated to use AWS Agent Core next to access better tool calls for this. The document upload field is not wired in yet. `/onboard/draft` shows the result and lets you download the JSON, to add to `src/lib/examples` by hand for now. It is a separate route so its design can move ahead without touching the editor. The download step goes away once onboarding and the editor are joined up.
+* `/onboard/service/method`, `/onboard/service/details` and `/onboard/service/draft` draft a service in the same way as a form.
+* `/edit-service` and `/edit-service/[slug]` open an example service, and `/edit-service/draft` opens a generated one.
 
-The API call needs two environment variables, copy `.env.example` to `.env` and fill them in:
-* `AWS_BEARER_TOKEN_BEDROCK`, a bearer token for Amazon Bedrock
-* `AWS_REGION`, the Bedrock region to call, `eu-west-2` by default
+## Using the form editor
 
-Claude Sonnet 5 on Bedrock has to be called through a cross-region inference profile id, `eu.anthropic.claude-sonnet-5`, which keeps requests inside the EU rather than routing globally (see `src/lib/server/onboard/client.ts`). This current implementation of Bedrock's endpoints for this model do not accept `output_config`, so the response shape is not enforced by Bedrock itself: the canonical schema is instead given to Claude as JSON Schema inside the system prompt (`src/lib/server/onboard/system-prompt.ts`, built from the same Zod schema with `toJSONSchema`), and the reply is validated the normal way with `parseService` once it comes back. This should be updated to use Agent Core structured output tooling in the next iteration after this initial proof of concept.
+The canvas is on the left and a panel of ordered steps is on the right.
 
-### Graph editor
-`/edit` is a service selection: choose a service from the dropdown, see its step and branch counts, then open the graph editor. A file that does not match the canonical schema is still listed, but shows its validation problems in place of the stats and the open button.
+* **Adding shapes.** Drag a Question, Message, Decision, Start or End from the palette onto the canvas. A question or a message is added to the form straight away. A decision, start or end is drawn dotted until it is joined up, and then becomes part of the form.
+* **Drawing lines.** Drag from the dot on the edge of a shape to another shape. Letting go on empty canvas adds a new question there, already joined. A second line from a step puts a decision after it.
+* **Editing.** Selecting a node on the canvas or 'edit' in a numbered step in the panel, opens its card in the panel. A question or a message has its words, title, description and hint. A decision names each way out by the answer that leads to it, with where it goes. A developer state, such as the assign that saves a repeated answer, is shown but not editedable in this view (it would happen later in tech-review).
+* **Moving and removing.** The arrows on a card in the list move a step up or down the journey, and the graph is arranged again to match. Removing takes out only what was chosen. Nothing is joined up for you, so the pieces left over show what still needs joining.
+* **Where boxes sit.** The graph is arranged when it is opened, when developer states are shown or hidden, and after a move. Otherwise every box keeps its place, and a new shape stays where it was drawn.
+* **Send to tech review** checks the form. Validation errors and warning are listed in the panel, and choosing one highlights its box on the canvas. A form with nothing to fix goes on to tech review.
 
-`/edit/[slug]` is the editor itself, a full canvas graph editor page. Each step is a box, a step with more than one onward route gets a plain condition diamond, and the start and end of the journey are solid circles. Selecting a step, in the list or on the canvas, highlights it in both places, and clicking a step on the canvas opens it for editing directly.
+## Shared parts, forms and services
 
-**Adding shapes.** The left hand panel has four shapes: Step, Condition, Start and End. Drag any of them onto the canvas, where they sit on their own until you connect them. A step is added to the service straight away. A condition, start or end shows as a faded shape with a dashed outline, called a draft. A draft is only on the canvas and is not part of the service until it is connected to a step.
+Forms and services use the same schema, canvas and onboarding code, and each has its own editor and routes. Either can run without the other and therefore can be deleted after user testing or merged if more applicable further down the design iteration process.
 
-**Connecting.** Every shape has a small blue dot on its top and bottom edge. Hover a dot and it grows with a "+" inside, then drag from it to another shape to connect them:
+Shared by both:
 
-* Step to step adds a route between them. A step with two or more routes shows a condition diamond automatically.
-* A dot dragged out onto empty canvas creates a new step, already connected.
-* The Start circle to a step makes that step the entry point of the journey.
-* A step to a draft End ends the journey there. It clears the step's onward routes and removes anything left unreachable as a result.
-* A step to a draft Condition, then the Condition to two or more steps, turns the draft into a real condition with exactly those routes.
+* `src/lib/schema/workflow/`, the schema and every change the editors make to a journey
+* `src/lib/process-graph/` and `src/lib/graph-kit/`, the canvas, the shapes and the layout
+* `src/lib/components/`, the page header, progress bar and onboarding pages
+* `src/lib/server/shared/`, reading links, asking the model and wrapping its reply into a workflow
+* `src/lib/draft-store.ts` and `src/lib/examples/`
 
-**Deleting.** Select a shape or a line and press Delete. Deleting a line removes that route, deleting a step removes it and every route that led to it, and deleting a condition diamond removes its step's routes so it becomes a dead end. A draft can be deleted freely, as it was never part of the service. To change where a route leads, delete the line and draw a new one.
+Forms only:
 
-**End markers.** A step with nowhere to go only shows an End circle if it already had no onward route when the service was opened, or if you ended it yourself, with a draft End, with "End the journey here" in the step editor, or by deleting its last route. A step that has not been given a route yet does not show one, so a half built journey does not look finished.
+* `src/lib/form-editor/`, `src/lib/server/onboard-form/`
+* `src/routes/edit-form/`, `src/routes/onboard/form/`, `src/routes/tech-review/form/`
 
-The step editor also has "Set as start step" and "End the journey here" for the open step. A branch route's own label and condition are edited in the step editor, not drawn on the canvas itself. "Show branching" collapses every branch down to its first route, for a simpler read of a long journey, without changing the underlying service. The zoom, fit and lock buttons and the minimap sit on the canvas itself.
+Services only:
 
-Where a shape sits on the canvas is not part of the service. Dragging a shape moves it and it stays where you put it while you edit, but positions are not saved yet, so opening the service again lays it out afresh.
+* `src/lib/service-editor/`, `src/lib/server/onboard-service/`
+* `src/routes/edit-service/`, `src/routes/onboard/service/`
 
-To add an example, drop a JSON file into `src/lib/examples`. It must match the canonical schema exactly, so fix the source of a service definition rather than relying on the tool to work around it. A file that does not match is still listed in the picker's dropdown, but shows its validation problems in place of a graph.
+A test, `src/lib/tests/folder-boundaries.test.ts`, keeps these apart. It fails if a form file imports from a service file, or the other way round, or if a shared file imports from either. So the services can be removed without breaking forms, and forms can be user tested while the services stay experimental.
 
-## Key files
+## Validation
 
-### Schema, `src/lib/schema/`
-* `service.ts` is the canonical service schema written as Zod, transcribed from the RFC, with a  comment detailing any difference from the original RFC. It also exports the `Service` and `ServiceStep` types the rest of the app uses.
-* `validate.ts` exports `parseService`, which validates a file against the canonical schema and returns either the typed service or a flat list of problems for an error summary.
-* `step-kind.ts` holds the label and tag colour for each step kind, and `defaultStepType`, which returns the smallest valid type object for a kind. The editor uses it when a step's type is changed.
+Validation checks happen at set points, but not while a journey is being composed and edited in the graph editor. This allows more flexibility for a non-technical user to compose new flows without the friction of either auto routing mid composition or lots of validation errors whilst halfway through a composition. For a beginner user this is determined as a better approach but it may change once users become more familiar with the interface.
 
-### Examples, `src/lib/examples/`
-* `index.ts` loads every `.json` file in the folder at build time, validates each one, and sorts them smallest first for the dropdown.
-* `change-driving-licence-address.json` and `report-a-change-that-affects-your-benefits.json` are small hand written examples that between them cover a branch, a condition and every step kind.
-* `maternity-allowance-online.json` is a large real example, 61 steps, converted from the DWP Maternity Allowance private beta journey.
+* **The shape of a file.** The Zod schemas in `src/lib/schema/workflow/` describe every key of a workflow manifest, a process and each kind of state. `process.ts` and `workflow.ts` are the top of each.
+* **Checks across a whole file.** `src/lib/schema/workflow/validate.ts` checks what one state cannot see on its own: that every route leads to a state that exists, that the start exists, that a process has an end, and that the manifest and its processes agree. `parseProcess` and `parseWorkflow` run the schema and these checks together.
+* **Loading the examples.** `src/lib/examples/workflows.ts` checks every example as it is loaded. An example that fails is still listed, with its problems in place of the open button.
+* **A draft from the model.** `src/lib/server/shared/generate-workflow.ts` checks the reply as a process, then wraps it and checks the whole workflow. A form is also refused if it has a state a form cannot have, such as an API call or invoke state(`src/lib/server/onboard-form/build-form.ts`). Any problems are sent back to the model once to be corrected (`src/lib/server/shared/generate-json.ts`). As more user testing occurs more states may be allowed in the forms MVP validation process. However, currently it is limited to input, output, end and choice.An existing GOV.UK form example can also contain an assign state but it is not autogenerated for now.
+* **Opening a draft in an editor.** `src/lib/draft-store.ts` checks the draft again when it is read from the browser tab, because it could have changed there. The form editor also checks that a workflow is a single process (`src/lib/form-editor/schema/form-states.ts`).
+* **While editing.** Nothing is checked. A step may have nothing after it, a decision may have a way out that leads nowhere, and pieces may be loose. The editor holds a journey in a looser shape for this, in `src/lib/schema/workflow/working-process.ts`.
+* **Before tech review.** `journeyErrors` in `validate.ts` lists what must be fixed, in plain words, naming each step as the editor does. `journeyWarnings` lists placeholder text still to replace, which does not stop the form going on. Placeholders that a later review fills in, such as the owner and contact, are not listed. The form editor shows both lists in `src/lib/form-editor/components/JourneyCheckPanel.svelte`.
 
-### Graph, `src/lib/graph/`
-* `service-to-graph.ts` turns a validated service into the nodes and edges the graph draws. It adds the start and end circles, and a plain decision diamond, with no text of its own, for any step with more than one route. It can be told which dead ends count as deliberate endings, so only those draw an End circle.
-* `layout.ts` places the nodes top to bottom in ranks. It hands the ranking, ordering and cycle handling to `@dagrejs/dagre`, converts its output into the positions Svelte Flow expects, and reorders a branch's own siblings left to right to match their step numbers, which dagre's own layout does not consider.
-* `reconcile.ts` keeps the canvas in step with the service after an edit. A shape that is still there keeps its position and only has its content refreshed, a new shape goes where it was dropped, and the full dagre layout only runs when a service is first opened.
-* `node-sizing.ts` works out how wide and tall each step box needs to be for its own text.
-* `types.ts` holds the node and edge types shared by the builder, the layout and the components, built on Svelte Flow's own node and edge types.
-* `JourneyGraph.svelte` is the canvas. It wraps Svelte Flow, turns connecting, dropping and deleting on the canvas into changes to the service, and holds the draft shapes until they are connected enough to become part of it.
-* `FlowBridge.svelte` is a small helper inside the canvas that reaches Svelte Flow's own functions, used to turn a drop position on screen into a position on the canvas. It draws nothing.
-* `GraphToolbar.svelte` is the left hand panel of draggable shapes: Step, Condition, Start and End.
-* `StepNode.svelte`, `ConditionNode.svelte` and `TerminalNode.svelte` are the three node shapes: rectangle, diamond, circle. The diamond and circles also have a faded draft look.
+## Generating a draft
 
-### Editor page
-* `src/routes/edit/+page.svelte` is the service selection: it chooses which example service to open, nothing else.
-* `src/routes/edit/[slug]/+page.ts` resolves the service named in the URL against the bundled examples, and returns a 404 if it does not match one.
-* `src/routes/edit/[slug]/+page.svelte` owns the working copy of the chosen service and every edit handler, and renders the shape panel, the canvas and the right hand panel, either the step list or a single step's editor.
-* `src/lib/components/StepCard.svelte` is a step row in the list.
-* `src/lib/components/StepEditorCard.svelte` is the open editor for one step: its name, description, type, onward routes, and, for a branch, each route's own label. It also has "Set as start step" and "End the journey here".
+The details page posts a name, a description and links to the draft page's form action. On the server:
+
+1. The page behind each link is read, if it is on GOV.UK (`src/lib/server/shared/read-links.ts`, `fetch-link.ts`, `allowed-link-domains.ts`).
+2. The LLM is asked for one process, with the prompt for that route. The form prompt is `src/lib/server/onboard-form/system-prompt.ts` and the service prompt is `src/lib/server/onboard-service/system-prompt.ts`. Each ends with the JSON Schema of a process, made from the Zod schema, because Bedrock does not enforce the shape of the reply for this model. This will be updated to use Agent Core tool calls to improve this in a later version before deployment.
+3. The process is wrapped into a workflow with placeholders for what the model is not asked for, such as the owner, contact and executor settings (`src/lib/server/shared/build-draft-workflow.ts`). A form keeps its name as the manifest description, and the description typed on the details page in the manifest metadata.
+
+The draft is then held in the browser tab so the editor page can open it. It is not saved anywhere.
+
+## Project layout
+
+```
+src/
+  lib/
+    schema/workflow/   the schema, the checks, and the changes made to a journey
+    process-graph/     the shared canvas, drafts, layout and lists of steps
+    graph-kit/         the box, diamond and dot shapes, the palette and sizing
+    components/        shared page parts and onboarding pages
+    form-editor/       the form editor
+    service-editor/    the service editor
+    server/            onboarding on the server: shared, form and service
+    examples/          the example forms and services, as JSON files
+    tests/             tests that cover the whole project
+  routes/              the pages, as listed above
+static/                gov.css and govuk-extras.css
+```
+
+Tests sit in a `tests` folder beside the code they test.
+
+Every folder ending in `-old` (`components-old`, `graph-old`, `schema-old`, `examples/old`, `server/onboard-old`, `routes/edit-old`, `routes/onboard-old`) will be deleted. They stay for now as a reference for the design of the old editor.
 
 ## Next steps
 
-* Save where each shape sits on the canvas, which the canonical schema does not hold yet.
-* A fuller step editor covering fields, conditions and the endpoint call contract
-* Join the editor up with the onboarding route once its design is settled
+* Carry the edited form over to tech review, once the tech review is designed.
+* Save the form as its two files, the manifest and the process, on the owner check page. This will later be replaced by sending it to the executor. It will only be allowed when the validation check passes.
+* Re-design the "Continues to" dropdown list UI on the edit card, which lists every state and is long on large forms. Change to another approach.
+* Choose an answer type for a question added by hand, likely as part of prebuilt question modules.
+* Decide where context added for the agent is saved. It lasts only while the page is open.
+
+**Fetching links on the server.** At onboarding auto generation, the server reads the page behind each link before it asks the model. It only does this from an approved list of URLs. However, code that fetches web pages on a server can be misused to reach places it should not, even with the list of allowed sites, the check on every redirect and the time limit in place. For now run Service Studio locally only. It will move to AWS Agent Core tool calls, which are more secure and reduce these vunerabilities, before it is hosted anywhere.
