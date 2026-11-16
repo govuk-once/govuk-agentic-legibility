@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles, exampleWorkflows } from './example-states';
-import { checkBeforeProceeding, parseProcess, parseWorkflow } from '../validate';
-import type { WorkingWorkflow } from '../working-process';
+import { formExamples } from '$lib/examples/forms';
+import {
+	placeholderInput,
+	placeholderMessage,
+	placeholderOutput,
+	placeholderQuestion,
+	unconnectedApiCallDetails,
+	undecidedRule
+} from '../placeholders';
+import { checkBeforeProceeding, journeyErrors, journeyWarnings, parseProcess, parseWorkflow } from '../validate';
+import type { WorkingProcess, WorkingWorkflow } from '../working-process';
 
 // A small valid process that each test copies and then breaks in one way.
 const process = {
@@ -370,18 +379,18 @@ describe('checkBeforeProceeding', () => {
 		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, main } }));
 
 		expect(problems).toEqual([
-			{ path: 'processes.main.states.run_section.next', message: 'Does not say which state it continues to' },
-			{ path: 'processes.main.states.finish', message: expect.stringContaining('Nothing leads to this state') }
+			{ path: 'processes.main.states.run_section.next', message: 'run_section has nothing after it' },
+			{ path: 'processes.main.states.finish', message: 'finish is not joined to the journey' }
 		]);
 	});
 
-	it('reports a journey with no start once, in plain words, with every state that nothing then leads to', () => {
+	it('reports a journey with no start once, in plain words, and the first state of each piece left loose', () => {
 		const { start: _removed, ...noStart } = workflow.processes.section;
 		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, section: noStart } }));
 
-		expect(problems[0]).toEqual({ path: 'processes.section.start', message: 'Does not say which state the journey starts at' });
+		expect(problems[0]).toEqual({ path: 'processes.section.start', message: expect.stringContaining('The journey has no start') });
 		expect(problems.filter((problem) => problem.path === 'processes.section.start')).toHaveLength(1);
-		expect(problems.slice(1).every((problem) => problem.message.includes('Nothing leads to this state'))).toBe(true);
+		expect(problems.slice(1).every((problem) => problem.message.endsWith('is not joined to the journey'))).toBe(true);
 	});
 
 	it('reports each way out of a decision that leads nowhere once, in plain words', () => {
@@ -390,9 +399,8 @@ describe('checkBeforeProceeding', () => {
 		const problems = checkBeforeProceeding(editing({ ...workflow, processes: { ...workflow.processes, section } }));
 
 		expect(problems).toEqual([
-			{ path: 'processes.section.states.decide.rules.0.next', message: 'Does not say which state this way out leads to' },
-			{ path: 'processes.section.states.decide.default', message: 'Does not say which state it leads to when no rule matches' },
-			{ path: 'processes.section.states.finish', message: expect.stringContaining('Nothing leads to this state') }
+			{ path: 'processes.section.states.decide.rules.0.next', message: 'decide has 2 ways out that lead nowhere' },
+			{ path: 'processes.section.states.finish', message: 'finish is not joined to the journey' }
 		]);
 	});
 
@@ -417,5 +425,82 @@ describe('checkBeforeProceeding', () => {
 			processes: { ...workflow.processes, spare }
 		};
 		expect(checkBeforeProceeding(editing(withSpare))).toEqual([]);
+	});
+});
+
+describe('journeyErrors', () => {
+	// Builds a process from a map of states. The cast is needed because each test gives only the keys it uses.
+	const build = (start: string | undefined, states: Record<string, unknown>) =>
+		({ process_id: 'p', version: '0.1.0', vars: {}, ...(start ? { start } : {}), states }) as unknown as WorkingProcess;
+	const wait = (next?: string) => ({ state_type: 'wait', duration: 'PT1S', ...(next ? { next } : {}) });
+	const finish = { state_type: 'end', status: 'success' };
+
+	it('finds nothing in any of the form examples', () => {
+		for (const example of formExamples) {
+			for (const each of Object.values(example.workflow?.processes ?? {})) expect(journeyErrors(each), example.slug).toEqual([]);
+		}
+	});
+
+	it('names only the first state of a loose piece, not every state cut off behind it', () => {
+		const process = build('a', { a: wait('end'), b: wait('c'), c: wait('d'), d: wait('end'), end: finish });
+		expect(journeyErrors(process)).toEqual([{ path: 'states.b', state: 'b', message: 'is not joined to the journey' }]);
+	});
+
+	it('names a loose loop once, by its first state', () => {
+		const process = build('a', { a: wait('end'), b: wait('c'), c: wait('b'), end: finish });
+		expect(journeyErrors(process)).toEqual([{ path: 'states.b', state: 'b', message: 'is not joined to the journey' }]);
+	});
+
+	it('says once that the journey has no start, without naming every state as loose', () => {
+		const problems = journeyErrors(build(undefined, { a: wait('b'), b: wait('end'), end: finish }));
+		expect(problems).toEqual([
+			{ path: 'start', message: expect.stringContaining('The journey has no start') },
+			{ path: 'states.a', state: 'a', message: 'is not joined to the journey' }
+		]);
+	});
+
+	it('says a step has nothing after it, in its own words and not the schema words as well', () => {
+		expect(journeyErrors(build('a', { a: wait(), end: finish }))).toEqual([
+			{ path: 'states.a.next', state: 'a', message: 'has nothing after it' },
+			{ path: 'states.end', state: 'end', message: 'is not joined to the journey' }
+		]);
+	});
+
+	it('names the state a schema problem is about, when it is about one', () => {
+		const problems = journeyErrors(build('a', { a: wait('missing'), end: finish }));
+		expect(problems).toContainEqual({ path: 'states.a.next', state: 'a', message: expect.stringContaining('missing') });
+	});
+});
+
+describe('journeyWarnings', () => {
+	const build = (states: Record<string, unknown>) =>
+		({ process_id: 'p', version: '0.1.0', vars: {}, start: Object.keys(states)[0], states }) as unknown as WorkingProcess;
+
+	it('lists placeholder words left in a question or a message, and rules still to be confirmed', () => {
+		const process = build({
+			ask: { ...placeholderInput('ask'), state_type: 'input', next: 'say' },
+			say: { ...placeholderOutput(), state_type: 'output', next: 'decide' },
+			decide: { state_type: 'choice', rules: [{ when: undecidedRule, next: 'end' }, { when: undecidedRule, next: 'end' }], default: 'end' },
+			end: { state_type: 'end', status: 'success' }
+		});
+		expect(journeyWarnings(process).map((warning) => [warning.state, warning.message])).toEqual([
+			['ask', `still has the placeholder question "${placeholderQuestion}"`],
+			['say', `still has the placeholder message "${placeholderMessage}"`],
+			['decide', 'has 2 rules still to be confirmed']
+		]);
+	});
+
+	it('does not list the placeholders a later review fills in, such as the details of a call', () => {
+		const process = build({
+			call: { state_type: 'api_call', ...unconnectedApiCallDetails, next: 'end' },
+			end: { state_type: 'end', status: 'success' }
+		});
+		expect(journeyWarnings(process)).toEqual([]);
+	});
+
+	it('finds nothing in any of the form examples', () => {
+		for (const example of formExamples) {
+			for (const each of Object.values(example.workflow?.processes ?? {})) expect(journeyWarnings(each), example.slug).toEqual([]);
+		}
 	});
 });

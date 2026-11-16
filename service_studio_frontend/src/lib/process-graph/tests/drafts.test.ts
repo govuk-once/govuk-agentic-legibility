@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Process } from '$lib/schema/workflow/process';
+import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 import { isUndecidedRule } from '$lib/schema/workflow/placeholders';
 import {
 	addDraft,
@@ -71,6 +72,52 @@ describe('promoteDrafts', () => {
 		expect(ready.set).toEqual(noDrafts);
 		// The decision that was made is the one to show next.
 		expect(ready.selectCode).toBe(a.next);
+	});
+
+	describe('a draft decision with a line to a draft end', () => {
+		// A question with nothing after it, as one dropped from the palette is, and two steps it could lead to.
+		const loose = () => build('a', { a: wait('fin'), fin: finish, q: { state_type: 'wait', duration: 'PT1S' }, x: wait('fin') });
+
+		// The ways on of the decision that q now leads to, in order, with the kind of state each one is.
+		function waysOn(process: WorkingProcess): string[] {
+			const q = process.states.q;
+			if (q.state_type !== 'wait' || q.next === undefined) throw new Error('q should now continue to a decision');
+			const choice = process.states[q.next];
+			if (choice.state_type !== 'choice') throw new Error('q should continue to a decision');
+			return [...choice.rules.map((rule) => rule.next!), choice.default!].map((code) => process.states[code].state_type);
+		}
+
+		it.each([
+			['a step then an end', [state('x'), draftEnd('e')], ['wait', 'end']],
+			['an end then a step', [draftEnd('e'), state('x')], ['end', 'wait']]
+		] as const)('makes both real when the decision leads to %s', (_label, targets, kinds) => {
+			const lines: Array<[Endpoint, Endpoint]> = [[state('q'), draftEnd('d')], ...targets.map((target): [Endpoint, Endpoint] => [draftEnd('d'), target])];
+			const promoted = promoteDrafts(loose(), canvasWith([['d', 'condition'], ['e', 'end']], lines));
+
+			expect(promoted.set).toEqual(noDrafts);
+			expect(waysOn(promoted.process)).toEqual(kinds);
+		});
+
+		it('makes two draft ends real with the decision', () => {
+			const lines: Array<[Endpoint, Endpoint]> = [[state('q'), draftEnd('d')], [draftEnd('d'), draftEnd('e')], [draftEnd('d'), draftEnd('f')]];
+			const promoted = promoteDrafts(loose(), canvasWith([['d', 'condition'], ['e', 'end'], ['f', 'end']], lines));
+
+			expect(promoted.set).toEqual(noDrafts);
+			expect(waysOn(promoted.process)).toEqual(['end', 'end']);
+		});
+
+		it('still waits while the decision has only one way on, an end', () => {
+			const lines: Array<[Endpoint, Endpoint]> = [[state('q'), draftEnd('d')], [draftEnd('d'), draftEnd('e')]];
+			const promoted = promoteDrafts(loose(), canvasWith([['d', 'condition'], ['e', 'end']], lines));
+			expect(promoted.set.drafts.map((draft) => draft.kind)).toEqual(['condition', 'end']);
+		});
+
+		it('still waits while nothing leads to the decision', () => {
+			const lines: Array<[Endpoint, Endpoint]> = [[draftEnd('d'), state('x')], [draftEnd('d'), draftEnd('e')]];
+			const promoted = promoteDrafts(loose(), canvasWith([['d', 'condition'], ['e', 'end']], lines));
+			expect(promoted.set.drafts).toHaveLength(2);
+			expect(promoted.process).toEqual(loose());
+		});
 	});
 
 	it('gives the reason and drops the lines when the process refuses', () => {

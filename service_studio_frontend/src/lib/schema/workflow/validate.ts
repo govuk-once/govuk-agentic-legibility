@@ -1,7 +1,8 @@
 import type { z } from 'zod';
 import { hasNext } from './edit-state';
+import { isUndecidedRule, placeholderMessage, placeholderQuestion } from './placeholders';
 import { processSchema, type Process } from './process';
-import { reachableInOrder } from './journey-order';
+import { journeyOrder, reachableInOrder } from './journey-order';
 import { routesOf } from './routes';
 import type { WorkingProcess, WorkingWorkflow } from './working-process';
 import { workflowSchema, type Workflow } from './workflow';
@@ -17,7 +18,8 @@ import { workflowSchema, type Workflow } from './workflow';
 	error may have left pointing nowhere.
 
 	The editor allows some things that a saved workflow does not, such as a step with nothing after it, while
-	a journey is being built. checkBeforeProceeding is where those are reported, together with everything else.
+	a journey is being built. journeyErrors and checkBeforeProceeding are where those are reported, together with
+	everything else, and journeyWarnings lists what is worth finishing but does not stop a journey.
 */
 
 // A problem found, flattened to a dotted path and a message so it can be listed directly in a
@@ -257,52 +259,144 @@ export function parseWorkflow(input: unknown): WorkflowValidation {
 }
 
 /**
- * Checks a workflow that is being edited, to decide whether it can be passed on for review. A person building a
- * journey can leave a step with nothing after it, a decision with a way out that leads nowhere, a journey with no
- * start, and pieces that are not joined to the start. None is allowed in a saved workflow, so all are reported
- * here, together with every problem the schema finds, so the whole list can be shown at once. An empty list means
- * the journey is ready. Other warnings, such as a process
- * that nothing runs, do not stop a journey being passed on, so they are not included.
+ * One problem with a journey that is being edited: where it is in the process, the state it is about when it is
+ * about one, and what is wrong. The message is written to follow the name of the state, such as "has nothing after
+ * it", so an editor can name the state in its own words before it.
  */
-export function checkBeforeProceeding(workflow: WorkingWorkflow): WorkflowIssue[] {
-	const unfinished: WorkflowIssue[] = [];
-	const unjoined: WorkflowIssue[] = [];
+export type JourneyProblem = { path: string; state?: string; message: string };
 
-	for (const [key, process] of Object.entries(workflow.processes)) {
-		if (process.start === undefined) {
-			unfinished.push({ path: `processes.${key}.start`, message: 'Does not say which state the journey starts at' });
+// The words a problem is given. They follow the name of the state the problem is about.
+const noStartMessage = 'The journey has no start. Draw a line from the start dot to the first step.';
+const noNextMessage = 'has nothing after it';
+const notJoinedMessage = 'is not joined to the journey';
+
+/**
+ * Finds the first state of each piece of the journey that is not joined to the start. Every state cut off behind
+ * one of them is left out, because joining the first state joins them too, so one cause gives one problem. A piece
+ * that is a loop, with nothing outside leading into it, is named by its first state in journey order.
+ */
+function firstStatesOfLoosePieces(process: WorkingProcess): string[] {
+	const reached = new Set(reachableInOrder(process));
+	const loose = journeyOrder(process).filter((code) => !reached.has(code));
+	const ledTo = new Set(loose.flatMap((code) => routesOf(process.states[code]).map((route) => route.target)));
+
+	// States that nothing leads to come first, then any loop that is left, so each piece is named once.
+	const covered = new Set<string>();
+	const firsts: string[] = [];
+	for (const code of [...loose.filter((each) => !ledTo.has(each)), ...loose]) {
+		if (covered.has(code)) continue;
+		firsts.push(code);
+		for (const each of reachableInOrder({ ...process, start: code })) covered.add(each);
+	}
+	return firsts;
+}
+
+/**
+ * Lists what stops a journey that is being edited from being passed on: a missing start, a step with nothing after
+ * it, a decision with a way out that leads nowhere, a piece that is not joined to the start, and anything the schema
+ * finds. A missing key that the schema also reports is only listed once, in these words.
+ */
+export function journeyErrors(process: WorkingProcess): JourneyProblem[] {
+	return findJourneyErrors(process).problems;
+}
+
+/**
+ * Does the work of journeyErrors, and also gives every path the problems cover. A decision is one problem however
+ * many of its ways out are missing, so it covers more paths than the one it names, and the schema's own words for
+ * each of them are left out.
+ */
+function findJourneyErrors(process: WorkingProcess): { problems: JourneyProblem[]; covered: Set<string> } {
+	const problems: JourneyProblem[] = [];
+	const covered = new Set<string>();
+	if (process.start === undefined) problems.push({ path: 'start', message: noStartMessage });
+
+	for (const [code, state] of Object.entries(process.states)) {
+		if (hasNext(state) && state.next === undefined) {
+			problems.push({ path: `states.${code}.next`, state: code, message: noNextMessage });
 		}
 
-		for (const [name, state] of Object.entries(process.states)) {
-			const statePath = `processes.${key}.states.${name}`;
-			if (hasNext(state) && state.next === undefined) {
-				unfinished.push({ path: `${statePath}.next`, message: 'Does not say which state it continues to' });
+		// A decision is listed once however many of its ways out lead nowhere, with the path of the first.
+		if (state.state_type === 'choice') {
+			const missing = [
+				...state.rules.flatMap((rule, index) => (rule.next === undefined ? [`states.${code}.rules.${index}.next`] : [])),
+				...(state.default === undefined ? [`states.${code}.default`] : [])
+			];
+			for (const path of missing) covered.add(path);
+			if (missing.length > 0) {
+				const message = missing.length === 1 ? 'has a way out that leads nowhere' : `has ${missing.length} ways out that lead nowhere`;
+				problems.push({ path: missing[0], state: code, message });
 			}
-
-			// A decision is unfinished for each of its ways out that leads nowhere.
-			if (state.state_type === 'choice') {
-				state.rules.forEach((rule, index) => {
-					if (rule.next === undefined) {
-						unfinished.push({ path: `${statePath}.rules.${index}.next`, message: 'Does not say which state this way out leads to' });
-					}
-				});
-				if (state.default === undefined) {
-					unfinished.push({ path: `${statePath}.default`, message: 'Does not say which state it leads to when no rule matches' });
-				}
-			}
-		}
-		for (const name of unreachableStates(process)) {
-			unjoined.push({
-				path: `processes.${key}.states.${name}`,
-				message: 'Nothing leads to this state, so it is not part of the journey. Join it to the journey or delete it'
-			});
 		}
 	}
 
-	// The schema words a missing key in its own way, so those are left out and the same thing is not said twice.
-	const alreadyReported = new Set(unfinished.map((issue) => issue.path));
-	const result = parseWorkflow(workflow);
-	const fromSchema = result.ok ? [] : result.issues.filter((issue) => !alreadyReported.has(issue.path));
+	for (const code of firstStatesOfLoosePieces(process)) {
+		problems.push({ path: `states.${code}`, state: code, message: notJoinedMessage });
+	}
 
-	return [...unfinished, ...unjoined, ...fromSchema];
+	// The schema words a missing key in its own way, so a key already listed is left out and not said twice.
+	for (const problem of problems) covered.add(problem.path);
+	const parsed = parseProcess(process);
+	const fromSchema = parsed.ok ? [] : parsed.issues.filter((issue) => !listedUnder(covered, issue.path));
+	return { problems: [...problems, ...fromSchema.map((issue) => ({ ...issue, state: stateOfPath(issue.path) }))], covered };
+}
+
+/**
+ * Lists what is worth finishing before a journey is passed on but does not stop it: placeholder words left in a
+ * question or a message, and decision rules that are still to be confirmed. Placeholders that a later review fills
+ * in, such as the owner or the details of a call, are not listed, because the person editing does not set them.
+ */
+export function journeyWarnings(process: WorkingProcess): JourneyProblem[] {
+	return Object.entries(process.states).flatMap(([code, state]): JourneyProblem[] => {
+		if (state.state_type === 'input' && state.prompt === placeholderQuestion) {
+			return [{ path: `states.${code}.prompt`, state: code, message: `still has the placeholder question "${placeholderQuestion}"` }];
+		}
+		if (state.state_type === 'output' && state.message === placeholderMessage) {
+			return [{ path: `states.${code}.message`, state: code, message: `still has the placeholder message "${placeholderMessage}"` }];
+		}
+		if (state.state_type === 'choice') {
+			const undecided = state.rules.filter((rule) => isUndecidedRule(rule.when)).length;
+			if (undecided === 0) return [];
+			const message = undecided === 1 ? 'has a rule still to be confirmed' : `has ${undecided} rules still to be confirmed`;
+			return [{ path: `states.${code}.rules`, state: code, message }];
+		}
+		return [];
+	});
+}
+
+// Tells whether a path from the schema is one already listed, or sits inside one, such as a rule of a decision
+// whose way out is already reported.
+function listedUnder(listed: Set<string>, path: string): boolean {
+	return [...listed].some((each) => path === each || path.startsWith(`${each}.`));
+}
+
+// Reads the state a path from the schema is about, such as step_1 from "states.step_1.prompt", or nothing when it is
+// about the process as a whole.
+function stateOfPath(path: string): string | undefined {
+	const parts = path.split('.');
+	return parts[0] === 'states' ? parts[1] : undefined;
+}
+
+/**
+ * Checks a workflow that is being edited, to decide whether it can be passed on for review. Each process is checked
+ * with journeyErrors, and then the workflow as a whole, for anything across its files, so the whole list can be
+ * shown at once. An empty list means the
+ * journey is ready. Warnings, such as a process that nothing runs, do not stop a journey being passed on, so they
+ * are not included.
+ */
+export function checkBeforeProceeding(workflow: WorkingWorkflow): WorkflowIssue[] {
+	const listed = new Set<string>();
+	const fromProcesses = Object.entries(workflow.processes).flatMap(([key, process]) => {
+		const { problems, covered } = findJourneyErrors(process);
+		for (const path of covered) listed.add(`processes.${key}.${path}`);
+		return problems.map((problem) => ({
+			path: `processes.${key}.${problem.path}`,
+			message: problem.state ? `${problem.state} ${problem.message}` : problem.message
+		}));
+	});
+
+	// The workflow is checked as a whole as well, for anything across its files. What it says again about a key that
+	// is already listed is left out, so nothing is said twice.
+	for (const issue of fromProcesses) listed.add(issue.path);
+	const result = parseWorkflow(workflow);
+	return [...fromProcesses, ...(result.ok ? [] : result.issues.filter((issue) => !listedUnder(listed, issue.path)))];
 }

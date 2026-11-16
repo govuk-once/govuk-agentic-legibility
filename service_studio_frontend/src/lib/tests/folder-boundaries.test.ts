@@ -21,6 +21,7 @@ const areaPrefixes: [string, Area][] = [
 	['src/routes/edit-form/', 'form'],
 	['src/lib/server/onboard-form/', 'form'],
 	['src/routes/onboard/form/', 'form'],
+	['src/routes/tech-review/form/', 'form'],
 	['src/lib/components-old/', 'old'],
 	['src/lib/graph-old/', 'old'],
 	['src/lib/schema-old/', 'old'],

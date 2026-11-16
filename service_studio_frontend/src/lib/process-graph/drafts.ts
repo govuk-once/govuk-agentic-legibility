@@ -1,4 +1,4 @@
-import { addBranch, drawLine, endJourneyAt, type EditResult } from '$lib/schema/workflow/edit-journey';
+import { addBranch, addEndState, drawLine, endJourneyAt, type EditResult } from '$lib/schema/workflow/edit-journey';
 import { setStart } from '$lib/schema/workflow/edit-process';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 
@@ -13,7 +13,8 @@ import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 	1. A draft start is promoted once a line leads from it to a state, which becomes the start of the process.
 	2. A draft end is promoted once a line leads to it from a state, which then ends the journey there.
 	3. A draft decision is promoted once a state leads to it and it leads to two or more states, which become
-	   ways on from that state.
+	   ways on from that state. A draft end that the decision leads to counts as one of them, and is made into an
+	   end state in the same change, because otherwise each would wait for the other to be promoted first.
 	4. Promoting one draft can make another ready, so promotion repeats until nothing more changes.
 */
 
@@ -120,6 +121,37 @@ function stateCodes(ends: Endpoint[]): string[] {
 }
 
 /**
+ * Promotes a draft decision together with the draft ends it leads to. Each end is added to the process first, so
+ * the decision can lead to it, and the ways on keep the order the lines were drawn in. The result also carries the
+ * ids of the draft ends that became states, so they can be taken off the canvas with the decision.
+ */
+function promoteDecision(
+	process: WorkingProcess,
+	set: DraftSet,
+	source: string,
+	outgoing: DraftLine[]
+): { result: EditResult; endIds: string[] } | undefined {
+	const isDraftEnd = (end: Endpoint) => end.kind === 'draft' && set.drafts.some((draft) => draft.id === end.id && draft.kind === 'end');
+	const ways = outgoing.map((line) => line.target).filter((end) => end.kind === 'state' || isDraftEnd(end));
+
+	// The same state or end drawn to twice is one way on.
+	const unique = ways.filter((end, index) => ways.findIndex((other) => sameEndpoint(other, end)) === index);
+	if (unique.length < 2) return undefined;
+
+	let current = process;
+	const endIds: string[] = [];
+	const targets = unique.map((end) => {
+		if (end.kind === 'state') return end.code;
+		const added = addEndState(current);
+		current = added.process;
+		if (end.kind === 'draft') endIds.push(end.id);
+		return added.code;
+	});
+
+	return { result: addBranch(current, source, targets), endIds };
+}
+
+/**
  * Makes every draft that has enough joined to it part of the process, and replaces each with the real
  * thing. Lines that led to a draft that has become a state now lead to that state, so the drafts they came
  * from can be promoted next. A draft that cannot be promoted because the process refuses the change keeps its
@@ -143,9 +175,15 @@ export function promoteDrafts(process: WorkingProcess, set: DraftSet): Promotion
 			const sources = stateCodes(incoming.map((line) => line.source));
 
 			let result: EditResult | undefined;
+			// The draft ends that a decision made real in the same change, which leave the canvas with it.
+			let promotedEnds: string[] = [];
 			if (draft.kind === 'start' && targets.length > 0) result = { ok: true, process: setStart(current, targets[0]) };
 			if (draft.kind === 'end' && sources.length > 0) result = endJourneyAt(current, sources[0]);
-			if (draft.kind === 'condition' && sources.length > 0 && targets.length >= 2) result = addBranch(current, sources[0], targets);
+			if (draft.kind === 'condition' && sources.length > 0) {
+				const decision = promoteDecision(current, remaining, sources[0], outgoing);
+				result = decision?.result;
+				promotedEnds = decision?.endIds ?? [];
+			}
 			if (!result) continue;
 
 			if (!result.ok) {
@@ -162,7 +200,7 @@ export function promoteDrafts(process: WorkingProcess, set: DraftSet): Promotion
 			if (draft.kind === 'condition') selectCode = result.code;
 
 			// The draft is replaced by the real thing, so it goes with every line that touched it.
-			remaining = removeFromDrafts(remaining, [draft.id], []);
+			remaining = removeFromDrafts(remaining, [draft.id, ...promotedEnds], []);
 			changed = true;
 			break;
 		}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import type { ContextItem } from '$lib/components/context';
 	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
 	import StateCard from '$lib/process-graph/StateCard.svelte';
@@ -13,12 +15,14 @@
 	import { descriptionOf, hasNext } from '$lib/schema/workflow/edit-state';
 	import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
+	import { journeyErrors, journeyWarnings } from '$lib/schema/workflow/validate';
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 	import { formPaletteTools } from '../palette-tools';
 	import { formDeveloperStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 	import DecisionEditCard from './DecisionEditCard.svelte';
 	import DeveloperStateCard from './DeveloperStateCard.svelte';
+	import JourneyCheckPanel from './JourneyCheckPanel.svelte';
 	import StateEditCard from './StateEditCard.svelte';
 
 	interface Props {
@@ -66,6 +70,29 @@
 	// Every state a step could continue to, named for the list of choices on the edit card. It uses the whole graph
 	// and not only what is shown, because a step can continue to a state that is hidden with the developer states.
 	const targets = $derived(targetOptions(graph.nodes));
+
+	// The name of each state as the lists of choices give it, so a problem names a state in the same words.
+	const targetNames = $derived(new Map(targets.map((target) => [target.stateId, target.label])));
+
+	// Whether the check before tech review is shown in place of the list of steps. While it is, the problems are
+	// worked out again with every change, so a problem that is fixed leaves the list.
+	let checking = $state(false);
+	const errors = $derived(checking ? journeyErrors(process) : []);
+	const warnings = $derived(checking ? journeyWarnings(process) : []);
+
+	// Goes on to tech review.
+	function goToTechReview() {
+		goto(resolve('/tech-review/form'));
+	}
+
+	/**
+	 * Checks the form before it is sent to tech review. A form with nothing to fix or finish goes straight on.
+	 * Otherwise the problems are shown in the side panel.
+	 */
+	function sendToTechReview() {
+		if (journeyErrors(process).length === 0 && journeyWarnings(process).length === 0) goToTechReview();
+		else checking = true;
+	}
 
 	// The state highlighted on the graph and in the list, and whether its card is open in place of the list. They
 	// are held together so choosing a different state always closes a card that was left open.
@@ -249,6 +276,15 @@
 				facts={describeState(openState, code, () => undefined).facts}
 				onClose={() => (selection = { code, open: false })}
 			/>
+		{:else if checking}
+			<JourneyCheckPanel
+				{errors}
+				{warnings}
+				nameOf={(code) => targetNames.get(code) ?? code}
+				onSelect={highlight}
+				onBack={() => (checking = false)}
+				onContinue={goToTechReview}
+			/>
 		{:else}
 			<div class="form-workspace__list">
 				<div class="form-workspace__list-header">
@@ -280,7 +316,7 @@
 			</div>
 
 			<div class="form-workspace__panel-footer">
-				<button class="govuk-button govuk-!-margin-bottom-0" type="button">Send to policy review</button>
+				<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToTechReview}>Send to tech review</button>
 			</div>
 		{/if}
 	</aside>

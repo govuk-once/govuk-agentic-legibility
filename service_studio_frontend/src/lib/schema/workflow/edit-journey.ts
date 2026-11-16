@@ -105,6 +105,13 @@ export function drawLine(process: WorkingProcess, sourceCode: string, targetCode
 }
 
 /**
+ * Adds a new end state that nothing leads to yet, with the usual status. The result carries the name it was given.
+ */
+export function addEndState(process: WorkingProcess): { process: WorkingProcess; code: string } {
+	return addState(process, newEndCode, { state_type: 'end', status: defaultEndStatus });
+}
+
+/**
  * Ends the journey at a step by pointing it at a new end state in place of wherever it went before. Whatever
  * the step used to continue to is left where it is, with one less line leading to it. A decision cannot be ended
  * as a whole, so it is given the end as a new way on instead.
@@ -114,8 +121,7 @@ export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditR
 	if (!source) return { ok: false, reason: 'There is no step to end the journey at.' };
 	if (source.state_type === 'end') return { ok: false, reason: 'That is already an end.' };
 
-	const end: WorkingState = { state_type: 'end', status: defaultEndStatus };
-	const added = addState(process, newEndCode, end);
+	const added = addEndState(process);
 
 	if (source.state_type === 'choice') {
 		const drawn = drawLine(added.process, sourceCode, added.code);
