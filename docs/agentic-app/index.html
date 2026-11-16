@@ -70,6 +70,20 @@
   }
   .ghost:hover{background:rgba(255,255,255,.12)}
   .ghost:focus-visible{outline:2px solid #8fb4d8;outline-offset:2px}
+  /* Scene menu: a presenter's tool, outside the phone */
+  .scenenav{display:inline-flex;gap:4px;align-items:center}
+  #scenebtn{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-color:rgba(18,226,247,.5)}
+  .scenes{position:fixed;z-index:50;left:16px;bottom:16px;width:min(360px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;
+    background:#16181c;border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e3eaf1;font-family:var(--font)}
+  .sc-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .sc-head b{font-size:17px}
+  .sc-tip{font-size:13px;color:#9fb0c2;margin:6px 0 4px}
+  .sc-g{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9fb0c2;margin:16px 0 6px}
+  .sc-items{display:flex;flex-direction:column;gap:2px}
+  .sc-item{appearance:none;border:0;background:transparent;color:#e3eaf1;text-align:left;font-family:var(--font);font-size:15px;padding:8px 10px;border-radius:10px;cursor:pointer}
+  .sc-item:hover{background:rgba(255,255,255,.08)}
+  .sc-item:focus-visible{outline:2px solid var(--cyan,#12E2F7);outline-offset:1px}
+  .sc-item.on{background:rgba(18,226,247,.14);color:#fff;font-weight:700}
 
   /* ---------- device ----------
      Geometry taken from the iPhone 15 Pro community frame and scaled from its
@@ -897,6 +911,23 @@
   .ctxcard b{font-size:17px}
   .ctxcard span{font-size:14px;font-weight:300;line-height:1.4}
   .ctxcard .ctx-why{font-weight:700;color:#8a5a00}
+  /* Onward journey: a person from a department joins the same conversation */
+  /* Live chat, following the onward journeys prototype: events are centred cards
+     with a round icon, and every live message carries the time it was sent */
+  .msg.ev .bubble.event{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;animation:pop .28s ease both}
+  .ev-icon{width:45px;height:45px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .ev-icon img{width:45px;height:45px;display:block}
+  .ev-icon.person{background:#0E7C86;color:#fff;font-size:20px;font-weight:700}
+  .ev-icon.faded{filter:grayscale(1);opacity:.7}
+  .ev-icon.assistant{background:var(--template)}
+  .ev-title{margin:0;font-size:14px;line-height:1.3;font-weight:700;color:#000}
+  .ev-detail{align-self:stretch;padding-top:8px;border-top:1px solid rgb(15 56 92 / .15);font-size:13px;line-height:1.4;color:#4c4c4c}
+  .ev-detail p{margin:0}
+  .bubble p.lc-time{display:flex;justify-content:flex-end;align-items:center;gap:4px;margin:12px 0 0;padding-top:6px;border-top:1px solid rgb(15 56 92 / .15);font-size:12px;color:#4c4c4c}
+  .msg.u .bubble.lc{min-width:70%}
+  .msg.u .bubble .lc-time{border-top-color:rgb(232 241 248 / .35);color:#e8f1f8}
+  .lc-read{display:inline-flex;color:#00f1da}
+  
   .fixrows{display:flex;flex-direction:column}
   .fr{display:flex;flex-direction:column;gap:3px;padding:10px 0;border-top:1px solid var(--divider)}
   .fr .k{font-size:13px;font-weight:700;color:var(--ink-2)}
@@ -1016,6 +1047,52 @@
   .sp-q:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
   .sp-q .q{font-size:15px;line-height:1.4;color:#fff}
   .sp-q .w{font-size:13px;color:var(--agent-on-dark)}
+  /* ---------- account, memory and conversation history ---------- */
+  .acc-head{display:flex;align-items:center;gap:14px;background:var(--surface);border-radius:16px;padding:16px}
+  .acc-av{flex:none;width:56px;height:56px;border-radius:28px;background:var(--navy);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .acc-m{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+  .acc-m b{font-size:17px;line-height:1.25}
+  .acc-m > span{font-size:14px;font-weight:300;color:var(--ink-2);line-height:1.35}
+  .acc-row{appearance:none;border:0;background:var(--surface);width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left;font-family:var(--font);color:var(--ink);cursor:pointer;border-top:1px solid var(--divider)}
+  .acc-row:first-child{border-top:0}
+  .acc-row:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+  .acc-i{flex:none;width:36px;height:36px;border-radius:10px;background:var(--template);display:flex;align-items:center;justify-content:center}
+  .acc-card{background:var(--surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+  .acc-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .acc-card h3{margin:0;font-size:18px;line-height:1.2}
+  .acc-card p{margin:0;font-size:15px;font-weight:300;line-height:1.4;color:var(--ink-2)}
+  .acc-kv{display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:1.35}
+  .acc-kv .k{font-size:13px;font-weight:700;color:var(--ink-2)}
+  .acc-kv .v{font-weight:300}
+  .acc-card.mem .acc-kv .k{font-size:16px;color:var(--ink)}
+  .acc-card.mem .acc-kv .v{font-size:16px}
+  .memfrom{font-size:13px;font-weight:300;color:var(--ink-2);line-height:1.4}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:13px;font-weight:700;background:var(--panel-2);color:var(--ink);border-radius:6px;padding:3px 8px;white-space:nowrap}
+  .chip.ok{background:var(--lv-auto-bg);color:var(--lv-auto-ink)}
+  .chip.off{background:#FDEDEA;color:#9B2A17}
+  .acc-actions{display:flex;gap:20px;flex-wrap:wrap}
+  .textbtn.danger{color:#B4321A}
+  .textbtn.sm{font-size:13px}
+  .acc-note{background:var(--surface);border-radius:12px;padding:14px 16px;font-size:14px;font-weight:300;line-height:1.45;box-shadow:inset 4px 0 0 var(--cyan)}
+  .confirm{background:#FFF7F5;border-left:4px solid #D4351C;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .confirm b{font-size:16px}
+  .confirm p{margin:0;font-size:14px;font-weight:300;line-height:1.4;color:var(--ink)}
+  .confirm .row2{display:flex;gap:8px}
+  .confirm .btn{height:44px;font-size:16px}
+  .btn.warnbtn{background:#D4351C;color:#fff}
+  .logrow{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-top:1px solid var(--divider)}
+  .logrow:first-child{border-top:0}
+  .logrow .d{font-size:13px;font-weight:700;color:var(--ink-2)}
+  .logrow b{font-size:15px;line-height:1.35}
+  .logrow > span:last-child{font-size:13px;font-weight:300;color:var(--ink-2)}
+  .nav-right{display:flex;gap:8px;align-items:center;flex:none}
+  .iconbtn{appearance:none;border:0;padding:0;cursor:pointer;width:40px;height:40px;border-radius:40px;background:var(--surface);display:flex;align-items:center;justify-content:center}
+  .iconbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .hist{display:flex;flex-direction:column;gap:16px}
+  .hist .bubble,.hist .consentcard,.hist .ctxcard,.hist .event{animation:none}
+  .msg.histnote{justify-content:center}
+  .msg.histnote span{font-size:13px;color:var(--ink-2);background:rgba(255,255,255,.7);border-radius:999px;padding:6px 12px;text-align:center;line-height:1.35}
 </style>
 
 <div class="stage">
@@ -1037,12 +1114,18 @@
   </div>
 
   <div class="stage-foot">
+    <span class="scenenav">
+      <button class="ghost" id="sceneprev" type="button" aria-label="Previous scene">‹</button>
+      <button class="ghost" id="scenebtn" type="button" aria-expanded="false" aria-controls="scenes">Jump to a scene</button>
+      <button class="ghost" id="scenenext" type="button" aria-label="Next scene">›</button>
+    </span>
     <button class="ghost" id="paneltoggle" type="button" aria-pressed="true">How this works: on</button>
     <button class="ghost" id="jump" type="button" disabled>Jump to 18 November</button>
     <button class="ghost" id="frametoggle" type="button" aria-pressed="true">Device frame: on</button>
     <button class="ghost" id="qbtn" type="button" aria-pressed="false">Questions this raises</button>
     <button class="ghost" id="restart" type="button">Start again</button>
   </div>
+  <div class="scenes" id="scenes" role="dialog" aria-label="Jump to a scene" hidden></div>
 </div>
 <script>
 const I = {
@@ -1183,13 +1266,19 @@ const TASKS = {
     intro:"A lasting power of attorney lets your mum choose someone to make decisions for her if she cannot in future. She can only make one while she can still make decisions herself. She must sign it herself.",
     details:[["Cost","£92 to register each one"],["How long it takes","8 to 10 weeks to register"],["Run by","Office of the Public Guardian"]],
     action:"Help me get ready", flow:"lpa"
+  },
+  /* Only appears in the plan after Nadia talks to a DWP adviser on 11 November */
+  dwp_call:{
+    title:"Be with your mum for DWP's phone call", who:["mum","you"], level:"you", due:"Monday 16 November, 10am",
+    intro:"Before DWP decides your mum's Attendance Allowance, a decision maker will phone her to ask how her dementia affects her day to day. Be with her so you can help her answer. A decision usually follows a few days later.",
+    details:[["When","Monday 16 November, 10am"],["Where","Your mum's home. DWP will call her landline"],["It helps to have","Her care plan from the council, and a list of what she needs help with"],["Run by","DWP"]]
   }
 };
 
 const STEPS = [
   {id:"s1", title:"Get your mum safe and supported at home",
    desc:"Start with your mum's needs assessment and Attendance Allowance. Other support depends on Attendance Allowance, so apply as soon as you can.",
-   tasks:["needs_assess","aa_claim","council_tax"]},
+   tasks:["needs_assess","aa_claim","dwp_call","council_tax"]},
   {id:"s2", title:"Decide your working hours",
    desc:"Working fewer days affects your Carer's Allowance and your childcare. Check the options before you talk to your employer.",
    tasks:["hours","flex_request"]},
@@ -1293,7 +1382,28 @@ function corrScript(fromForm){
     {r:"corrcard"}
   ];
 }
-const SC = () => state.script==="fix" ? FIX : state.script==="qa" ? QA : state.script==="corr" ? state.corrScript : state.script==="choose" ? [] : CHAT;
+/* Onward journey: chasing mum's claim. The assistant can't see DWP's progress,
+   so it hands Nadia to a DWP adviser, waits with her, then saves what she learned. */
+const CHASE = [
+  {r:"u",t:"It's been four weeks since we applied for mum's Attendance Allowance and we've heard nothing. Is there any news?"},
+  {r:"a",t:"Your mum's claim went to DWP on 14 October, reference AA 7Q4 2219. DWP hasn't sent a decision yet. I can't see where the claim has got to, because DWP only shares the decision.",src:"From your plan"},
+  {r:"a",t:"A DWP adviser can look it up for you. The Attendance Allowance helpline has advisers that I can connect you to."},
+  {r:"handover"},
+  {r:"connecting"},
+  {r:"queue",t:"You don't need to keep this page open. You'll get a notification when an adviser is ready, and it will bring you back here."},
+  {r:"ev",icon:"crown",t:"You have been connected to the DWP Attendance Allowance helpline"},
+  {r:"ev",icon:"priya",t:"Priya has entered the chat",join:true},
+  {r:"h",at:"12:31 pm",t:"Hi Nadia, I'm Priya. I can see you'd like an update on your mum's Attendance Allowance claim. I've got it here."},
+  {r:"h",at:"12:32 pm",t:"Her claim is with a decision maker. Because of her dementia, they want to speak to her by phone before they decide, and she should have someone with her. Could that be you?"},
+  {r:"u",at:"12:33 pm",t:"Yes, of course. When would it be?"},
+  {r:"h",at:"12:34 pm",t:"I've booked Monday 16 November at 10am. They'll call her landline. After the call, a decision usually takes a few days. Is there anything else?"},
+  {r:"u",at:"12:34 pm",t:"No, that's really helpful. Thank you."},
+  {r:"ev",icon:"priya",t:"Priya has left the chat",left:true},
+  {r:"ev",icon:"assistant",t:"You have been connected back to your GOV.UK assistant"},
+  {r:"a",t:"DWP needs to speak to your mum before it can decide, so there's something new for you to do."},
+  {r:"callcard"}
+];
+const SC = () => state.script==="chase" ? CHASE : state.script==="fix" ? FIX : state.script==="qa" ? QA : state.script==="corr" ? state.corrScript : state.script==="choose" ? [] : CHAT;
 
 /* ============================================================
    Side panel: what is happening for Nadia, and what has to
@@ -1385,14 +1495,63 @@ const PANEL = {
     qs:[["screen","When is chat the right way to interact, and when is a purpose-built screen better?","A form with a way into chat"],
         ["joined","How does a change made in one place reach everywhere else, in a joined-up way?","Correcting an employer"],
         ["change","How do we handle changes in someone's circumstances?","A voice note that updates the plan"],
-        ["trust","How do we reduce friction for people while staying transparent and accountable?","What the assistant can do without asking"]],
+        ["trust","How do we reduce friction for people while staying transparent and accountable?","What the assistant can do without asking"],
+        ["human","When should the assistant hand over to a person, and what should it pass on?","Chasing mum's claim with DWP"]],
     foot:"This is a vision prototype, not a design proposal. It's here to start a conversation."},
   perms:{eyebrow:"Permissions", title:"What the assistant can do on its own",
     body:"Nadia can see everything she has agreed to and turn any of it off.",
     needs:["A record of permissions that services can check"]},
   vtax:{eyebrow:"Outside the plan", title:"Everyday tasks too",
     body:"Car tax is due every year. The assistant checks the MOT and insurance, and Nadia approves the renewal.",
-    needs:["DVLA letting an assistant renew, with her approval"]}
+    needs:["DVLA letting an assistant renew, with her approval"]},
+  home_chase:{eyebrow:"4 weeks later", title:"Waiting, and worried",
+    body:"Nadia applied for her mum's Attendance Allowance four weeks ago and has heard nothing. She asks the assistant.",
+    body2:"Tap the ask bar at the bottom of the screen."},
+  chase:{eyebrow:"Asking for an update", title:"It says what it can't see",
+    body:"The assistant knows the claim was sent, but DWP doesn't share how a claim is going. It doesn't guess. It offers a person who can look.",
+    needs:["Services saying which questions need a person","Knowing which helplines have advisers free right now"]},
+  handover:{eyebrow:"Handing over", title:"She sees what's shared before it's sent",
+    body:"The adviser gets the question and the claim, so Nadia doesn't start again. Nothing else from her plan goes with it.",
+    needs:["Contact centres accepting a handover from an assistant","Proof that Nadia acts with her mum's permission"]},
+  queue:{eyebrow:"Waiting for an adviser", title:"No waiting on hold",
+    body:"Nadia joins the queue and can close the app. A notification tells her when someone is ready.",
+    needs:["Contact centres sharing queue position and wait times"]},
+  lock_adviser:{eyebrow:"12 minutes later", title:"A person is ready",
+    body:"The notification brings Nadia back to the same conversation, with an adviser waiting and the context already there.",
+    needs:["Contact centres telling the app when an adviser picks up"]},
+  adviser:{eyebrow:"Talking to DWP", title:"A person picks up where the assistant left off",
+    body:"Priya already has the question and the claim, so she goes straight to the answer. Nadia doesn't repeat herself or prove again that she can act for her mum.",
+    needs:["Advisers seeing what the assistant passed on","Contact centres accepting the permission Nadia already has"]},
+  chase_back:{eyebrow:"Back with the assistant", title:"A conversation that changes the plan",
+    body:"DWP needs to speak to mum before it decides. That's something new for Nadia to do, so it goes into her plan and onto her home page.",
+    needs:["Contact centres sharing what they booked, with permission","Plans that change when a person tells her something new"]},
+  acct_hub:{eyebrow:"Account", title:"One place to see and control it all",
+    body:"Nadia's details, the departments she's linked, who can act for whom, and what the assistant remembers and does. Each is a row, so more can be added without changing the page.",
+    needs:["One account that works across departments","Permissions that services can check"]},
+  acct_details:{eyebrow:"Account", title:"Change it once",
+    body:"Her details come from GOV.UK One Login, so every linked department uses the same ones. She changes them in one place.",
+    needs:["Departments using One Login details instead of their own copies"]},
+  acct_links:{eyebrow:"Account", title:"Linking is a choice she can undo",
+    body:"Each department says what the assistant reads and why. Unlinking tells her what will stop working before she does it.",
+    needs:["A common way for departments to share records, with permission","Consent that departments can check"]},
+  acct_people:{eyebrow:"Account", title:"Acting for someone, with limits",
+    body:"Nadia can help with her mum's claim because her mum agreed on her own phone. The permission says what it covers and when it ends.",
+    needs:["A way for one person to act for another, with permission","Links to powers that already exist, such as appointees and lasting power of attorney"]},
+  acct_memory:{eyebrow:"Memory", title:"What it remembers, and what it doesn't",
+    body:"The assistant keeps what Nadia told it, so she isn't asked twice. Facts from department records aren't kept: it reads them when it needs them. She can change or forget anything, or turn memory off.",
+    needs:["Memory kept apart from conversations","Forgetting that applies everywhere the fact was used"]},
+  acct_running:{eyebrow:"Your assistant", title:"Everything it's doing in the background",
+    body:"Each standing task shows when it last ran and when it runs next. Nadia can pause any of them.",
+    needs:["Standing permissions with a clear scope and schedule"]},
+  acct_log:{eyebrow:"Your assistant", title:"A record of what was done, and why",
+    body:"Every action shows what it was based on: something Nadia agreed to at the time, or a standing permission.",
+    needs:["A record of what was sent and who agreed","Receipts from departments"]},
+  threads:{eyebrow:"Conversation history", title:"Conversations are the record, not the memory",
+    body:"Each conversation is kept with what it led to. Deleting one doesn't make the assistant forget her mum's diagnosis. That lives in what it remembers.",
+    needs:["Conversations kept for a set time, then deleted","Memory managed apart from history"]},
+  thread:{eyebrow:"Conversation history", title:"Every conversation, as it happened",
+    body:"Including the part with DWP. Nadia can carry on where she left off, or delete it.",
+    needs:["Conversations that can be picked up again with their context"]}
 };
 
 /* ============================================================
@@ -1410,9 +1569,14 @@ const state = {
   flow:null,                 // {task, stage, data}
   chatIndex:0, chatLog:[], chatBusy:false, typing:false, consented:false, gatherOn:0,
   toast:null, dir:"fwd", reachedPlan:false,
-  script:"plan", standing:{reconfirm:false, recheck:true, earnings:true, travel:false, payroll:false}, alertDecided:false, newJob:false, corrFrom:null,
-  fromHome:false, caAwarded:false, vtax:"later", fixed:false
+  script:"plan", standing:{reconfirm:false, recheck:true, earnings:true, travel:false, payroll:false, dwprem:true, vtaxwatch:true}, alertDecided:false, newJob:false, corrFrom:null,
+  fromHome:false, caAwarded:false, vtax:"later", fixed:false,
+  handed:null, connected:false, queueLeft:false, callDecided:false, chased:false, lockNote:null,
+  acctPage:"hub", acctFrom:null, threadId:null, threadsFrom:null, threadDirect:false, confirm:null,
+  unlinked:[], forgot:[], deletedThreads:[], memOn:true
 };
+/* Tasks only show once they have a status, so a task can join the plan later */
+const stepTasks = step => step.tasks.filter(id=>id in state.status);
 const T = id => TASKS[id];
 
 /* ============================================================
@@ -1431,7 +1595,7 @@ function nav({back,label,small,chip}){
       ${back?`<button class="backbtn${chip?" chip":""}" data-act="back" type="button" aria-label="Back">${I.chevronL()}</button>`:""}
       ${label?`<span class="nav-label${small?" sm":""}">${esc(label)}</span>`:""}
     </div>
-    <button class="avatar" data-act="perms" type="button" aria-label="What I can do without asking">N</button>
+    <button class="avatar" data-act="perms" type="button" aria-label="Your account">N</button>
   </div>`;
 }
 const lvChip = lv => `<span class="lv ${LEVELS[lv].cls}"><i></i>${esc(LEVELS[lv].label)}</span>`;
@@ -1452,7 +1616,7 @@ function statusText(id){
 }
 const isDone = s => ["done","booked","submitted","waiting"].includes(s);
 const stepCounts = step => {
-  const ids = step.tasks.filter(id=>state.status[id]!=="ruled");
+  const ids = stepTasks(step).filter(id=>state.status[id]!=="ruled");
   return {done:ids.filter(id=>isDone(state.status[id])).length, total:ids.length};
 };
 const stepStatus = step => {
@@ -1503,7 +1667,50 @@ function fixRows(){
   if(state.caAwarded) rows.push(["Carer's Allowance","£86.45 a week","From DWP"]);
   return rows;
 }
+const btn2 = (yesAct, yes, noAct, no) => `<div class="row2"><button class="btn green" data-act="${yesAct}" type="button">${esc(yes)}</button><button class="btn plain" data-act="${noAct}" type="button" style="box-shadow:inset 0 0 0 1px var(--ink-4)">${esc(no)}</button></div>`;
+const CROWN = `<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC0AAAAtCAYAAAA6GuKaAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAABldJREFUeAHNWVtMHFUY/mfYplRtu21ije2uXS0P2kuAJkXApNBoCvXBQCKaGisCaWLUpIuXBx8U0MQnGrYPbWIKWF802iagicKSaGmTSmMfaCM2NYGw3EyLsVBQoVx2+n9n5sAw7GV2Z6H9yGSH2X92vvnPd77zn3MUcgifvyMrTOFCPs0ME2UpRG5cNoWE9EMZV0i7oJLaGQocvEoOoFAS8Plb3GF66JhG5CfS3JQ4Qnx0ppFWFwocClGCSIi0z9/mmyelhk/fpNThTKLkbZFezKxWSysEhZTawUBRnb3YODCye56W6nSlEOKsH4iXdTXWl0y4cJ7UblodwuKReJ7X/1NJrKCopJ+oDpbrGU6qozkAnqe24PnRIiLKQ39TtYXuMwypdFqvLyOtaxiSSD7D1UU7qLo4Q5w/99lFGro9RclBGU+jcLZV48vkkQpJXO4b0z97bzsgDGhu8IF7ma8uIe3xB+HBPnKAxsps8mxKp4mpObrDh8g6Hw7gC1O633xhQR6GtfWTQww2FC27du63EXrvmx5yAtb3k1ImC5k2RjrHgCRePXlFZLrpwgA1BPtoaGyanMLMT2Q6VVmWyNuxib59N4eGWc/53BFThTSa2hQKlI6LTDvJctX+7dTz+fN0mrW8Yd0ace3lnG3i07N5HeVlbBbnRbu3iLj2D/IX4hKF1LaURyElibKcrUzCRUV7ttCubevFNUkUyOWsA1UF20XcTo4p27eVkoFG6jF8qj7/j1mUgGMge3iolz+Brl7d3iAFHCDmMb4DZFywZ1R8QusdxjlkhBZIgLYb9bsrTGmFdm8Boe/e2SdISb3Wtd4QJP4YmWRCsyIOnQ82B4Jnr/wlrqFT6r49LeJA9nRVth7f3ivusQNMOFxcyBdQApBZNGezi8mYARKwOfi0fBEAL2b9HWDntg2UADLTNua+/hbZlMfduTBNTM/RzGyYTv3ST9dNJKzYtXU9zSCeiUdC3+h/9Oj6tTTCmf+UWytanBUK/rz+9n47pEECfmvOXDTUlDwtOh4Az7a2RCR4eRQlRbEz7IdUO4RBou3DfLarPFt25TU1vZ14dOxLnxTQpY/3L3GeKPCpZANlJt+VtmYlZ0ZDsJelMyE6XvD3WxFjzJrOjWCRsWCLNEhIJ5BNjey08UBhfgkJdLji+i56haURCXAW8yDTfHFAuBH6yDnDbWLBtqatOH54t2gBazGEl8AoKQGNmu0MtomRESiu/zVmZ46CkMrFx7idSHQUsz6HjQ7jsUgEWYbVYSjHIQeSRdKLvzFpcoxoUotImkeZa/GikFV0FGRJdpQmblJIBpmUoxokg0N+d5ZbYeL/WdGRJWGvUWsjRjoF7jlo1CY2OuId9ukjPj4pjhU1yd4sO+OOLQ8Ljz35RiatXaOKh7y093FBBD5+/LU9IhYvuJFJYtqV8dgjdOrnfvre/yy9/cJTIg6ZRQxmOY08Mv49OSOuYYSNBVbGFy6V5jvnueiLBXQ+HCiKgA6TI0AmR5u79WbXNCEPeHNjZZae6WnMXvT5Yl3rn0JOaDm4yi4eCVF/4F68aDzCANYC08Yvf33TnXsEJV96rOARHlhAGgRHOStNRo/f63OLjoZzEETvxwBUU/qMyB7ifui+KbKLGBTwGdxaR5uvUueNf8So2XfrX/E778eZ3fC9oYFA0UfC8rgIOUFxIK2ukp3B3AlRasLC0LRyKEYm0fTIHvQqR1Fktf7wHlFr6PGzXG6SkJCdgoljOw3ymLmc51nv3bF4N8mlAZFVJrgzgkfbhfwNj6FtO0sNcp4oMh0KHGDb076K9yC5NCAz7ATyN0AYXm2j5jgjJ7YueYW7Yu08UXmsuyARKY3rRv08ZGjZXKUNWwiYvdxj+L10D3xnp6DCcrA8X7LC5PG31SopmpWnEryDUDcYOFQr/19Se7goPaDoq/QPDMDHTBhYQhraVnnRj7Nta2hfaYAH+FivL6vyIHa2wFJ6AKDRfEWkBfaIpemwWF7VKui+QqsYCrzYGumbmNsXXn+whAO+1FZxYR2SQEsPR1iXXoyJAyyZhXm5VVuFLQxFlJ3x91xsb8mttB1ya9a5aDqAtbp4sUnsI1It31ZOqcPK7CNaIclz5guSkY2h2xN2M7v8foeQe+Mav4Cx7eEjy964MaXDfvi1VOyN3wPDEAEULw/0LQAAAABJRU5ErkJggg==" alt="">`;
+const TICKS = `<svg width="18" height="10" viewBox="0 0 18 10" fill="none" aria-hidden="true"><path d="M1 5.5L4.5 9L12 1.5M8.5 7.5L10 9L17.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const evIcon = (icon, faded) => icon==="crown" ? `<span class="ev-icon">${CROWN}</span>`
+  : icon==="priya" ? `<span class="ev-icon person${faded?" faded":""}">P</span>`
+  : `<span class="ev-icon assistant">${LOGO(30)}</span>`;
+const eventHTML = (icon, title, lines, faded) => `<div class="bubble event" role="status">${evIcon(icon,faded)}<p class="ev-title">${esc(title)}</p>${lines&&lines.length?`<div class="ev-detail">${lines.map(l=>`<p>${esc(l)}</p>`).join("")}</div>`:""}</div>`;
+const queueLines = () => { const n = state.queuePos||4, mins = {4:12,3:8,2:4,1:1}[n];
+  return [`Your position in the queue is Number ${n}`, `Current estimated wait time: ${mins} ${mins===1?"minute":"minutes"}`]; };
+/* Connecting shows the assistant at work, then becomes the transfer card, which counts down in place */
+const connHTML = () => state.connected
+  ? eventHTML("crown","You are being transferred to the DWP Attendance Allowance helpline", queueLines())
+  : `<div class="bubble acting">${LOGO(22,true)}<span>Connecting you to DWP</span><span class="typing"><i></i><i></i><i></i></span></div>`;
+function chaseHTML(m){
+  if(m.r==="handover") return `<div class="msg a"><div class="consentcard" id="handcard">
+      <b>Connect you to a DWP adviser?</b>
+      <div class="fixrows">
+        <div class="fr"><span class="k">Your question</span><span class="v">Is there any news on your mum's Attendance Allowance claim?</span></div>
+        <div class="fr"><span class="k">The claim</span><span class="v">Sent 14 October, reference AA 7Q4 2219</span></div>
+        <div class="fr"><span class="k">You</span><span class="v">Nadia, helping your mum with her permission, given 14 October</span></div>
+      </div>
+      ${state.handed===null ? btn2("handyes","Connect me","handno","Not now") : `<span class="done-note">${state.handed?"Shared with DWP":"Not now"}</span>`}
+    </div></div>`;
+  if(m.r==="queue") return `<div class="msg a"><div class="bubble"><p>${esc(m.t)}</p></div></div>`;
+  if(m.r==="ev") return `<div class="msg a ev">${eventHTML(m.icon, m.t, null, m.left)}</div>`;
+  if(m.r==="h") return `<div class="msg a"><div class="bubble"><p>${esc(m.t)}</p><p class="lc-time">${esc(m.at)}</p></div></div>`;
+  if(m.r==="u" && m.at) return `<div class="msg u"><div class="bubble lc">${esc(m.t)}<p class="lc-time">${esc(m.at)}<span class="lc-read" aria-label="Read">${TICKS}</span></p></div></div>`;
+  if(m.r==="connecting") return `<div class="msg a${state.connected?" ev":""}" id="connwrap">${connHTML()}</div>`;
+  if(m.r==="callcard") return `<div class="msg a"><div class="consentcard" id="callcard">
+      <b>Add this to your plan?</b>
+      <div class="fixrows">
+        <div class="fr"><span class="k">Be with your mum for DWP's phone call</span><span class="v">Monday 16 November, 10am, at her home</span></div>
+      </div>
+      <p>I'll remind you the day before. Her care plan from the council will help her answer.</p>
+      ${state.callDecided ? `<span class="done-note">${state.status.dwp_call?"Added to your plan":"Not now"}</span>` : btn2("calladd","Add to my plan","callno","Not now")}
+    </div></div>`;
+  if(m.r==="chaseend") return `<div class="msg a"><div class="plancard">
+      ${state.status.dwp_call?`<button class="btn green" data-act="plan" type="button">View your plan</button>`:""}
+      <button class="btn ${state.status.dwp_call?"plain outline":"green"}" data-act="back" type="button">Back to home</button>
+    </div></div>`;
+  return null;
+}
 function messageHTML(m){
+  const ch = chaseHTML(m); if(ch) return ch;
   if(m.r==="corrctx") return `<div class="msg a"><div class="ctxcard">
       <span class="ctx-eyebrow">About</span><b>${state.corrFrom && state.corrFrom.flow && state.corrFrom.flow.task==="carers_allowance" ? "Your Carer's Allowance claim" : "Reconfirm your childcare"}</b>
       <span>Your employer: ${state.newJob?"Leeds Community Healthcare, from what you told me":"Leeds Teaching Hospitals, from HMRC payroll"}</span>
@@ -1566,7 +1773,8 @@ function viewChat(){
   return `<div class="screen">
     ${statusBar()}
     <div class="nav"><div class="nav-left"><button class="backbtn" data-act="back" type="button" aria-label="Back">${I.chevronL()}</button><span class="nav-label">${state.script==="corr"&&state.corrFrom&&(state.corrFrom.flow||state.corrFrom.view==="told")?"Back":"Home"}</span></div>
-      <button class="avatar" data-act="perms" type="button" aria-label="What I can do without asking">N</button></div>
+      <span class="nav-right"><button class="iconbtn" data-act="threads" type="button" aria-label="Conversation history">${AIC.clock}</button>
+      <button class="avatar" data-act="perms" type="button" aria-label="Your account">N</button></span></div>
     <div class="chatbody" id="chatbody"></div>
     <div class="composer">
       <p class="hint">&nbsp;</p>
@@ -1578,6 +1786,8 @@ function viewChat(){
   </div>`;
 }
 
+/* True while a DWP adviser is in the conversation */
+const withAdviser = () => state.script==="chase" && state.chatLog.some(m=>m.join) && !state.chatLog.some(m=>m.left);
 function chatUpdate(opts={}){
   const cb = el.querySelector("#chatbody");
   if(!cb) return;
@@ -1587,7 +1797,7 @@ function chatUpdate(opts={}){
     const holder = document.createElement("div");
     holder.innerHTML = messageHTML(state.chatLog[i]);
     const node = holder.firstElementChild;
-    if(opts.instant) node.querySelector(".bubble,.plancard,.consentcard,.gathercard,.ctxcard")?.style.setProperty("animation","none");
+    if(opts.instant) node.querySelector(".bubble,.plancard,.consentcard,.gathercard,.ctxcard,.event")?.style.setProperty("animation","none");
     cb.insertBefore(node, typingNode || null);
   }
   if(state.typing && !typingNode){
@@ -1600,7 +1810,8 @@ function chatUpdate(opts={}){
   const next = SC()[state.chatIndex];
   const pending = (!state.chatBusy && next && next.r==="u") ? next.t : null;
   const field = el.querySelector(".field"), send = el.querySelector(".send"), hint = el.querySelector(".hint");
-  if(field){ field.textContent = pending || "Ask or tell me something"; field.classList.toggle("empty", !pending); }
+  const idle = withAdviser() ? "Ask Priya a question..." : "Ask or tell me something";
+  if(field){ field.textContent = pending || idle; field.classList.toggle("empty", !pending); }
   if(send) send.disabled = !pending;
   if(hint) hint.innerHTML = pending ? "Tap send to reply" : state.script==="choose" ? "Choose what Nadia does, in the panel" : "&nbsp;";
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1625,18 +1836,50 @@ function chatStep(){
     setTimeout(tick, 1100);
     return;
   }
-  if(item.r==="consent" || item.r==="alert" || item.r==="corrcard"){
+  if(item.r==="connecting"){
+    state.connected = false;
+    state.chatLog.push(item); state.chatIndex++; state.chatBusy=true; state.typing=false; chatUpdate();
+    const run = state.run;
+    setTimeout(()=>{
+      if(run!==state.run) return;
+      state.connected = true; state.queuePos = 4;
+      const b = el.querySelector("#connwrap"); if(b){ b.classList.add("ev"); b.innerHTML = connHTML(); }
+      setTimeout(()=>{ if(run===state.run) chatStep(); }, 900);
+    }, 2800);
+    return;
+  }
+  if(item.r==="queue"){
+    state.chatLog.push(item); state.chatIndex++; state.chatBusy=true; state.typing=false;
+    chatUpdate(); renderSide();
+    /* Time passes: the adviser picks up and a notification arrives, wherever Nadia is in the app */
+    const q = state.queueToken = (state.queueToken||0) + 1;
+    const tick = ()=>{
+      if(q!==state.queueToken || state.queueLeft) return;
+      if(state.queuePos>1){ state.queuePos--; const d = el.querySelector("#connwrap .ev-detail");
+        if(d) d.innerHTML = queueLines().map(l=>`<p>${esc(l)}</p>`).join(""); setTimeout(tick, 1400); }
+    };
+    setTimeout(tick, 1400);
+    setTimeout(()=>{
+      if(q!==state.queueToken || state.script!=="chase" || state.queueLeft) return;
+      state.queueLeft = true; state.queuePos = 1; state.lockNote = "adviser"; state.run++; state.flow = null;
+      go("lock");
+    }, 5600);
+    return;
+  }
+  if(["consent","alert","corrcard","handover","callcard"].includes(item.r)){
     state.chatLog.push(item); state.chatIndex++; state.chatBusy=true; state.typing=false;
     chatUpdate(); renderSide(); return;          // waits for Allow
   }
-  state.chatBusy = true; state.typing = true; chatUpdate();
-  const dwell = item.r==="plan" ? 700 : Math.min(1500, 420 + (item.t?item.t.length:0)*7);
+  /* Events and the adviser's messages arrive without the assistant's typing dots */
+  const quiet = item.r==="ev" || item.r==="h";
+  state.chatBusy = true; state.typing = !quiet; chatUpdate();
+  const dwell = item.r==="plan" ? 700 : item.r==="ev" ? 1000 : item.r==="h" ? 2000 : Math.min(1500, 420 + (item.t?item.t.length:0)*7);
   const run = state.run;
   setTimeout(()=>{
     if(run!==state.run) return;
     state.typing = false;
     state.chatLog.push(item); state.chatIndex++;
-    if(state.view==="chat") chatUpdate();
+    if(state.view==="chat"){ chatUpdate(); renderSide(); }
     setTimeout(()=>{ if(run===state.run) chatStep(); }, 320);
   }, dwell);
 }
@@ -1654,7 +1897,7 @@ function viewPlan(){
   const steps = STEPS.map(s=>`<div class="card">
       <div class="step-head" style="padding-bottom:16px"><p class="card-title">${esc(s.title)}</p></div>
       ${tiles(s)}
-      ${s.tasks.map(taskRow).join("")}
+      ${stepTasks(s).map(taskRow).join("")}
       <button class="detailsrow" data-act="step" data-step="${s.id}" type="button"><span>About this step</span>${I.chevronR("#0B0C0C",1.2)}</button>
     </div>`).join("");
 
@@ -1662,6 +1905,9 @@ function viewPlan(){
       <b>What's changed</b>
       <p>Your Carer's Allowance was awarded on 9 December. It's now under Benefits on your home page.</p>
       <p>Most of this plan is done. What's left is below.</p>
+    </div>` : "") : state.phase==="chase" ? (state.status.dwp_call ? `<div class="changed">
+      <b>What's changed</b>
+      <p>DWP wants to speak to your mum by phone before it decides her claim. Be with her on Monday 16 November at 10am.</p>
     </div>` : "") : state.phase==="later" ? `<div class="changed">
       <b>What's changed</b>
       <p>Your mum's Attendance Allowance was approved on 18 November. She'll get £76.70 a week, backdated to when you applied.</p>
@@ -1682,7 +1928,7 @@ function viewPlan(){
         </div>
         <button class="rowlink" data-act="told" type="button"><span>What your plan is based on</span>${I.chevronR("#0B0C0C",1.2)}</button>
       </div>
-      ${state.phase!=="now" ? `<div class="card"><button class="updaterow" data-act="change" type="button">
+      ${!["now","chase"].includes(state.phase) ? `<div class="card"><button class="updaterow" data-act="change" type="button">
          <span class="badge">${I.refresh}</span><span class="lbl">Update your plan</span>${I.chevronR("#0B0C0C",1.2)}</button></div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:8px"><h2 class="section-h big">Steps</h2><span class="keyline">${LOGO(16)}I can help with this</span></div>
       ${steps}
@@ -1756,10 +2002,11 @@ function runChange(items, then){
 }
 
 function viewTold(){
+  const SRC = {gov:"From HMRC", told:"You told us"};
   const groups = TOLD.map(([h,rows])=>`<h2 class="section-h">${esc(h)}</h2><div class="kvcard">${rows.map(([k,v,src])=>{
     const work = k==="Your work", s2 = work && state.newJob ? "told" : src;
     return `<div class="row"><span class="lbl"><b>${esc(k)}</b><span>${esc(withEmp(v))}</span>
-      <span class="src ${s2}" style="width:max-content">${s2==="gov"?"From HMRC":"You told us"}</span></span>
+      <span class="src ${s2}" style="width:max-content">${SRC[s2]}</span></span>
       <button class="editbtn" type="button" data-act="${work?"corr":"noop"}">Edit</button></div>`;}).join("")}</div>`).join("");
   return `<div class="screen">
     ${statusBar()}
@@ -1768,6 +2015,7 @@ function viewTold(){
       <h2 class="title-sm">What your plan is based on</h2>
       <p class="intro">If anything is wrong, change it and your plan will update.</p>
       ${groups}
+      <div class="card"><button class="rowlink" data-act="acct" data-page="memory" type="button"><span>Manage what I remember about you</span>${I.chevronR("#0B0C0C",1.2)}</button></div>
     </div></div>
   </div>`;
 }
@@ -1784,7 +2032,7 @@ function viewStep(){
         ${tiles(s)}
       </div>
       <h2 class="section-h" style="margin-top:8px">Tasks</h2>
-      <div class="card">${s.tasks.map(taskRow).join("")}</div>
+      <div class="card">${stepTasks(s).map(taskRow).join("")}</div>
     </div></div>
   </div>`;
 }
@@ -1805,6 +2053,9 @@ function viewTask(){
     if(open && t.manual) after = `<div style="padding:0 12px"><button class="btn plain outline" data-act="manual" type="button">${esc(t.manual)}</button></div>`;
   } else if(t.level==="you"){
     box = `<div class="youbox"><div class="ab-h"><span>${esc(L.label)}</span></div><p>${esc(L.banner)}</p></div>`;
+  }
+  if(id==="aa_claim" && state.phase==="chase" && !state.chased){
+    after = `<div style="padding:0 12px"><button class="btn green" data-act="askclaim" type="button">Ask about this claim</button></div>`;
   }
   if(s==="attention"){
     box = `<div class="obs" style="margin:0 12px"><b>I couldn't reconfirm this</b>HMRC's records show Tom's job ended on 31 December. I need you to tell me what's happened.</div>`;
@@ -1839,7 +2090,7 @@ function viewTask(){
    ============================================================ */
 const CAR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M6.3 6.2c.2-.6.8-1 1.4-1h4.6c.6 0 1.2.4 1.4 1l1 2.8h.3c.6 0 1 .4 1 1v3.2c0 .4-.3.8-.8.8h-.6v1c0 .4-.3.8-.8.8h-.6c-.4 0-.8-.4-.8-.8v-1H7.6v1c0 .4-.4.8-.8.8h-.6c-.5 0-.8-.4-.8-.8v-1h-.6c-.5 0-.8-.4-.8-.8V10c0-.6.4-1 1-1h.3l1-2.8Zm1.3.4L6.8 9h6.4l-.8-2.4H7.6ZM6.8 11a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Zm6.4 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Z"/></svg>`;
 const PLANE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="#9A9A9A" aria-hidden="true"><circle cx="10" cy="10" r="10" opacity=".22"/><path d="M15.2 4.8c.5.5.5 1.3 0 1.8l-2.3 2.3 1.2 5.4-.9.9-2.4-4.3-2.2 2.2.3 1.6-.7.7-1.1-2-2-1.1.7-.7 1.6.3 2.2-2.2L5.3 7.3l.9-.9 5.4 1.2 2.3-2.3c.5-.5 1.3-.5 1.8 0Z"/></svg>`;
-const DATES = {now:"Wednesday 14 October", later:"Wednesday 18 November", jan:"Wednesday 20 January"};
+const DATES = {now:"Wednesday 14 October", chase:"Wednesday 11 November", later:"Wednesday 18 November", jan:"Wednesday 20 January"};
 
 /* A due date drawn as a calendar tile, so a deadline reads as a deadline */
 const dateTile = (mon, day) => `<span class="datetile"><span class="dm">${mon}</span><span class="dd">${day}</span></span>`;
@@ -1857,6 +2108,8 @@ const quietCard = (title, line) => `<div class="nextup quiet"><div class="nu-row
     <span class="nu-m"><span class="nu-title sm">${esc(title)}</span><span class="nu-line">${esc(line)}</span></span></div></div>`;
 /* Only plan items surface at the top. Anything due on a service sits with that service. */
 function homeNext(){
+  if(state.phase==="chase" && state.status.dwp_call==="todo") return nextCard({kind:"quiet", tile:dateTile("Nov","16"), eyebrow:"Coming up",
+    title:"Be with your mum for DWP's phone call", line:"Monday at 10am. DWP will call her landline", btn:["See details","task","dwp_call"]});
   if(state.phase!=="later") return "";
   const s = state.status, ok = state.hours!==null && HOURS[state.hours].ca;
   if(ok && s.carers_allowance==="ready") return nextCard({kind:"agent", tile:agentTile(), eyebrow:"Ready for you to check",
@@ -1868,6 +2121,11 @@ function homeNext(){
 
 function sinceItems(){
   const p = state.phase, s = state.status, out = [];
+  if(p==="chase"){
+    out.push(["done","Your mum's care needs assessment happened on 22 October. Carers now visit her 3 mornings a week."]);
+    out.push(["done","Your childcare is reconfirmed until 26 January."]);
+  }
+  if(p==="later" && s.dwp_call==="done") out.push(["done","You were with your mum for DWP's phone call on 16 November."]);
   if(p==="later"){
     out.push(["decision","DWP approved your mum's Attendance Allowance. £76.70 a week, backdated to 14 October."]);
     out.push(["done","Your mum's care needs assessment happened on 22 October. Carers now visit her 3 mornings a week."]);
@@ -1892,7 +2150,7 @@ function sinceHTML(){
 }
 
 function planCard(){
-  const all = STEPS.flatMap(x=>x.tasks).filter(id=>state.status[id]!=="ruled");
+  const all = STEPS.flatMap(stepTasks).filter(id=>state.status[id]!=="ruled");
   const done = all.filter(id=>isDone(state.status[id])).length;
   const ready = all.filter(id=>["ready","attention"].includes(state.status[id])).length;
   return `<button class="homecard planrow" data-act="plan" type="button">
@@ -1983,7 +2241,7 @@ function viewHome(){
   return `<div class="screen">
     ${statusBar()}
     <div class="homehead"><span class="hh"><span class="wordmark">GOV.UK</span><span class="hdate">${DATES[p]}</span></span>
-      <button class="avatar" data-act="perms" type="button" aria-label="What I can do without asking">N</button></div>
+      <button class="avatar" data-act="perms" type="button" aria-label="Your account">N</button></div>
     <div class="body"><div class="stack">
       <h1 class="title" style="font-size:28px">Hello, Nadia</h1>
       ${homeNext()}
@@ -2006,7 +2264,9 @@ function viewHome(){
 function viewLock(){
   const p = state.phase;
   const ok = state.hours!==null && HOURS[state.hours].ca;
-  const notes = p==="later"
+  const notes = state.lockNote==="adviser"
+    ? [["now","A DWP adviser is ready","Priya from DWP can talk to you about your mum's Attendance Allowance claim. Tap to go back to your conversation."]]
+    : p==="later"
     ? [["now", ok?"Your Carer's Allowance claim is ready":"Your mum's council tax discount is ready",
         ok?"Your mum's Attendance Allowance was approved. I've filled in your Carer's Allowance claim. Check it and send it when you're ready."
           :"Your mum's Attendance Allowance was approved. I've filled in her council tax discount form. Check it when you're ready."]]
@@ -2015,7 +2275,7 @@ function viewLock(){
   return `<div class="screen lock">
     ${statusBar(true,true)}
     <div class="lockbody">
-      <div class="locktime">${p==="later"?"8:12":"7:46"}</div>
+      <div class="locktime">${state.lockNote==="adviser"?"12:31":p==="later"?"8:12":"7:46"}</div>
       <div class="lockdate">${DATES[p]}</div>
       <div class="notes">${notes.map(([when,title,text])=>`<button class="note" data-act="lockopen" type="button">
         <span class="napp"><span class="nicon">${LOGO(14)}</span><span>GOV.UK</span><span class="nwhen">${esc(when)}</span></span>
@@ -2033,9 +2293,9 @@ function viewPerms(){
   if(state.caAwarded) reads.push(["Carer's Allowance","DWP"]);
   return `<div class="screen">
     ${statusBar()}
-    ${nav({back:true,label:"Home"})}
+    ${nav({back:true,label:"Account"})}
     <div class="body"><div class="stack">
-      <h2 class="title-sm">What I can do without asking</h2>
+      <h2 class="title-sm">What I can do</h2>
       <p class="intro">These are the things you've let me do on my own. You can stop any of them. Anything else, I ask you first.</p>
       <h2 class="section-h">I do these, then tell you</h2>
       <div class="listcard">${row("reconfirm","Reconfirm your childcare every 3 months","I fill it in from your HMRC record, send it and tell you when it's done. If anything doesn't match, I stop and ask you.", S.reconfirm?"You turned this on when you reconfirmed in October":"Off. I'll ask you each time")}</div>
@@ -2047,8 +2307,9 @@ function viewPerms(){
         ${state.newJob?row("payroll","Check HMRC's records match your new job","After your first payday at the end of October. I'll only tell you if they don't match.","Agreed on 14 October"):""}
         ${state.caAwarded?row("earnings","Check your pay against the Carer's Allowance limit","Each month, from your payslip. I tell you if you're getting close to £204 a week.","Agreed on 9 December"):""}
       </div>
-      <h2 class="section-h">Records I can read</h2>
-      <div class="listcard">${reads.map(([k,v])=>`<div class="readrow"><span>${esc(k)}<small>${esc(v)}</small></span><button class="textbtn" data-act="stopread" type="button">Stop</button></div>`).join("")}</div>
+      <h2 class="section-h">I always ask you first before</h2>
+      <div class="listcard">${["Sending anything new to a department","Sharing your details with anyone","Paying for anything","Acting for your mum"].map(x=>`<div class="readrow"><span>${esc(x)}</span></div>`).join("")}</div>
+      <div class="acc-note">The records I can read are in <button class="textbtn sm" data-act="acct" data-page="links" type="button">Linked departments</button>. What's running now is in <button class="textbtn sm" data-act="acct" data-page="running" type="button">Running now</button>.</div>
     </div></div>
     ${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}
   </div>`;
@@ -2305,12 +2566,293 @@ document.getElementById("mumphone").addEventListener("click", e=>{
 /* ============================================================
    Side panel
    ============================================================ */
+/* ============================================================
+   Account: Nadia's details, linked departments, acting for
+   someone else, and the assistant's memory, permissions,
+   standing tasks and record. A hub of grouped rows, like a
+   phone's settings, so a new section is one more row.
+   Everything is worked out from where Nadia is in the story.
+   ============================================================ */
+const NADIA = {name:"Nadia Carter", mum:"Margaret Hughes"};
+const ic = d => `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#02064A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const AIC = {
+  user:   ic(`<circle cx="10" cy="7" r="3.2"/><path d="M3.8 17c.8-3.2 3.3-5 6.2-5s5.4 1.8 6.2 5"/>`),
+  link:   ic(`<path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-.9.9M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l.9-.9"/>`),
+  people: ic(`<circle cx="7" cy="7" r="2.6"/><circle cx="14" cy="8" r="2.2"/><path d="M2.5 16c.6-2.7 2.4-4.2 4.5-4.2s3.9 1.5 4.5 4.2M12 12.2c2.3-.4 4.4 1 5 3.8"/>`),
+  mem:    ic(`<path d="M10 2.8c.7 4.1 2.6 6 6.7 6.7-4.1.7-6 2.6-6.7 6.7-.7-4.1-2.6-6-6.7-6.7 4.1-.7 6-2.6 6.7-6.7Z"/>`),
+  shield: ic(`<path d="M10 2.5 16 5v4.6c0 3.7-2.6 6.6-6 7.9-3.4-1.3-6-4.2-6-7.9V5l6-2.5Z"/><path d="m7.3 10 1.9 1.9 3.6-3.8"/>`),
+  clock:  ic(`<circle cx="10" cy="10" r="7"/><path d="M10 6v4.3l2.8 1.7"/>`),
+  list:   ic(`<path d="M8 5.5h8.5M8 10h8.5M8 14.5h8.5M3.8 5.5h.1M3.8 10h.1M3.8 14.5h.1"/>`),
+  chat:   ic(`<path d="M3.5 5.2A2.2 2.2 0 0 1 5.7 3h8.6a2.2 2.2 0 0 1 2.2 2.2v5.6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.7 3.2V13h0a2 2 0 0 1-2-2V5.2Z"/>`)
+};
+const toastBody = () => state.toast ? `<div class="toast">${esc(state.toast)}</div>` : "";
+const acctRow = (page, icon, title, sub) => `<button class="acc-row" data-act="acct" data-page="${page}" type="button">
+    <span class="acc-i">${icon}</span><span class="acc-m"><b>${esc(title)}</b>${sub?`<span>${esc(sub)}</span>`:""}</span>${I.chevronR("#0B0C0C",1)}</button>`;
+const confirmBox = (title, text, yesAct, yesLabel, k) => `<div class="confirm" role="alertdialog" aria-label="${esc(title)}"><b>${esc(title)}</b><p>${esc(text)}</p>
+    <div class="row2"><button class="btn warnbtn" data-act="${yesAct}" data-k="${k||""}" type="button">${esc(yesLabel)}</button><button class="btn plain outline" data-act="cancel" type="button">Cancel</button></div></div>`;
+const actsForMum = () => ["submitted","done"].includes(state.status.aa_claim);
+
+/* ---------- what the account is made of ---------- */
+function deptList(){
+  const d = [
+    {id:"hmrc", name:"HMRC", since:"Since June 2026", records:["Work and earnings","Childcare account","Child Benefit"],
+     uses:"Your plan, reconfirming your childcare, your Carer's Allowance claim",
+     lose:"I won't be able to reconfirm your childcare or check your pay. You'd need to do these yourself."},
+    {id:"dvla", name:"DVLA", since:"Since March 2025", records:["Your vehicle","Your driving licence"],
+     uses:"Car tax reminders and renewing your car tax",
+     lose:"I won't remind you about car tax or renew it for you."}
+  ];
+  if(state.caAwarded) d.push({id:"dwp", name:"DWP", since:"Since 9 December 2026", records:["Carer's Allowance"],
+     uses:"Checking your pay against the Carer's Allowance earnings limit",
+     lose:"I won't be able to warn you if your pay goes over the Carer's Allowance limit."});
+  return d;
+}
+/* What the assistant keeps: what Nadia said, not what departments hold */
+function memories(){
+  const m = [], S = state;
+  /* g: who the memory is about, when it isn't Nadia herself */
+  const add = (g,id,k,v,thread,from,used) => { if(!S.forgot.includes(id)) m.push({g: g==="About you" ? null : g,id,k,v,thread,from,used}); };
+  if(S.reachedPlan){
+    add("About you","home","Where you live","Leeds","plan","14 October","Your plan, finding local services");
+    add("About you","caring","Caring for your mum","About 35 hours a week, evenings and weekends","plan","14 October","Your Carer's Allowance claim");
+    add("About you","hours","Your working hours", S.hours!==null && S.hours!==5 ? `${S.hours===0?"Stopping work":HOURS[S.hours].label+" a week"} from 1 December` : "Thinking about working fewer days","plan","14 October","Your Carer's Allowance claim and your childcare");
+    add("About you","matters","What matters most to you","Knowing your mum is safe, and not dropping the ball on everything else","plan","14 October","How I order your plan");
+  }
+  if(S.newJob) add("About you","job","Your new job","Leeds Community Healthcare, from 1 October. About £30,000","corr","14 October","Your forms and your plan");
+  if(S.reachedPlan){
+    add("mum","mumage","Age and home","81. Lives alone in Leeds, 10 minutes from you","plan","14 October","Her care needs assessment");
+    add("mum","mumhealth","Health","Dementia, recently diagnosed. Had a fall in October","plan","14 October","Her Attendance Allowance claim and her care");
+    add("mum","mumincome","Income","State pension and a small work pension","plan","14 October","Checking Pension Credit");
+    add("mum","mumlpa","Decisions","Makes her own decisions. No lasting power of attorney yet","plan","14 October","Your plan");
+  }
+  if(S.chased && S.status.dwp_call) add("mum","dwpcall","DWP's phone call", S.status.dwp_call==="done" ? "Took place on 16 November. You were with her" : "Monday 16 November, 10am. You'll be with her","chase","11 November","Your plan and reminders");
+  if(S.fixed) add("tom","tom","Tom's work","Full time at Leeds Bradford Airport, from 11 January","fix","20 January","Your childcare");
+  if(S.alertDecided) add("family","trip","A trip to India","Visiting Tom's family next spring, with Leo and Ava","qa","14 October","Watching travel advice");
+  return m;
+}
+/* Standing tasks: what the assistant does in the background, with when */
+function runningTasks(){
+  const S = state.standing, p = state.phase, s = state.status, t = [];
+  const later = p==="later"||p==="jan";
+  if(state.reachedPlan) t.push({k:"recheck", title:"Recheck your plan when something changes", when:"When your income, your mum's benefits or the rules change",
+    last:{now:"14 October",chase:"11 November",later:"18 November",jan:"9 December"}[p]});
+  if(["done","attention"].includes(s.reconfirm)) t.push({k:"reconfirm", title:"Reconfirm your childcare", when:"Every 3 months",
+    last: p==="jan" ? (state.fixed?"20 January":"19 January. Stopped: HMRC's records didn't match") : "October", next: p==="jan" ? "April" : "19 January"});
+  if(s.dwp_call==="todo") t.push({k:"dwprem", title:"Remind you about DWP's call with your mum", when:"Once", next:"Sunday 15 November, 6pm"});
+  if(state.newJob) t.push({k:"payroll", title:"Check HMRC's records match your new job", when:"After your first payday",
+    last: p==="now" ? null : "30 October. They match", next: p==="now" ? "End of October" : null});
+  if(state.caAwarded) t.push({k:"earnings", title:"Check your pay against the Carer's Allowance limit", when:"Every month, from your payslip", last:"31 December. You're under the limit", next:"31 January"});
+  if(state.alertDecided) t.push({k:"travel", title:"Watch travel advice for India", when:"Every day", last:"Today. No changes", next:"Tomorrow"});
+  t.push({k:"vtaxwatch", title:"Remind you when your car tax is due", when:"Once a year", next: state.vtax==="done" ? "January 2028" : "January 2027"});
+  return t.map(x=>({...x, on: S[x.k]!==false}));
+}
+/* A record of what the assistant did, and what each action was based on */
+function activity(){
+  const s = state.status, out = [];
+  if(state.reachedPlan) out.push(["14 October","Checked your HMRC records for work, childcare and Child Benefit","You allowed it when we made your plan"]);
+  if(state.reachedPlan) out.push(["14 October","Made your plan","You asked me to"]);
+  if(state.newJob) out.push(["14 October","Updated your employer in your plan and forms","You confirmed the new details"]);
+  if(["submitted","done"].includes(s.aa_claim)) out.push(["14 October","Sent your mum's Attendance Allowance claim to DWP","You and your mum both agreed"]);
+  if(["booked","done"].includes(s.needs_assess)) out.push(["14 October","Booked your mum's care needs assessment","You chose the time"]);
+  if(["done","attention"].includes(s.reconfirm)) out.push(["October","Reconfirmed your childcare until 26 January", state.standing.reconfirm ? "You let me do this every 3 months" : "You checked it and agreed"]);
+  if(state.chased) out.push(["11 November","Shared your question and your mum's claim with DWP","You agreed before I connected you"]);
+  if(s.dwp_call) out.push(["11 November","Added DWP's phone call to your plan","You agreed"]);
+  if(state.phase==="later"||state.phase==="jan") out.push(["18 November","Filled in your Carer's Allowance claim and your mum's council tax form","Your plan, once DWP decided"]);
+  if(["submitted","done"].includes(s.carers_allowance)) out.push(["25 November","Sent your Carer's Allowance claim to DWP","You checked it and agreed"]);
+  if(["waiting","done"].includes(s.council_tax)) out.push(["November","Sent the council tax form to your mum's GP","You agreed"]);
+  if(state.changeDone) out.push(["2 December","Told DWP and HMRC you're working 4 days a week in January and February","You recorded a voice note and agreed"]);
+  if(state.caAwarded) out.push(["31 December","Checked your pay against the Carer's Allowance limit","You let me do this every month"]);
+  if(s.reconfirm==="attention"||state.fixed) out.push(["19 January","Stopped reconfirming your childcare because HMRC's records didn't match","I stop and ask you when records don't match"]);
+  if(state.fixed) out.push(["20 January","Told HMRC about Tom's new job and reconfirmed your childcare","You checked it and agreed"]);
+  if(state.vtax==="done") out.push(["20 January","Renewed your car tax","You approved it"]);
+  return out.reverse();
+}
+function threadList(){
+  const t = [];
+  if(state.reachedPlan) t.push({id:"plan", title:"Looking after your mum", date:"14 October", led:"Made your plan"});
+  if(state.alertDecided) t.push({id:"qa", title:"Visas for a trip to India", date:"14 October", led: state.standing.travel ? "Watching travel advice" : "Answered from GOV.UK"});
+  if(state.newJob) t.push({id:"corr", title:"Your new job", date:"14 October", led:"Updated your employer"});
+  if(state.chased) t.push({id:"chase", title:"News on your mum's claim", date:"11 November", led: state.status.dwp_call ? "Added: DWP phone call" : "Talked to DWP", withDwp:true});
+  if(state.fixed) t.push({id:"fix", title:"Tom's new job and your childcare", date:"20 January", led:"Sent to HMRC"});
+  return t.filter(x=>!state.deletedThreads.includes(x.id)).reverse();
+}
+
+/* ---------- account pages ---------- */
+function acctHub(){
+  const threads = threadList().length;
+  return `<div class="acc-head"><span class="acc-av" aria-hidden="true">N</span><span class="acc-m"><b>${NADIA.name}</b><span>Signed in with GOV.UK One Login</span></span></div>
+    <h2 class="section-h">You</h2>
+    <div class="listcard">
+      ${acctRow("details",AIC.user,"Your details")}
+      ${acctRow("links",AIC.link,"Linked departments")}
+      ${acctRow("people",AIC.people,"Acting for someone else")}
+    </div>
+    <h2 class="section-h">Your assistant</h2>
+    <div class="listcard">
+      ${acctRow("memory",AIC.mem,"What I remember")}
+      ${acctRow("perms",AIC.shield,"What I can do")}
+      ${acctRow("running",AIC.clock,"Running now")}
+      ${acctRow("log",AIC.list,"What I've done")}
+    </div>
+    <h2 class="section-h">Conversations</h2>
+    <div class="listcard">${acctRow("threads",AIC.chat,"Conversation history", threads ? `${threads} conversation${threads>1?"s":""}` : "None yet")}</div>`;
+}
+function acctDetails(){
+  const rows = [["Full name",NADIA.name,"GOV.UK One Login"],["Date of birth","12 May 1988","GOV.UK One Login"],["Address","22 Elm Grove, Leeds LS8","GOV.UK One Login"],
+    ["Email","nadia.carter@example.com","GOV.UK One Login"],["Phone","07700 900123","GOV.UK One Login"],["National Insurance number","QQ 12 34 56 C","HMRC"]];
+  return `<p class="intro">Every linked department uses these, so you only change them in one place.</p>
+    <div class="kvcard">${rows.map(([k,v,src])=>`<div class="row"><span class="lbl"><b>${esc(k)}</b><span>${esc(v)}</span>
+      <span class="src ${src==="HMRC"?"gov":"told"}" style="width:max-content">From ${esc(src)}</span></span></div>`).join("")}</div>
+    <button class="btn plain outline" data-act="acctnote" data-msg="This would open your GOV.UK One Login account." type="button">Change these in GOV.UK One Login</button>`;
+}
+function acctLinks(){
+  return `<p class="intro">I can only read records from departments you've linked. You can unlink any of them.</p>
+    ${deptList().map(d=>{
+      const off = state.unlinked.includes(d.id), asking = state.confirm===`unlink:${d.id}`;
+      return `<div class="acc-card">
+        <div class="acc-top"><h3>${esc(d.name)}</h3><span class="chip ${off?"off":"ok"}">${off?"Unlinked":"Linked"}</span></div>
+        <p>${esc(d.since)}</p>
+        <div class="acc-kv"><span class="k">Records I can read</span><div class="chips">${d.records.map(r=>`<span class="chip">${esc(r)}</span>`).join("")}</div></div>
+        <div class="acc-kv"><span class="k">Used for</span><span class="v">${esc(d.uses)}</span></div>
+        ${asking ? confirmBox(`Unlink ${d.name}?`, d.lose, "unlink", "Unlink", d.id)
+          : off ? `<div class="acc-actions"><button class="textbtn" data-act="relink" data-k="${d.id}" type="button">Link again</button></div>`
+          : `<div class="acc-actions"><button class="textbtn danger" data-act="confirm" data-k="unlink:${d.id}" type="button">Unlink ${esc(d.name)}</button></div>`}
+      </div>`;}).join("")}`;
+}
+function acctPeople(){
+  const later = state.phase==="later"||state.phase==="jan";
+  const mum = actsForMum() ? `<div class="acc-card">
+      <h3>${esc(NADIA.mum)}</h3>
+      <div class="acc-kv"><span class="k">You can help with</span><span class="v">Her Attendance Allowance claim</span></div>
+      <div class="acc-kv"><span class="k">She agreed</span><span class="v">On her own phone, 14 October</span></div>
+      <div class="acc-kv"><span class="k">Until</span><span class="v">${later ? "Ended 18 November, when DWP decided her claim" : "DWP decides her claim"}</span></div>
+      <p>Your mum can see this in her own account and stop it at any time.</p>
+    </div>` : `<div class="acc-card"><p>Nobody yet. When someone lets you help with something, it shows here.</p></div>`;
+  return `<p class="intro">Who you can act for, who can act for you, and exactly what each permission covers.</p>
+    <h2 class="section-h">You can act for</h2>${mum}
+    <h2 class="section-h">Who can act for you</h2>
+    <div class="acc-card"><p>Nobody can act for you.</p>
+      <button class="btn plain outline" data-act="acctnote" data-msg="This would let you choose someone and what they can do." type="button">Add someone</button></div>`;
+}
+function acctMemory(){
+  const all = memories();
+  const TAG = {mum:["Your mum","them"], tom:["Tom","kids"], family:["Tom, Leo and Ava","kids"]};
+  const card = m => `<div class="acc-card mem">
+      ${m.g ? `<span><span class="tag ${TAG[m.g][1]}">${esc(TAG[m.g][0])}</span></span>` : ""}
+      <span class="acc-kv"><span class="k">${esc(m.k)}</span><span class="v">${esc(withEmp(m.v))}</span></span>
+      <span class="memfrom">You told me on ${esc(m.from)}. <button class="textbtn sm" data-act="thread" data-id="${m.thread}" type="button">See the conversation</button></span>
+      <span class="memfrom">Used for: ${esc(m.used)}</span>
+      ${state.confirm===`forget:${m.id}` ? confirmBox("Forget this?", `I use it for: ${m.used}. If I need it again, I'll ask you.`, "forget", "Forget", m.id)
+        : `<div class="acc-actions"><button class="textbtn" data-act="memchange" data-k="${m.id}" type="button">Change</button><button class="textbtn danger" data-act="confirm" data-k="forget:${m.id}" type="button">Forget</button></div>`}
+    </div>`;
+  return `<p class="intro">I keep what you've told me, so you don't have to say it twice. You can change or forget any of it.</p>
+    <div class="listcard"><label class="permrow"><span class="pm"><b>Remember things from our conversations</b><span>${state.memOn ? "On. I'll keep new things you tell me." : "Off. I won't keep anything new. What's below stays until you forget it."}</span></span>
+      <input type="checkbox" class="switch" data-act="memtoggle" ${state.memOn?"checked":""} aria-label="Remember things from our conversations"></label></div>
+    <div class="acc-note">I don't keep facts from your HMRC, DWP or DVLA records. I read them when I need them. <button class="textbtn sm" data-act="acct" data-page="links" type="button">Linked departments</button></div>
+    ${all.length ? all.map(card).join("")
+      : `<div class="acc-card"><p>I don't remember anything about you yet. When you tell me something, it shows here.</p></div>`}
+    ${all.length ? (state.confirm==="forgetall" ? confirmBox("Forget everything?", "I'll forget everything you've told me. Your plan and your conversations stay, but I'll need to ask you again.", "forgetall", "Forget everything")
+      : `<button class="textbtn danger" data-act="confirm" data-k="forgetall" type="button" style="align-self:flex-start;margin:0 12px">Forget everything</button>`) : ""}`;
+}
+function acctRunning(){
+  const t = runningTasks();
+  return `<p class="intro">Things I do in the background, with your permission. Pause any of them and I'll stop until you turn it back on.</p>
+    <div class="listcard">${t.map(x=>`<label class="permrow"><span class="pm"><b>${esc(x.title)}</b>
+      <span>${esc(x.when)}</span>
+      ${x.on ? `${x.last?`<span class="pmsince">Last: ${esc(x.last)}</span>`:""}${x.next?`<span class="pmsince">Next: ${esc(x.next)}</span>`:""}` : `<span class="pmsince">Paused</span>`}</span>
+      <input type="checkbox" class="switch" data-act="perm" data-k="${x.k}" ${x.on?"checked":""} aria-label="${esc(x.title)}"></label>`).join("")}</div>`;
+}
+function acctLog(){
+  const a = activity();
+  return `<p class="intro">Everything I've done for you, newest first, and what each action was based on.</p>
+    ${a.length ? `<div class="listcard">${a.map(([d,what,why])=>`<div class="logrow"><span class="d">${esc(d)}</span><b>${esc(what)}</b><span>Based on: ${esc(why)}</span></div>`).join("")}</div>`
+      : `<div class="acc-card"><p>I haven't done anything for you yet.</p></div>`}
+    <button class="btn plain outline" data-act="acctnote" data-msg="This would download a copy of this record." type="button">Download a copy</button>`;
+}
+function viewAcct(){
+  const pg = state.acctPage || "hub";
+  const P = {hub:["Account",acctHub], details:["Your details",acctDetails], links:["Linked departments",acctLinks], people:["Acting for someone else",acctPeople],
+    memory:["What I remember",acctMemory], running:["Running now",acctRunning], log:["What I've done",acctLog]};
+  const [title, body] = P[pg];
+  return `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label: pg==="hub" ? "Back" : "Account"})}
+    <div class="body"><div class="stack">
+      ${pg==="hub" ? "" : `<h2 class="title-sm">${esc(title)}</h2>`}
+      ${body()}
+    </div></div>
+    ${toastBody()}
+  </div>`;
+}
+
+/* ---------- conversation history ---------- */
+/* Threads are the record. What the assistant remembers lives in the account, apart from them. */
+function threadScript(id){
+  if(id==="plan") return CHAT;
+  if(id==="qa") return QA;
+  if(id==="chase") return CHASE;
+  if(id==="fix") return FIX;
+  const keep = state.newJob; state.newJob = false; const s = corrScript(false); state.newJob = keep; return s;
+}
+function histItem(m){
+  const NOTE = {consent:"You let me check your GOV.UK records", gather:"I checked your work, childcare and Child Benefit records", plan:"I made your plan",
+    alert: state.standing.travel ? "You asked me to watch travel advice for India" : "You chose not to watch for changes",
+    corrcard:"You updated your employer", handover:"You shared your question and your mum's claim with DWP", connecting:"I connected you to DWP",
+    callcard: state.status.dwp_call ? "You added DWP's phone call to your plan" : "You chose not to add the call to your plan",
+    fixcard:"I sent Tom's new job to HMRC", queue:null, corrctx:null, home:null, corrback:null, chaseend:null};
+  if(m.r in NOTE) return NOTE[m.r] ? `<div class="msg histnote"><span>${esc(NOTE[m.r])}</span></div>` : "";
+  return messageHTML(m);
+}
+function viewThreads(){
+  const id = state.threadId;
+  if(id){
+    const t = threadList().find(x=>x.id===id) || {title:"Conversation", date:"", led:""};
+    return `<div class="screen">
+      ${statusBar()}
+      ${nav({back:true,label: state.threadDirect ? "Back" : "Conversations"})}
+      <div class="body"><div class="stack">
+        <h2 class="title-sm">${esc(t.title)}</h2>
+        <div style="padding:0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="chip">${esc(t.date)}</span><span class="chip ok">${esc(t.led)}</span></div>
+        <div class="hist">${threadScript(id).map(histItem).join("")}</div>
+        ${state.confirm==="delthread" ? confirmBox("Delete this conversation?", "I'll still remember what you told me. To forget that too, go to What I remember.", "delthread", "Delete")
+          : `<button class="btn green" data-act="carryon" type="button">Carry on with this conversation</button>
+             <button class="textbtn danger" data-act="confirm" data-k="delthread" type="button" style="align-self:flex-start;margin:0 12px">Delete this conversation</button>`}
+      </div></div>
+      ${toastBody()}
+    </div>`;
+  }
+  const list = threadList(), months = [...new Set(list.map(t=>t.date.split(" ")[1]))];
+  return `<div class="screen">
+    ${statusBar()}
+    ${nav({back:true,label: state.threadsFrom==="acct" ? "Account" : "Back"})}
+    <div class="body"><div class="stack">
+      <h2 class="title-sm">Conversations</h2>
+      <p class="intro">Each conversation is kept for a year after your last message. What I remember about you is kept separately. <button class="textbtn" data-act="acct" data-page="memory" type="button">What I remember</button></p>
+      ${list.length ? months.map(mo=>`<h2 class="section-h">${esc(mo)}</h2><div class="listcard">${list.filter(t=>t.date.endsWith(mo)).map(t=>`<button class="acc-row" data-act="thread" data-id="${t.id}" type="button">
+          <span class="acc-i">${AIC.chat}</span>
+          <span class="acc-m"><b>${esc(t.title)}</b><span>${esc(t.date)}${t.withDwp?". Includes a chat with DWP":""}</span><span class="chips" style="margin-top:4px"><span class="chip ok">${esc(t.led)}</span></span></span>
+          ${I.chevronR("#0B0C0C",1)}</button>`).join("")}</div>`).join("")
+        : `<div class="acc-card"><p>No conversations yet.</p></div>`}
+    </div></div>
+    ${toastBody()}
+  </div>`;
+}
+const acctOrigin = () => ["home","plan","chat","task","told","step"].includes(state.view) ? state.view : "home";
+
 function panelKey(){
   if(state.showQs) return "questions";
   if(state.view==="home" && state.phase==="jan" && state.fixed && state.vtax==="done") return "questions";
   if(state.view==="intro") return "intro";
+  if(state.view==="acct") return "acct_"+(state.acctPage||"hub");
+  if(state.view==="threads") return state.threadId ? "thread" : "threads";
+  if(state.view==="home" && state.phase==="chase") return state.chased ? "chase_back" : "home_chase";
+  if(state.phase==="chase" && state.status.dwp_call && state.view==="plan") return "chase_back";
   if(state.view==="home") return state.phase==="now" ? (state.reachedPlan?"home_plan":"home_now") : "home_"+state.phase;
-  if(state.view==="lock") return "lock_"+state.phase;
+  if(state.view==="lock") return state.lockNote==="adviser" ? "lock_adviser" : "lock_"+state.phase;
+  if(state.view==="chat" && state.script==="chase"){
+    const has = r => state.chatLog.some(m=>m.r===r);
+    return has("callcard") ? "chase_back" : has("h") ? "adviser" : has("queue") ? "queue" : has("handover") ? "handover" : "chase";
+  }
   if(state.view==="perms") return "perms";
   if(state.view==="chat" && state.script==="fix") return "fix";
   if(state.view==="chat" && state.script==="choose") return "choose";
@@ -2321,7 +2863,7 @@ function panelKey(){
   if(state.view==="change") return "change";
   if(state.view==="plan" || state.view==="step") return state.phase==="later" ? "later" : state.phase==="jan" ? "home_jan" : "plan";
   const id = state.view==="flow" ? state.flow.task : state.taskId;
-  const map = {reconfirm:"reconfirm",needs_assess:"needs",carers_assess:"needs",aa_claim:"aa",pension_credit:"checked",council_tax:"ctax",hours:"whatif",flex_request:"flex",carers_allowance:"ca",lpa:"lpa",vtax:"vtax",fix:"fix"};
+  const map = {reconfirm:"reconfirm",needs_assess:"needs",carers_assess:"needs",aa_claim:"aa",pension_credit:"checked",council_tax:"ctax",dwp_call:"chase_back",hours:"whatif",flex_request:"flex",carers_allowance:"ca",lpa:"lpa",vtax:"vtax",fix:"fix"};
   return map[id] || "plan";
 }
 function renderSide(){
@@ -2345,8 +2887,8 @@ function renderSide(){
    ============================================================ */
 function render(){
   if(state.view==="chat" && el.querySelector("#chatbody")){ chatUpdate(); renderSide(); return; }
-  const map = {intro:viewIntro,home:viewHome,lock:viewLock,perms:viewPerms,chat:viewChat,plan:viewPlan,told:viewTold,step:viewStep,task:viewTask,flow:viewFlow,change:viewChange};
-  const key = state.view + state.phase + (state.taskId||"") + (state.stepId||"") + (state.flow?state.flow.task+state.flow.stage:"") + (state.view==="change"&&state.change?state.change.stage:"");
+  const map = {acct:viewAcct,threads:viewThreads,intro:viewIntro,home:viewHome,lock:viewLock,perms:viewPerms,chat:viewChat,plan:viewPlan,told:viewTold,step:viewStep,task:viewTask,flow:viewFlow,change:viewChange};
+  const key = state.view + state.phase + (state.taskId||"") + (state.stepId||"") + (state.flow?state.flow.task+state.flow.stage:"") + (state.view==="change"&&state.change?state.change.stage:"") + (state.view==="acct"?state.acctPage:"") + (state.view==="threads"?(state.threadId||"list"):"");
   const same = el.dataset.view === key;
   const prevScroll = el.querySelector(".body")?.scrollTop || 0;
   el.innerHTML = map[state.view]();
@@ -2359,7 +2901,7 @@ function render(){
   renderMum();
   const jb = document.getElementById("jump");
   jb.disabled = !state.reachedPlan || state.phase==="jan";
-  jb.textContent = state.phase==="now" ? "Jump to 18 November" : "Jump to 20 January";
+  jb.textContent = state.phase==="now" ? "Jump to 11 November" : state.phase==="chase" ? "Jump to 18 November" : "Jump to 20 January";
 }
 function go(view,opts={}){
   setQs(false);
@@ -2373,7 +2915,15 @@ function goBack(){
   switch(state.view){
     case "flow": state.flow=null; if(state.fromHome){ state.fromHome=false; go("home",{back:true}); } else go("task",{back:true}); break;
     case "chat": if(state.script==="corr"){ corrBack(); break; } state.run++; go("home",{back:true}); break;
-    case "perms": go("home",{back:true}); break;
+    case "perms": state.acctPage = "hub"; if(!state.acctFrom) state.acctFrom = "home"; go("acct",{back:true}); break;
+    case "acct": state.confirm = null;
+      if(state.acctPage && state.acctPage!=="hub"){ state.acctPage = "hub"; go("acct",{back:true}); }
+      else { const to = state.acctFrom || "home"; state.acctFrom = null; go(to,{back:true}); }
+      break;
+    case "threads": state.confirm = null;
+      if(state.threadId && !state.threadDirect){ state.threadId = null; go("threads",{back:true}); }
+      else { const to = state.threadsFrom || "home"; state.threadId = null; state.threadDirect = false; go(to,{back:true}); }
+      break;
     case "change": state.run++; state.change=null; go("plan",{back:true}); break;
     case "task": go(state.stepId?"step":"plan",{back:true}); break;
     case "step": state.stepId=null; go("plan",{back:true}); break;
@@ -2419,9 +2969,11 @@ function jumpAhead(){
   state.run++;
   state.flow = null; state.stepId = null; state.taskId = null; state.change = null;
   state.fromHome = false; state.script = "plan"; state.toast = null; state.sinceOpen = false;
-  if(state.phase==="now") applyLater(); else applyJan();
+  state.lockNote = null;
+  if(state.phase==="now") applyChase(); else if(state.phase==="chase") applyLater(); else applyJan();
 }
-function applyLater(){
+/* What has happened by November whatever Nadia did on 14 October */
+function settleOctober(){
   if(state.hours===null){
     state.hours = 3;
     state.status.hours = "done";
@@ -2430,16 +2982,14 @@ function applyLater(){
     state.receipts.flex_request = {title:"Your employer agreed",lines:["3 days a week from 1 December"]};
   }
   state.updating = false;
-  state.phase = "later";
   if(state.status.reconfirm!=="done"){
     state.status.reconfirm = "done";
     state.receipts.reconfirm = {title:"Reconfirmed on 20 October",lines:["Tax-Free Childcare and both 30 hours codes valid until 26 January 2027","Codes shared with Little Acorns Nursery"]};
   }
   if(!isDone(state.status.aa_claim)){
+    state.status.aa_claim = "submitted";
     state.receipts.aa_claim = {title:"Sent to DWP on 14 October",lines:["Reference AA 7Q4 2219","Your mum gave permission on her phone","You and your mum checked the answers"]};
   }
-  state.status.aa_claim = "done";
-  state.receipts.aa_claim = {title:"Approved on 18 November",lines:["£76.70 a week, backdated to 14 October","Reference AA 7Q4 2219","Your mum gave permission on her phone"]};
   if(state.status.needs_assess!=="done"){
     state.status.needs_assess = "done";
     state.receipts.needs_assess = {title:"Assessment done on 22 October",lines:["Care plan agreed: carers visit 3 mornings a week","Grab rails and a key safe being fitted"]};
@@ -2447,6 +2997,24 @@ function applyLater(){
   if(state.status.carers_assess!=="done"){
     state.status.carers_assess = "done";
     state.receipts.carers_assess = {title:"Assessment done on 22 October",lines:["One day of respite a month","Put in touch with Carers Leeds"]};
+  }
+}
+/* 11 November: four weeks after the claim, no decision yet */
+function applyChase(){
+  settleOctober();
+  state.phase = "chase";
+  state.flow = null; state.stepId = null; state.taskId = null;
+  go("home");
+}
+function applyLater(){
+  if(state.phase==="now") settleOctober();
+  state.phase = "later";
+  state.status.aa_claim = "done";
+  state.receipts.aa_claim = {title:"Approved on 18 November",lines:["£76.70 a week, backdated to 14 October","Reference AA 7Q4 2219","Your mum gave permission on her phone"]
+};
+  if(state.status.dwp_call){
+    state.status.dwp_call = "done";
+    state.receipts.dwp_call = {title:"Call with DWP on 16 November",lines:["You were with your mum for the call","DWP decided her claim 2 days later"]};
   }
   state.status.carers_allowance = "ready";
   state.status.council_tax = "ready";
@@ -2477,6 +3045,38 @@ function startFix(){
   setTimeout(()=>{ if(run===state.run) chatStep(); }, 700);
 }
 
+function startChase(){
+  state.run++;
+  state.script = "chase"; state.flow = null; state.lockNote = null;
+  state.handed = null; state.connected = false; state.queueLeft = false; state.callDecided = false;
+  state.chatIndex = 0; state.chatLog = []; state.chatBusy = false; state.typing = false;
+  el.dataset.view = ""; go("chat");
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, 300);
+}
+/* Carry on the script after a card is answered, with an optional reply first */
+function chaseContinue(reply){
+  state.chatBusy = true;
+  const run = state.run;
+  if(reply){
+    state.typing = true; chatUpdate();
+    setTimeout(()=>{ if(run!==state.run) return; state.typing=false; state.chatLog.push({r:"a",t:reply}); chatUpdate();
+      setTimeout(()=>{ if(run===state.run) chatStep(); }, 380); }, 800);
+  } else setTimeout(()=>{ if(run===state.run) chatStep(); }, 380);
+  renderSide();
+}
+function chaseEnd(reply){
+  state.chatIndex = CHASE.length; state.chatBusy = true; state.typing = true; chatUpdate();
+  const run = state.run;
+  setTimeout(()=>{
+    if(run!==state.run) return;
+    state.typing = false;
+    state.chatLog.push({r:"a",t:reply}); state.chatLog.push({r:"chaseend"});
+    state.chatBusy = false; chatUpdate(); renderSide();
+  }, 800);
+}
+const swapDone = (sel, text) => { const n = el.querySelector(sel); if(n) n.outerHTML = `<span class="done-note">${esc(text)}</span>`; };
+
 /* ---------- events ---------- */
 el.addEventListener("click", e=>{
   const btn = e.target.closest("[data-act]");
@@ -2485,6 +3085,33 @@ el.addEventListener("click", e=>{
   const f = state.flow;
 
   if(act==="noop"){ e.preventDefault(); return; }
+  if(act==="acct"){
+    const pg = btn.dataset.page; state.confirm = null;
+    if(pg==="perms"){ go("perms"); return; }
+    if(pg==="threads"){ state.threadsFrom = "acct"; state.threadId = null; state.threadDirect = false; go("threads"); return; }
+    if(state.view!=="acct") state.acctFrom = state.view==="threads" ? (state.acctFrom || "home") : acctOrigin();
+    state.acctPage = pg; go("acct"); return;
+  }
+  if(act==="threads"){ state.threadsFrom = state.view; state.threadId = null; state.threadDirect = false; state.confirm = null; go("threads"); return; }
+  if(act==="thread"){
+    if(state.view!=="threads"){ state.threadsFrom = state.view; state.threadDirect = true; }
+    state.threadId = btn.dataset.id; state.confirm = null; go("threads"); return;
+  }
+  if(act==="confirm"){ state.confirm = btn.dataset.k; render(); return; }
+  if(act==="cancel"){ state.confirm = null; render(); return; }
+  if(act==="unlink"){ const k = btn.dataset.k; state.unlinked.push(k); state.confirm = null; toast(`${k.toUpperCase()} unlinked. I've stopped reading its records.`); return; }
+  if(act==="relink"){ state.unlinked = state.unlinked.filter(x=>x!==btn.dataset.k); toast("Linked again."); return; }
+  if(act==="forget"){ state.forgot.push(btn.dataset.k); state.confirm = null; toast("Forgotten. I'll ask you if I need it again."); return; }
+  if(act==="forgetall"){ memories().forEach(m=>state.forgot.push(m.id)); state.confirm = null; toast("I've forgotten everything you told me."); return; }
+  if(act==="memchange"){ if(btn.dataset.k==="job"){ startCorr(); return; } toast("Tell me what's changed and I'll update it everywhere I use it."); return; }
+  if(act==="memtoggle"){ state.memOn = btn.checked; render(); return; }
+  if(act==="delthread"){
+    state.deletedThreads.push(state.threadId); state.confirm = null;
+    if(state.threadDirect){ goBack(); } else { state.threadId = null; go("threads",{back:true}); }
+    toast("Conversation deleted. I still remember what you told me."); return;
+  }
+  if(act==="carryon"){ toast("In a real version, this picks the conversation up where you left off."); return; }
+  if(act==="acctnote"){ toast(btn.dataset.msg); return; }
   if(act==="back"){ goBack(); return; }
   if(act==="restart"){ restart(); return; }
   if(act==="begin"){ go("home"); return; }
@@ -2524,15 +3151,40 @@ el.addEventListener("click", e=>{
     }, 900);
     return;
   }
+  if(act==="handyes" || act==="handno"){
+    if(state.handed!==null) return;
+    state.handed = act==="handyes";
+    swapDone("#handcard .row2", state.handed ? "Shared with DWP" : "Not now");
+    if(state.handed) chaseContinue(null);
+    else chaseEnd("OK. I'll keep watching for DWP's decision and tell you as soon as it arrives.");
+    return;
+  }
+  if(act==="calladd" || act==="callno"){
+    if(state.callDecided) return;
+    state.callDecided = true; state.chased = true;
+    if(act==="calladd") state.status.dwp_call = "todo";
+    swapDone("#callcard .row2", act==="calladd" ? "Added to your plan" : "Not now");
+    chaseEnd(act==="calladd" ? "Added. It's the next thing in your plan, and it's on your home page." : "OK. I'll remind you about the call anyway.");
+    return;
+  }
+  if(act==="askclaim"){ startChase(); return; }
   if(act==="ask"){
+    if(state.phase==="chase" && !state.chased){ startChase(); return; }
     if(!state.reachedPlan){ startChoose(); return; }
     else toast("You can ask or tell me anything here. In this demo the conversations are scripted.");
     return;
   }
-  if(act==="perms"){ state.flow=null; go("perms"); return; }
+  if(act==="perms"){ if(state.view!=="acct" && state.view!=="perms") state.acctFrom = acctOrigin(); state.flow=null; state.confirm=null; state.acctPage="hub"; go("acct"); return; }
   if(act==="perm"){ state.standing[btn.dataset.k] = btn.checked; render(); return; }
   if(act==="stopread"){ toast("In a real version, this would stop me reading this record."); return; }
   if(act==="standing"){ state.standing.reconfirm = btn.checked; return; }
+  if(act==="lockopen" && state.lockNote==="adviser"){
+    state.lockNote = null; state.run++; el.dataset.view = ""; go("chat");
+    state.chatBusy = true;
+    const run = state.run;
+    setTimeout(()=>{ if(run===state.run) chatStep(); }, 600);
+    return;
+  }
   if(act==="lockopen"){ state.svcOpen = state.phase==="jan" ? "childcare" : null; go("home"); return; }
   if(act==="svcopen"){ state.svcOpen = state.svcOpen===btn.dataset.k ? null : btn.dataset.k; render(); return; }
   if(act==="since"){ state.sinceOpen = !state.sinceOpen; render(); return; }
@@ -2706,6 +3358,12 @@ function showQuestion(k){
   state.view = "home"; el.dataset.view = "";
   if(k==="screen"){ state.fromHome = true; startFlow("reconfirm"); return; }
   if(k==="joined"){ startCorr(); return; }
+  if(k==="human"){
+    if(state.phase==="later" || state.phase==="jan") restart();
+    state.reachedPlan = true;
+    if(state.phase==="now") applyChase();
+    startChase(); return;
+  }
   if(k==="change"){
     state.reachedPlan = true;
     if(state.phase==="now") applyLater();
@@ -2745,14 +3403,178 @@ function corrBack(){
   else go(from.view==="told" ? "told" : "home", {back:true});
 }
 function restart(){
-  state.run++;
+  state.run++; state.queueToken = (state.queueToken||0) + 1;
   Object.assign(state,{updating:false,change:null,changeDone:false,view:"intro",stepId:null,taskId:null,status:{...START_STATUS},receipts:{},hours:null,phase:"now",flow:null,
     chatIndex:0,chatLog:[],chatBusy:false,typing:false,consented:false,toast:null,reachedPlan:false,
-    script:"plan",standing:{reconfirm:false,recheck:true,earnings:true,travel:false,payroll:false},alertDecided:false,newJob:false,corrFrom:null,fromHome:false,caAwarded:false,vtax:"later",fixed:false});
+    script:"plan",standing:{reconfirm:false,recheck:true,earnings:true,travel:false,payroll:false,dwprem:true,vtaxwatch:true},alertDecided:false,newJob:false,corrFrom:null,fromHome:false,caAwarded:false,vtax:"later",fixed:false,
+    handed:null,connected:false,queueLeft:false,callDecided:false,chased:false,lockNote:null,
+    acctPage:"hub",acctFrom:null,threadId:null,threadsFrom:null,threadDirect:false,confirm:null,unlinked:[],forgot:[],deletedThreads:[],memOn:true});
   el.dataset.view="";
   render();
 }
 state.run = 0;
+
+/* ============================================================
+   Scenes: jump straight to any interaction, grouped by feature.
+   Each scene starts from a clean state at the right point in the
+   story, so it doesn't depend on what you clicked before.
+   ============================================================ */
+function atPhase(p){
+  restart();
+  state.view = "home";
+  if(p==="pre") return;
+  state.reachedPlan = true;
+  if(p==="now") return;
+  applyChase();
+  if(p==="chase") return;
+  applyLater();
+  if(p==="later") return;
+  state.status.carers_allowance = "submitted"; state.status.council_tax = "waiting";
+  applyJan();
+}
+/* Open a scripted conversation partway through: the first n items already shown */
+function chatAt(script, n){
+  state.run++;
+  state.script = script; state.flow = null; state.lockNote = null;
+  if(script==="corr"){ state.corrFrom = {flow:null, view:"home"}; state.corrScript = corrScript(false); }
+  if(script==="plan"){ state.consented = n>3; state.gatherOn = n>4 ? GATHER.length : 0; }
+  if(script==="chase"){ state.handed = n>3 ? true : null; state.connected = n>4; state.queueLeft = n>5; state.queuePos = n>5 ? 1 : 4; state.callDecided = false; }
+  state.chatLog = SC().slice(0,n); state.chatIndex = n; state.chatBusy = false; state.typing = false;
+  el.dataset.view = ""; go("chat");
+  const run = state.run;
+  setTimeout(()=>{ if(run===state.run) chatStep(); }, 350);
+}
+/* The state after Nadia has talked to Priya on 11 November */
+function afterChase(){
+  state.handed = true; state.connected = true; state.queueLeft = true; state.callDecided = true; state.chased = true;
+  state.status.dwp_call = "todo";
+}
+/* The whole story played through: every conversation had, so the account and history are full */
+function fullStory(){
+  atPhase("pre"); state.reachedPlan = true; state.consented = true;
+  state.alertDecided = true; state.standing.travel = true;
+  state.newJob = true; state.standing.payroll = true; state.standing.reconfirm = true;
+  applyChase(); afterChase(); applyLater();
+  state.status.carers_allowance = "submitted"; state.status.council_tax = "waiting";
+  applyJan();
+  state.fixed = true; state.status.reconfirm = "done"; state.vtax = "done";
+}
+const openAcct = pg => { state.acctFrom = "home"; state.acctPage = pg; go("acct"); };
+const openThreads = id => { state.threadsFrom = "home"; state.threadId = id || null; state.threadDirect = !!id; go("threads"); };
+const flowAt = (id, stage) => { startFlow(id); if(stage){ state.flow.stage = stage; render(); } };
+const SCENES = [
+  {g:"Start", items:[
+    ["intro","Start screen",()=>{ restart(); }],
+    ["home","Home, before a plan",()=>{ atPhase("pre"); go("home"); }],
+    ["choose","Choose what Nadia does",()=>{ atPhase("pre"); startChoose(); }]]},
+  {g:"Making a plan · 14 October", items:[
+    ["plan-chat","Nadia describes her situation",()=>{ atPhase("pre"); chatAt("plan",0); }],
+    ["plan-consent","Asked to check her records",()=>{ atPhase("pre"); chatAt("plan",3); }],
+    ["plan-ready","The plan is ready",()=>{ atPhase("pre"); chatAt("plan",CHAT.length-2); }],
+    ["plan","The plan",()=>{ atPhase("now"); go("plan"); }],
+    ["told","Where each fact came from",()=>{ atPhase("now"); go("told"); }],
+    ["home-plan","Home with the plan",()=>{ atPhase("now"); go("home"); }]]},
+  {g:"Tasks the assistant helps with · 14 October", items:[
+    ["reconfirm","Reconfirm childcare, done for you",()=>{ atPhase("now"); flowAt("reconfirm"); }],
+    ["needs","Book mum's care needs assessment",()=>{ atPhase("now"); flowAt("needs_assess"); }],
+    ["aa","Apply for mum's Attendance Allowance",()=>{ atPhase("now"); flowAt("aa_claim"); }],
+    ["aa-mum","Mum agrees on her own phone",()=>{ atPhase("now"); flowAt("aa_claim","mum"); }],
+    ["hours","Compare working fewer days",()=>{ atPhase("now"); flowAt("hours"); }],
+    ["flex","Flexible working request",()=>{ atPhase("now"); state.hours = 3; flowAt("flex_request"); }],
+    ["lpa","Lasting power of attorney",()=>{ atPhase("now"); flowAt("lpa"); }],
+    ["pension","Pension Credit, ruled out",()=>{ atPhase("now"); go("task",{taskId:"pension_credit"}); }]]},
+  {g:"Quick question", items:[
+    ["qa","Visas for a family trip",()=>{ atPhase("pre"); chatAt("qa",0); }],
+    ["qa-alert","Offer to keep watching",()=>{ atPhase("pre"); chatAt("qa",3); }]]},
+  {g:"Correcting a record", items:[
+    ["corr","Employer out of date",()=>{ atPhase("now"); chatAt("corr",0); }]]},
+  {g:"Talking to a person · 11 November", items:[
+    ["chase-home","Home, waiting for news",()=>{ atPhase("chase"); }],
+    ["chase-ask","Nadia asks for an update",()=>{ atPhase("chase"); chatAt("chase",0); }],
+    ["chase-hand","What's shared with the adviser",()=>{ atPhase("chase"); chatAt("chase",3); }],
+    ["chase-connect","Connecting to DWP",()=>{ atPhase("chase"); chatAt("chase",4); }],
+    ["chase-queue","In the queue",()=>{ atPhase("chase"); chatAt("chase",5); }],
+    ["chase-lock","Notification: an adviser is ready",()=>{ atPhase("chase");
+      Object.assign(state,{script:"chase",handed:true,queueLeft:true,lockNote:"adviser",connected:true,queuePos:1,chatLog:CHASE.slice(0,6),chatIndex:6,chatBusy:true});
+      go("lock"); }],
+    ["chase-priya","Talking to Priya",()=>{ atPhase("chase"); chatAt("chase",6); }],
+    ["chase-back","Back with the assistant",()=>{ atPhase("chase"); chatAt("chase",13); }],
+    ["chase-task","The call, added to the plan",()=>{ atPhase("chase"); afterChase(); go("plan"); }],
+    ["chase-after","Home, with the call coming up",()=>{ atPhase("chase"); afterChase(); go("home"); }]]},
+  {g:"The decision arrives · 18 November", items:[
+    ["later-lock","Notification: a claim is ready",()=>{ atPhase("later"); go("lock"); }],
+    ["later-home","Home, what happened while she was away",()=>{ atPhase("later"); state.sinceOpen = true; go("home"); }],
+    ["later-plan","The plan updates itself",()=>{ atPhase("later"); go("plan"); }],
+    ["ca","Carer's Allowance, prepared for her",()=>{ atPhase("later"); flowAt("carers_allowance"); }],
+    ["ctax","Mum's council tax discount",()=>{ atPhase("later"); flowAt("council_tax"); }],
+    ["change","Update the plan with a voice note",()=>{ atPhase("later"); state.change = {stage:"tell"}; go("change"); }]]},
+  {g:"January", items:[
+    ["jan-lock","Notifications",()=>{ atPhase("jan"); go("lock"); }],
+    ["jan-home","Home, from plan to everyday",()=>{ atPhase("jan"); go("home"); }],
+    ["jan-problem","Records don't match",()=>{ atPhase("jan"); state.svcOpen = "childcare"; go("home"); }],
+    ["fix","Fixing it in chat",()=>{ atPhase("jan"); startFix(); }],
+    ["vtax","Car tax renewal",()=>{ atPhase("jan"); state.fromHome = true; flowAt("vtax"); }]]},
+  {g:"Account · January", items:[
+    ["acct","Account",()=>{ fullStory(); openAcct("hub"); }],
+    ["acct-details","Your details",()=>{ fullStory(); openAcct("details"); }],
+    ["acct-links","Linked departments",()=>{ fullStory(); openAcct("links"); }],
+    ["acct-unlink","Unlinking a department",()=>{ fullStory(); state.confirm = "unlink:hmrc"; openAcct("links"); }],
+    ["acct-people","Acting for your mum",()=>{ fullStory(); openAcct("people"); }],
+    ["perms","What the assistant can do",()=>{ fullStory(); state.acctFrom = "home"; go("perms"); }],
+    ["acct-running","Running now",()=>{ fullStory(); openAcct("running"); }],
+    ["acct-log","What the assistant has done",()=>{ fullStory(); openAcct("log"); }]]},
+  {g:"Memory", items:[
+    ["mem","What the assistant remembers",()=>{ fullStory(); openAcct("memory"); }],
+    ["mem-forget","Forgetting something",()=>{ fullStory(); state.confirm = "forget:mumhealth"; openAcct("memory"); }],
+    ["mem-early","Memory on the first day",()=>{ atPhase("now"); openAcct("memory"); }]]},
+  {g:"Conversation history", items:[
+    ["threads","All conversations",()=>{ fullStory(); openThreads(); }],
+    ["thread-plan","Making the plan",()=>{ fullStory(); openThreads("plan"); }],
+    ["thread-dwp","The chat with DWP",()=>{ fullStory(); openThreads("chase"); }],
+    ["thread-delete","Deleting a conversation",()=>{ fullStory(); state.confirm = "delthread"; openThreads("chase"); }]]}
+];
+const SCENE_LIST = SCENES.flatMap(g=>g.items.map(([id,label,fn])=>({id,label,fn,g:g.g})));
+const scenesEl = document.getElementById("scenes");
+const sceneBtn = document.getElementById("scenebtn");
+function goScene(i){
+  i = Math.max(0, Math.min(SCENE_LIST.length-1, i));
+  const s = SCENE_LIST[i];
+  state.sceneIdx = i;
+  setQs(false);
+  s.fn();
+  try{ history.replaceState(null, "", "#"+s.id); }catch(e){}
+  sceneBtn.textContent = `Scene: ${s.label}`;
+  document.getElementById("sceneprev").disabled = i===0;
+  document.getElementById("scenenext").disabled = i===SCENE_LIST.length-1;
+  renderScenes();
+}
+function renderScenes(){
+  scenesEl.innerHTML = `<div class="sc-head"><b>Jump to a scene</b><button class="ghost" data-sc="close" type="button">Close</button></div>
+    <p class="sc-tip">Each scene starts fresh. Use [ and ] to step back and forward.</p>
+    ${SCENES.map(g=>`<p class="sc-g">${esc(g.g)}</p><div class="sc-items">${g.items.map(([id,label])=>{
+      const i = SCENE_LIST.findIndex(s=>s.id===id);
+      return `<button class="sc-item${i===state.sceneIdx?" on":""}" data-sc="${i}" type="button" ${i===state.sceneIdx?'aria-current="true"':""}>${esc(label)}</button>`;}).join("")}</div>`).join("")}`;
+}
+function setScenes(open){
+  scenesEl.hidden = !open;
+  sceneBtn.setAttribute("aria-expanded", String(open));
+  if(open){ renderScenes(); const cur = scenesEl.querySelector(".sc-item.on") || scenesEl.querySelector(".sc-item");
+    cur?.focus({preventScroll:true}); cur?.scrollIntoView({block:"center"}); }
+}
+sceneBtn.addEventListener("click", ()=> setScenes(scenesEl.hidden));
+scenesEl.addEventListener("click", e=>{
+  const b = e.target.closest("[data-sc]"); if(!b) return;
+  if(b.dataset.sc==="close"){ setScenes(false); sceneBtn.focus(); return; }
+  goScene(+b.dataset.sc); setScenes(false);
+});
+document.getElementById("sceneprev").addEventListener("click", ()=> goScene((state.sceneIdx ?? 1) - 1));
+document.getElementById("scenenext").addEventListener("click", ()=> goScene((state.sceneIdx ?? -1) + 1));
+document.addEventListener("keydown", e=>{
+  if(e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return;
+  if(e.key==="Escape" && !scenesEl.hidden){ setScenes(false); sceneBtn.focus(); }
+  if(e.key==="[") goScene((state.sceneIdx ?? 1) - 1);
+  if(e.key==="]") goScene((state.sceneIdx ?? -1) + 1);
+});
 
 /* ---------- stage controls ---------- */
 const deviceEl = document.getElementById("device");
@@ -2779,7 +3601,10 @@ function setPanel(on){
 try{ const v = localStorage.getItem("sc-panel"); if(v!==null) state.panel = v==="1"; }catch(e){}
 panelBtn.addEventListener("click", ()=> setPanel(!state.panel));
 document.getElementById("jump").addEventListener("click", jumpAhead);
-document.getElementById("restart").addEventListener("click", restart);
+document.getElementById("restart").addEventListener("click", ()=>{
+  restart(); state.sceneIdx = undefined; sceneBtn.textContent = "Jump to a scene";
+  try{ history.replaceState(null, "", location.pathname); }catch(e){}
+});
 function setQs(on){
   state.showQs = on;
   const b = document.getElementById("qbtn");
@@ -2792,4 +3617,6 @@ document.getElementById("qbtn").addEventListener("click", ()=>{
 
 setPanel(state.panel);
 render();
+/* A scene in the address, such as #chase-priya, opens there, so a reload keeps your place */
+{ const id = location.hash.slice(1), i = SCENE_LIST.findIndex(s=>s.id===id); if(i>=0) goScene(i); }
 </script>
