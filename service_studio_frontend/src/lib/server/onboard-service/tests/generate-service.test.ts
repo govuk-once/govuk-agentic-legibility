@@ -1,6 +1,5 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ModelClient } from '$lib/server/shared/generate-json';
+import { fakeModel } from '$lib/server/shared/tests/fake-model';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
 import { generateService } from '../generate-service';
 import { SERVICE_SYSTEM_PROMPT } from '../system-prompt';
@@ -10,23 +9,6 @@ const fetched = vi.hoisted(() => ({ answers: {} as Record<string, { text: string
 vi.mock('$lib/server/shared/fetch-link', () => ({
 	fetchLinkText: async (url: string) => ({ url, ...(fetched.answers[url] ?? { error: 'Not set up' }) })
 }));
-
-type Request = { model: string; system: string; messages: Anthropic.MessageParam[] };
-
-// A model that gives the next reply each time, and records every request as it was made.
-function fakeModel(replies: string[]) {
-	const requests: Request[] = [];
-	const client: ModelClient = {
-		messages: {
-			stream: (params) => {
-				requests.push({ model: params.model, system: params.system, messages: [...params.messages] });
-				const reply = replies.shift() ?? '';
-				return { finalMessage: async () => ({ content: [{ type: 'text', text: reply }] as unknown as Anthropic.ContentBlock[] }) };
-			}
-		}
-	};
-	return { client, requests };
-}
 
 // A process of the kind the prompt asks for, as the text the model would reply with.
 const processReply = JSON.stringify({

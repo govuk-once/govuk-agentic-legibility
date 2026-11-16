@@ -3,10 +3,10 @@ import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import { parseProcess } from '$lib/schema/workflow/validate';
 import { firstVersion } from '../../shared/onboard-details';
+import { schemaIntro } from '../../shared/process-json-schema';
 import { SERVICE_SYSTEM_PROMPT } from '../system-prompt';
 
-// The instructions come first and the JSON Schema is added after this line, so the two can be read separately.
-const schemaIntro = 'The JSON you reply with must validate against this JSON Schema:';
+// The instructions come first and the JSON Schema is added after the intro, so the two can be read separately.
 const [instructions, schemaText] = SERVICE_SYSTEM_PROMPT.split(schemaIntro);
 
 describe('SERVICE_SYSTEM_PROMPT', () => {

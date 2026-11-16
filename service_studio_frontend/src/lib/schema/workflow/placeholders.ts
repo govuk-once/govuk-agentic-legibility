@@ -1,6 +1,7 @@
 import type { ApiCallState, RetryPolicy, Timeouts } from './api-call-state';
 import type { Condition } from './condition';
 import type { InputState } from './input-state';
+import type { Duration } from './primitives';
 import type { CompletionStatus, EndState, OutputState } from './states';
 
 /*
@@ -142,14 +143,15 @@ export const placeholderApiCallDefaults: { timeouts: Timeouts; retry: RetryPolic
 
 /**
  * How the executor names and reuses each run of a draft workflow. The name is the slug of the workflow, and a
- * repeat run is allowed, because refusing one would stop a second person using the draft. The technical review
- * sets the real template and policy.
+ * repeat run is allowed, because refusing one would stop a second person using the draft. A whole run may last
+ * the placeholder limit unless another is given, because a form is given a shorter limit than a service. The
+ * technical review sets the real template, policy and limit.
  */
-export function placeholderExecutor(slug: string) {
+export function placeholderExecutor(slug: string, runTimeout: Duration = placeholderRunTimeout) {
 	return {
 		workflow_id_template: slug,
 		id_reuse_policy: 'allow_duplicate',
-		run_timeout: placeholderRunTimeout,
+		run_timeout: runTimeout,
 		search_attributes: {}
 	} as const;
 }

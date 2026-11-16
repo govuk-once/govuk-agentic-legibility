@@ -1,8 +1,7 @@
-import { z } from 'zod';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
-import { processSchema } from '$lib/schema/workflow/process';
 import { firstVersion } from '../shared/onboard-details';
+import { withProcessSchema } from '../shared/process-json-schema';
 
 /* System prompt editable here */
 
@@ -67,14 +66,4 @@ condition: ${JSON.stringify(undecidedRule)}.
 Do not write error routes or timeouts. Leave out catch, on_invalid, timeout, timeouts and retry on
 every state, because they are added afterwards.`;
 
-// Read from the schema itself, rather than described a second time by hand, so this never drifts out of step with
-// processSchema. Bedrock does not support output_config for Claude Sonnet 5 on either of its endpoints, so this is
-// the only thing constraining the shape of the response: the text above covers judgement and content, and this
-// covers the exact keys, allowed values and formats that the check will use.
-const PROCESS_JSON_SCHEMA = JSON.stringify(z.toJSONSchema(processSchema));
-
-export const SERVICE_SYSTEM_PROMPT = `${ONBOARD_INSTRUCTIONS}
-
-The JSON you reply with must validate against this JSON Schema:
-
-${PROCESS_JSON_SCHEMA}`;
+export const SERVICE_SYSTEM_PROMPT = withProcessSchema(ONBOARD_INSTRUCTIONS);
