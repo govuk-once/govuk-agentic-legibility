@@ -7,7 +7,7 @@
 </svelte:head>
 
 <OnboardMethodPage
-	detailsRoute="/onboard/service/details"
+	backRoute="/onboard"
 	caption="Start a new service, step 1 of 2"
 	automationHint="An assistant reads what is already on GOV.UK, plus anything you give it, and drafts a service journey and graph. Steps and conditions remain editable until published."
 />

@@ -2,29 +2,49 @@
 	import { resolve } from '$app/paths';
 	import type { Pathname } from '$app/types';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
+	import { draftMethodField, type DraftMethod } from './draft-methods';
 
 	/*
-		The first page of onboarding, where a person chooses how the draft is made. Only drafting with the assistant is
-		available. The route gives the words about it and the route of the details page the form leads to, so each kind
-		of draft has a method page of its own.
+		The first page of onboarding, where a person chooses how the draft is made. The route gives the words about
+		each choice it offers, so each kind of draft has a method page of its own. The choice is sent back to this
+		page, and the route's loader sends the person on to the page for it.
 	*/
 
 	interface Props {
-		// The route of the details page that Continue leads to. This page resolves it.
-		detailsRoute: Pathname;
+		// The route of the page before this one, which the back link leads to. This page resolves it.
+		backRoute: Pathname;
 		caption: string;
 		// What drafting with the assistant does, in the words of the route's own kind of draft.
 		automationHint: string;
+		// Starting from something that already exists. A kind of draft that has nothing to start from leaves it out.
+		existingOption?: { label: string; hint: string };
 	}
 
-	let { detailsRoute, caption, automationHint }: Props = $props();
+	let { backRoute, caption, automationHint, existingOption }: Props = $props();
+
+	// One choice on the page. A choice that is not available yet is shown switched off.
+	type MethodOption = { value: DraftMethod; label: string; hint: string; recommended?: boolean; disabled?: boolean };
+
+	const options = $derived<MethodOption[]>([
+		{ value: 'automation', label: 'Draft it with automation', hint: automationHint, recommended: true },
+		...(existingOption ? [{ value: 'existing' as const, ...existingOption }] : []),
+		{
+			value: 'blank',
+			label: 'Start with a blank graph',
+			hint: 'Build the journey yourself from scratch. This option is not available yet.',
+			disabled: true
+		}
+	]);
 </script>
 
 <ServiceHeader />
 
 <main class="onboard-method govuk-!-padding-top-9 govuk-!-padding-bottom-9">
 	<div class="onboard-method__content">
-		<form method="GET" action={resolve(detailsRoute)}>
+		<a class="govuk-back-link govuk-!-margin-bottom-5" href={resolve(backRoute)}>Back</a>
+
+		<!-- Sent back to this page, whose loader reads the choice and moves on. A plain GET form needs no script. -->
+		<form method="GET">
 			<fieldset class="govuk-fieldset">
 				<legend class="govuk-fieldset__legend">
 					<span class="govuk-caption-l govuk-!-margin-bottom-5">{caption}</span>
@@ -33,48 +53,33 @@
 
 				<!-- GOV.UK radios preserve familiar selection, focus and disabled behaviour within the larger choice cards. -->
 				<div class="govuk-radios govuk-radios--small draft-methods govuk-!-margin-bottom-5">
-					<div class="draft-method govuk-!-padding-5">
-						<div class="govuk-radios__item govuk-!-margin-bottom-0">
-							<input
-								class="govuk-radios__input"
-								id="draft-method-automation"
-								name="draft-method"
-								type="radio"
-								value="automation"
-								aria-describedby="draft-method-automation-hint"
-								required
-							/>
-							<label class="govuk-label govuk-radios__label" for="draft-method-automation">
-								<span class="draft-method__heading">
-									<span class="govuk-heading-m govuk-!-margin-bottom-0">Draft it with automation</span>
-									<strong class="govuk-tag govuk-tag--blue">Recommended</strong>
-								</span>
-							</label>
-							<div id="draft-method-automation-hint" class="govuk-hint govuk-radios__hint govuk-!-margin-top-2">
-								{automationHint}
+					{#each options as option (option.value)}
+						<div class="draft-method govuk-!-padding-5">
+							<div class="govuk-radios__item govuk-!-margin-bottom-0">
+								<input
+									class="govuk-radios__input"
+									id="draft-method-{option.value}"
+									name={draftMethodField}
+									type="radio"
+									value={option.value}
+									aria-describedby="draft-method-{option.value}-hint"
+									required
+									disabled={option.disabled}
+								/>
+								<label class="govuk-label govuk-radios__label" for="draft-method-{option.value}">
+									<span class="draft-method__heading">
+										<span class="govuk-heading-m govuk-!-margin-bottom-0">{option.label}</span>
+										{#if option.recommended}
+											<strong class="govuk-tag govuk-tag--blue">Recommended</strong>
+										{/if}
+									</span>
+								</label>
+								<div id="draft-method-{option.value}-hint" class="govuk-hint govuk-radios__hint govuk-!-margin-top-2">
+									{option.hint}
+								</div>
 							</div>
 						</div>
-					</div>
-
-					<div class="draft-method govuk-!-padding-5">
-						<div class="govuk-radios__item govuk-!-margin-bottom-0">
-							<input
-								class="govuk-radios__input"
-								id="draft-method-blank"
-								name="draft-method"
-								type="radio"
-								value="blank"
-								aria-describedby="draft-method-blank-hint"
-								disabled
-							/>
-							<label class="govuk-label govuk-radios__label" for="draft-method-blank">
-								<span class="govuk-heading-m govuk-!-margin-bottom-0">Start with a blank graph</span>
-							</label>
-							<div id="draft-method-blank-hint" class="govuk-hint govuk-radios__hint govuk-!-margin-top-2">
-								Build the journey yourself from scratch. This option is not available yet.
-							</div>
-						</div>
-					</div>
+					{/each}
 				</div>
 			</fieldset>
 

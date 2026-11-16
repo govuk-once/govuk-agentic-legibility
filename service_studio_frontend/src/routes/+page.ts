@@ -2,8 +2,8 @@ import { redirect } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 
 /**
- * Redirects the former index route to the editor so existing entry links continue to work.
+ * Sends the address of the app to the start page, so a person always begins by choosing what to make.
  */
 export const load: PageLoad = () => {
-	redirect(307, '/edit-old');
+	redirect(307, '/onboard');
 };
