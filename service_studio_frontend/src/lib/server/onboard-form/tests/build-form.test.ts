@@ -96,6 +96,17 @@ describe('buildForm', () => {
 		}
 	});
 
+	it('describes the manifest by the name of the form, as the form examples do, and keeps what it does in its notes', () => {
+		expect(form.manifest.description).toBe('Register a trainer');
+		expect(form.manifest.metadata).toEqual({ description: 'Tell us who needs training.' });
+		expect(form.processes.register_a_trainer).not.toHaveProperty('metadata');
+	});
+
+	it('adds no notes to the manifest when the person did not say what the form does', () => {
+		const undescribed = buildForm(generated({ ask: question({ kind: 'string' }) }), { ...details, description: '  ' });
+		expect(undescribed.manifest).not.toHaveProperty('metadata');
+	});
+
 	it('gives the owner and the contact placeholders, and every question an answer type', () => {
 		expect(form.manifest).toMatchObject({ owner: 'To be confirmed', contact: 'to.be.confirmed@example.com' });
 		expect(form.processes.register_a_trainer.states.ask.metadata).toEqual({ answer_type: 'text' });
