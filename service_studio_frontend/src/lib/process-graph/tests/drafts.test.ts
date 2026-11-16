@@ -53,6 +53,7 @@ describe('promoteDrafts', () => {
 		// The step it led to before is left where it is.
 		expect(promoted.process.states.b).toBeDefined();
 		expect(promoted.set).toEqual(noDrafts);
+		expect(promoted.becameStates).toEqual({ e: a.next });
 	});
 
 	it('waits for two ways on before a draft decision is real', () => {
@@ -104,6 +105,16 @@ describe('promoteDrafts', () => {
 
 			expect(promoted.set).toEqual(noDrafts);
 			expect(waysOn(promoted.process)).toEqual(['end', 'end']);
+		});
+
+		it('says which state each draft became, so each can be drawn where its draft was', () => {
+			const lines: Array<[Endpoint, Endpoint]> = [[state('q'), draftEnd('d')], [draftEnd('d'), state('x')], [draftEnd('d'), draftEnd('e')]];
+			const promoted = promoteDrafts(loose(), canvasWith([['d', 'condition'], ['e', 'end']], lines));
+
+			const q = promoted.process.states.q;
+			if (q.state_type !== 'wait' || q.next === undefined) throw new Error('q should now continue to a decision');
+			expect(promoted.becameStates.d).toBe(q.next);
+			expect(promoted.process.states[promoted.becameStates.e]).toMatchObject({ state_type: 'end' });
 		});
 
 		it('still waits while the decision has only one way on, an end', () => {

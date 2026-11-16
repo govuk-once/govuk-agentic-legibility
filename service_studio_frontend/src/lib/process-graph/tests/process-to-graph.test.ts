@@ -4,7 +4,7 @@ import type { Process } from '$lib/schema/workflow/process';
 import type { ProcessEdge } from '../process-graph-types';
 import { routesOf } from '$lib/schema/workflow/routes';
 import { stateRows, targetOptions } from '../state-rows';
-import { graphShape, isErrorRoute, processToGraph, separateEndDots, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
+import { isErrorRoute, processToGraph, separateEndDots, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
 
 const finish = { state_type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };
@@ -346,27 +346,6 @@ describe('separateEndDots', () => {
 	it('gives the same number of boxes and lines and does not change the step count', () => {
 		expect(separated.edges).toHaveLength(graph.edges.length);
 		expect(stepCount(separated)).toBe(stepCount(graph));
-	});
-});
-
-describe('graphShape', () => {
-	const states = {
-		ask: { state_type: 'input', prompt: 'Name?', schema: { kind: 'string' }, assign: 'name', next: 'done' },
-		done: finish
-	};
-
-	it('stays the same when only a title changes', () => {
-		const renamed = { ...states, ask: { ...states.ask, name: 'A new title' } };
-		expect(graphShape(processToGraph(build('ask', renamed)))).toBe(graphShape(processToGraph(build('ask', states))));
-	});
-
-	it('changes when a line is moved to a different place', () => {
-		const moved = { ...states, ask: { ...states.ask, next: 'other' }, other: finish };
-		expect(graphShape(processToGraph(build('ask', moved)))).not.toBe(graphShape(processToGraph(build('ask', { ...states, other: finish }))));
-	});
-
-	it('changes when a state is added', () => {
-		expect(graphShape(processToGraph(build('ask', { ...states, extra: finish })))).not.toBe(graphShape(processToGraph(build('ask', states))));
 	});
 });
 

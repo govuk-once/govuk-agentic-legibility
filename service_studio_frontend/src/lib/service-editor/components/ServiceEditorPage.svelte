@@ -47,10 +47,16 @@
 	let draftSets = $state.raw<Record<string, DraftSet>>({});
 	const drafts = $derived(draftSets[processKey] ?? noDrafts);
 
-	// Puts every box of the process on the graph back where the layout placed it.
+	// Counts how many times the whole graph has been arranged again since it was first drawn. Between arrangements
+	// every box keeps its place.
+	let layoutRound = $state(0);
+
+	// Arranges the graph of the process again and forgets where its boxes were dragged to. Tidy up does this, and so
+	// does moving a step in the journey, so the graph follows the new order of the list.
 	function tidyUp() {
 		const { [processKey]: _removed, ...others } = draggedPositions;
 		draggedPositions = others;
+		layoutRound += 1;
 	}
 
 	// Error routes are hidden at first so the main journey is easy to follow.
@@ -117,7 +123,9 @@
 			process={selectedProcess}
 			{showErrorRoutes}
 			{positions}
+			{layoutRound}
 			onMoveNodes={moveNodes}
+			onRearrange={tidyUp}
 			{drafts}
 			onChangeDrafts={(changed) => (draftSets = { ...draftSets, [processKey]: changed })}
 			onChangeProcess={changeProcess}

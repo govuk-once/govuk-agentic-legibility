@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
-import { nodeSize } from '$lib/graph-kit/layout';
-import { arrangeProcessGraph } from '../arrange';
+import { NODE_GAP, nodeSize, RANK_GAP } from '$lib/graph-kit/layout';
+import type { Process } from '$lib/schema/workflow/process';
+import { arrangeProcessGraph, placeBesideNeighbours } from '../arrange';
 import { processToGraph, separateEndDots, visibleGraph } from '../process-to-graph';
 
 const processes = serviceExamples.flatMap((example) => Object.values(example.workflow?.processes ?? {}));
@@ -161,5 +162,58 @@ describe('the layout of the shown graph', () => {
 		const wide = arrangeProcessGraph(graph.nodes, graph.edges).width;
 
 		expect(narrow).toBeLessThan(wide);
+	});
+});
+
+describe('placeBesideNeighbours', () => {
+	// A question, a decision after it and two ends, as the graph draws them.
+	const process = {
+		process_id: 'p',
+		version: '0.1.0',
+		vars: {},
+		start: 'ask',
+		states: {
+			ask: { state_type: 'input', prompt: 'Q?', schema: { kind: 'boolean' }, assign: 'ok', next: 'decide' },
+			decide: { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'ok' }, next: 'yes' }], default: 'no' },
+			yes: { state_type: 'end', status: 'success' },
+			no: { state_type: 'end', status: 'cancelled' }
+		}
+	} as unknown as Process;
+	const { nodes, edges } = processToGraph(process);
+	const ask = nodes.find((node) => node.id === 'ask')!;
+
+	it('places a new box one row below the box that leads into it, and a little to the right', () => {
+		const known = new Map([['ask', { x: 100, y: 200 }]]);
+		const placed = placeBesideNeighbours(nodes, edges, (id) => known.get(id));
+		expect(placed.get('decide')).toEqual({ x: 160, y: 200 + nodeSize(ask).height + RANK_GAP });
+	});
+
+	it('places new boxes one after another, so a box can sit beside another new box', () => {
+		const known = new Map([['ask', { x: 100, y: 200 }]]);
+		const placed = placeBesideNeighbours(nodes, edges, (id) => known.get(id));
+		const decide = placed.get('decide')!;
+		expect(placed.get('yes')?.y).toBeGreaterThan(decide.y);
+		expect(placed.get('no')?.y).toBeGreaterThan(decide.y);
+	});
+
+	it('places a box that nothing placed leads into above the box it leads to', () => {
+		const known = new Map([['decide', { x: 100, y: 400 }]]);
+		const placed = placeBesideNeighbours(nodes, edges, (id) => known.get(id));
+		expect(placed.get('ask')!.y).toBeLessThan(400);
+	});
+
+	it('slides a new box to the right until it is clear of a box already in that place', () => {
+		const below = 200 + nodeSize(ask).height + RANK_GAP;
+		const known = new Map([['ask', { x: 100, y: 200 }], ['yes', { x: 150, y: below }]]);
+		const placed = placeBesideNeighbours(nodes, edges, (id) => known.get(id));
+		const yes = nodes.find((node) => node.id === 'yes')!;
+		expect(placed.get('decide')).toEqual({ x: 150 + nodeSize(yes).width + NODE_GAP, y: below });
+	});
+
+	it('leaves alone a box that already has a place, and one joined to nothing with a place', () => {
+		const known = new Map([['ask', { x: 0, y: 0 }]]);
+		const placed = placeBesideNeighbours(nodes, edges, (id) => known.get(id));
+		expect(placed.has('ask')).toBe(false);
+		expect(placeBesideNeighbours(nodes, edges, () => undefined).size).toBe(0);
 	});
 });

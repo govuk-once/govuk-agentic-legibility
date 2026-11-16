@@ -23,6 +23,9 @@
 		// they last while the page is open even after another process has been shown and this one comes back.
 		positions: NodePositions;
 		onMoveNodes: (moved: NodePositions) => void;
+		// How many times the graph has been arranged again, and the call that arranges it again.
+		layoutRound: number;
+		onRearrange: () => void;
 		// The shapes placed from the palette that are not in the process yet, and the call that records a change
 		// to them. The page holds them for the same reason as the positions.
 		drafts: DraftSet;
@@ -33,7 +36,18 @@
 		onOpenProcess: (processId: string) => void;
 	}
 
-	let { process, showErrorRoutes, positions, onMoveNodes, drafts, onChangeDrafts, onChangeProcess, onOpenProcess }: Props = $props();
+	let {
+		process,
+		showErrorRoutes,
+		positions,
+		onMoveNodes,
+		layoutRound,
+		onRearrange,
+		drafts,
+		onChangeDrafts,
+		onChangeProcess,
+		onOpenProcess
+	}: Props = $props();
 
 	// The shapes the palette offers: a step, a decision, a start and an end. The value of the step is the kind of
 	// state it adds, which is an output, a message to the person.
@@ -143,6 +157,7 @@
 		connectedStepKind="output"
 		{showErrorRoutes}
 		{positions}
+		{layoutRound}
 		{onMoveNodes}
 		{drafts}
 		{onChangeDrafts}
@@ -172,7 +187,11 @@
 						unreachable={!reachable.has(code)}
 						canMoveUp={canMoveEarlier(process, code)}
 						canMoveDown={canMoveLater(process, code)}
-						onMove={(direction) => applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code))}
+						onMove={(direction) => {
+							// The graph is arranged again, so the boxes follow the new order of the list.
+							applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code));
+							onRearrange();
+						}}
 						isStart={process.start === code}
 						canEnd={canEndJourneyAt(process, code)}
 						onSetStart={() => applyChange(setStart(process, code))}

@@ -4,9 +4,10 @@
 	import ConditionNode from '$lib/graph-kit/ConditionNode.svelte';
 	import TerminalNode from '$lib/graph-kit/TerminalNode.svelte';
 	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
-	import { arrangeProcessGraph } from './arrange';
+	import { nodeSize } from '$lib/graph-kit/layout';
+	import { arrangeProcessGraph, placeBesideNeighbours } from './arrange';
 	import type { Draft, DraftSet, Endpoint } from './drafts';
-	import { graphShape, separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
+	import { separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
 	import type { DeletedElements, NodePositions, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
 
 	interface Props {
@@ -23,8 +24,10 @@
 		// The colour of the outline of a box, for each kind of state the editor wants to tell apart. A kind that is
 		// not listed keeps the usual grey outline.
 		stepOutlineColours?: StepOutlineColours;
-		// Where the person has dragged boxes to. A box that is not listed stays where the layout put it.
+		// Where the person has dragged or dropped boxes to. A box that is not listed stays where it was placed.
 		positions?: NodePositions;
+		// Changing this number arranges the whole graph again, for example after a step is moved in the journey.
+		layoutRound?: number;
 		// Called with the new position of every box that was just dragged, when the drag ends.
 		onMoveNodes?: (moved: NodePositions) => void;
 		// Called with the id of the process an invoke box runs, when the box is clicked.
@@ -53,6 +56,7 @@
 		showDeveloperSteps = true,
 		stepOutlineColours = {},
 		positions = {},
+		layoutRound = 0,
 		onMoveNodes,
 		onOpenProcess,
 		drafts = { drafts: [], lines: [] },
@@ -81,19 +85,34 @@
 	// a long way across the graph to reach it.
 	const shown = $derived(separateEndDots(visibleGraph(graph, { showErrorRoutes, showDeveloperSteps })));
 
-	// Where the layout put each box, and the shape of the graph it was worked out for. An edit that leaves the
-	// shape as it was, such as a new title, reuses these places, so a rename never moves a box. The graph is
-	// arranged again only when a box or a line is added, removed or moved. This is plain bookkeeping and not
-	// state, because nothing needs to react to it changing.
-	let lastLayout: { shape: string; places: Map<string, { x: number; y: number }> } | undefined;
+	// Where each box sits, and the round of arranging that placed them. The whole graph is arranged when it is first
+	// drawn and again when layoutRound changes. Between those a box keeps its place, so adding or removing one box
+	// or line never moves the others. This is plain bookkeeping and not state, because nothing needs to react to it.
+	let arrangement: { round: number; places: Map<string, { x: number; y: number }> } | undefined;
 
 	const laidOut = $derived.by(() => {
-		const shape = graphShape(shown);
-		const places = lastLayout?.shape === shape ? lastLayout.places : undefined;
-		if (places) return shown.nodes.map((node) => ({ ...node, position: places.get(node.id) ?? node.position }));
+		if (arrangement?.round !== layoutRound) {
+			const nodes = arrangeProcessGraph(shown.nodes, shown.edges).nodes;
+			arrangement = { round: layoutRound, places: new Map(nodes.map((node) => [node.id, node.position])) };
+			return nodes;
+		}
 
-		const nodes = arrangeProcessGraph(shown.nodes, shown.edges).nodes;
-		lastLayout = { shape, places: new Map(nodes.map((node) => [node.id, node.position])) };
+		// A box that is new since the graph was arranged goes where it was dropped, or beside a box it is joined to. A
+		// box joined to nothing that has a place, which is rare, takes the place a full arrangement would give it.
+		const { places } = arrangement;
+		const placeOf = (id: string) => positions[id] ?? places.get(id);
+		const beside = placeBesideNeighbours(shown.nodes, shown.edges, placeOf);
+		const unjoined = shown.nodes.some((node) => !placeOf(node.id) && !beside.has(node.id));
+		const arranged = unjoined ? new Map(arrangeProcessGraph(shown.nodes, shown.edges).nodes.map((node) => [node.id, node.position])) : undefined;
+
+		// The size is set on each node as the layout sets it, because Svelte Flow sizes the box and places its
+		// handles from it.
+		const nodes = shown.nodes.map((node) => ({
+			...node,
+			...nodeSize(node),
+			position: placeOf(node.id) ?? beside.get(node.id) ?? arranged?.get(node.id) ?? node.position
+		}));
+		arrangement = { round: layoutRound, places: new Map(nodes.map((node) => [node.id, node.position])) };
 		return nodes;
 	});
 
@@ -101,7 +120,7 @@
 	// because the person chose where each one goes.
 	const draftNodes = $derived(drafts.drafts.map((draft) => draftNode(draft)));
 
-	// A box the person has dragged keeps its place, and every other box stays where the layout put it. The
+	// A box the person has dragged keeps its place, and every other box stays where it was placed. The
 	// selected flag is set here for a state, so the list of steps and the graph always agree about which
 	// state is highlighted.
 	const nodes = $derived<Node[]>([

@@ -37,6 +37,17 @@
 		positions = { ...positions, ...moved };
 	}
 
+	// Counts how many times the whole graph has been arranged again since it was first drawn. Between arrangements
+	// every box keeps its place.
+	let layoutRound = $state(0);
+
+	// Arranges the whole graph again and forgets where boxes were dragged to. Moving a step in the journey does this,
+	// so the graph follows the new order of the list.
+	function rearrange() {
+		positions = {};
+		layoutRound += 1;
+	}
+
 	// The shapes placed from the palette that are not in the process yet. They are held here and not beside the
 	// graph, because the graph is built again when the developer states are shown or hidden. Like the positions they
 	// are only how the graph is drawn, so they are not part of the form and are not saved.
@@ -103,7 +114,9 @@
 			{process}
 			{showDeveloperStates}
 			{positions}
+			{layoutRound}
 			onMoveNodes={moveNodes}
+			onRearrange={rearrange}
 			{drafts}
 			onChangeDrafts={(changed) => (drafts = changed)}
 			onChangeProcess={changeProcess}

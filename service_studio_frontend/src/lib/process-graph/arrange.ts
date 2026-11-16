@@ -134,3 +134,70 @@ function centreEndDotsUnderParents(positionedNodes: ProcessNode[], edges: Layout
 		if (place !== undefined) dot.position = { x: left, y: place };
 	}
 }
+
+// How far a new box sits to the right of the box it is placed beside, so it never lands exactly on top of
+// another box that is also beside it.
+const besideOffset = 60;
+
+/**
+ * Finds a place for every box that has none yet, beside a box it is joined to that has one. A box goes below the
+ * box that leads into it, one row down. A box that nothing placed leads into goes above a placed box it leads to.
+ * Either way it slides to the right until it is clear of every other box, so it is never hidden behind one, such as
+ * the step that already sits below. Boxes are placed one after another, so a new box can be placed beside another
+ * new box placed before it. A box joined to nothing that has a place is left out, so the caller can place it some
+ * other way.
+ */
+export function placeBesideNeighbours(
+	nodes: ProcessNode[],
+	edges: LayoutEdge[],
+	placeOf: (id: string) => { x: number; y: number } | undefined
+): Map<string, { x: number; y: number }> {
+	const nodeById = new Map(nodes.map((node) => [node.id, node]));
+	const placed = new Map<string, { x: number; y: number }>();
+	const knownPlace = (id: string) => placed.get(id) ?? placeOf(id);
+
+	// Moves a place to the right of any box it would cover, one box at a time, until it covers none.
+	function clearOfOthers(node: ProcessNode, place: { x: number; y: number }) {
+		const { width, height } = nodeSize(node);
+		const position = { ...place };
+		for (let guard = 0; guard < nodes.length; guard += 1) {
+			const covered = nodes.find((other) => {
+				const at = other.id === node.id ? undefined : knownPlace(other.id);
+				if (!at) return false;
+				const size = nodeSize(other);
+				return position.x < at.x + size.width && at.x < position.x + width && position.y < at.y + size.height && at.y < position.y + height;
+			});
+			if (!covered) break;
+			position.x = knownPlace(covered.id)!.x + nodeSize(covered).width + NODE_GAP;
+		}
+		return position;
+	}
+
+	// Placing one box can give the next one a neighbour, so the boxes are gone over until no more can be placed.
+	let unplaced = nodes.filter((node) => !knownPlace(node.id));
+	let progress = true;
+	while (unplaced.length > 0 && progress) {
+		progress = false;
+		for (const node of unplaced) {
+			const leadsIn = edges.find((edge) => edge.target === node.id && knownPlace(edge.source));
+			const leadsTo = edges.find((edge) => edge.source === node.id && knownPlace(edge.target));
+
+			if (leadsIn) {
+				const source = knownPlace(leadsIn.source)!;
+				const sourceNode = nodeById.get(leadsIn.source);
+				const below = sourceNode ? nodeSize(sourceNode).height + RANK_GAP : RANK_GAP;
+				placed.set(node.id, clearOfOthers(node, { x: source.x + besideOffset, y: source.y + below }));
+			} else if (leadsTo) {
+				const target = knownPlace(leadsTo.target)!;
+				placed.set(node.id, clearOfOthers(node, { x: target.x + besideOffset, y: target.y - nodeSize(node).height - RANK_GAP }));
+			} else {
+				continue;
+			}
+			progress = true;
+		}
+		unplaced = unplaced.filter((node) => !placed.has(node.id));
+	}
+
+	return placed;
+}
+

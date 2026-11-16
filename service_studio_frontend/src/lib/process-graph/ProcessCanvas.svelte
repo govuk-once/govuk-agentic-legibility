@@ -41,6 +41,8 @@
 		stepOutlineColours?: StepOutlineColours;
 		// Where the person has dragged boxes to, and the call that records a drag.
 		positions: NodePositions;
+		// Changing this number arranges the whole graph again.
+		layoutRound?: number;
 		onMoveNodes: (moved: NodePositions) => void;
 		// The shapes placed from the palette that are not in the process yet, and the call that records a change to them.
 		drafts: DraftSet;
@@ -69,6 +71,7 @@
 		showDeveloperSteps = true,
 		stepOutlineColours,
 		positions,
+		layoutRound = 0,
 		onMoveNodes,
 		drafts,
 		onChangeDrafts,
@@ -87,6 +90,13 @@
 	function promote(set: DraftSet, base: WorkingProcess = process) {
 		const promoted = promoteDrafts(base, set);
 		if (promoted.process !== process) onChangeProcess(promoted.process);
+
+		// Each draft that became a state is drawn where the draft was, so nothing jumps when it becomes real.
+		const drawnAt = Object.entries(promoted.becameStates).flatMap(([draftId, code]) => {
+			const position = positions[draftId] ?? set.drafts.find((draft) => draft.id === draftId)?.position;
+			return position ? [[code, position] as const] : [];
+		});
+		if (drawnAt.length > 0) onMoveNodes(Object.fromEntries(drawnAt));
 
 		onChangeDrafts(promoted.set);
 		if (promoted.reasons.length > 0) messages = promoted.reasons;
@@ -192,6 +202,7 @@
 		{showDeveloperSteps}
 		{stepOutlineColours}
 		{positions}
+		{layoutRound}
 		{onMoveNodes}
 		{drafts}
 		bind:selectedStateId

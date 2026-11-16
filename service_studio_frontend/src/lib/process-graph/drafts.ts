@@ -33,8 +33,15 @@ export type DraftSet = { drafts: Draft[]; lines: DraftLine[] };
 
 export const noDrafts: DraftSet = { drafts: [], lines: [] };
 
-// Where a draft is in the result of promoting: the process, what is left, the new state to show, and any reasons.
-export type Promotion = { process: WorkingProcess; set: DraftSet; selectCode?: string; reasons: string[] };
+// Where a draft is in the result of promoting: the process, what is left, the new state to show, the state each
+// promoted draft became, by the id of the draft, so it can be drawn where the draft was, and any reasons.
+export type Promotion = {
+	process: WorkingProcess;
+	set: DraftSet;
+	selectCode?: string;
+	becameStates: Record<string, string>;
+	reasons: string[];
+};
 
 /**
  * Makes a name for a draft. It is only used on the canvas, so it needs to be unique and nothing more.
@@ -123,14 +130,14 @@ function stateCodes(ends: Endpoint[]): string[] {
 /**
  * Promotes a draft decision together with the draft ends it leads to. Each end is added to the process first, so
  * the decision can lead to it, and the ways on keep the order the lines were drawn in. The result also carries the
- * ids of the draft ends that became states, so they can be taken off the canvas with the decision.
+ * state each draft end became, by the id of the draft, so they can be taken off the canvas with the decision.
  */
 function promoteDecision(
 	process: WorkingProcess,
 	set: DraftSet,
 	source: string,
 	outgoing: DraftLine[]
-): { result: EditResult; endIds: string[] } | undefined {
+): { result: EditResult; endStates: Record<string, string> } | undefined {
 	const isDraftEnd = (end: Endpoint) => end.kind === 'draft' && set.drafts.some((draft) => draft.id === end.id && draft.kind === 'end');
 	const ways = outgoing.map((line) => line.target).filter((end) => end.kind === 'state' || isDraftEnd(end));
 
@@ -139,16 +146,16 @@ function promoteDecision(
 	if (unique.length < 2) return undefined;
 
 	let current = process;
-	const endIds: string[] = [];
+	const endStates: Record<string, string> = {};
 	const targets = unique.map((end) => {
 		if (end.kind === 'state') return end.code;
 		const added = addEndState(current);
 		current = added.process;
-		if (end.kind === 'draft') endIds.push(end.id);
+		if (end.kind === 'draft') endStates[end.id] = added.code;
 		return added.code;
 	});
 
-	return { result: addBranch(current, source, targets), endIds };
+	return { result: addBranch(current, source, targets), endStates };
 }
 
 /**
@@ -161,6 +168,7 @@ export function promoteDrafts(process: WorkingProcess, set: DraftSet): Promotion
 	let current = process;
 	let remaining = set;
 	let selectCode: string | undefined;
+	const becameStates: Record<string, string> = {};
 	const reasons: string[] = [];
 
 	// Promoting one draft can make another ready, so each pass starts again from the first draft.
@@ -176,13 +184,13 @@ export function promoteDrafts(process: WorkingProcess, set: DraftSet): Promotion
 
 			let result: EditResult | undefined;
 			// The draft ends that a decision made real in the same change, which leave the canvas with it.
-			let promotedEnds: string[] = [];
+			let promotedEnds: Record<string, string> = {};
 			if (draft.kind === 'start' && targets.length > 0) result = { ok: true, process: setStart(current, targets[0]) };
 			if (draft.kind === 'end' && sources.length > 0) result = endJourneyAt(current, sources[0]);
 			if (draft.kind === 'condition' && sources.length > 0) {
 				const decision = promoteDecision(current, remaining, sources[0], outgoing);
 				result = decision?.result;
-				promotedEnds = decision?.endIds ?? [];
+				promotedEnds = decision?.endStates ?? {};
 			}
 			if (!result) continue;
 
@@ -196,15 +204,18 @@ export function promoteDrafts(process: WorkingProcess, set: DraftSet): Promotion
 			}
 
 			current = result.process;
+			// A start leads to a state that is already drawn. An end or a decision is a new state, drawn where its draft was.
+			if (draft.kind !== 'start' && result.code) becameStates[draft.id] = result.code;
+			Object.assign(becameStates, promotedEnds);
 			// A decision that has just been made is shown, so its ways on can be set straight away.
 			if (draft.kind === 'condition') selectCode = result.code;
 
 			// The draft is replaced by the real thing, so it goes with every line that touched it.
-			remaining = removeFromDrafts(remaining, [draft.id, ...promotedEnds], []);
+			remaining = removeFromDrafts(remaining, [draft.id, ...Object.keys(promotedEnds)], []);
 			changed = true;
 			break;
 		}
 	}
 
-	return { process: current, set: remaining, selectCode, reasons };
+	return { process: current, set: remaining, selectCode, becameStates, reasons };
 }

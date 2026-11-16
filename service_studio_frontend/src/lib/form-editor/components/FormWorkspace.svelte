@@ -33,6 +33,9 @@
 		// when the developer states are shown or hidden and this component is shown afresh.
 		positions: NodePositions;
 		onMoveNodes: (moved: NodePositions) => void;
+		// How many times the graph has been arranged again, and the call that arranges it again.
+		layoutRound: number;
+		onRearrange: () => void;
 		// The shapes placed from the palette that are not in the process yet, and the call that records a change to
 		// them. The page holds them for the same reason as the positions.
 		drafts: DraftSet;
@@ -50,6 +53,8 @@
 		showDeveloperStates,
 		positions,
 		onMoveNodes,
+		layoutRound,
+		onRearrange,
 		drafts,
 		onChangeDrafts,
 		onChangeProcess,
@@ -193,9 +198,11 @@
 		selection = { code, open: false };
 	}
 
-	// Moves a step up or down the journey, taking with it the assign that saves an answer before it.
+	// Moves a step up or down the journey, taking with it the assign that saves an answer before it. The graph is
+	// arranged again, so the boxes follow the new order of the list.
 	function moveStep(code: string, direction: 'up' | 'down') {
 		applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code, assignBefore));
+		onRearrange();
 	}
 
 	// Applies the edit card of a step or a decision and closes it, leaving it highlighted. The end is made in the
@@ -218,6 +225,7 @@
 		showDeveloperSteps={showDeveloperStates}
 		stepOutlineColours={stateOutlineColours}
 		{positions}
+		{layoutRound}
 		{onMoveNodes}
 		{drafts}
 		{onChangeDrafts}
