@@ -6,5 +6,8 @@
 export const ownerReviewProgress = $state({
 	// Shows example problems in place of the real checks, which come from the tech review once it is built. It is only
 	// for seeing the design with problems, and is switched on and off on the Review page.
-	showExampleProblems: false
+	showExampleProblems: false,
+	// Set when the owner continues from the Review page to sign off, which says they have read the citizen journey and
+	// the validation checks.
+	journeyRead: false
 });

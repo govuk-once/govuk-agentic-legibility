@@ -13,8 +13,9 @@
 	*/
 
 	interface Props {
-		// Every step of the review, in order, with how far each one has got.
-		steps: { label: string; state: ReviewStepState }[];
+		// Every step of the review, in order, with how far each one has got. A page after the review, such as the
+		// confirmation, gives none and has no bar of steps.
+		steps?: { label: string; state: ReviewStepState }[];
 		heading: string;
 		hint: string;
 		// A short line under the explanation that says where the step stands, such as "Not saved yet".
@@ -34,15 +35,17 @@
 	};
 </script>
 
-<ol class="review-steps" aria-label="Review steps">
-	{#each steps as step, index (step.label)}
-		<li class="review-steps__step review-steps__step--{step.state}" aria-current={step.state === 'current' || step.state === 'problem' ? 'step' : undefined}>
-			<span class="review-steps__number" aria-hidden="true">{index + 1}</span>
-			<span class="govuk-visually-hidden">Step {index + 1} of {steps.length}, {step.label}: {visuallyHiddenStates[step.state]}</span>
-			<span class="review-steps__bar"></span>
-		</li>
-	{/each}
-</ol>
+{#if steps}
+	<ol class="review-steps" aria-label="Review steps">
+		{#each steps as step, index (step.label)}
+			<li class="review-steps__step review-steps__step--{step.state}" aria-current={step.state === 'current' || step.state === 'problem' ? 'step' : undefined}>
+				<span class="review-steps__number" aria-hidden="true">{index + 1}</span>
+				<span class="govuk-visually-hidden">Step {index + 1} of {steps.length}, {step.label}: {visuallyHiddenStates[step.state]}</span>
+				<span class="review-steps__bar"></span>
+			</li>
+		{/each}
+	</ol>
+{/if}
 
 <div class="review-step govuk-grid-row">
 	<div class="govuk-grid-column-one-third">

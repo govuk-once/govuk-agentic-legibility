@@ -27,6 +27,13 @@
 	// When the checks last ran. They are not real yet, so this is when the page was opened.
 	const checkedAt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
+	// Goes on to sign off. Getting this far means the owner has read the journey and the checks, which the sign off
+	// checklist records.
+	function continueToSignOff() {
+		ownerReviewProgress.journeyRead = true;
+		goto(resolve('/owner-review/form/sign-off'));
+	}
+
 	// The words and GOV.UK tag colour for each result.
 	const results: Record<CheckResult, { tag: string; colour: string; inRow: string }> = {
 		error: { tag: 'Error', colour: 'red', inRow: '1 error' },
@@ -208,7 +215,7 @@
 			class="govuk-button govuk-!-margin-bottom-0"
 			type="button"
 			disabled={!canSignOff}
-			onclick={() => goto(resolve('/owner-review/form/sign-off'))}
+			onclick={continueToSignOff}
 		>
 			Continue to sign off
 		</button>
