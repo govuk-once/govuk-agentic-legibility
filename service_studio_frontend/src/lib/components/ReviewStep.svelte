@@ -82,7 +82,7 @@
 
 	.review-steps__number {
 		font-family: 'GDS Transport', arial, sans-serif;
-		font-size: 0.875rem;
+		font-size: 1rem;
 		line-height: 1.25;
 		color: #505a5f;
 	}
@@ -132,6 +132,7 @@
 	}
 
 	/* A link for something that is not built yet is shown so the design is complete, but greyed out and not followed. */
+	.review-step :global(.govuk-link[aria-disabled='true']),
 	.review-step__actions :global(.govuk-link[aria-disabled='true']) {
 		color: #505a5f;
 		cursor: not-allowed;

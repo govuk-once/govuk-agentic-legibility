@@ -2,14 +2,18 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { stagesAt } from '$lib/components/progress-stages';
+	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
 	import type { LayoutProps } from './$types';
 
 	// The header, the stages and the title are the same on every step of the owner review, so they are drawn once here.
 	let { data, children }: LayoutProps = $props();
+
+	// The example problems stand for a tech review that is not finished, so the banner says so while they are shown.
+	const stages = $derived(stagesAt('Owner review', ownerReviewProgress.showExampleProblems ? ['Tech review'] : []));
 </script>
 
 <ServiceHeader />
-<Progress stages={stagesAt('Owner review')} />
+<Progress {stages} />
 
 <main>
 	<div class="owner-review__title govuk-!-padding-top-6">
