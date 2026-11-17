@@ -18,13 +18,15 @@
 		// What to say when there is nothing in the browser tab, for a page that is reached some other way than by
 		// opening a new draft. Without it the page asks for a first draft.
 		missing?: Snippet;
+		// The browser tab title, for a page that is not opening a new draft.
+		title?: string;
 	}
 
-	let { problem, startRoute, missing }: Props = $props();
+	let { problem, startRoute, missing, title = 'Open the draft' }: Props = $props();
 </script>
 
 <svelte:head>
-	<title>Open the draft | Service Studio</title>
+	<title>{title} | Service Studio</title>
 </svelte:head>
 
 <ServiceHeader />
