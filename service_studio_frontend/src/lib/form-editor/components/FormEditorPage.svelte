@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { ContextItem } from '$lib/components/context';
 	import Progress from '$lib/components/Progress.svelte';
@@ -9,6 +10,7 @@
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
 	import type { Workflow } from '$lib/schema/workflow/workflow';
+	import { saveFormForReview } from '../review-store';
 	import { formDeveloperStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
 
@@ -27,6 +29,13 @@
 	// Takes in the changed process and keeps it as the one on the graph.
 	function changeProcess(updated: WorkingProcess) {
 		workingWorkflow = { ...workingWorkflow, processes: { ...workingWorkflow.processes, [processId]: updated } };
+	}
+
+	// Holds the edited form in the browser tab and goes on to tech review, so the review pages can open what was
+	// edited here. The form has passed its check by now, and the review pages check it again when they load it.
+	function sendToTechReview() {
+		saveFormForReview(workingWorkflow);
+		goto(resolve('/tech-review/form'));
 	}
 
 	// Where the person has dragged boxes to. It is only how the graph is drawn, so it is not part of the form and is
@@ -122,6 +131,7 @@
 			onChangeProcess={changeProcess}
 			{stepContext}
 			onChangeStepContext={(code, items) => (stepContext = { ...stepContext, [code]: items })}
+			onSendToTechReview={sendToTechReview}
 		/>
 	{/key}
 </main>

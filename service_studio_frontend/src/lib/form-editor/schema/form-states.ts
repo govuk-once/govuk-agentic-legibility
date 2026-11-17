@@ -1,3 +1,4 @@
+import type { DraftLoad } from '$lib/draft-store';
 import type { State } from '$lib/schema/workflow/process';
 import type { WorkflowIssue } from '$lib/schema/workflow/validate';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
@@ -53,4 +54,14 @@ export function checkFormWorkflow(workflow: Pick<Workflow, 'manifest'>): Workflo
 			message: `A form is one process, but this workflow lists ${count}. The form editor opens a single process.`
 		}
 	];
+}
+
+/**
+ * Checks a form read from the browser tab. A form that matches the schema is also checked to be a single process,
+ * and one that is not comes back with the problem, in the same way as one that does not match the schema.
+ */
+export function checkLoadedForm(loaded: DraftLoad): DraftLoad {
+	if (!loaded.ok) return loaded;
+	const issues = checkFormWorkflow(loaded.workflow);
+	return issues.length > 0 ? { ok: false, reason: 'invalid', issues } : loaded;
 }

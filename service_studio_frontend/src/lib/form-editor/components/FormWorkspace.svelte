@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import type { ContextItem } from '$lib/components/context';
 	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
 	import StateCard from '$lib/process-graph/StateCard.svelte';
@@ -46,6 +44,9 @@
 		// change to the context of one step. The page holds it for the same reason as the positions.
 		stepContext: Record<string, ContextItem[]>;
 		onChangeStepContext: (code: string, items: ContextItem[]) => void;
+		// Called when the form has passed its check and goes on to tech review. The page holds the whole form, so it
+		// is the page that passes it on.
+		onSendToTechReview: () => void;
 	}
 
 	let {
@@ -59,7 +60,8 @@
 		onChangeDrafts,
 		onChangeProcess,
 		stepContext,
-		onChangeStepContext
+		onChangeStepContext,
+		onSendToTechReview
 	}: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and numbers.
@@ -85,17 +87,12 @@
 	const errors = $derived(checking ? journeyErrors(process) : []);
 	const warnings = $derived(checking ? journeyWarnings(process) : []);
 
-	// Goes on to tech review.
-	function goToTechReview() {
-		goto(resolve('/tech-review/form'));
-	}
-
 	/**
 	 * Checks the form before it is sent to tech review. A form with nothing to fix or finish goes straight on.
 	 * Otherwise the problems are shown in the side panel.
 	 */
 	function sendToTechReview() {
-		if (journeyErrors(process).length === 0 && journeyWarnings(process).length === 0) goToTechReview();
+		if (journeyErrors(process).length === 0 && journeyWarnings(process).length === 0) onSendToTechReview();
 		else checking = true;
 	}
 
@@ -291,7 +288,7 @@
 				nameOf={(code) => targetNames.get(code) ?? code}
 				onSelect={highlight}
 				onBack={() => (checking = false)}
-				onContinue={goToTechReview}
+				onContinue={onSendToTechReview}
 			/>
 		{:else}
 			<div class="form-workspace__list">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { Pathname } from '$app/types';
+	import type { Snippet } from 'svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import type { DraftLoad } from '$lib/draft-store';
 
@@ -14,9 +15,12 @@
 		problem: Extract<DraftLoad, { ok: false }>;
 		// The route of the page where a new draft is started. This page resolves it.
 		startRoute: Pathname;
+		// What to say when there is nothing in the browser tab, for a page that is reached some other way than by
+		// opening a new draft. Without it the page asks for a first draft.
+		missing?: Snippet;
 	}
 
-	let { problem, startRoute }: Props = $props();
+	let { problem, startRoute, missing }: Props = $props();
 </script>
 
 <svelte:head>
@@ -26,7 +30,9 @@
 <ServiceHeader />
 
 <main class="govuk-!-padding-top-9 govuk-!-padding-bottom-9 draft-problem">
-	{#if problem.reason === 'missing'}
+	{#if problem.reason === 'missing' && missing}
+		{@render missing()}
+	{:else if problem.reason === 'missing'}
 		<h1 class="govuk-heading-xl">Nothing to edit yet</h1>
 		<p class="govuk-body">
 			There is no draft in this browser tab. <a class="govuk-link" href={resolve(startRoute)}>Generate a first draft</a>

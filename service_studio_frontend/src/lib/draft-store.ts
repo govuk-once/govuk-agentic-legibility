@@ -1,4 +1,5 @@
 import { parseWorkflow, type WorkflowIssue } from '$lib/schema/workflow/validate';
+import type { WorkingWorkflow } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 
 /*
@@ -21,11 +22,12 @@ export type DraftLoad =
  */
 export function createDraftStore(storageKey: string) {
 	/**
-	 * Keeps a draft so the editor can open it. It is stored as the manifest and its processes, which is the shape
-	 * that the schema check reads, and it is checked again when it is loaded. Returns false when the browser would
-	 * not store it, for example when site data is blocked, so the caller can tell the person.
+	 * Keeps a draft so the next page can open it. It is stored as the manifest and its processes, which is the shape
+	 * that the schema check reads. An edited form may be stored in its looser editing shape, because it is checked
+	 * against the schema when it is loaded. Returns false when the browser would not store it, for example when site
+	 * data is blocked, so the caller can tell the person.
 	 */
-	function saveDraft(workflow: Workflow): boolean {
+	function saveDraft(workflow: WorkingWorkflow): boolean {
 		try {
 			sessionStorage.setItem(storageKey, JSON.stringify({ manifest: workflow.manifest, processes: workflow.processes }));
 			return true;

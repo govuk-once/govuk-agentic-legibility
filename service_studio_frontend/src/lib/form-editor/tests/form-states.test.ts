@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { checkFormWorkflow, formDeveloperStateTypes, formStateAccess, isEditableInForm } from '../schema/form-states';
+import { checkFormWorkflow, checkLoadedForm, formDeveloperStateTypes, formStateAccess, isEditableInForm } from '../schema/form-states';
 
 const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
 
@@ -57,5 +57,27 @@ describe('checkFormWorkflow', () => {
 
 	it('says the same about a workflow that lists none', () => {
 		expect(checkFormWorkflow(workflowOf(0))).toHaveLength(1);
+	});
+});
+
+describe('checkLoadedForm', () => {
+	const workflowOf = (count: number) =>
+		({ manifest: { processes: Array.from({ length: count }, (_, index) => ({ process_id: `p${index}`, version: '0.1.0' })) } }) as unknown as Workflow;
+
+	it('passes on a form of one process as it was loaded', () => {
+		const loaded = { ok: true as const, workflow: workflowOf(1) };
+		expect(checkLoadedForm(loaded)).toBe(loaded);
+	});
+
+	it('passes on a form that could not be loaded as it was', () => {
+		expect(checkLoadedForm({ ok: false, reason: 'missing' })).toEqual({ ok: false, reason: 'missing' });
+	});
+
+	it('turns a workflow of several processes into a problem', () => {
+		expect(checkLoadedForm({ ok: true, workflow: workflowOf(2) })).toEqual({
+			ok: false,
+			reason: 'invalid',
+			issues: checkFormWorkflow(workflowOf(2))
+		});
 	});
 });
