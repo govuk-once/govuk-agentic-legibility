@@ -105,8 +105,9 @@ describe('conditionForAnswer and answerOfCondition', () => {
 });
 
 describe('the decisions in the form examples', () => {
-	// Every rule of every decision, with the question the decision follows.
-	const rules = formExamples.flatMap((example) =>
+	// Every rule of every decision in the converted forms, with the question the decision follows. The demo form is
+	// left out, because its added decision follows an API call and tests what the call saved.
+	const rules = formExamples.filter((example) => !example.slug.endsWith('_with_submit')).flatMap((example) =>
 		Object.values(example.workflow?.processes ?? {}).flatMap((process) =>
 			Object.entries(process.states).flatMap(([code, state]) =>
 				state.state_type === 'choice' ? state.rules.map((each) => ({ slug: example.slug, code, when: each.when, before: questionBefore(process, code) })) : []

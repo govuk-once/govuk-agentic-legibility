@@ -98,7 +98,9 @@ function withoutDeveloperSteps(graph: ProcessGraphElements): ProcessGraphElement
 	const edges = graph.edges
 		.filter((edge) => !hidden.has(edge.source))
 		.flatMap((edge): ProcessEdge[] => {
-			const targets = shownTargets(edge.target, new Set());
+			// A line that only comes back to where it started, through developer steps, is dropped. A decision that loops
+			// back through a wait and a check would otherwise point at itself.
+			const targets = shownTargets(edge.target, new Set()).filter((target) => target !== edge.source);
 			if (targets.length === 1 && targets[0] === edge.target) return [edge];
 			// One developer step can lead on to more than one state, so each line needs its own id.
 			return targets.map((target) => ({ ...edge, id: targets.length > 1 ? `${edge.id}>${target}` : edge.id, target }));

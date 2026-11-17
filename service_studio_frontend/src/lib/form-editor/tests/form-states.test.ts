@@ -34,9 +34,9 @@ describe('formDeveloperStateTypes', () => {
 		for (const type of formDeveloperStateTypes) expect(stateTypes).toContain(type);
 	});
 
-	it('starts with assign, which a person never edits', () => {
-		expect(formDeveloperStateTypes).toEqual(['assign']);
-		expect(formStateAccess.assign).toBe('read only');
+	it('holds assign, API call and wait, which a person never edits in the form editor', () => {
+		expect(formDeveloperStateTypes).toEqual(['assign', 'api_call', 'wait']);
+		for (const type of formDeveloperStateTypes) expect(formStateAccess[type]).toBe('read only');
 	});
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formExampleFolders, formExamples } from '$lib/examples/forms';
+import { isUnconnectedApiCall } from '$lib/schema/workflow/placeholders';
 import { checkBeforeProceeding } from '$lib/schema/workflow/validate';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import { checkFormWorkflow, formStateAccess } from '../schema/form-states';
@@ -8,9 +9,15 @@ import { checkFormWorkflow, formStateAccess } from '../schema/form-states';
 const forms = formExamples.flatMap((example) => (example.workflow ? [{ slug: example.slug, workflow: example.workflow }] : []));
 const statesOf = (workflow: Workflow) => Object.values(workflow.processes).flatMap((process) => Object.entries(process.states));
 
+// The demo form is a copy of a converted form with developer steps added by hand, to show the technical review. The
+// facts about what the converter writes are about the other 14.
+const demoSlug = '2026_bft_crrf_additional_trainer_information_with_submit';
+const convertedForms = forms.filter((form) => form.slug !== demoSlug);
+
 describe('the form examples, as the form editor sees them', () => {
-	it('has all 14 forms loaded', () => {
-		expect(forms).toHaveLength(14);
+	it('has all 14 converted forms and the demo form loaded', () => {
+		expect(convertedForms).toHaveLength(14);
+		expect(forms).toHaveLength(15);
 	});
 
 	it('gives every form a single process, which is what the form editor opens', () => {
@@ -30,13 +37,15 @@ describe('the form examples, as the form editor sees them', () => {
 
 	it('uses the states that forms are made of, with one assign for the one repeated question', () => {
 		const counts: Record<string, number> = {};
-		for (const { workflow } of forms) for (const [, state] of statesOf(workflow)) counts[state.state_type] = (counts[state.state_type] ?? 0) + 1;
+		for (const { workflow } of convertedForms) for (const [, state] of statesOf(workflow)) counts[state.state_type] = (counts[state.state_type] ?? 0) + 1;
 		expect(counts).toEqual({ input: 211, choice: 43, output: 28, end: 28, assign: 1 });
 	});
 });
 
 describe('how the form files are read', () => {
-	const rawStates = Object.values(formExampleFolders).flatMap((files) =>
+	const rawStates = Object.entries(formExampleFolders)
+		.filter(([folder]) => folder !== demoSlug)
+		.flatMap(([, files]) =>
 		Object.entries(files)
 			.filter(([name]) => name !== 'workflow_manifest.json')
 			.flatMap(([, process]) => Object.values((process as { states: Record<string, Record<string, unknown>> }).states))
@@ -91,12 +100,44 @@ describe('the one question that is asked more than once', () => {
 	});
 
 	it('is the only group in all of the forms', () => {
-		const grouped = forms.flatMap(({ workflow }) => statesOf(workflow).filter(([, state]) => groupOf(state) !== undefined));
+		const grouped = convertedForms.flatMap(({ workflow }) => statesOf(workflow).filter(([, state]) => groupOf(state) !== undefined));
 		expect(grouped).toHaveLength(4);
 	});
 
 	it('is the only form with an assign', () => {
-		const withAssign = forms.filter(({ workflow }) => statesOf(workflow).some(([, state]) => state.state_type === 'assign'));
+		const withAssign = convertedForms.filter(({ workflow }) => statesOf(workflow).some(([, state]) => state.state_type === 'assign'));
 		expect(withAssign.map((candidate) => candidate.slug)).toEqual(['2026_bft_crrf_additional_trainer_information']);
+	});
+});
+
+describe('the demo form with a submit step', () => {
+	const process = Object.values(forms.find((form) => form.slug === demoSlug)!.workflow.processes)[0];
+	const { states } = process;
+
+	it('submits the form after the last question, then tells the person straight away', () => {
+		const { step_3_repeat_route: repeat, submit, what_happens_next: told } = states;
+		expect(repeat.state_type === 'choice' && repeat.default).toBe('submit');
+		expect(submit.state_type === 'api_call' && submit.next).toBe('what_happens_next');
+		expect(told.state_type === 'output' && told.message?.startsWith('Your form has been submitted.')).toBe(true);
+	});
+
+	it('holds the placeholder details in the submit step, so it still needs connecting', () => {
+		expect(states.submit.state_type === 'api_call' && isUnconnectedApiCall(states.submit)).toBe(true);
+	});
+
+	it('then waits, checks the submission, and loops back to the wait until it has been processed', () => {
+		const { what_happens_next: told, wait_for_processing: wait } = states;
+		expect(told.state_type === 'output' && told.next).toBe('wait_for_processing');
+		expect(wait.state_type === 'wait' && wait.next).toBe('check_submission');
+		expect(states.check_submission.state_type === 'api_call' && isUnconnectedApiCall(states.check_submission)).toBe(false);
+		const decision = states.submission_processed;
+		expect(decision.state_type === 'choice' && [decision.rules[0].next, decision.default]).toEqual(['end_process', 'wait_for_processing']);
+	});
+
+	it('sends both API calls to something went wrong when they fail', () => {
+		for (const code of ['submit', 'check_submission']) {
+			const call = states[code];
+			expect(call.state_type === 'api_call' && call.catch, code).toEqual([{ on: 'any', next: 'end_submit_failed' }]);
+		}
 	});
 });

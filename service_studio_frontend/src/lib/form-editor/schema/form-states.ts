@@ -29,9 +29,10 @@ export const formStateAccess: Record<State['state_type'], FormStateAccess> = {
 	api_call: 'read only'
 };
 
-// The kinds of state that are developer steps in a form. They are drawn smaller and greyed, and are hidden until the
-// person asks to see developer steps. More kinds can be added here when they are too technical for most people.
-export const formDeveloperStateTypes: readonly State['state_type'][] = ['assign'];
+// The kinds of state that are developer steps in a form. They are drawn smaller and greyed, are hidden until the
+// person asks to see developer steps, and are set up at the technical review. An assign saves a repeated answer, an
+// API call sends the form or checks on it, and a wait pauses before checking again.
+export const formDeveloperStateTypes: readonly State['state_type'][] = ['assign', 'api_call', 'wait'];
 
 /**
  * Tells whether a person can change a state in the form editor. A read only state is shown with its values as text.

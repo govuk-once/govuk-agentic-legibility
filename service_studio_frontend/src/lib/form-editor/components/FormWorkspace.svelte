@@ -7,7 +7,7 @@
 	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
-	import { questionBefore } from '$lib/schema/workflow/choice-answers';
+	import { questionBefore, stateBefore } from '$lib/schema/workflow/choice-answers';
 	import { applyStateEdit, canEndJourneyAt, endJourneyAt } from '$lib/schema/workflow/edit-journey';
 	import { assignBefore, setStart } from '$lib/schema/workflow/edit-process';
 	import { descriptionOf, hasNext } from '$lib/schema/workflow/edit-state';
@@ -118,6 +118,12 @@
 		const found = questionBefore(process, code);
 		const row = found && rows.find((candidate) => candidate.stateId === found.code);
 		return found && row ? { question: found.question, number: row.number, title: row.title } : undefined;
+	}
+
+	// Finds the title of the developer step a decision follows, such as an API call, for the decision card.
+	function developerStepBefore(code: string): string | undefined {
+		const found = stateBefore(process, code);
+		return found && formDeveloperStateTypes.includes(found.state.state_type) ? stateTitle(found.state, found.code) : undefined;
 	}
 
 	// Highlights a state without opening its card, which is what choosing a card in the list does.
@@ -266,6 +272,7 @@
 					currentState={openState}
 					title={stateTitle(openState, code)}
 					before={questionRowBefore(code)}
+					afterDeveloperStep={developerStepBefore(code)}
 					targets={targets.filter((target) => target.stateId !== code)}
 					onApply={(updated) => applyEdit(code, updated)}
 					onCancel={() => (selection = { code, open: false })}

@@ -1,3 +1,4 @@
+import { describeCondition } from '$lib/process-graph/describe-value';
 import { answerChoices, answerOfCondition } from '$lib/schema/workflow/choice-answers';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 
@@ -11,6 +12,8 @@ import type { WorkingState } from '$lib/schema/workflow/working-process';
 	   left over, it is named by that answer. When several are left over it is named as anything else.
 	3. A decision drawn by hand has no answers yet, and so does a decision that follows no question. Its ways out
 	   are numbered, so each can still be told from the others.
+	4. A decision that follows a developer step, such as an API call, tests what that step saved and not an answer.
+	   Its ways out are named by their rules in words, and the last one is named as otherwise.
 */
 
 type WorkingChoice = Extract<WorkingState, { state_type: 'choice' }>;
@@ -47,4 +50,12 @@ export function decisionRowLabels(choice: WorkingChoice, question: WorkingInput 
 
 	const leftOver = answers.filter((answer) => !ruleAnswers.includes(answer.value));
 	return [...ruleLabels, leftOver.length === 1 ? labelOf(leftOver[0].value) : 'If the answer is anything else'];
+}
+
+/**
+ * Names every way out of a decision by its rule in words, such as 'If job.status is "done"', and then "Otherwise" for
+ * the way taken when no rule matches. Used for a decision that tests what a developer step saved.
+ */
+export function ruleRowLabels(choice: WorkingChoice): string[] {
+	return [...choice.rules.map((rule) => `If ${describeCondition(rule.when)}`), 'Otherwise'];
 }

@@ -4,7 +4,7 @@
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import { descriptionOf, nothingYet, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
-	import { decisionRowLabels } from '../decision-rows';
+	import { decisionRowLabels, ruleRowLabels } from '../decision-rows';
 
 	// The question a decision follows, with the number and title it has on the graph.
 	type QuestionBefore = { question: Extract<WorkingState, { state_type: 'input' }>; number: number; title: string };
@@ -16,6 +16,9 @@
 		title: string;
 		// The question the decision follows. There is none when a message leads to it, or more than one step does.
 		before: QuestionBefore | undefined;
+		// The title of the developer step the decision follows, such as an API call. Its ways out are then named by
+		// their rules, because they test what that step saved and not an answer.
+		afterDeveloperStep?: string;
 		// Every other state a way out could lead to, named for the list of choices.
 		targets: TargetOption[];
 		// Called with the changed decision when the person applies.
@@ -24,14 +27,16 @@
 		onRemove: () => void;
 	}
 
-	let { currentState, title, before, targets, onApply, onCancel, onRemove }: Props = $props();
+	let { currentState, title, before, afterDeveloperStep, targets, onApply, onCancel, onRemove }: Props = $props();
 
 	// Makes the id of each field unique, so the labels stay correct if two cards are ever on the page.
 	const fieldId = $props.id();
 
 	// The words beside each way out of the decision, one for each rule and then one for the way taken when no rule
 	// matches. They name the answer that leads that way, and cannot be changed here.
-	const rowLabels = $derived(decisionRowLabels(currentState, before?.question));
+	const rowLabels = $derived(
+		afterDeveloperStep && !before ? ruleRowLabels(currentState) : decisionRowLabels(currentState, before?.question)
+	);
 
 	// What the person is choosing. It is held here, and not in the form being edited, until they choose Apply changes.
 	// The card is shown afresh for each decision, so it only needs the values the decision had when it opened. The
@@ -61,6 +66,8 @@
 		<p class="govuk-body-s govuk-!-margin-bottom-0 decision-edit-card__status">
 			{#if before}
 				Decides on the answer to step {before.number}: {before.title}
+			{:else if afterDeveloperStep}
+				Decides on what {afterDeveloperStep} saved
 			{:else}
 				Does not follow a single question
 			{/if}

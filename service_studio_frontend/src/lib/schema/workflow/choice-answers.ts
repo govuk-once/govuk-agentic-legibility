@@ -31,15 +31,24 @@ const yesOrNoChoices: AnswerChoice[] = [
 type WorkingInput = Extract<WorkingState, { state_type: 'input' }>;
 
 /**
- * Finds the question a decision follows, with its code. There is none when the state is not reached by exactly
- * one route, when that route is not the next of a question, or when the decision is the start of the process.
+ * Finds the state a decision follows, with its code. There is none when the decision is not reached by exactly one
+ * route, when that route is not the next of a state, or when the decision is the start of the process.
  */
-export function questionBefore(process: WorkingProcess, choiceCode: string): { code: string; question: WorkingInput } | undefined {
+export function stateBefore(process: WorkingProcess, choiceCode: string): { code: string; state: WorkingState } | undefined {
 	const into = routesInto(process, choiceCode);
 	if (into.length !== 1 || into[0].route.kind !== 'next' || process.start === choiceCode) return undefined;
 
-	const question = process.states[into[0].source];
-	return question?.state_type === 'input' ? { code: into[0].source, question } : undefined;
+	const state = process.states[into[0].source];
+	return state ? { code: into[0].source, state } : undefined;
+}
+
+/**
+ * Finds the question a decision follows, with its code. There is none when the decision follows no single state, or
+ * the state it follows is not a question.
+ */
+export function questionBefore(process: WorkingProcess, choiceCode: string): { code: string; question: WorkingInput } | undefined {
+	const before = stateBefore(process, choiceCode);
+	return before?.state.state_type === 'input' ? { code: before.code, question: before.state } : undefined;
 }
 
 /**

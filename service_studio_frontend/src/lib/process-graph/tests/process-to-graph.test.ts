@@ -441,6 +441,23 @@ describe('developer steps', () => {
 		expect(shown.edges.map((edge) => edge.id)).toEqual([`${startNodeId}:start`]);
 	});
 
+	it('drops a line that only comes back round to the state it left through developer steps', () => {
+		const waitLoop = processToGraph(
+			build('first', {
+				first: input('wait'),
+				wait: { state_type: 'wait', duration: 'PT30M', next: 'check' },
+				check: { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'ready' },
+				ready: { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'job.done' }, next: 'done' }], default: 'wait' },
+				done: finish
+			}),
+			['wait', 'api_call']
+		);
+		const shown = visibleGraph(waitLoop, { showErrorRoutes: true, showDeveloperSteps: false });
+
+		expect(shown.edges.filter((edge) => edge.source === 'ready').map((edge) => edge.target)).toEqual(['done']);
+		expect(shown.edges.find((edge) => edge.source === 'first')?.target).toBe('ready');
+	});
+
 	it('gives each line its own id when a developer step leads on to more than one state', () => {
 		const twoWays = processToGraph(
 			build('first', {

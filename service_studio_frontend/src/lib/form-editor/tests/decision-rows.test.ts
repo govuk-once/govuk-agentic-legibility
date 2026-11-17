@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
 import { questionBefore } from '$lib/schema/workflow/choice-answers';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
-import { decisionRowLabels, shortAnswerLabel } from '../decision-rows';
+import { decisionRowLabels, ruleRowLabels, shortAnswerLabel } from '../decision-rows';
 
 type Choice = Extract<WorkingState, { state_type: 'choice' }>;
 type Input = Extract<WorkingState, { state_type: 'input' }>;
@@ -62,7 +62,8 @@ describe('decisionRowLabels', () => {
 
 	it('names every way out of every decision in the form examples by an answer, with none numbered', () => {
 		let decisions = 0;
-		for (const example of formExamples) {
+		// The demo form is left out, because its added decision follows an API call and is named by its rule.
+		for (const example of formExamples.filter((candidate) => !candidate.slug.endsWith('_with_submit'))) {
 			for (const process of Object.values(example.workflow?.processes ?? {})) {
 				for (const [code, state] of Object.entries(process.states)) {
 					if (state.state_type !== 'choice') continue;
@@ -74,5 +75,14 @@ describe('decisionRowLabels', () => {
 			}
 		}
 		expect(decisions).toBe(43);
+	});
+});
+
+describe('ruleRowLabels', () => {
+	it('names each way out by its rule in words, then otherwise', () => {
+		expect(ruleRowLabels(choice([{ op: 'eq', path: 'check.status', value: 'done' }]))).toEqual([
+			'If check.status is "done"',
+			'Otherwise'
+		]);
 	});
 });
