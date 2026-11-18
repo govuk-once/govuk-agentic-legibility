@@ -2,7 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
-	import { exampleProblems, flexConnections, journeySteps, problemCount, type CheckResult } from '$lib/form-editor/owner-review-checks';
+	import { flexConnections } from '$lib/form-editor/flex-connections';
+	import { exampleProblems, journeySteps, problemCount, type CheckResult } from '$lib/form-editor/owner-review-checks';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { stateLabels } from '$lib/form-editor/state-labels';

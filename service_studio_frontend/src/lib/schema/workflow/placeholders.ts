@@ -40,6 +40,20 @@ export function isUnconnectedApiCall(call: Pick<ApiCallState, 'service'>): boole
 }
 
 /**
+ * The value given to a body field that a connected endpoint expects but the call did not have yet. It reads a variable
+ * that nothing sets, so the call stays valid, and it can be recognised, so the step values stage can say which fields
+ * still need a value.
+ */
+export const placeholderBodyValue = { $: 'value_to_be_confirmed' } as const;
+
+/**
+ * Tells whether a body value is still the placeholder, so the fields that need a value can be counted.
+ */
+export function isPlaceholderBodyValue(value: unknown): boolean {
+	return typeof value === 'object' && value !== null && '$' in value && value.$ === placeholderBodyValue.$;
+}
+
+/**
  * The rule given to a decision drawn by hand, before anyone has said what it should test. It tests
  * a variable that nothing sets, so it is valid but never matches and the default route is taken.
  */

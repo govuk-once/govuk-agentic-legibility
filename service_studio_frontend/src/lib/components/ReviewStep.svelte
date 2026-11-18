@@ -9,15 +9,17 @@
 	/*
 		One step of a review that is done in a few steps, such as the owner review. A bar of numbered steps shows how
 		far along the review is, then the step's heading and a short explanation sit on the left with the work of the
-		step on the right, and the buttons that move between steps sit in a bar along the bottom.
+		step on the right, and the buttons that move between steps sit in a bar along the bottom. A page inside a step,
+		such as finding an endpoint, gives no heading and uses the full width for its own.
 	*/
 
 	interface Props {
 		// Every step of the review, in order, with how far each one has got. A page after the review, such as the
 		// confirmation, gives none and has no bar of steps.
 		steps?: { label: string; state: ReviewStepState }[];
-		heading: string;
-		hint: string;
+		// The step's heading and explanation for the left column. Without a heading the work takes the full width.
+		heading?: string;
+		hint?: string;
 		// A short line under the explanation that says where the step stands, such as "Not saved yet".
 		status?: Snippet;
 		children: Snippet;
@@ -47,16 +49,24 @@
 	</ol>
 {/if}
 
-<div class="review-step govuk-grid-row">
-	<div class="govuk-grid-column-one-third">
-		<h2 class="govuk-heading-l govuk-!-margin-bottom-4">{heading}</h2>
-		<p class="govuk-hint govuk-!-margin-bottom-4">{hint}</p>
-		{@render status?.()}
+{#if heading}
+	<div class="review-step govuk-grid-row">
+		<div class="govuk-grid-column-one-third">
+			<h2 class="govuk-heading-l govuk-!-margin-bottom-4">{heading}</h2>
+			{#if hint}
+				<p class="govuk-hint govuk-!-margin-bottom-4">{hint}</p>
+			{/if}
+			{@render status?.()}
+		</div>
+		<div class="govuk-grid-column-two-thirds">
+			{@render children()}
+		</div>
 	</div>
-	<div class="govuk-grid-column-two-thirds">
+{:else}
+	<div class="review-step review-step--full-width">
 		{@render children()}
 	</div>
-</div>
+{/if}
 
 <div class="review-step__actions">
 	<div class="govuk-button-group govuk-!-margin-bottom-0">
@@ -129,6 +139,11 @@
 	}
 
 	/* The top margin pushes the bar to the bottom of the page's main area, which fills the window on a short page. */
+	/* Without the grid row there is no gutter to make up, so the side padding is the full 40px. */
+	.review-step--full-width {
+		padding-inline: 40px;
+	}
+
 	.review-step__actions {
 		margin-top: auto;
 		padding: 20px 40px;
@@ -150,6 +165,10 @@
 
 		.review-step {
 			padding: 30px 0;
+		}
+
+		.review-step--full-width {
+			padding-inline: 15px;
 		}
 
 		.review-step__actions {

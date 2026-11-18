@@ -32,8 +32,8 @@ export const stateTagColours: Record<State['state_type'], string> = {
 	assign: 'grey',
 	end: 'green',
 	wait: 'orange',
-	invoke: 'teal',
-	api_call: 'magenta'
+	invoke: 'magenta',
+	api_call: 'teal'
 };
 
 // The colour of the outline of a question box and a message box on the graph, so the two can be told apart there as

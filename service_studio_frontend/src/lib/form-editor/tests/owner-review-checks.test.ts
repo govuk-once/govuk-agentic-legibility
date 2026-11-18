@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StateRow } from '$lib/process-graph/state-rows';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { exampleProblems, flexConnections, journeySteps, problemCount } from '../owner-review-checks';
+import { exampleProblems, journeySteps, problemCount } from '../owner-review-checks';
 
 // Numbered steps with only the keys the example problems read.
 const stepsOf = (count: number): StateRow[] =>
@@ -75,18 +75,5 @@ describe('problemCount', () => {
 			{ result: 'error' as const, stateId: 'b', message: '' }
 		];
 		expect(problemCount(twoErrors)).toBe('2 errors');
-	});
-});
-
-describe('flexConnections', () => {
-	it('counts the API call states and how many are connected to a real service', () => {
-		const process = {
-			states: {
-				lookup: { state_type: 'api_call', service: 'dvla', next: 'send' },
-				send: { state_type: 'api_call', service: 'unconnected_service', next: 'done' },
-				done: { state_type: 'end', status: 'succeeded' }
-			}
-		} as unknown as WorkingProcess;
-		expect(flexConnections(process)).toEqual({ connected: 1, total: 2 });
 	});
 });

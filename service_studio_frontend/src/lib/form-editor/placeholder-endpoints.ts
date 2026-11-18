@@ -1,0 +1,31 @@
+import type { FlexEndpoint } from './flex-connections';
+
+/*
+	A few made up endpoints for the "Find the endpoint" page to show until the real Flex list is ready. They match the
+	demo form that submits its answers, so the page can be tried from start to finish. The first expects one field the
+	demo form does not fill yet, so connecting it shows a field to fill in. The real list, and the search
+	over it, will live in src/lib/flex, and the page will read from there instead.
+*/
+export const placeholderEndpoints: FlexEndpoint[] = [
+	{
+		method: 'POST',
+		service: 'govuk_forms',
+		url: '/app/forms/v1/submissions',
+		description: 'Send a completed form',
+		bodyFields: ['applicant_name', 'vessel_name', 'trainers', 'declaration']
+	},
+	{
+		method: 'GET',
+		service: 'govuk_forms',
+		url: '/app/forms/v1/submissions/{{submission_id}}',
+		description: 'Check whether a sent form has been processed'
+	},
+	{
+		method: 'POST',
+		service: 'govuk_forms',
+		url: '/app/forms/v0/submit',
+		description: 'Old way to send a form',
+		bodyFields: ['form_data'],
+		deprecated: true
+	}
+];

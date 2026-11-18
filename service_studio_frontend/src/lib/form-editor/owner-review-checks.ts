@@ -1,6 +1,5 @@
 import { processToGraph, visibleGraph } from '$lib/process-graph/process-to-graph';
 import { stateRows, type StateRow } from '$lib/process-graph/state-rows';
-import { isUnconnectedApiCall } from '$lib/schema/workflow/placeholders';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 import { formDeveloperStateTypes } from './schema/form-states';
 
@@ -75,13 +74,4 @@ export function problemCount(problems: CheckProblem[]): string {
 	]
 		.filter(Boolean)
 		.join(', ');
-}
-
-/**
- * Counts the Flex connections, which are the API call states, and how many of them are connected to a real service.
- * A call that still holds the placeholder details is not connected yet.
- */
-export function flexConnections(process: WorkingProcess): { connected: number; total: number } {
-	const calls = Object.values(process.states).filter((state) => state.state_type === 'api_call');
-	return { connected: calls.filter((call) => !isUnconnectedApiCall(call)).length, total: calls.length };
 }
