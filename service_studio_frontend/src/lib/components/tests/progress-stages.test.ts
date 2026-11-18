@@ -3,7 +3,7 @@ import { publishedStages, stagesAt } from '../progress-stages';
 
 describe('stagesAt', () => {
 	it('marks the stages before the current one complete and the ones after it upcoming', () => {
-		expect(stagesAt('Tech review').map((stage) => stage.state)).toEqual([
+		expect(stagesAt('Owner review').map((stage) => stage.state)).toEqual([
 			'complete',
 			'complete',
 			'complete',
@@ -14,13 +14,13 @@ describe('stagesAt', () => {
 	});
 
 	it('shows an earlier stage that is named as unfinished as not finished', () => {
-		const stages = stagesAt('Owner review', ['Tech review']);
-		expect(stages[3]).toEqual({ number: 4, label: 'Tech review not finished', state: 'unfinished' });
-		expect(stages[4]).toEqual({ number: 5, label: 'Owner review', state: 'current' });
+		const stages = stagesAt('Sign off', ['Tech review']);
+		expect(stages[4]).toEqual({ number: 5, label: 'Tech review not finished', state: 'unfinished' });
+		expect(stages[5]).toEqual({ number: 6, label: 'Sign off', state: 'current' });
 	});
 
 	it('ignores a stage named as unfinished that comes after the current one', () => {
-		expect(stagesAt('Edit', ['Publish'])[5].state).toBe('upcoming');
+		expect(stagesAt('Edit', ['Sign off'])[5].state).toBe('upcoming');
 	});
 });
 

@@ -4,6 +4,7 @@
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
+	import { isTechReviewFinished } from '$lib/form-editor/tech-review-summary';
 	import { ownerDetailsOf, ownerDetailsProblems } from '$lib/schema/workflow/owner-details';
 	import type { PageProps } from './$types';
 
@@ -13,11 +14,11 @@
 	const hasOwner = $derived(ownerDetailsProblems(owner).length === 0);
 
 	// What must be done before the form can be published. Each item turns green when its part of the review is done, and
-	// the owner does not tick them. The checks have no real results until the tech review is built, so they are clear
-	// unless the example problems are shown.
+	// the owner does not tick them. The validation checks have no real results yet, so they are clear unless the example
+	// problems are shown.
 	const checklist = $derived([
 		{ label: 'Owner details added', done: hasOwner },
-		{ label: 'Technical review complete', done: !ownerReviewProgress.showExampleProblems },
+		{ label: 'Technical review complete', done: isTechReviewFinished(data.workflow) },
 		{ label: 'Validation checks cleared', done: !ownerReviewProgress.showExampleProblems },
 		{ label: 'I have read the citizen journey', done: ownerReviewProgress.journeyRead }
 	]);

@@ -2,15 +2,16 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import ReviewPageTitle from '$lib/components/ReviewPageTitle.svelte';
 	import { stagesAt } from '$lib/components/progress-stages';
-	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
+	import { isTechReviewFinished } from '$lib/form-editor/tech-review-summary';
 	import type { LayoutProps } from './$types';
 
 	// The stages and the title are the same on every step of the owner review, so they are drawn once here. The page
 	// after publishing sits outside this group, because it has neither.
 	let { data, children }: LayoutProps = $props();
 
-	// The example problems stand for a tech review that is not finished, so the banner says so while they are shown.
-	const stages = $derived(stagesAt('Owner review', ownerReviewProgress.showExampleProblems ? ['Tech review'] : []));
+	// The owner comes to these pages twice: first to add their details before the technical review, then to sign off
+	// once it is finished. The banner shows which of the two visits this is.
+	const stages = $derived(stagesAt(isTechReviewFinished(data.workflow) ? 'Sign off' : 'Owner review'));
 </script>
 
 <Progress {stages} />

@@ -205,6 +205,8 @@
 	</form>
 
 	{#snippet actions()}
+		<!-- Back leaves the technical review for the owner review that comes before it. Nothing typed here is saved. -->
+		<a class="govuk-link" href={resolve('/owner-review/form/review')}>Back</a>
 		<button class="govuk-button govuk-!-margin-bottom-0" type="submit" form="workflow-settings">Continue to Flex connections</button>
 		<a class="govuk-link" role="link" aria-disabled="true">Save draft</a>
 	{/snippet}

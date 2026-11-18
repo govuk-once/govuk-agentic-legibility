@@ -7,6 +7,8 @@
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { stateLabels } from '$lib/form-editor/state-labels';
+	import { techReviewChecked } from '$lib/form-editor/step-values/step-values';
+	import { describeWorkflowSettings, isTechReviewFinished } from '$lib/form-editor/tech-review-summary';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -14,6 +16,10 @@
 	const process = $derived(data.workflow.processes[data.workflow.manifest.entry]);
 	const steps = $derived(journeySteps(process));
 	const connections = $derived(flexConnections(process));
+	const settings = $derived(describeWorkflowSettings(data.workflow.manifest));
+	// How many developer steps a sent technical review has checked, and whether it has finished with the form.
+	const checked = $derived(techReviewChecked(data.workflow));
+	const techReviewFinished = $derived(isTechReviewFinished(data.workflow));
 
 	// The problems found by the checks. Until the tech review is built there are no real checks, so this is empty
 	// unless the example problems are switched on.
@@ -21,9 +27,9 @@
 	const problemsByState = $derived(new Map(problems.map((problem) => [problem.stateId, problem.result])));
 	const summary = $derived(problemCount(problems));
 
-	// Sign off waits for the tech review to finish and for every error to be fixed. The example problems stand for a
-	// tech review that is not finished, so they stop sign off too.
-	const canSignOff = $derived(problems.length === 0);
+	// Sign off waits for the tech review to finish and for every error to be fixed. The example problems stop sign off
+	// too, so the design with problems can still be seen.
+	const canSignOff = $derived(techReviewFinished && problems.length === 0);
 
 	// When the checks last ran. They are not real yet, so this is when the page was opened.
 	const checkedAt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -48,13 +54,20 @@
 </svelte:head>
 
 <ReviewStep
-	steps={ownerReviewSteps(['complete', canSignOff ? 'current' : 'problem', 'upcoming'])}
+	steps={ownerReviewSteps(['complete', problems.length === 0 ? 'current' : 'problem', 'upcoming'])}
 	heading="Review"
 	hint="Check the technical review, clear any validation problems and look through the journey."
 >
 	{#snippet status()}
-		<p class="govuk-body govuk-!-font-weight-bold review__status review__status--{canSignOff ? 'clear' : 'problem'}">
-			{canSignOff ? 'All checks clear' : summary}
+		<!-- A problem shows in red. A technical review still to come is expected at this point, so it is not shown as one. -->
+		<p
+			class="govuk-body govuk-!-font-weight-bold review__status review__status--{canSignOff
+				? 'clear'
+				: problems.length > 0
+					? 'problem'
+					: 'unfinished'}"
+		>
+			{canSignOff ? 'All checks clear' : summary || 'Technical review not finished'}
 		</p>
 
 		<!-- A switch for seeing the design with problems, until the tech review gives the real checks. -->
@@ -76,22 +89,21 @@
 	{/snippet}
 
 	<section aria-labelledby="technical-review">
-		<div class="review__section-heading" class:review__fact-columns={canSignOff}>
+		<div class="review__section-heading" class:review__fact-columns={techReviewFinished}>
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="technical-review">Technical review</h2>
-			<span class="review__status review__status--{canSignOff ? 'clear' : 'unfinished'}">
-				{canSignOff ? 'Complete' : 'Not finished'}
+			<span class="review__status review__status--{techReviewFinished ? 'clear' : 'unfinished'}">
+				{techReviewFinished ? 'Complete' : 'Not finished'}
 			</span>
-			{#if canSignOff}
+			{#if techReviewFinished}
 				<a class="govuk-link review__heading-link" href={resolve('/tech-review/form')}>View technical review</a>
 			{/if}
 		</div>
 
-		{#if canSignOff}
-			<!-- The run timeout and the step values are examples until the tech review records them. -->
+		{#if techReviewFinished}
 			<dl class="review__facts review__fact-columns">
 				<div>
 					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__fact-label">Workflow settings</dt>
-					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Set, 7 day run timeout</dd>
+					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Set, run timeout {settings.runTimeout}</dd>
 				</div>
 				<div>
 					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__fact-label">Flex connections</dt>
@@ -101,18 +113,17 @@
 				</div>
 				<div>
 					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__fact-label">Step values</dt>
-					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{steps.length} of {steps.length} checked</dd>
+					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{checked.checked} of {checked.total} checked</dd>
 				</div>
 			</dl>
 		{:else}
 			<div class="review__panel review__panel--unfinished">
 				<div>
-					<p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">Some steps still need checking</p>
+					<p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">The technical review is next</p>
 					<p class="govuk-body govuk-!-margin-bottom-0">
-						The developer has not marked every step as checked. Sign off stays locked until they finish.
+						A developer sets up the technical side of the form. Come back here to sign off once they have finished.
 					</p>
 				</div>
-				<a class="govuk-button govuk-!-margin-bottom-0" href={resolve('/tech-review/form')}>Go back to technical review</a>
 			</div>
 		{/if}
 	</section>
@@ -122,7 +133,7 @@
 	<section aria-labelledby="validation-checks">
 		<div class="review__section-heading">
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="validation-checks">Validation checks</h2>
-			<span class="review__status review__status--{canSignOff ? 'clear' : 'problem'}">{canSignOff ? 'Clear' : summary}</span>
+			<span class="review__status review__status--{problems.length === 0 ? 'clear' : 'problem'}">{problems.length === 0 ? 'Clear' : summary}</span>
 		</div>
 
 		{#if problems.length === 0}
@@ -169,13 +180,13 @@
 		<div class="review__section-heading">
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="citizen-journey">Citizen journey</h2>
 			<span class="govuk-body govuk-!-margin-bottom-0 review__muted">
-				Read only · {steps.length} steps{#if canSignOff}&nbsp;· <span class="review__status review__status--clear">All clear</span>{/if}
+				Read only · {steps.length} steps{#if problems.length === 0}&nbsp;· <span class="review__status review__status--clear">All clear</span>{/if}
 			</span>
 			<span class="govuk-body-s govuk-!-margin-bottom-0 review__muted review__heading-link">Scroll for the rest</span>
 		</div>
 
 		<!-- A long journey scrolls inside its own box, so the checks above stay close to the buttons below. -->
-		<div class="review__journey" class:review__journey--clear={canSignOff} role="region" aria-labelledby="citizen-journey" tabindex="-1">
+		<div class="review__journey" class:review__journey--clear={problems.length === 0} role="region" aria-labelledby="citizen-journey" tabindex="-1">
 			<table class="govuk-table govuk-!-margin-bottom-0">
 				<caption class="govuk-visually-hidden">Steps in the citizen journey</caption>
 				<thead class="govuk-visually-hidden">
@@ -200,7 +211,7 @@
 										{results[result].inRow}
 									</span>
 								{:else}
-									<span class="review__check" class:review__check--clear={canSignOff}>No issues</span>
+									<span class="review__check" class:review__check--clear={problems.length === 0}>No issues</span>
 								{/if}
 							</td>
 						</tr>
@@ -212,17 +223,17 @@
 
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/owner-review/form')}>Back</a>
-		<button
-			class="govuk-button govuk-!-margin-bottom-0"
-			type="button"
-			disabled={!canSignOff}
-			onclick={continueToSignOff}
-		>
-			Continue to sign off
-		</button>
+		<!-- Before the technical review the owner goes on to it, and after it they go on to sign off. -->
+		{#if !techReviewFinished}
+			<a class="govuk-button govuk-!-margin-bottom-0" href={resolve('/tech-review/form')}>Continue to technical review</a>
+		{:else}
+			<button class="govuk-button govuk-!-margin-bottom-0" type="button" disabled={!canSignOff} onclick={continueToSignOff}>
+				Continue to sign off
+			</button>
+		{/if}
 		<a class="govuk-link" role="link" aria-disabled="true">Save for later</a>
-		{#if !canSignOff}
-			<p class="govuk-body govuk-!-margin-bottom-0 review__muted">Finish the technical review and fix the error to continue</p>
+		{#if techReviewFinished && !canSignOff}
+			<p class="govuk-body govuk-!-margin-bottom-0 review__muted">Fix the problems to continue</p>
 		{/if}
 	{/snippet}
 </ReviewStep>

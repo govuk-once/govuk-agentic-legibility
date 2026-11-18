@@ -44,9 +44,9 @@
 		// change to the context of one step. The page holds it for the same reason as the positions.
 		stepContext: Record<string, ContextItem[]>;
 		onChangeStepContext: (code: string, items: ContextItem[]) => void;
-		// Called when the form has passed its check and goes on to tech review. The page holds the whole form, so it
+		// Called when the form has passed its check and goes on to owner review. The page holds the whole form, so it
 		// is the page that passes it on.
-		onSendToTechReview: () => void;
+		onSendToOwnerReview: () => void;
 	}
 
 	let {
@@ -61,7 +61,7 @@
 		onChangeProcess,
 		stepContext,
 		onChangeStepContext,
-		onSendToTechReview
+		onSendToOwnerReview
 	}: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and numbers.
@@ -81,18 +81,18 @@
 	// The name of each state as the lists of choices give it, so a problem names a state in the same words.
 	const targetNames = $derived(new Map(targets.map((target) => [target.stateId, target.label])));
 
-	// Whether the check before tech review is shown in place of the list of steps. While it is, the problems are
+	// Whether the check before owner review is shown in place of the list of steps. While it is, the problems are
 	// worked out again with every change, so a problem that is fixed leaves the list.
 	let checking = $state(false);
 	const errors = $derived(checking ? journeyErrors(process) : []);
 	const warnings = $derived(checking ? journeyWarnings(process) : []);
 
 	/**
-	 * Checks the form before it is sent to tech review. A form with nothing to fix or finish goes straight on.
+	 * Checks the form before it is sent to owner review. A form with nothing to fix or finish goes straight on.
 	 * Otherwise the problems are shown in the side panel.
 	 */
-	function sendToTechReview() {
-		if (journeyErrors(process).length === 0 && journeyWarnings(process).length === 0) onSendToTechReview();
+	function sendToOwnerReview() {
+		if (journeyErrors(process).length === 0 && journeyWarnings(process).length === 0) onSendToOwnerReview();
 		else checking = true;
 	}
 
@@ -295,7 +295,7 @@
 				nameOf={(code) => targetNames.get(code) ?? code}
 				onSelect={highlight}
 				onBack={() => (checking = false)}
-				onContinue={onSendToTechReview}
+				onContinue={onSendToOwnerReview}
 			/>
 		{:else}
 			<div class="form-workspace__list">
@@ -328,7 +328,7 @@
 			</div>
 
 			<div class="form-workspace__panel-footer">
-				<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToTechReview}>Send to tech review</button>
+				<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to owner review</button>
 			</div>
 		{/if}
 	</aside>

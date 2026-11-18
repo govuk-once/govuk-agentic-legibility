@@ -1,5 +1,5 @@
 import { processToGraph, stateTitle } from '$lib/process-graph/process-to-graph';
-import { replaceState } from '$lib/schema/workflow/edit-state';
+import { noteOf, replaceState, withNote } from '$lib/schema/workflow/edit-state';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import { formDeveloperStateTypes } from '../schema/form-states';
@@ -73,3 +73,26 @@ export interface StepValueProblem {
 
 // What reading a panel's fields gives: the step with its new values, or the problems that stop it being saved.
 export type StepValuesResult<State> = { ok: true; state: State } | { ok: false; problems: StepValueProblem[] };
+
+// The key in a developer step's notes that holds when the technical review that checked it was sent, so the owner
+// review can tell the step has been checked.
+export const techReviewCheckedKey = 'tech_review_checked_at';
+
+/**
+ * Writes the time the technical review was sent into the notes of every developer step, as an ISO 8601 date and time.
+ * A time from an earlier review is replaced, because the step has been checked again.
+ */
+export function withTechReviewChecked(workflow: Workflow, sentAt: string): Workflow {
+	return developerSteps(workflow).reduce(
+		(changed, step) => withEntryState(changed, step.code, withNote(step.state, techReviewCheckedKey, sentAt)),
+		workflow
+	);
+}
+
+/**
+ * Counts the developer steps and how many of them a sent technical review has checked, for the owner review.
+ */
+export function techReviewChecked(workflow: Workflow): { checked: number; total: number } {
+	const steps = developerSteps(workflow);
+	return { checked: steps.filter((step) => noteOf(step.state, techReviewCheckedKey) !== '').length, total: steps.length };
+}

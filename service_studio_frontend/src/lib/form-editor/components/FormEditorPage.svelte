@@ -31,11 +31,11 @@
 		workingWorkflow = { ...workingWorkflow, processes: { ...workingWorkflow.processes, [processId]: updated } };
 	}
 
-	// Holds the edited form in the browser tab and goes on to tech review, so the review pages can open what was
+	// Holds the edited form in the browser tab and goes on to owner review, so the review pages can open what was
 	// edited here. The form has passed its check by now, and the review pages check it again when they load it.
-	function sendToTechReview() {
+	function sendToOwnerReview() {
 		saveFormForReview(workingWorkflow);
-		goto(resolve('/tech-review/form'));
+		goto(resolve('/owner-review/form'));
 	}
 
 	// Where the person has dragged boxes to. It is only how the graph is drawn, so it is not part of the form and is
@@ -131,7 +131,7 @@
 			onChangeProcess={changeProcess}
 			{stepContext}
 			onChangeStepContext={(code, items) => (stepContext = { ...stepContext, [code]: items })}
-			onSendToTechReview={sendToTechReview}
+			onSendToOwnerReview={sendToOwnerReview}
 		/>
 	{/key}
 </main>

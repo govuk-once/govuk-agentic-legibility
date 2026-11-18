@@ -3,7 +3,7 @@ import { createDraftStore } from '$lib/draft-store';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import { checkLoadedForm } from './schema/form-states';
 
-// The edited form, held in the browser tab when it is sent to tech review so the review pages after the editor can
+// The edited form, held in the browser tab when it is sent to owner review so the review pages after the editor can
 // open it. It has its own key, so sending a form on never replaces a generated draft that has not been opened yet.
 export const { saveDraft: saveFormForReview, loadDraft: loadFormForReview } = createDraftStore('service-studio.form-review');
 

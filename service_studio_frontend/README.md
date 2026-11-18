@@ -58,7 +58,20 @@ pnpm test
 * `/edit-form` lists the example forms. Choose one to open it.
 * `/edit-form/[slug]` is the form editor for one example form.
 * `/edit-form/draft` is the form editor for the generated draft.
-* `/tech-review/form` is a placeholder for the tech review, which comes after editing. The edited form is not carried there yet and the design of this route is incomplete.
+After editing, a form goes through three stages: the owner review, the technical review, then sign off. The owner adds their details first, a developer then sets up the technical side, and the owner comes back to sign off. The owner and the developer would be different people working at different times. For now the whole order runs in one browser tab, so it can be tried from start to finish.
+
+* `/owner-review/form` is the owner review, in three steps with an address each, so the back button works and a step can be linked to:
+  * `/owner-review/form` takes the owner's name, department and email, and optional context for the agent. These are written into the workflow manifest.
+  * `/owner-review/form/review` shows the technical review, the validation checks and the citizen journey. Before the technical review it shows the review as not finished and continues to it. Afterwards the banner shows Sign off, and the page continues to sign off. The technical review counts as finished when every API call is connected and every developer step holds the time a technical review was sent. The validation checks are not real yet, so a "Show example problems" tick box switches between a form with problems and one that is all clear.
+  * `/owner-review/form/sign-off` lists what must be done before publishing. Each item turns green when its part of the review is done.
+* `/tech-review/form` is the technical review. A developer sets up the technical side of the form in four steps, each with its own address:
+  * `/tech-review/form` sets the workflow settings: how long one run may last, and the time limit and tries every API call uses unless it sets its own. These are written into the workflow manifest.
+  * `/tech-review/form/flex` lists the API call steps and whether each is connected to a Flex endpoint. `/tech-review/form/flex/[step]` finds an endpoint for one step and writes its method, service, url and body fields into the step. The endpoints are made up examples until the real Flex list is ready, and search and filters are inactive.
+  * `/tech-review/form/step-values` lists the developer steps (API calls, assign steps and waits). Each opens a panel where its values are checked and changed, then marked as checked. Which steps are checked is kept while the browser tab stays on Service Studio.
+  * `/tech-review/form/review` sums up the review. Send for sign off writes the time it was sent into each developer step, as `tech_review_checked_at` in its metadata, and goes back to the owner review.
+* `/owner-review/form/published` confirms the form is published. Publishing does not send or save the form yet.
+
+The form is carried from the editor to the reviews in the browser tab, in the same way as a generated draft. The technical review writes its changes back into that copy. Review pages opened without it say there is nothing to review.
 
 ### Services, experimental
 
@@ -74,7 +87,7 @@ The canvas is on the left and a panel of ordered steps is on the right.
 * **Editing.** Selecting a node on the canvas or 'edit' in a numbered step in the panel, opens its card in the panel. A question or a message has its words, title, description and hint. A decision names each way out by the answer that leads to it, with where it goes. A developer state, such as the assign that saves a repeated answer, is shown but not editedable in this view (it would happen later in tech-review).
 * **Moving and removing.** The arrows on a card in the list move a step up or down the journey, and the graph is arranged again to match. Removing takes out only what was chosen. Nothing is joined up for you, so the pieces left over show what still needs joining.
 * **Where boxes sit.** The graph is arranged when it is opened, when developer states are shown or hidden, and after a move. Otherwise every box keeps its place, and a new shape stays where it was drawn.
-* **Send to tech review** checks the form. Validation errors and warning are listed in the panel, and choosing one highlights its box on the canvas. A form with nothing to fix goes on to tech review.
+* **Send to owner review** checks the form. Validation errors and warning are listed in the panel, and choosing one highlights its box on the canvas. A form with nothing to fix goes on to the owner review.
 
 ## Shared parts, forms and services
 
@@ -91,7 +104,7 @@ Shared by both:
 Forms only:
 
 * `src/lib/form-editor/`, `src/lib/server/onboard-form/`
-* `src/routes/edit-form/`, `src/routes/onboard/form/`, `src/routes/tech-review/form/`
+* `src/routes/edit-form/`, `src/routes/onboard/form/`, `src/routes/tech-review/form/`, `src/routes/owner-review/form/`
 
 Services only:
 
@@ -110,7 +123,9 @@ Validation checks happen at set points, but not while a journey is being compose
 * **A draft from the model.** `src/lib/server/shared/generate-workflow.ts` checks the reply as a process, then wraps it and checks the whole workflow. A form is also refused if it has a state a form cannot have, such as an API call or invoke state(`src/lib/server/onboard-form/build-form.ts`). Any problems are sent back to the model once to be corrected (`src/lib/server/shared/generate-json.ts`). As more user testing occurs more states may be allowed in the forms MVP validation process. However, currently it is limited to input, output, end and choice.An existing GOV.UK form example can also contain an assign state but it is not autogenerated for now.
 * **Opening a draft in an editor.** `src/lib/draft-store.ts` checks the draft again when it is read from the browser tab, because it could have changed there. The form editor also checks that a workflow is a single process (`src/lib/form-editor/schema/form-states.ts`).
 * **While editing.** Nothing is checked. A step may have nothing after it, a decision may have a way out that leads nowhere, and pieces may be loose. The editor holds a journey in a looser shape for this, in `src/lib/schema/workflow/working-process.ts`.
-* **Before tech review.** `journeyErrors` in `validate.ts` lists what must be fixed, in plain words, naming each step as the editor does. `journeyWarnings` lists placeholder text still to replace, which does not stop the form going on. Placeholders that a later review fills in, such as the owner and contact, are not listed. The form editor shows both lists in `src/lib/form-editor/components/JourneyCheckPanel.svelte`.
+* **Before the reviews.** `journeyErrors` in `validate.ts` lists what must be fixed, in plain words, naming each step as the editor does. `journeyWarnings` lists placeholder text still to replace, which does not stop the form going on. Placeholders that a later review fills in, such as the owner and contact, are not listed. The form editor shows both lists in `src/lib/form-editor/components/JourneyCheckPanel.svelte`.
+* **At tech review.** Each step of the technical review checks what is typed before it is written into the form: the workflow settings in `src/lib/schema/workflow/workflow-settings.ts`, and the values of each developer step in `src/lib/form-editor/step-values/`. A body field still holding the placeholder a connected endpoint left for it stops the step being marked as checked.
+* **At owner review.** `ownerDetailsProblems` in `src/lib/schema/workflow/owner-details.ts` checks the owner's details before they are written into the manifest. The names, department and email are required, and the email must be a valid address.
 
 ## Generating a draft
 
@@ -146,8 +161,11 @@ Every folder ending in `-old` (`components-old`, `graph-old`, `schema-old`, `exa
 
 ## Next steps
 
-* Carry the edited form over to tech review, once the tech review is designed.
-* Save the form as its two files, the manifest and the process, on the owner check page. This will later be replaced by sending it to the executor. It will only be allowed when the validation check passes.
+* Give the owner review its real validation checks in place of the example problems.
+* Connect the Flex connections to the real Flex list, or to mock APIs, in `src/lib/flex/`, and make search and filters work.
+* Check that every saved answer a step reads, such as a body value, is saved by some step in the form.
+* Make Publish save the form as its two files, the manifest and the process. This will later be replaced by sending it to the workflow server. It will only be allowed when the validation check passes.
+* Make "Save for later", "Open step in editor", "Go to service dashboard" and "View the published journey" work. They are shown but inactive for now.
 * Re-design the "Continues to" dropdown list UI on the edit card, which lists every state and is long on large forms. Change to another approach.
 * Choose an answer type for a question added by hand, likely as part of prebuilt question modules.
 * Decide where context added for the agent is saved. It lasts only while the page is open.

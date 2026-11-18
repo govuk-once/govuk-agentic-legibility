@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { developerSteps, stepValuesSummary, withEntryState } from '../step-values';
+import { developerSteps, stepValuesSummary, techReviewChecked, techReviewCheckedKey, withEntryState, withTechReviewChecked } from '../step-values';
 
 // A short journey with a question, an assign, a wait and an API call, met in that order.
 const workflow = {
@@ -46,5 +46,28 @@ describe('withEntryState', () => {
 		const changed = withEntryState(workflow, 'pause', { ...states.pause, duration: 'PT1H' } as typeof states.pause);
 		expect(changed.processes.demo.states.pause).toMatchObject({ duration: 'PT1H', next: 'send' });
 		expect(changed.processes.demo.states.send).toBe(states.send);
+	});
+});
+
+describe('withTechReviewChecked', () => {
+	it('writes the time of sending into every developer step and nothing else', () => {
+		const sent = withTechReviewChecked(workflow, '2026-11-18T10:00:00.000Z');
+		const sentStates = sent.processes.demo.states;
+		for (const code of ['save', 'pause', 'send']) {
+			expect(sentStates[code].metadata).toEqual({ [techReviewCheckedKey]: '2026-11-18T10:00:00.000Z' });
+		}
+		expect(sentStates.ask).toBe(states.ask);
+	});
+
+	it('replaces the time of an earlier review', () => {
+		const resent = withTechReviewChecked(withTechReviewChecked(workflow, 'first'), 'second');
+		expect(resent.processes.demo.states.save.metadata).toEqual({ [techReviewCheckedKey]: 'second' });
+	});
+});
+
+describe('techReviewChecked', () => {
+	it('counts the developer steps a sent review has checked', () => {
+		expect(techReviewChecked(workflow)).toEqual({ checked: 0, total: 3 });
+		expect(techReviewChecked(withTechReviewChecked(workflow, 'now'))).toEqual({ checked: 3, total: 3 });
 	});
 });

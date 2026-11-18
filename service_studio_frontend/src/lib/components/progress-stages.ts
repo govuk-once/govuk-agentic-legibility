@@ -1,7 +1,8 @@
 /*
-	The stages shown in the progress banner, from starting something new to publishing it. Each page shows the same
-	six stages with a different one current, so the labels are written once here and each list only says how far
-	along the page is.
+	The stages shown in the progress banner, from starting something new to signing it off and publishing it. Each page
+	shows the same six stages with a different one current, so the labels are written once here and each list only says
+	how far along the page is. The owner review comes before the technical review, so the owner can add their details
+	while a developer works on the form, and comes back to sign off once it is done.
 */
 
 // An unfinished stage is one that comes before the current stage but has not been finished, so the banner can
@@ -14,7 +15,7 @@ export interface Stage {
 	state: StageState;
 }
 
-const stageLabels = ['Start', 'Create', 'Edit', 'Tech review', 'Owner review', 'Publish'];
+const stageLabels = ['Start', 'Create', 'Edit', 'Owner review', 'Tech review', 'Sign off'];
 
 /**
  * Builds the six stages with the stage of the given label current, the ones before it complete and the rest
@@ -38,5 +39,5 @@ export const editStages = stagesAt('Edit');
 // The stages while the technical parts of a service or a form are reviewed.
 export const techReviewStages = stagesAt('Tech review');
 
-// The stages once a service or a form is published, with every stage complete.
-export const publishedStages = stagesAt('Publish').map((stage) => ({ ...stage, state: 'complete' as const }));
+// The stages once a service or a form is signed off and published, with every stage complete.
+export const publishedStages = stagesAt('Sign off').map((stage) => ({ ...stage, state: 'complete' as const }));

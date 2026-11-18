@@ -2,7 +2,7 @@
 	import type { JourneyProblem } from '$lib/schema/workflow/validate';
 
 	/*
-		What the check finds before a form is sent to tech review, shown in the side panel in place of the list of
+		What the check finds before a form is sent to owner review, shown in the side panel in place of the list of
 		steps. Errors stop the form being sent. Warnings are worth finishing but do not. Choosing a problem about a
 		state highlights it on the graph and keeps this list open, so the problems can be worked through one by one.
 	*/
@@ -49,13 +49,13 @@
 		<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0 journey-check__back" onclick={onBack}>
 			Back to steps
 		</button>
-		<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Check before tech review</h2>
+		<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Check before owner review</h2>
 	</div>
 
 	<div class="journey-check__body">
 		{#if errors.length > 0}
 			<div class="govuk-error-summary govuk-!-margin-bottom-0" role="alert">
-				<h3 class="govuk-error-summary__title">Fix these before sending to tech review</h3>
+				<h3 class="govuk-error-summary__title">Fix these before sending to owner review</h3>
 				<div class="govuk-error-summary__body">
 					<ul class="govuk-list govuk-error-summary__list">
 						{#each errors as problem, index (index)}
@@ -65,7 +65,7 @@
 				</div>
 			</div>
 		{:else}
-			<p class="govuk-body govuk-!-margin-bottom-0">Nothing stops this form going to tech review.</p>
+			<p class="govuk-body govuk-!-margin-bottom-0">Nothing stops this form going to owner review.</p>
 		{/if}
 
 		{#if warnings.length > 0}
@@ -81,7 +81,7 @@
 		{/if}
 
 		{#if errors.length === 0}
-			<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={onContinue}>Continue to tech review</button>
+			<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={onContinue}>Continue to owner review</button>
 		{/if}
 	</div>
 </div>
