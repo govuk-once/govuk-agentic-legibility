@@ -132,7 +132,7 @@
 				{#if bodySummary}
 					<div>
 						<dt class="govuk-hint govuk-!-margin-bottom-0">Body</dt>
-						<dd>
+						<dd class="find-endpoint__code">
 							{bodySummary.fields} {bodySummary.fields === 1 ? 'field' : 'fields'}{bodySummary.toFillIn > 0 ? `, ${bodySummary.toFillIn} to fill in` : ''}
 						</dd>
 					</div>

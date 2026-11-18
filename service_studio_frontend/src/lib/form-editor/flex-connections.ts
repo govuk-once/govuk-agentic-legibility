@@ -3,6 +3,7 @@ import type { ApiCallState } from '$lib/schema/workflow/api-call-state';
 import { isPlaceholderBodyValue, isUnconnectedApiCall, placeholderBodyValue } from '$lib/schema/workflow/placeholders';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
+import { withEntryState } from './step-values/step-values';
 
 /*
 	The Flex connections of a form. Every API call step has to be connected to a Flex endpoint before the form can be
@@ -109,20 +110,11 @@ export function summariseBody(body: NonNullable<ApiCallState['body']>): BodySumm
  * journey and are checked in the step values. A code that is not an API call leaves the form as it is.
  */
 export function withEndpoint(workflow: Workflow, code: string, endpoint: FlexEndpoint): Workflow {
-	const processId = workflow.manifest.entry;
-	const process = workflow.processes[processId];
-	const state = process?.states[code];
+	const state = workflow.processes[workflow.manifest.entry]?.states[code];
 	if (state?.state_type !== 'api_call') return workflow;
 	// The old body is taken out so a call to an endpoint that takes no body is saved without one.
 	const { body, ...rest } = state;
 	const { method, service, url } = endpoint;
-	const connected = { ...rest, method, service, url };
 	const newBody = bodyForEndpoint(body, endpoint);
-	return {
-		...workflow,
-		processes: {
-			...workflow.processes,
-			[processId]: { ...process, states: { ...process.states, [code]: newBody ? { ...connected, body: newBody } : connected } }
-		}
-	};
+	return withEntryState(workflow, code, { ...rest, method, service, url, ...(newBody && { body: newBody }) });
 }

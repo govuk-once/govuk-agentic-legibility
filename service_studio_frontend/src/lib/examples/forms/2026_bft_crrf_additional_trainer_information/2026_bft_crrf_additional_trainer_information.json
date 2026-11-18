@@ -79,7 +79,7 @@
         "kind": "string",
         "allow_skip": false
       },
-      "assign": "answers.step_1",
+      "assign": "answers.applicant_name",
       "next": "step_2"
     },
     "step_2": {
@@ -107,7 +107,7 @@
         "kind": "string",
         "allow_skip": false
       },
-      "assign": "answers.step_2",
+      "assign": "answers.vessel_name",
       "next": "step_3"
     },
     "step_3": {
@@ -136,7 +136,7 @@
         "kind": "string",
         "allow_skip": false
       },
-      "assign": "repeat.step_3.current",
+      "assign": "repeat.additional_trainers.current",
       "next": "step_3_append"
     },
     "step_3_append": {
@@ -146,10 +146,10 @@
         "group": "Add another answer"
       },
       "set": {
-        "answers.step_3": {
+        "answers.additional_trainers": {
           "op": "append",
-          "path": "answers.step_3",
-          "value_path": "repeat.step_3.current"
+          "path": "answers.additional_trainers",
+          "value_path": "repeat.additional_trainers.current"
         }
       },
       "next": "step_3_more"
@@ -165,7 +165,7 @@
         "kind": "boolean",
         "allow_skip": false
       },
-      "assign": "repeat.step_3.more",
+      "assign": "repeat.additional_trainers.more",
       "next": "step_3_repeat_route"
     },
     "step_3_repeat_route": {
@@ -178,7 +178,7 @@
         {
           "when": {
             "op": "is_true",
-            "path": "repeat.step_3.more"
+            "path": "repeat.additional_trainers.more"
           },
           "next": "step_3"
         }

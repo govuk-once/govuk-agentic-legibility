@@ -4,7 +4,7 @@ import type { Workflow } from '$lib/schema/workflow/workflow';
 
 /*
 	Holds a generated draft in the browser tab so that an editor can open it. The draft is generated on the server
-	and shown on the onboarding page, and the editor is another page, so something has to carry it across. Session
+	and shown on the onboarding page, and the editor is another page, so it needs storing between routes. Session
 	storage lasts for the life of the tab and is never sent to a server, and it survives a reload of the editor.
 	It is only a hand over and not a place to save work: changes made in the editor are not written back.
 
