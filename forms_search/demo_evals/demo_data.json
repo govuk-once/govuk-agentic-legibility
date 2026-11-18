@@ -1,0 +1,435 @@
+{
+ "dataset": {
+  "total": 519,
+  "by_category": {
+   "catalogue": 462,
+   "clarification": 15,
+   "no_search": 12,
+   "not_in_catalogue": 10,
+   "similar_services": 10,
+   "paraphrase": 4,
+   "named_service": 3,
+   "unusual": 3
+  },
+  "by_turns": {
+   "1": 504,
+   "2": 15
+  }
+ },
+ "reference": {
+  "passed": 518,
+  "total": 519,
+  "model_id": "eu.anthropic.claude-sonnet-5-5"
+ },
+ "tool_sample": {
+  "input": {
+   "query": "correct wrong mileage on MOT record"
+  },
+  "candidates": [
+   {
+    "workflow_id": "1994",
+    "title": "Fix mistakes on a vehicle's MOT record",
+    "description": "Request DVSA to correct errors on a vehicle's MOT record, including wrong mileage backed by uploaded evidence, or details such as make, model, colour, fuel type, registration country or MOT centre. Collects vehicle, keeper or trade details and MOT test numbers."
+   },
+   {
+    "workflow_id": "264164",
+    "title": "Request a correction to your immigration status record",
+    "description": "Ask the Home Office to correct an immigration status record you believe is wrong after being stopped from working, renting, claiming benefits, driving or banking. Collects evidence, an explanation and personal details, and can be sent on behalf of someone else with a letter of authority."
+   }
+  ],
+  "of": 5
+ },
+ "scenario_samples": [
+  {
+   "id": "catalogue_1994",
+   "category": "catalogue",
+   "search": "required",
+   "turns": [
+    {
+     "user": "The MOT record for my car has the wrong mileage on it. How can I get that fixed?",
+     "expect": "offer_journey",
+     "workflow_id": "1994"
+    }
+   ]
+  },
+  {
+   "id": "cancelled_test_theory",
+   "category": "clarification",
+   "search": "required",
+   "turns": [
+    {
+     "user": "I want to claim expenses because my test was cancelled.",
+     "expect": "clarify"
+    },
+    {
+     "user": "It was my car theory test, not the practical test.",
+     "expect": "offer_journey",
+     "workflow_id": "6770"
+    }
+   ]
+  }
+ ],
+ "examples": [
+  {
+   "id": "unusual_octopus",
+   "label": "Unexpected service",
+   "point": "The agent doesn't know the catalogue, but searches anyway and finds a niche Form.",
+   "scenario": {
+    "id": "unusual_octopus",
+    "category": "unusual",
+    "search": "required",
+    "turns": [
+     {
+      "user": "I saw an octopus while diving off Cornwall. Is there anywhere official to report it?",
+      "expect": "offer_journey",
+      "workflow_id": "265276"
+     }
+    ]
+   },
+   "passed": true,
+   "events": [
+    {
+     "kind": "citizen",
+     "text": "I saw an octopus while diving off Cornwall. Is there anywhere official to report it?"
+    },
+    {
+     "kind": "search",
+     "input": {
+      "query": "report an octopus sighting"
+     }
+    },
+    {
+     "kind": "result",
+     "json": {
+      "candidates": [
+       {
+        "workflow_id": "265276",
+        "title": "Octopus sighting? Let us know!",
+        "description": "Report an octopus sighting to the Marine Management Organisation, for divers, recreational fishers and the public. Give the date and location, species (common, curled/horned or unknown), optional details and photos, and optional contact details."
+       },
+       {
+        "workflow_id": "5396",
+        "title": "Marine Mammal Reporting",
+        "description": "Report a fishing vessel's interaction with a marine mammal that was killed, injured or bycaught. Collects the vessel name and PLN, date, time and location, species, number of animals, gear type, target species, observer presence and action taken. One form per vessel."
+       },
+       {
+        "workflow_id": "6375",
+        "title": "Oil Price Cap (OPC) suspected breach reporting form",
+        "description": "Report a suspected breach of the Russia oil price cap to OFSI, either as a final report or a pre-notification. Collects details of the reporter, suspected breachers, oil transaction, voyage, vessel and sanctions evasion red flags, with optional evidence uploads."
+       },
+       {
+        "workflow_id": "6784",
+        "title": "KHM - Report an Incident or Dangerous Occurrence",
+        "description": "Report a marine incident or dangerous occurrence, such as a collision, fire, grounding, pollution or man overboard, to the King's Harbour Master. Collects vessel details, location, time, weather and sea conditions, and actions taken. Not for rail or road dangerous goods incidents."
+       },
+       {
+        "workflow_id": "6275",
+        "title": "Report a concern of malpractice, qualification fraud or wrongdoing (whistleblowing)",
+        "description": "Report a concern to Ofqual about malpractice, qualification fraud or wrongdoing, including as a whistleblower. Give details of what happened, who is involved and any awarding organisation, upload up to four documents, and choose whether to stay anonymous."
+       }
+      ]
+     }
+    },
+    {
+     "kind": "decision",
+     "outcome": "offer_journey",
+     "workflow_ids": [
+      "265276"
+     ],
+     "reply": "Yes. The Marine Management Organisation has a form for octopus sightings, and it's open to divers. You give the date, location and species (common, curled/horned or unknown). Photos and contact details are optional. Would you like to start it?"
+    }
+   ]
+  },
+  {
+   "id": "cancelled_test_theory",
+   "label": "Clarification",
+   "point": "Two Forms fit, so it asks. The scripted second message is sent verbatim.",
+   "scenario": {
+    "id": "cancelled_test_theory",
+    "category": "clarification",
+    "search": "required",
+    "turns": [
+     {
+      "user": "I want to claim expenses because my test was cancelled.",
+      "expect": "clarify"
+     },
+     {
+      "user": "It was my car theory test, not the practical test.",
+      "expect": "offer_journey",
+      "workflow_id": "6770"
+     }
+    ]
+   },
+   "passed": true,
+   "events": [
+    {
+     "kind": "citizen",
+     "text": "I want to claim expenses because my test was cancelled."
+    },
+    {
+     "kind": "search",
+     "input": {
+      "query": "claim expenses because my test was cancelled"
+     }
+    },
+    {
+     "kind": "result",
+     "json": {
+      "candidates": [
+       {
+        "workflow_id": "5123",
+        "title": "Apply to claim expenses for a cancelled driving test",
+        "description": "Claim out-of-pocket expenses when DVSA cancelled a car driving test at short notice. Collects licence and test details, plus costs for instructor lessons, vehicle hire, mileage, lost pay or other expenses, with receipts. Not for theory tests or other vehicle types."
+       },
+       {
+        "workflow_id": "6770",
+        "title": "Apply to claim expenses for a cancelled theory test",
+        "description": "Claim a refund from DVSA for expenses after a cancelled theory test (car, motorcycle, lorry, bus and coach, Driver CPC or ADI Part 1), within 6 months of the test date. Covers travel, parking, lost pay and other costs, with receipts or employer evidence uploaded."
+       },
+       {
+        "workflow_id": "266079",
+        "title": "Test live form",
+        "description": "Test form for a Home Office-style complaints journey, not for real submissions. It covers new or existing complaints, reasons such as application decisions, visa errors, appointments, lost documents, refunds and staff behaviour, plus evidence upload and details of any representative."
+       },
+       {
+        "workflow_id": "920",
+        "title": "Apply for a refund of MOT slot payments",
+        "description": "Request a refund for unused MOT testing service slots bought by an authorised examiner. Collects the examiner number, trading name, number of slots to refund and current slot balance, with refunds returned to the card or sent by cheque."
+       },
+       {
+        "workflow_id": "3184",
+        "title": "SG test",
+        "description": "Test form for internal use, not for real submissions. Collects whether the person was affected by the infected blood scandal, their passport issue date, the start of the tax year and their country of origin, with no payment taken."
+       }
+      ]
+     }
+    },
+    {
+     "kind": "decision",
+     "outcome": "clarify",
+     "workflow_ids": [
+      "5123",
+      "6770"
+     ],
+     "reply": "Which test was cancelled?\n\n- A car driving test (practical test)\n- A theory test (car, motorcycle, lorry, bus and coach, Driver CPC or ADI Part 1)\n\nTell me which one and I'll point you to the right claim form."
+    },
+    {
+     "kind": "citizen",
+     "text": "It was my car theory test, not the practical test."
+    },
+    {
+     "kind": "decision",
+     "outcome": "offer_journey",
+     "workflow_ids": [
+      "6770"
+     ],
+     "reply": "You can use \"Apply to claim expenses for a cancelled theory test\". It covers car theory tests. You can claim for travel, parking, lost pay and other costs. You'll need receipts, or evidence from your employer. You must claim within 6 months of the test date.\n\nWould you like to start it?"
+    }
+   ]
+  },
+  {
+   "id": "similar_holiday_taken",
+   "label": "Similar Forms",
+   "point": "Near-identical redundancy-claim Forms. The request is specific enough to pick one.",
+   "scenario": {
+    "id": "similar_holiday_taken",
+    "category": "similar_services",
+    "search": "required",
+    "turns": [
+     {
+      "user": "My redundancy claim has the wrong amount for holiday I actually took but was not paid for.",
+      "expect": "offer_journey",
+      "workflow_id": "232"
+     }
+    ]
+   },
+   "passed": true,
+   "events": [
+    {
+     "kind": "citizen",
+     "text": "My redundancy claim has the wrong amount for holiday I actually took but was not paid for."
+    },
+    {
+     "kind": "search",
+     "input": {
+      "query": "change my redundancy claim, wrong amount for unpaid holiday pay"
+     }
+    },
+    {
+     "kind": "result",
+     "json": {
+      "candidates": [
+       {
+        "workflow_id": "6",
+        "title": "Amend my claim for holiday pay accrued",
+        "description": "Amend an existing redundancy claim for accrued holiday pay by correcting the leave year start date, days entitled, days taken and days carried over. Verify identity with claim reference and National Insurance number. Does not cover holiday taken but not paid."
+       },
+       {
+        "workflow_id": "232",
+        "title": "Amend my claim for holiday taken but not paid",
+        "description": "Amend an existing redundancy claim for holidays taken but not paid, changing the holiday year start date, leave entitlement in days, or dates of unpaid holiday. Verify identity with your claim reference and National Insurance number first."
+       },
+       {
+        "workflow_id": "289",
+        "title": "Amend my claim for unpaid wages",
+        "description": "Amend an existing redundancy claim for unpaid wages made to the Insolvency Service. Confirm your identity with your claim reference and National Insurance number, then give corrected details of wages owed, unpaid dates, net or gross amounts and any attachment of earnings."
+       },
+       {
+        "workflow_id": "356",
+        "title": "Amend my employment details",
+        "description": "Amend employment details on an existing redundancy claim: gross weekly pay, employment start and end dates, and the date notice was given. Verify your identity with your claim reference and National Insurance number. Personal details are changed using a separate form."
+       },
+       {
+        "workflow_id": "358",
+        "title": "Amend my personal details",
+        "description": "Amend personal details on an existing redundancy payment claim, such as name, National Insurance number, date of birth, email, home address or mobile number. Verify identity with the claim reference and current details; employment details are covered by a separate form."
+       }
+      ]
+     }
+    },
+    {
+     "kind": "decision",
+     "outcome": "offer_journey",
+     "workflow_ids": [
+      "232"
+     ],
+     "reply": "The best fit is \"Amend my claim for holiday taken but not paid\". You can use it to correct the holiday year start date, your leave entitlement in days, or the dates of unpaid holiday. You'll need your claim reference and National Insurance number to verify your identity. Would you like to start it?"
+    }
+   ]
+  },
+  {
+   "id": "outside_passport_renewal",
+   "label": "Nothing fits",
+   "point": "Search always returns candidates. The agent searches twice, then rejects them all.",
+   "scenario": {
+    "id": "outside_passport_renewal",
+    "category": "not_in_catalogue",
+    "search": "required",
+    "turns": [
+     {
+      "user": "I need to renew my British passport.",
+      "expect": "no_journey"
+     }
+    ]
+   },
+   "passed": true,
+   "events": [
+    {
+     "kind": "citizen",
+     "text": "I need to renew my British passport."
+    },
+    {
+     "kind": "search",
+     "input": {
+      "query": "renew British passport"
+     }
+    },
+    {
+     "kind": "result",
+     "json": {
+      "candidates": [
+       {
+        "workflow_id": "264774",
+        "title": "Get help with your citizenship or certificate of entitlement application",
+        "description": "Contact the Home Office for help with a British citizenship application, certificate of entitlement application or renunciation of citizenship, such as updates, refunds, returns of documents or certificate corrections. Can be completed on behalf of someone else, with a letter of authority."
+       },
+       {
+        "workflow_id": "3139",
+        "title": "Apply for an emergency travel document (first time applicant)",
+        "description": "Apply for an emergency travel document from abroad if you have never held a UK passport issued since 1 January 2006 and have an urgent, unplanned reason to travel. Collects applicant and contact details, location and a summary of exceptional circumstances, for yourself or someone else."
+       },
+       {
+        "workflow_id": "265949",
+        "title": "Request to restore and renew a registration (TM13)",
+        "description": "Request restoration and renewal of a lapsed UK trade mark whose renewal date was 6 to 12 months ago. Give the trade mark number, classes to renew and a statement explaining the missed renewal, then pay the restoration and renewal fees by card or deposit account."
+       },
+       {
+        "workflow_id": "264768",
+        "title": "Immigration Enforcement – first reporting event: East of England police station",
+        "description": "Provide personal, family, health, work, housing and identity details before a first immigration bail reporting appointment at the East of England police station. Collects CEPR or UAN, partner and children, medication, passport upload, and interest in voluntary return."
+       },
+       {
+        "workflow_id": "267100",
+        "title": "New starter",
+        "description": "Request a building security pass for a new starter at Welsh Government offices or tenant organisations. Collects the starter's name, start date, organisation, optional HRIS reference and vetting clearance details, and an uploaded passport-style photo."
+       }
+      ]
+     }
+    },
+    {
+     "kind": "search",
+     "input": {
+      "query": "passport renewal, replace lost or damaged passport, change passport details"
+     }
+    },
+    {
+     "kind": "result",
+     "json": {
+      "candidates": [
+       {
+        "workflow_id": "265551",
+        "title": "Get help with your application registration card (ARC)",
+        "description": "Request a replacement or correction for an asylum application registration card (ARC) that is missing, expired, stolen, damaged or has wrong details or photo. Can be completed by the holder or a representative, and collects reference numbers, dependants and ID."
+       },
+       {
+        "workflow_id": "7275",
+        "title": "Apply to replace a lost or damaged dangerous goods (ADR) driver card",
+        "description": "Apply for a replacement dangerous goods (ADR) driver card that is lost, stolen or damaged, and pay the fee. Collects your name, date of birth, optional ADR card number, address and contact details. Not for name or nationality changes, Driver CPC cards or DGSA certificates."
+       },
+       {
+        "workflow_id": "358",
+        "title": "Amend my personal details",
+        "description": "Amend personal details on an existing redundancy payment claim, such as name, National Insurance number, date of birth, email, home address or mobile number. Verify identity with the claim reference and current details; employment details are covered by a separate form."
+       },
+       {
+        "workflow_id": "264289",
+        "title": "Apply to change the nationality on your dangerous goods (ADR) driver card",
+        "description": "Apply and pay for a replacement dangerous goods (ADR) driver card showing a new nationality. Upload a passport, driving licence, national identification card or certificate of naturalisation as proof, and give your ADR card number and address, if changed."
+       },
+       {
+        "workflow_id": "777",
+        "title": "Apply to replace a lost, stolen or damaged Driver CPC card",
+        "description": "Request a replacement Driver CPC (driver qualification) card for lorry, bus or coach driving issued by DVSA in England, Scotland or Wales, if lost, stolen or damaged. Collects name, driving licence number, address and contact details; DVSA phones to take the fee."
+       }
+      ]
+     }
+    },
+    {
+     "kind": "decision",
+     "outcome": "no_journey",
+     "workflow_ids": [],
+     "reply": "I couldn't find a passport renewal service in the catalogue I can search, so I can't offer a form for it here. The closest result was an emergency travel document, but that's only for first-time applicants abroad who need to travel urgently, so it isn't right for a renewal.\n\nYou can renew a British passport on GOV.UK by searching for \"renew or replace your adult passport\". If you tell me more, such as whether you're abroad or need to travel urgently, I can check for anything else that fits."
+    }
+   ]
+  },
+  {
+   "id": "no_search_greeting",
+   "label": "No search",
+   "point": "Small talk: Journey Search is never called.",
+   "scenario": {
+    "id": "no_search_greeting",
+    "category": "no_search",
+    "search": "forbidden",
+    "turns": [
+     {
+      "user": "Hello! How are you?",
+      "expect": "no_journey"
+     }
+    ]
+   },
+   "passed": true,
+   "events": [
+    {
+     "kind": "citizen",
+     "text": "Hello! How are you?"
+    },
+    {
+     "kind": "decision",
+     "outcome": "no_journey",
+     "workflow_ids": [],
+     "reply": "Hello! I'm well, thank you. How can I help you today? If you tell me what you'd like to do, such as apply for something, report something or make a claim, I can look for the right government form."
+    }
+   ]
+  }
+ ]
+}
