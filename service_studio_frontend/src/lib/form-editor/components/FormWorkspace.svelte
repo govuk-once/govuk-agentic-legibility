@@ -15,6 +15,8 @@
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 	import { journeyErrors, journeyWarnings } from '$lib/schema/workflow/validate';
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
+	import ModuleMenu from '$lib/modules/ModuleMenu.svelte';
+	import { moduleCategories } from '$lib/modules/module-catalogue';
 	import { formPaletteTools } from '../palette-tools';
 	import { formDeveloperStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
@@ -217,125 +219,137 @@
 </script>
 
 <div class="form-workspace">
-	<!-- Choosing a box or a diamond on the graph opens its card, and a step that has just been added opens its card
-		too, ready for its words to be typed. -->
-	<ProcessCanvas
-		{process}
-		{graph}
-		paletteTools={formPaletteTools}
-		connectedStepKind="input"
-		showErrorRoutes={showDeveloperStates}
-		showDeveloperSteps={showDeveloperStates}
-		stepOutlineColours={stateOutlineColours}
-		{positions}
-		{layoutRound}
-		{onMoveNodes}
-		{drafts}
-		{onChangeDrafts}
-		onChangeProcess={applyChange}
-		bind:selectedStateId={() => selectedStateId, openCard}
-		bind:messages
-		onEditState={openCard}
-		onDeleteStates={removeFromProcess}
-	/>
+	<ModuleMenu categories={moduleCategories} tools={formPaletteTools} />
 
-	<aside class="form-workspace__panel" aria-label="Steps">
-		{#if openState && selection.code && (openState.state_type === 'input' || openState.state_type === 'output') && openRowIndex >= 0}
-			{@const code = selection.code}
-			{@const row = rows[openRowIndex]}
-			<!-- Shown afresh for each step, so what was typed for one step never carries over to another. -->
-			{#key code}
-				<StateEditCard
-					currentState={openState}
-					number={row.number}
-					title={row.title}
-					totalSteps={rows.length}
-					targets={targets.filter((target) => target.stateId !== code)}
-					canOpenPrevious={openRowIndex > 0}
-					canOpenNext={openRowIndex < rows.length - 1}
-					onOpenPrevious={() => openCard(rows[openRowIndex - 1].stateId)}
-					onOpenNext={() => openCard(rows[openRowIndex + 1].stateId)}
-					contextItems={stepContext[code] ?? []}
-					onContextChange={(items) => onChangeStepContext(code, items)}
-					onApply={(updated, endsJourney) => applyEdit(code, updated, endsJourney)}
-					onCancel={() => (selection = { code, open: false })}
-					onSetStart={process.start === code ? undefined : () => makeStart(code)}
-					onEndJourney={canEndJourneyAt(process, code) ? () => endJourney(code) : undefined}
-					onRemove={() => removeState(code)}
-				/>
-			{/key}
-		{:else if openState && selection.code && openState.state_type === 'choice'}
-			{@const code = selection.code}
-			<!-- Shown afresh for each decision, so what was chosen for one never carries over to another. -->
-			{#key code}
-				<DecisionEditCard
-					currentState={openState}
-					title={stateTitle(openState, code)}
-					before={questionRowBefore(code)}
-					afterDeveloperStep={developerStepBefore(code)}
-					targets={targets.filter((target) => target.stateId !== code)}
-					onApply={(updated) => applyEdit(code, updated)}
-					onCancel={() => (selection = { code, open: false })}
-					onRemove={() => removeState(code)}
-				/>
-			{/key}
-		{:else if openState && selection.code && !isEditableInForm(openState)}
-			{@const code = selection.code}
-			<DeveloperStateCard
-				title={stateTitle(openState, code)}
-				tagLabel={stateLabels[openState.state_type]}
-				tagColour={stateTagColours[openState.state_type]}
-				facts={describeState(openState, code, () => undefined).facts}
-				onClose={() => (selection = { code, open: false })}
-			/>
-		{:else if checking}
-			<JourneyCheckPanel
-				{errors}
-				{warnings}
-				nameOf={(code) => targetNames.get(code) ?? code}
-				onSelect={highlight}
-				onBack={() => (checking = false)}
-				onContinue={onSendToOwnerReview}
-			/>
-		{:else}
-			<div class="form-workspace__list">
-				<div class="form-workspace__list-header">
-					<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
-					<p class="govuk-body-s govuk-!-margin-bottom-0 form-workspace__list-hint">
-						{rows.length}
-						{rows.length === 1 ? 'step' : 'steps'} · {selectedRow ? `step ${selectedRow.number} selected` : 'nothing selected'}
-					</p>
-				</div>
+	<div class="form-workspace__body">
+		<!-- Choosing a box or a diamond on the graph opens its card, and a step that has just been added opens its card
+			too, ready for its words to be typed. -->
+		<ProcessCanvas
+			{process}
+			{graph}
+			paletteTools={formPaletteTools}
+			connectedStepKind="input"
+			showErrorRoutes={showDeveloperStates}
+			showDeveloperSteps={showDeveloperStates}
+			stepOutlineColours={stateOutlineColours}
+			{positions}
+			{layoutRound}
+			{onMoveNodes}
+			{drafts}
+			{onChangeDrafts}
+			onChangeProcess={applyChange}
+			bind:selectedStateId={() => selectedStateId, openCard}
+			bind:messages
+			onEditState={openCard}
+			onDeleteStates={removeFromProcess}
+		/>
 
-				{#each rows as row (row.stateId)}
-					<StateCard
-						stateId={row.stateId}
+		<aside class="form-workspace__panel" aria-label="Steps">
+			{#if openState && selection.code && (openState.state_type === 'input' || openState.state_type === 'output') && openRowIndex >= 0}
+				{@const code = selection.code}
+				{@const row = rows[openRowIndex]}
+				<!-- Shown afresh for each step, so what was typed for one step never carries over to another. -->
+				{#key code}
+					<StateEditCard
+						currentState={openState}
 						number={row.number}
 						title={row.title}
-						description={descriptionOf(process.states[row.stateId])}
-						tagLabel={stateLabels[row.stateType]}
-						tagColour={stateTagColours[row.stateType]}
-						selected={row.stateId === selectedStateId}
-						canMoveUp={canMoveEarlier(process, row.stateId, assignBefore)}
-						canMoveDown={canMoveLater(process, row.stateId, assignBefore)}
-						onSelect={highlight}
-						onEdit={openCard}
-						onRemove={removeState}
-						onMoveUp={(stateId) => moveStep(stateId, 'up')}
-						onMoveDown={(stateId) => moveStep(stateId, 'down')}
+						totalSteps={rows.length}
+						targets={targets.filter((target) => target.stateId !== code)}
+						canOpenPrevious={openRowIndex > 0}
+						canOpenNext={openRowIndex < rows.length - 1}
+						onOpenPrevious={() => openCard(rows[openRowIndex - 1].stateId)}
+						onOpenNext={() => openCard(rows[openRowIndex + 1].stateId)}
+						contextItems={stepContext[code] ?? []}
+						onContextChange={(items) => onChangeStepContext(code, items)}
+						onApply={(updated, endsJourney) => applyEdit(code, updated, endsJourney)}
+						onCancel={() => (selection = { code, open: false })}
+						onSetStart={process.start === code ? undefined : () => makeStart(code)}
+						onEndJourney={canEndJourneyAt(process, code) ? () => endJourney(code) : undefined}
+						onRemove={() => removeState(code)}
 					/>
-				{/each}
-			</div>
+				{/key}
+			{:else if openState && selection.code && openState.state_type === 'choice'}
+				{@const code = selection.code}
+				<!-- Shown afresh for each decision, so what was chosen for one never carries over to another. -->
+				{#key code}
+					<DecisionEditCard
+						currentState={openState}
+						title={stateTitle(openState, code)}
+						before={questionRowBefore(code)}
+						afterDeveloperStep={developerStepBefore(code)}
+						targets={targets.filter((target) => target.stateId !== code)}
+						onApply={(updated) => applyEdit(code, updated)}
+						onCancel={() => (selection = { code, open: false })}
+						onRemove={() => removeState(code)}
+					/>
+				{/key}
+			{:else if openState && selection.code && !isEditableInForm(openState)}
+				{@const code = selection.code}
+				<DeveloperStateCard
+					title={stateTitle(openState, code)}
+					tagLabel={stateLabels[openState.state_type]}
+					tagColour={stateTagColours[openState.state_type]}
+					facts={describeState(openState, code, () => undefined).facts}
+					onClose={() => (selection = { code, open: false })}
+				/>
+			{:else if checking}
+				<JourneyCheckPanel
+					{errors}
+					{warnings}
+					nameOf={(code) => targetNames.get(code) ?? code}
+					onSelect={highlight}
+					onBack={() => (checking = false)}
+					onContinue={onSendToOwnerReview}
+				/>
+			{:else}
+				<div class="form-workspace__list">
+					<div class="form-workspace__list-header">
+						<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
+						<p class="govuk-body-s govuk-!-margin-bottom-0 form-workspace__list-hint">
+							{rows.length}
+							{rows.length === 1 ? 'step' : 'steps'} · {selectedRow ? `step ${selectedRow.number} selected` : 'nothing selected'}
+						</p>
+					</div>
 
-			<div class="form-workspace__panel-footer">
-				<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to owner review</button>
-			</div>
-		{/if}
-	</aside>
+					{#each rows as row (row.stateId)}
+						<StateCard
+							stateId={row.stateId}
+							number={row.number}
+							title={row.title}
+							description={descriptionOf(process.states[row.stateId])}
+							tagLabel={stateLabels[row.stateType]}
+							tagColour={stateTagColours[row.stateType]}
+							selected={row.stateId === selectedStateId}
+							canMoveUp={canMoveEarlier(process, row.stateId, assignBefore)}
+							canMoveDown={canMoveLater(process, row.stateId, assignBefore)}
+							onSelect={highlight}
+							onEdit={openCard}
+							onRemove={removeState}
+							onMoveUp={(stateId) => moveStep(stateId, 'up')}
+							onMoveDown={(stateId) => moveStep(stateId, 'down')}
+						/>
+					{/each}
+				</div>
+
+				<div class="form-workspace__panel-footer">
+					<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to owner review</button>
+				</div>
+			{/if}
+		</aside>
+	</div>
 </div>
 
 <style>
+	/* The module menu runs across the top, over the canvas and the panel, which sit side by side below it. */
 	.form-workspace {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.form-workspace__body {
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
@@ -383,7 +397,7 @@
 	}
 
 	@media (max-width: 900px) {
-		.form-workspace {
+		.form-workspace__body {
 			flex-direction: column;
 		}
 

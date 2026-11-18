@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
 import { answerDefinitionSchema } from '$lib/schema/workflow/input-state';
-import { answerKindLabels, startLabel, stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
+import { answerKindLabels, stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 
 // Every kind of state in the schema, read from the schema itself so a new kind is noticed here.
 const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
@@ -23,7 +23,7 @@ describe('stateLabels', () => {
 	});
 
 	it('does not use all capitals, which the design rules forbid', () => {
-		for (const label of [...Object.values(stateLabels), startLabel]) expect(label).not.toBe(label.toUpperCase());
+		for (const label of Object.values(stateLabels)) expect(label).not.toBe(label.toUpperCase());
 	});
 });
 

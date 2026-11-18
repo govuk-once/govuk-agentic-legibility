@@ -131,7 +131,7 @@ Validation checks happen at set points, but not while a journey is being compose
 
 The details page posts a name, a description and links to the draft page's form action. On the server:
 
-1. The page behind each link is read, if it is on GOV.UK (`src/lib/server/shared/read-links.ts`, `fetch-link.ts`, `allowed-link-domains.ts`).
+1. The page behind each link is read, if it is on GOV.UK (`src/lib/server/shared/read-links.ts`, `src/lib/server/shared/fetch-link.ts`, `src/lib/server/shared/allowed-link-domains.ts`).
 2. The LLM is asked for one process, with the prompt for that route. The form prompt is `src/lib/server/onboard-form/system-prompt.ts` and the service prompt is `src/lib/server/onboard-service/system-prompt.ts`. Each ends with the JSON Schema of a process, made from the Zod schema, because Bedrock does not enforce the shape of the reply for this model. This will be updated to use Agent Core tool calls to improve this in a later version before deployment.
 3. The process is wrapped into a workflow with placeholders for what the model is not asked for, such as the owner, contact and executor settings (`src/lib/server/shared/build-draft-workflow.ts`). A form keeps its name as the manifest description, and the description typed on the details page in the manifest metadata.
 
@@ -171,3 +171,11 @@ Every folder ending in `-old` (`components-old`, `graph-old`, `schema-old`, `exa
 * Decide where context added for the agent is saved. It lasts only while the page is open.
 
 **Fetching links on the server.** At onboarding auto generation, the server reads the page behind each link before it asks the model. It only does this from an approved list of URLs. However, code that fetches web pages on a server can be misused to reach places it should not, even with the list of allowed sites, the check on every redirect and the time limit in place. For now run Service Studio locally only. It will move to AWS Agent Core tool calls, which are more secure and reduce these vunerabilities, before it is hosted anywhere.
+
+The link reading is in these files:
+
+* `src/lib/server/shared/fetch-link.ts` is the only place the server fetches a web page, in `fetchLinkText`. It checks every redirect and stops after a time limit. This is the call to replace with an agent tool call.
+* `src/lib/server/shared/allowed-link-domains.ts` holds the list of allowed sites and `isAllowedLink`, which checks a link against it.
+* `src/lib/server/shared/read-links.ts` reads each link through `fetchLinkText` in `readLinks`, and gathers the text for the prompt.
+* `src/lib/server/shared/generate-workflow.ts` calls `readLinks` before it asks the model. Both form and service onboarding go through it, so this is where an agent call would plug in.
+* `src/lib/server/onboard-old/generate-service.ts`, in the old onboarding, also calls `fetchLinkText`. It is deleted along with the other `-old` folders.

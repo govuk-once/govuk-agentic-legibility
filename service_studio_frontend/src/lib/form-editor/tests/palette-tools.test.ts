@@ -1,30 +1,23 @@
 import { describe, expect, it } from 'vitest';
+import { moduleCategories } from '$lib/modules/module-catalogue';
 import { formPaletteTools } from '../palette-tools';
-import { stateLabels } from '../state-labels';
 
 describe('formPaletteTools', () => {
-	it('offers a question, a message, a decision, a start and an end, in that order', () => {
-		expect(formPaletteTools.map((tool) => tool.label)).toEqual(['Question', 'Message', 'Decision', 'Start', 'End']);
+	it('lets only the basic shapes be dragged: an input, a message, a decision, a start and an end', () => {
+		expect(formPaletteTools.map((tool) => tool.module)).toEqual(['input', 'output', 'decision', 'start', 'end']);
 	});
 
-	it('takes the words for a state from the same place as the tags on the cards', () => {
-		const byValue = Object.fromEntries(formPaletteTools.map((tool) => [tool.value, tool.label]));
-		expect(byValue.input).toBe(stateLabels.input);
-		expect(byValue.output).toBe(stateLabels.output);
-		expect(byValue.condition).toBe(stateLabels.choice);
-		expect(byValue.end).toBe(stateLabels.end);
-	});
-
-	it('names the kind of state a question or a message adds, and the draft shape for the rest', () => {
+	it('names the kind of state an input or a message adds, and the draft shape for the rest', () => {
 		expect(formPaletteTools.map((tool) => tool.value)).toEqual(['input', 'output', 'condition', 'start', 'end']);
 	});
 
-	it('gives every shape a different value, so a drop can tell them apart', () => {
+	it('gives every tool a different value, so a drop can tell them apart', () => {
 		const values = formPaletteTools.map((tool) => tool.value);
 		expect(new Set(values).size).toBe(values.length);
 	});
 
-	it('draws a question and a message as boxes, a decision as a diamond and a start and an end as dots', () => {
-		expect(formPaletteTools.map((tool) => tool.shape)).toEqual(['step', 'step', 'condition', 'start', 'end']);
+	it('only names tiles that are in the module menu', () => {
+		const keys = moduleCategories.flatMap((category) => category.modules.map((module) => module.key));
+		for (const tool of formPaletteTools) expect(keys).toContain(tool.module);
 	});
 });

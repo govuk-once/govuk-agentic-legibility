@@ -12,16 +12,6 @@ describe('stagesAt', () => {
 			'upcoming'
 		]);
 	});
-
-	it('shows an earlier stage that is named as unfinished as not finished', () => {
-		const stages = stagesAt('Sign off', ['Tech review']);
-		expect(stages[4]).toEqual({ number: 5, label: 'Tech review not finished', state: 'unfinished' });
-		expect(stages[5]).toEqual({ number: 6, label: 'Sign off', state: 'current' });
-	});
-
-	it('ignores a stage named as unfinished that comes after the current one', () => {
-		expect(stagesAt('Edit', ['Sign off'])[5].state).toBe('upcoming');
-	});
 });
 
 describe('publishedStages', () => {

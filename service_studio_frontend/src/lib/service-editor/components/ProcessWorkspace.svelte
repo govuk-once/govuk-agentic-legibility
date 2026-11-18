@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
+	import ModuleMenu from '$lib/modules/ModuleMenu.svelte';
+	import { basicCategories, type PaletteTool } from '$lib/modules/module-catalogue';
 	import ProcessCanvas from '$lib/process-graph/ProcessCanvas.svelte';
 	import { describeState } from '$lib/process-graph/describe-state';
 	import type { DraftSet } from '$lib/process-graph/drafts';
@@ -49,13 +50,14 @@
 		onOpenProcess
 	}: Props = $props();
 
-	// The shapes the palette offers: a step, a decision, a start and an end. The value of the step is the kind of
-	// state it adds, which is an output, a message to the person.
+	// The service editor offers only the basic shapes from the module menu for now: an input, a message, a decision, a
+	// start and an end. The value of an input or a message is the kind of state it adds.
 	const paletteTools: PaletteTool[] = [
-		{ value: 'output', label: 'Step', shape: 'step' },
-		{ value: 'condition', label: 'Decision', shape: 'condition' },
-		{ value: 'start', label: 'Start', shape: 'start' },
-		{ value: 'end', label: 'End', shape: 'end' }
+		{ module: 'input', value: 'input', shape: 'step' },
+		{ module: 'output', value: 'output', shape: 'step' },
+		{ module: 'decision', value: 'condition', shape: 'condition' },
+		{ module: 'start', value: 'start', shape: 'start' },
+		{ module: 'end', value: 'end', shape: 'end' }
 	];
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and
@@ -150,71 +152,83 @@
 </script>
 
 <div class="process-workspace">
-	<ProcessCanvas
-		{process}
-		{graph}
-		{paletteTools}
-		connectedStepKind="output"
-		{showErrorRoutes}
-		{positions}
-		{layoutRound}
-		{onMoveNodes}
-		{drafts}
-		{onChangeDrafts}
-		onChangeProcess={applyChange}
-		{onOpenProcess}
-		bind:selectedStateId={() => selectedStateId, select}
-		bind:messages
-		onEditState={selectAndEdit}
-		onDeleteStates={removeFromProcess}
-	/>
+	<ModuleMenu categories={basicCategories} tools={paletteTools} />
 
-	<aside class="process-workspace__panel" aria-label="Steps">
-		<div class="process-workspace__list">
-			<StateList rows={stateRows(shown.nodes)} bind:selectedStateId={() => selectedStateId, select} />
-		</div>
+	<div class="process-workspace__body">
+		<ProcessCanvas
+			{process}
+			{graph}
+			{paletteTools}
+			connectedStepKind="output"
+			{showErrorRoutes}
+			{positions}
+			{layoutRound}
+			{onMoveNodes}
+			{drafts}
+			{onChangeDrafts}
+			onChangeProcess={applyChange}
+			{onOpenProcess}
+			bind:selectedStateId={() => selectedStateId, select}
+			bind:messages
+			onEditState={selectAndEdit}
+			onDeleteStates={removeFromProcess}
+		/>
 
-		{#if selectedStateId && selectedState && description}
-			{@const code = selectedStateId}
-			<div class="process-workspace__details">
-				<!-- Shown afresh for each state, so an open edit form never carries over to another state. -->
-				{#key selectedStateId}
-					<StateDetails
-						title={titleOf(code) ?? code}
-						{description}
-						currentState={selectedState}
-						{targets}
-						unreachable={!reachable.has(code)}
-						canMoveUp={canMoveEarlier(process, code)}
-						canMoveDown={canMoveLater(process, code)}
-						onMove={(direction) => {
-							// The graph is arranged again, so the boxes follow the new order of the list.
-							applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code));
-							onRearrange();
-						}}
-						isStart={process.start === code}
-						canEnd={canEndJourneyAt(process, code)}
-						onSetStart={() => applyChange(setStart(process, code))}
-						onEndJourney={() => handleEndJourney(code)}
-						onRemove={() => removeFromProcess({ stateCodes: [code], lines: [] })}
-						onApply={(updated: WorkingState, endsJourney: boolean) => applyEdit(code, updated, endsJourney)}
-						onSelectState={(stateId) => {
-							// A route to a state that does not exist has nothing to show.
-							if (process.states[stateId]) select(stateId);
-						}}
-						{onOpenProcess}
-						onClose={() => select(null)}
-						editing={selection.editing && selection.code === code}
-						onEditingChange={(editing) => (selection = { code, editing })}
-					/>
-				{/key}
+		<aside class="process-workspace__panel" aria-label="Steps">
+			<div class="process-workspace__list">
+				<StateList rows={stateRows(shown.nodes)} bind:selectedStateId={() => selectedStateId, select} />
 			</div>
-		{/if}
-	</aside>
+
+			{#if selectedStateId && selectedState && description}
+				{@const code = selectedStateId}
+				<div class="process-workspace__details">
+					<!-- Shown afresh for each state, so an open edit form never carries over to another state. -->
+					{#key selectedStateId}
+						<StateDetails
+							title={titleOf(code) ?? code}
+							{description}
+							currentState={selectedState}
+							{targets}
+							unreachable={!reachable.has(code)}
+							canMoveUp={canMoveEarlier(process, code)}
+							canMoveDown={canMoveLater(process, code)}
+							onMove={(direction) => {
+								// The graph is arranged again, so the boxes follow the new order of the list.
+								applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code));
+								onRearrange();
+							}}
+							isStart={process.start === code}
+							canEnd={canEndJourneyAt(process, code)}
+							onSetStart={() => applyChange(setStart(process, code))}
+							onEndJourney={() => handleEndJourney(code)}
+							onRemove={() => removeFromProcess({ stateCodes: [code], lines: [] })}
+							onApply={(updated: WorkingState, endsJourney: boolean) => applyEdit(code, updated, endsJourney)}
+							onSelectState={(stateId) => {
+								// A route to a state that does not exist has nothing to show.
+								if (process.states[stateId]) select(stateId);
+							}}
+							{onOpenProcess}
+							onClose={() => select(null)}
+							editing={selection.editing && selection.code === code}
+							onEditingChange={(editing) => (selection = { code, editing })}
+						/>
+					{/key}
+				</div>
+			{/if}
+		</aside>
+	</div>
 </div>
 
 <style>
+	/* The module menu runs across the top, over the canvas and the panel, which sit side by side below it. */
 	.process-workspace {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.process-workspace__body {
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
@@ -247,7 +261,7 @@
 	}
 
 	@media (max-width: 900px) {
-		.process-workspace {
+		.process-workspace__body {
 			flex-direction: column;
 		}
 

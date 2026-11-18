@@ -1,5 +1,5 @@
 <script lang="ts">
-	import NodePalette, { type PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
+	import type { PaletteTool } from '$lib/modules/module-catalogue';
 	import { addLooseStep, addStepBeforeStart, isNewStepKind, type NewStepKind } from '$lib/schema/workflow/edit-journey';
 	import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 	import {
@@ -18,16 +18,17 @@
 	import type { DeletedElements, NodePositions, ProcessGraphElements, StepOutlineColours } from './process-graph-types';
 
 	/*
-		The palette, the graph and the message that explains a refused change, with everything the person can do
-		on the canvas: drop a shape, draw a line, drag a line out to empty canvas and press Delete. Any editor of a
-		process can use it. The editor supplies the panel beside it and decides how a state is edited or taken out.
+		The graph and the message that explains a refused change, with everything the person can do on the canvas:
+		drop a shape from the module menu, draw a line, drag a line out to empty canvas and press Delete. Any editor of
+		a process can use it. The editor supplies the menu above it and the panel beside it, and decides how a state is
+		edited or taken out.
 	*/
 
 	interface Props {
 		process: WorkingProcess;
 		// The nodes and edges of the process, built by the editor so its list of steps uses the same ones.
 		graph: ProcessGraphElements;
-		// The shapes the palette offers. The editor says which, so an editor that allows fewer shapes shows fewer.
+		// What can be dropped from the module menu. The editor says which, so a drop it does not allow is ignored.
 		// The value of a box shape is the kind of step it adds, input or output. A decision, a start and an end are
 		// told apart by their shape.
 		paletteTools: PaletteTool[];
@@ -120,7 +121,7 @@
 	}
 
 	/**
-	 * Adds what a shape dropped from the palette stands for. The shape is found among the ones the editor offers, so
+	 * Adds what a tile dropped from the module menu stands for. It is found among the ones the editor offers, so
 	 * the canvas adds only what that editor allows. A box adds a step of the kind its value names. A decision, a
 	 * start or an end is placed as a draft.
 	 */
@@ -192,8 +193,6 @@
 		onDeleteStates({ stateCodes: deleted.stateCodes, lines: deleted.lines });
 	}
 </script>
-
-<NodePalette tools={paletteTools} />
 
 <div class="process-canvas">
 	<ProcessGraph

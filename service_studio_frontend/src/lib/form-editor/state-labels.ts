@@ -3,7 +3,7 @@ import type { AnswerDefinition } from '$lib/schema/workflow/input-state';
 import type { State } from '$lib/schema/workflow/process';
 
 /*
-	The words a person sees for each kind of state in the form editor. The palette and the tags on the cards both read
+	The words a person sees for each kind of state in the form editor. The tags on the cards and the panel read
 	them from here, so a state is called the same thing wherever it appears. Question and Message are the plain words
 	for input and output. The other kinds keep the schema's own names, so a developer can match them to the file.
 */
@@ -19,9 +19,6 @@ export const stateLabels: Record<State['state_type'], string> = {
 	invoke: 'Invoke',
 	api_call: 'API call'
 };
-
-// The start dot is on the canvas but is not a state of the process, so it has a label of its own.
-export const startLabel = 'Start';
 
 // The GOV.UK tag colour for each kind of state, so a question, a message and a decision can be told apart at a glance.
 // The record is keyed by every kind of state, so adding a kind to the schema without a colour here fails to compile.

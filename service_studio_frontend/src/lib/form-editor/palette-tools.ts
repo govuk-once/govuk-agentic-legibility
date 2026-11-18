@@ -1,16 +1,14 @@
-import type { PaletteTool } from '$lib/graph-kit/NodePalette.svelte';
-import { stateLabels, startLabel } from './state-labels';
+import type { PaletteTool } from '$lib/modules/module-catalogue';
 
 /*
-	The shapes the form editor offers on its palette. A form is made of questions and messages, joined by decisions,
-	between a start and an end. The value of a question or a message is the kind of state it adds, input or output,
-	so the canvas can add a state of that kind when the shape is dropped. The value of a decision, a start and an end is
-	the name the canvas uses for a shape that stays a draft until it is joined to the process.
+	What the form editor lets the person drag from the module menu onto the canvas: the basic shapes. Input and Message
+	add a single question or message, and the decision, start and end place shapes that stay drafts until they are
+	joined to the process. The modules are shown but cannot be dragged until they add their own states.
 */
 export const formPaletteTools: PaletteTool[] = [
-	{ value: 'input', label: stateLabels.input, shape: 'step' },
-	{ value: 'output', label: stateLabels.output, shape: 'step' },
-	{ value: 'condition', label: stateLabels.choice, shape: 'condition' },
-	{ value: 'start', label: startLabel, shape: 'start' },
-	{ value: 'end', label: stateLabels.end, shape: 'end' }
+	{ module: 'input', value: 'input', shape: 'step' },
+	{ module: 'output', value: 'output', shape: 'step' },
+	{ module: 'decision', value: 'condition', shape: 'condition' },
+	{ module: 'start', value: 'start', shape: 'start' },
+	{ module: 'end', value: 'end', shape: 'end' }
 ];

@@ -14,13 +14,12 @@
 	// The words read out before each stage, so a screen reader hears what the marker shows.
 	const visuallyHiddenStates: Record<Stage['state'], string> = {
 		complete: 'Completed',
-		unfinished: 'Not finished',
 		current: 'Current step',
 		upcoming: 'Upcoming step'
 	};
 </script>
 
-<!-- The progress navigation communicates completed, unfinished, current and upcoming prototype stages in one sequence. -->
+<!-- The progress navigation communicates completed, current and upcoming prototype stages in one sequence. -->
 <nav class="progress" class:progress--compact={compact} aria-label="Prototype stages">
 	{#each stages as stage, index (stage.number)}
 		{#if index > 0}
@@ -37,8 +36,6 @@
 						<path d="M1 5.5 L5 9.5 L13 1.5" fill="none" stroke="#ffffff" stroke-width="2.5" />
 					</svg>
 				</span>
-			{:else if stage.state === 'unfinished'}
-				<span class="progress__marker progress__marker--unfinished" aria-hidden="true">!</span>
 			{:else}
 				<span
 					class="progress__marker"
@@ -50,7 +47,6 @@
 			<span
 				class="progress__label"
 				class:progress__label--current={stage.state === 'current'}
-				class:progress__label--unfinished={stage.state === 'unfinished'}
 			>
 				{stage.label}
 			</span>
@@ -126,21 +122,10 @@
 		color: #ffffff;
 	}
 
-	.progress__marker--unfinished {
-		background-color: #ffdd00;
-		border: 0;
-		color: #0b0c0c;
-	}
-
 	.progress__label {
 		font-size: 1rem;
 		line-height: 1.25;
 		color: #505a5f;
-	}
-
-	.progress__label--unfinished {
-		font-weight: 700;
-		color: #7a3c1c;
 	}
 
 	.progress--compact .progress__label {

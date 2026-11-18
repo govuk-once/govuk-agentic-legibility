@@ -5,9 +5,7 @@
 	while a developer works on the form, and comes back to sign off once it is done.
 */
 
-// An unfinished stage is one that comes before the current stage but has not been finished, so the banner can
-// warn that the page was reached early.
-export type StageState = 'complete' | 'unfinished' | 'current' | 'upcoming';
+export type StageState = 'complete' | 'current' | 'upcoming';
 
 export interface Stage {
 	number: number;
@@ -19,12 +17,11 @@ const stageLabels = ['Start', 'Create', 'Edit', 'Owner review', 'Tech review', '
 
 /**
  * Builds the six stages with the stage of the given label current, the ones before it complete and the rest
- * upcoming. An earlier stage named in unfinished is shown as not finished in place of complete.
+ * upcoming.
  */
-export function stagesAt(current: string, unfinished: string[] = []): Stage[] {
+export function stagesAt(current: string): Stage[] {
 	const at = stageLabels.indexOf(current);
 	return stageLabels.map((label, index) => {
-		if (index < at && unfinished.includes(label)) return { number: index + 1, label: `${label} not finished`, state: 'unfinished' };
 		const state: StageState = index < at ? 'complete' : index === at ? 'current' : 'upcoming';
 		return { number: index + 1, label, state };
 	});
