@@ -42,7 +42,7 @@
 <OnboardDraftPage
 	result={form}
 	subject="form"
-	detailsRoute="/onboard/form/details"
+	detailsHref={resolve('/onboard/form/details')}
 	{stepTotal}
 	{branchCount}
 	onEdit={openInEditor}

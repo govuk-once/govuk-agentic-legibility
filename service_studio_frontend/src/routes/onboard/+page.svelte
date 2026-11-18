@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { startStages } from '$lib/components/progress-stages';
@@ -32,8 +31,8 @@
 	<title>Create a service | Service Studio</title>
 </svelte:head>
 
-<!-- One way to start something new. A start that cannot be used yet has no route, and its button is switched off. -->
-{#snippet startOption(id: string, heading: string, intro: string, next: string, route?: Pathname)}
+<!-- One way to start something new. A start that cannot be used yet has no link, and its button is switched off. -->
+{#snippet startOption(id: string, heading: string, intro: string, next: string, href?: string)}
 	<section class="onboard-start" aria-labelledby="{id}-heading">
 		<div class="govuk-!-padding-5">
 			<h2 id="{id}-heading" class="govuk-heading-m govuk-!-margin-bottom-2">{heading}</h2>
@@ -42,8 +41,8 @@
 
 		<!-- The lower panel separates the action from its explanation without introducing another card. -->
 		<div class="onboard-start__action govuk-!-padding-5">
-			{#if route}
-				<a class="govuk-button govuk-button--start" href={resolve(route)}>
+			{#if href}
+				<a class="govuk-button govuk-button--start" {href}>
 					{heading}
 					{@render startIcon()}
 				</a>
@@ -87,7 +86,7 @@
 				'Start a new form',
 				'Create a digital form with steps, questions and conditions.',
 				'Next you will choose how to draft it: with automation, from an existing GOV.UK form, or with a blank graph.',
-				'/onboard/form/method'
+				resolve('/onboard/form/method')
 			)}
 			{@render startOption(
 				'start-service',

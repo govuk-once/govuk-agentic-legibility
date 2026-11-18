@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import OnboardDetailsPage from '$lib/components/OnboardDetailsPage.svelte';
 </script>
 
@@ -8,8 +9,8 @@
 
 <OnboardDetailsPage
 	subject="service"
-	backRoute="/onboard/service/method"
-	actionRoute="/onboard/service/draft"
+	backHref={resolve('/onboard/service/method')}
+	actionHref={resolve('/onboard/service/draft')}
 	caption="Start a new service, step 2 of 2"
 	heading="Tell the assistant about the service"
 	intro="It will use this, plus what is already on GOV.UK, to draft the journey and graph."

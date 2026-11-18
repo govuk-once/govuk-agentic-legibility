@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Progress from '$lib/components/Progress.svelte';
+	import ReviewPageTitle from '$lib/components/ReviewPageTitle.svelte';
 	import { stagesAt } from '$lib/components/progress-stages';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
 	import type { LayoutProps } from './$types';
@@ -15,23 +16,10 @@
 <Progress {stages} />
 
 <main>
-	<div class="owner-review__title govuk-!-padding-top-6">
-		<span class="govuk-caption-m govuk-!-margin-bottom-2">{data.workflow.manifest.description}</span>
-		<h1 class="govuk-heading-xl govuk-!-margin-bottom-2">Owner review</h1>
-		<p class="govuk-body govuk-!-margin-bottom-0">Check the details, clear any problems, then sign off so the form can be published.</p>
-	</div>
+	<ReviewPageTitle
+		caption={data.workflow.manifest.description}
+		heading="Owner review"
+		intro="Check the details, clear any problems, then sign off so the form can be published."
+	/>
 	{@render children()}
 </main>
-
-<style>
-	/* Lines the title up with GOV.UK in the header. */
-	.owner-review__title {
-		padding-inline: 40px;
-	}
-
-	@media (max-width: 640px) {
-		.owner-review__title {
-			padding-inline: 15px;
-		}
-	}
-</style>

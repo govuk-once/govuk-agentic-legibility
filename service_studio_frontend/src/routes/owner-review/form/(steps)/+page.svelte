@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
-	import { ownerReviewSteps } from '$lib/form-editor/owner-review-steps';
+	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { saveFormForReview } from '$lib/form-editor/review-store';
 	import {
 		agentNotesLimit,

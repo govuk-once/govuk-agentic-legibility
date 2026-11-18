@@ -8,7 +8,7 @@
 	const issues = $derived(page.error?.issues);
 </script>
 
-<DraftProblemPage problem={issues ? { ok: false, reason: 'invalid', issues } : { ok: false, reason: 'missing' }} startRoute="/edit-form" title="Owner review">
+<DraftProblemPage problem={issues ? { ok: false, reason: 'invalid', issues } : { ok: false, reason: 'missing' }} startHref={resolve('/edit-form')} title="Owner review">
 	{#snippet missing()}
 		<h1 class="govuk-heading-xl">Nothing to review yet</h1>
 		<p class="govuk-body">

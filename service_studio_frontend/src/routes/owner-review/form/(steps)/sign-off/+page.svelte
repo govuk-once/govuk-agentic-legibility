@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
-	import { ownerReviewSteps } from '$lib/form-editor/owner-review-steps';
+	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { ownerDetailsOf, ownerDetailsProblems } from '$lib/schema/workflow/owner-details';
 	import type { PageProps } from './$types';
 

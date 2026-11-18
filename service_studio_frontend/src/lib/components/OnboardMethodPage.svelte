@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
+	import type { ResolvedPathname } from '$app/types';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { draftMethodField, type DraftMethod } from './draft-methods';
 
@@ -11,8 +10,8 @@
 	*/
 
 	interface Props {
-		// The route of the page before this one, which the back link leads to. This page resolves it.
-		backRoute: Pathname;
+		// The link to the page before this one, which the back link leads to. The page that shows this one resolves it.
+		backHref: ResolvedPathname;
 		caption: string;
 		// What drafting with the assistant does, in the words of the route's own kind of draft.
 		automationHint: string;
@@ -20,7 +19,7 @@
 		existingOption?: { label: string; hint: string };
 	}
 
-	let { backRoute, caption, automationHint, existingOption }: Props = $props();
+	let { backHref, caption, automationHint, existingOption }: Props = $props();
 
 	// One choice on the page. A choice that is not available yet is shown switched off.
 	type MethodOption = { value: DraftMethod; label: string; hint: string; recommended?: boolean; disabled?: boolean };
@@ -41,7 +40,7 @@
 
 <main class="onboard-method govuk-!-padding-top-9 govuk-!-padding-bottom-9">
 	<div class="onboard-method__content">
-		<a class="govuk-back-link govuk-!-margin-bottom-5" href={resolve(backRoute)}>Back</a>
+		<a class="govuk-back-link govuk-!-margin-bottom-5" href={backHref}>Back</a>
 
 		<!-- Sent back to this page, whose loader reads the choice and moves on. A plain GET form needs no script. -->
 		<form method="GET">

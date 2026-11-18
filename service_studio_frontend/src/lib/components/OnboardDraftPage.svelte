@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
+	import type { ResolvedPathname } from '$app/types';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 
 	/*
@@ -20,8 +19,9 @@
 		result: DraftResult;
 		// What the draft is of, in one word, such as "service". It is used in the text.
 		subject: string;
-		// The route of the details page, which the back link and the links to try again lead to. This page resolves it.
-		detailsRoute: Pathname;
+		// The link to the details page, which the back link and the links to try again lead to. The page that shows
+		// this one resolves it.
+		detailsHref: ResolvedPathname;
 		// How many steps and how many branches the draft has, counted the way the editor counts them.
 		stepTotal: number;
 		branchCount: number;
@@ -30,7 +30,7 @@
 		onEdit: () => Promise<boolean>;
 	}
 
-	let { result, subject, detailsRoute, stepTotal, branchCount, onEdit }: Props = $props();
+	let { result, subject, detailsHref, stepTotal, branchCount, onEdit }: Props = $props();
 
 	// Set when the browser would not hold the draft, so the person is told why the editor did not open.
 	let draftNotHeld = $state(false);
@@ -44,13 +44,13 @@
 
 <main class="onboard-draft govuk-!-padding-top-9 govuk-!-padding-bottom-9">
 	<div class="onboard-draft__content">
-		<a class="govuk-back-link govuk-!-margin-bottom-5" href={resolve(detailsRoute)}>Back</a>
+		<a class="govuk-back-link govuk-!-margin-bottom-5" href={detailsHref}>Back</a>
 
 		{#if !result}
 			<!-- Reached directly rather than by submitting the details form, so there is nothing to show. -->
 			<h1 class="govuk-heading-xl">Nothing to show yet</h1>
 			<p class="govuk-body">
-				Go back to <a class="govuk-link" href={resolve(detailsRoute)}>the {subject} details</a> and submit the form to generate a first
+				Go back to <a class="govuk-link" href={detailsHref}>the {subject} details</a> and submit the form to generate a first
 				draft.
 			</p>
 		{:else if !result.success}
@@ -68,7 +68,7 @@
 				</div>
 			</div>
 			<p class="govuk-body">
-				<a class="govuk-link" href={resolve(detailsRoute)}>Go back and try again</a>.
+				<a class="govuk-link" href={detailsHref}>Go back and try again</a>.
 			</p>
 		{:else}
 			<p class="govuk-body-l">{result.name}</p>

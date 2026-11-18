@@ -1,4 +1,5 @@
 import type { Condition } from '$lib/schema/workflow/condition';
+import { durationPattern } from '$lib/schema/workflow/durations';
 import type { Expression } from '$lib/schema/workflow/expression';
 
 /*
@@ -18,8 +19,6 @@ const durationUnits = [
 	['seconds', 'second']
 ] as const;
 
-// Matches a duration such as P14D or PT1H30M and captures each number, so it can be written in words.
-const durationPattern = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/;
 
 /**
  * Writes a duration in words, so PT5S becomes "5 seconds" and P1DT12H becomes "1 day and 12 hours".

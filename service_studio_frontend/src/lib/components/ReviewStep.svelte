@@ -128,7 +128,9 @@
 		padding: 50px 25px;
 	}
 
+	/* The top margin pushes the bar to the bottom of the page's main area, which fills the window on a short page. */
 	.review-step__actions {
+		margin-top: auto;
 		padding: 20px 40px;
 		background-color: #f3f2f1;
 		border-top: 1px solid #b1b4b6;

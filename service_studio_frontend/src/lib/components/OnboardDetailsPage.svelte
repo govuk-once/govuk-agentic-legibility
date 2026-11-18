@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
+	import type { ResolvedPathname } from '$app/types';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 
 	/*
@@ -12,11 +11,11 @@
 	interface Props {
 		// What the draft is of, in one word, such as "service". It is used in the labels of the fields.
 		subject: string;
-		// The route of the page before this one, and the route the form posts to. That page asks the model for
-		// the draft and shows the result. They are routes of the app, and this page resolves them. A kind of draft
-		// that cannot be generated yet leaves the route out, and the button is then switched off.
-		backRoute: Pathname;
-		actionRoute?: Pathname;
+		// The link to the page before this one, and the link the form posts to. That page asks the model for the
+		// draft and shows the result. The page that shows this one resolves them. A kind of draft that cannot be
+		// generated yet leaves the action out, and the button is then switched off.
+		backHref: ResolvedPathname;
+		actionHref?: ResolvedPathname;
 		caption: string;
 		heading: string;
 		intro: string;
@@ -24,14 +23,14 @@
 		initial: { name: string; description: string; link: string };
 	}
 
-	let { subject, backRoute, actionRoute, caption, heading, intro, initial }: Props = $props();
+	let { subject, backHref, actionHref, caption, heading, intro, initial }: Props = $props();
 </script>
 
 <ServiceHeader />
 
 <main class="onboard-details govuk-!-padding-top-9 govuk-!-padding-bottom-9">
 	<div class="onboard-details__content">
-		<a class="govuk-back-link govuk-!-margin-bottom-5" href={resolve(backRoute)}>Back</a>
+		<a class="govuk-back-link govuk-!-margin-bottom-5" href={backHref}>Back</a>
 
 		<h1 class="govuk-heading-xl">
 			<span class="govuk-caption-l govuk-!-margin-bottom-5">{caption}</span>
@@ -41,7 +40,7 @@
 
 		<!-- Posts to the draft page's own form action, which asks the model for the draft and shows the result there.
 			A plain full page POST needs no client side script. -->
-		<form method="POST" action={actionRoute ? resolve(actionRoute) : undefined}>
+		<form method="POST" action={actionHref}>
 			<div class="govuk-form-group">
 				<label class="govuk-label govuk-label--s" for="onboard-name">What is the {subject} called?</label>
 				<input class="govuk-input" id="onboard-name" name="name" type="text" value={initial.name} />
@@ -104,13 +103,13 @@
 			</div>
 
 			<div class="govuk-button-group">
-				<button class="govuk-button" type="submit" disabled={!actionRoute}>
+				<button class="govuk-button" type="submit" disabled={!actionHref}>
 					<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 						<path d="M9 0 L11 7 L18 9 L11 11 L9 18 L7 11 L0 9 L7 7 Z" fill="currentColor" />
 					</svg>
 					Generate the first draft
 				</button>
-				<span class="govuk-body">{actionRoute ? 'Usually under a minute' : 'Not available yet'}</span>
+				<span class="govuk-body">{actionHref ? 'Usually under a minute' : 'Not available yet'}</span>
 			</div>
 		</form>
 	</div>

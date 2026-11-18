@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
+	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import type { DraftLoad } from '$lib/draft-store';
@@ -13,8 +12,8 @@
 	interface Props {
 		// Why the draft could not be opened, as the draft store gave it.
 		problem: Extract<DraftLoad, { ok: false }>;
-		// The route of the page where a new draft is started. This page resolves it.
-		startRoute: Pathname;
+		// The link to the page where a new draft is started, resolved by the page that shows this one.
+		startHref: ResolvedPathname;
 		// What to say when there is nothing in the browser tab, for a page that is reached some other way than by
 		// opening a new draft. Without it the page asks for a first draft.
 		missing?: Snippet;
@@ -22,7 +21,7 @@
 		title?: string;
 	}
 
-	let { problem, startRoute, missing, title = 'Open the draft' }: Props = $props();
+	let { problem, startHref, missing, title = 'Open the draft' }: Props = $props();
 </script>
 
 <svelte:head>
@@ -37,7 +36,7 @@
 	{:else if problem.reason === 'missing'}
 		<h1 class="govuk-heading-xl">Nothing to edit yet</h1>
 		<p class="govuk-body">
-			There is no draft in this browser tab. <a class="govuk-link" href={resolve(startRoute)}>Generate a first draft</a>
+			There is no draft in this browser tab. <a class="govuk-link" href={startHref}>Generate a first draft</a>
 			and choose Edit to open it here.
 		</p>
 	{:else}
@@ -53,7 +52,7 @@
 			</div>
 		</div>
 		<p class="govuk-body">
-			<a class="govuk-link" href={resolve(startRoute)}>Generate a new draft</a>.
+			<a class="govuk-link" href={startHref}>Generate a new draft</a>.
 		</p>
 	{/if}
 </main>
