@@ -1,0 +1,50 @@
+{
+  "workflow_id": 264773,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.264773",
+  "version": "0.1.0",
+  "contact": "ai@dsit.gov.uk",
+  "description": "AI Community Board Suggestion Box",
+  "state": "draft",
+  "metadata": {
+    "form_id": "264773",
+    "form_slug": "ai-community-board-suggestion-box",
+    "status": "live",
+    "language": "en",
+    "available_languages": [
+      "en"
+    ],
+    "submission_type": "email",
+    "submission_format": [
+      "csv"
+    ],
+    "support_url": null,
+    "support_email": "ai@dsit.gov.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.gov.uk/government/collections/dsit-privacy-notices",
+    "payment_url": null,
+    "live_at": "2026-03-19T11:40:33.869876Z",
+    "created_at": "2026-03-02T15:59:11.763469Z",
+    "updated_at": "2026-03-19T11:40:33.869876Z",
+    "first_made_live_at": "2026-03-19T11:40:33.852779Z",
+    "creator_id": 4135,
+    "copied_from_id": null,
+    "send_copy_of_answers": null,
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "ai_community_board_suggestion_box",
+  "executor": {
+    "workflow_id_template": "forms-264773-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "ai_community_board_suggestion_box",
+      "version": "0.1.0"
+    }
+  ]
+}

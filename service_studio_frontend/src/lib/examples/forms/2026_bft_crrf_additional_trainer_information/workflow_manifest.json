@@ -1,0 +1,50 @@
+{
+  "workflow_id": 265461,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.265461",
+  "version": "0.1.0",
+  "contact": "BFT.recreational@marinemanagement.org.uk",
+  "description": "2026 BFT CRRF Additional trainer information",
+  "state": "draft",
+  "metadata": {
+    "form_id": "265461",
+    "form_slug": "2026-bft-crrf-additional-trainer-information",
+    "status": "live",
+    "language": "en",
+    "available_languages": [
+      "en"
+    ],
+    "submission_type": "email",
+    "submission_format": [
+      "csv"
+    ],
+    "support_url": null,
+    "support_email": "BFT.recreational@marinemanagement.org.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.gov.uk/government/organisations/marine-management-organisation/about/personal-information-charter",
+    "payment_url": null,
+    "live_at": "2026-05-01T13:13:01.419796Z",
+    "created_at": "2026-05-01T11:43:35.288474Z",
+    "updated_at": "2026-05-01T13:13:01.419796Z",
+    "first_made_live_at": "2026-05-01T13:13:01.396490Z",
+    "creator_id": 1511,
+    "copied_from_id": null,
+    "send_copy_of_answers": null,
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "2026_bft_crrf_additional_trainer_information",
+  "executor": {
+    "workflow_id_template": "forms-265461-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "2026_bft_crrf_additional_trainer_information",
+      "version": "0.1.0"
+    }
+  ]
+}

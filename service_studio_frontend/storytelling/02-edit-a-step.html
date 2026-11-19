@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Studio: editing a step</title>
+<!--
+	A self contained animation of the Service Studio step editor. A step is selected on the canvas, the
+	editor opens beside it, and the step's name, description and type are changed one at a time. Applying
+	the changes updates the step on the canvas. Everything it needs is in this one file, so it can be shared
+	or opened on its own. To change what is shown, edit the NODES, the EDIT values and the run() timeline in
+	the script at the bottom.
+-->
+<style>
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--muted: #737373;
+		--border: #b1b4b6;
+		--soft-border: #d8d8d3;
+		--node-border: #c9cac6;
+		--line: #7b8387;
+		--blue: #1d70b8;
+		--blue-tint: #e8f1f8;
+		--green: #00703c;
+		--black: #0b0c0c;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: 20px;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: #ffffff;
+		color: var(--text);
+		font-family: 'GDS Transport', arial, sans-serif;
+	}
+
+	.wrap {
+		width: min(100%, 1440px);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* The stage is drawn at a fixed 1440 by 900 and scaled to fit, so every position below is in the same
+		simple coordinates whatever size the page is viewed at. */
+	.viewport {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 1440 / 900;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.stage {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 1440px;
+		height: 900px;
+		transform-origin: 0 0;
+	}
+
+	/* The window onto the drawing: a square of dotted canvas. What is inside it, the world, is what gets
+		zoomed and moved. */
+	.canvas {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 900px;
+		height: 900px;
+		overflow: hidden;
+		background-image: radial-gradient(circle at 2px 2px, #e6e6e2 1.2px, transparent 1.7px);
+		background-size: 30px 30px;
+	}
+
+	.world {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 900px;
+		height: 900px;
+		transform-origin: 0 0;
+	}
+
+	.fadeable {
+		transition: opacity 0.6s ease;
+	}
+
+	.fadeable.fade {
+		opacity: 0;
+	}
+
+	/* Softens the right hand edge of the canvas into the white behind the editor. */
+	.canvas-fade {
+		position: absolute;
+		top: 0;
+		left: 780px;
+		width: 120px;
+		height: 900px;
+		background: linear-gradient(90deg, rgba(255, 255, 255, 0), #ffffff);
+		pointer-events: none;
+	}
+
+	.edges {
+		position: absolute;
+		top: 0;
+		left: 0;
+		pointer-events: none;
+	}
+
+	.edge {
+		fill: none;
+		stroke: var(--line);
+		stroke-width: 1.5;
+		stroke-linecap: round;
+	}
+
+	.node {
+		position: absolute;
+		top: 0;
+		left: 0;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+	}
+
+	.node.show {
+		opacity: 1;
+	}
+
+	.inner {
+		position: relative;
+		width: 100%;
+		height: 100%;
+	}
+
+	.node.pop > .inner {
+		animation: pop 0.35s ease-out;
+	}
+
+	@keyframes pop {
+		0% { transform: scale(1.05); }
+		100% { transform: scale(1); }
+	}
+
+	.step-body {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 10px;
+		background: #ffffff;
+		border: 1px solid var(--node-border);
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 700;
+		line-height: 1.2;
+		text-align: center;
+		transition: border-color 0.3s;
+	}
+
+	.step-body .text {
+		transition: opacity 0.2s;
+	}
+
+	.start-disc {
+		width: 100%;
+		height: 100%;
+		background: var(--black);
+		border: 2px solid #ffffff;
+		border-radius: 50%;
+		box-shadow: 0 0 0 1.5px var(--black);
+	}
+
+	/* The step being worked on: a blue outline with a soft blue halo, a small square at the top and bottom to
+		connect from, and a small toolbar beside it. */
+	.node::before {
+		content: '';
+		position: absolute;
+		inset: -10px -20px;
+		border-radius: 12px;
+		background: rgba(29, 112, 184, 0.1);
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.node.selected::before {
+		opacity: 1;
+	}
+
+	.node.selected .step-body {
+		border: 2px solid var(--blue);
+	}
+
+	.sq {
+		position: absolute;
+		left: 50%;
+		width: 12px;
+		height: 12px;
+		background: var(--blue);
+		border: 2px solid #ffffff;
+		border-radius: 4px;
+		box-shadow: 0 0 0 1px var(--blue);
+		transform: translate(-50%, -50%);
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.sq.top { top: 0; }
+	.sq.bot { top: 100%; }
+
+	.node.selected .sq {
+		opacity: 1;
+	}
+
+	.toolbar {
+		position: absolute;
+		top: 50%;
+		left: calc(100% + 34px);
+		display: flex;
+		gap: 2px;
+		padding: 4px;
+		background: #ffffff;
+		border: 1px solid var(--soft-border);
+		border-radius: 12px;
+		transform: translateY(-50%);
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.node.selected .toolbar {
+		opacity: 1;
+	}
+
+	.tb {
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+	}
+
+	.tb.on {
+		background: var(--blue-tint);
+	}
+
+	/* The editor for the selected step, docked on the right. It slides in when a step is selected. */
+	.panel {
+		position: absolute;
+		top: 96px;
+		left: 960px;
+		width: 384px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		opacity: 0;
+		transform: translateX(40px);
+		transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.panel.in {
+		opacity: 1;
+		transform: none;
+	}
+
+	.head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 16px;
+	}
+
+	.eyebrow {
+		font-size: 0.875rem;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.title {
+		margin-top: 6px;
+		font-size: 1.5rem;
+		font-weight: 700;
+		line-height: 30px;
+		transition: opacity 0.2s;
+	}
+
+	.nav {
+		display: flex;
+		flex-shrink: 0;
+		gap: 6px;
+	}
+
+	.nb {
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border: 1px solid var(--soft-border);
+		border-radius: 8px;
+	}
+
+	.f {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.lab {
+		font-size: 0.875rem;
+		font-weight: 700;
+		line-height: 18px;
+	}
+
+	.control {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 44px;
+		padding: 0 14px;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		font-size: 0.9375rem;
+		line-height: 18px;
+		transition: border-color 0.15s, box-shadow 0.15s;
+	}
+
+	.control.area {
+		align-items: flex-start;
+		height: 76px;
+		padding: 12px 14px;
+		line-height: 21px;
+	}
+
+	.control.focus {
+		border-color: var(--blue);
+		box-shadow: 0 0 0 1px var(--blue), 0 0 0 4px rgba(29, 112, 184, 0.16);
+	}
+
+	.val {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.val.sel {
+		background: #b9d6ee;
+	}
+
+	.caret {
+		display: none;
+		width: 2px;
+		height: 18px;
+		margin-left: 1px;
+		vertical-align: text-bottom;
+		background: var(--black);
+		animation: blink 1s steps(1) infinite;
+	}
+
+	.control.focus .caret {
+		display: inline-block;
+	}
+
+	@keyframes blink {
+		50% { opacity: 0; }
+	}
+
+	.chev {
+		flex-shrink: 0;
+		transition: transform 0.2s;
+	}
+
+	.control.focus .chev {
+		transform: rotate(180deg);
+	}
+
+	/* The small coloured label a step type is shown with. */
+	.tag {
+		display: inline-block;
+		padding: 2px 9px;
+		border-radius: 4px;
+		font-size: 0.8125rem;
+		line-height: 16px;
+		transition: background-color 0.2s;
+	}
+
+	.menu {
+		position: absolute;
+		z-index: 5;
+		top: 76px;
+		left: 0;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 6px;
+		background: #ffffff;
+		border: 1px solid var(--soft-border);
+		border-radius: 12px;
+		box-shadow: 0 10px 24px -16px rgba(11, 12, 12, 0.35);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s;
+	}
+
+	.menu.open {
+		opacity: 1;
+	}
+
+	.opt {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		height: 46px;
+		padding: 0 10px;
+		border-radius: 8px;
+		font-size: 0.8125rem;
+		color: var(--secondary-text);
+	}
+
+	.opt .tag {
+		flex-shrink: 0;
+		width: 94px;
+		text-align: center;
+	}
+
+	.opt .desc {
+		flex-grow: 1;
+	}
+
+	.opt .tick {
+		display: none;
+		flex-shrink: 0;
+	}
+
+	.opt.chosen .tick {
+		display: block;
+	}
+
+	.opt.chosen .desc,
+	.opt.hover .desc {
+		color: var(--text);
+	}
+
+	.opt.hover {
+		background: var(--blue-tint);
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+	}
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 40px;
+		padding: 0 20px;
+		background: var(--green);
+		border-radius: 8px;
+		color: #ffffff;
+		font-size: 0.875rem;
+		font-weight: 700;
+		transition: transform 0.1s, filter 0.1s;
+	}
+
+	.btn.pressed {
+		transform: translateY(1px);
+		filter: brightness(0.92);
+	}
+
+	.applied {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		margin-left: 18px;
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--green);
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.applied.on {
+		opacity: 1;
+	}
+
+	/* The pointer sits above everything, at stage level, and finds its targets by measuring them. */
+	.cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.3s;
+		z-index: 10;
+	}
+
+	.cursor.visible {
+		opacity: 1;
+	}
+
+	.cursor svg {
+		position: absolute;
+		top: -2px;
+		left: -2px;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+	}
+
+	.cursor .click {
+		position: absolute;
+		top: -18px;
+		left: -18px;
+		width: 36px;
+		height: 36px;
+		border: 2px solid var(--blue);
+		border-radius: 50%;
+		opacity: 0;
+	}
+
+	.cursor.clicking .click {
+		animation: click 0.45s ease-out;
+	}
+
+	@keyframes click {
+		0% { opacity: 0.8; transform: scale(0.4); }
+		100% { opacity: 0; transform: scale(1.3); }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.node,
+		.node::before,
+		.sq,
+		.toolbar,
+		.fadeable,
+		.step-body,
+		.step-body .text,
+		.panel,
+		.title,
+		.control,
+		.chev,
+		.tag,
+		.menu,
+		.btn,
+		.applied {
+			transition: none;
+		}
+
+		.node.pop > .inner,
+		.cursor.clicking .click,
+		.caret {
+			animation: none;
+		}
+	}
+</style>
+</head>
+<body>
+<main class="wrap">
+	<h1 class="sr-only">Editing a step in Service Studio</h1>
+
+	<div class="viewport" id="viewport">
+		<!-- The drawing is for sight only. What is happening is repeated in plain text just below for screen readers. -->
+		<div class="stage" id="stage" aria-hidden="true">
+			<div class="canvas" id="canvas">
+				<div class="world fadeable" id="world">
+					<svg class="edges" id="edges" width="900" height="900"></svg>
+					<div id="nodes"></div>
+				</div>
+			</div>
+			<div class="canvas-fade"></div>
+
+			<div class="panel fadeable" id="panel">
+				<div class="head">
+					<div>
+						<div class="eyebrow">Editing · step 4 of 4</div>
+						<div class="title" id="head-title">Choose how to enter your address</div>
+					</div>
+					<div class="nav">
+						<span class="nb"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 5 L5 1 L9 5" fill="none" stroke="#b1b4b6" stroke-width="1.6"/></svg></span>
+						<span class="nb"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="#0b0c0c" stroke-width="1.6"/></svg></span>
+					</div>
+				</div>
+
+				<div class="f">
+					<div class="lab">Step name</div>
+					<div class="control" id="name"><span class="text"><span class="val"></span><i class="caret"></i></span></div>
+				</div>
+
+				<div class="f">
+					<div class="lab">Step description</div>
+					<div class="control area" id="desc"><span class="text"><span class="val"></span><i class="caret"></i></span></div>
+				</div>
+
+				<div class="f">
+					<div class="lab">Step type</div>
+					<div class="control" id="type">
+						<span class="tag" id="type-tag"></span>
+						<svg class="chev" width="11" height="7" viewBox="0 0 11 7"><path d="M1 1 L5.5 6 L10 1" fill="none" stroke="#0b0c0c" stroke-width="1.6"/></svg>
+					</div>
+					<div class="menu" id="menu"></div>
+				</div>
+
+				<div class="actions">
+					<span class="btn" id="apply">Apply changes</span>
+					<span class="applied" id="applied"><svg width="14" height="11" viewBox="0 0 14 11"><path d="M1.5 5.5L5 9L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.4"/></svg>Changes applied</span>
+				</div>
+			</div>
+
+			<div class="cursor" id="cursor">
+				<span class="click"></span>
+				<svg width="18" height="24" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7 17 L11 26 L14 24.5 L10 16 L17 16 Z" fill="#0b0c0c" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+			</div>
+		</div>
+	</div>
+	<p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+	// The part of the service shown on the canvas, by centre. The last step is the one that gets edited.
+	const NODES = {
+		begin: { kind: 'start', x: 450, y: 280, w: 36, h: 36 },
+		check: { kind: 'step', x: 450, y: 360, w: 260, h: 42, text: 'Check you can use this service' },
+		licence: { kind: 'step', x: 450, y: 440, w: 260, h: 42, text: 'Enter your driving licence number' },
+		identity: { kind: 'step', x: 450, y: 520, w: 260, h: 42, text: 'Confirm your identity' },
+		choose: { kind: 'step', x: 450, y: 600, w: 260, h: 42, text: 'Choose how to enter your address' }
+	};
+	const LINES = [['begin', 'check'], ['check', 'licence'], ['licence', 'identity'], ['identity', 'choose']];
+
+	// What the step starts with, and what it is changed to. appendText is typed on the end of the old
+	// description rather than replacing it.
+	const START = {
+		name: 'Choose how to enter your address',
+		desc: 'Fork between postcode lookup and manual entry.',
+		type: 'Information'
+	};
+	const EDIT = {
+		name: 'Choose how to find your address',
+		appendText: ' Postcode lookup only covers Great Britain.',
+		type: 'API endpoint'
+	};
+
+	// The kinds of step, each with the colours of its label and a short description for the menu.
+	const TYPES = [
+		{ name: 'Information', desc: 'Shows content', bg: '#e6e6e2', fg: '#0b0c0c' },
+		{ name: 'API endpoint', desc: 'Calls an endpoint', bg: '#d7e4f4', fg: '#0b0c0c' },
+		{ name: 'Phone', desc: 'Citizen is asked to call', bg: '#e3ddf1', fg: '#2d1f63' },
+		{ name: 'In person', desc: 'Citizen visits', bg: '#cce2d8', fg: '#005a30' },
+		{ name: 'Letter', desc: 'Sent by post', bg: '#fbe5d0', fg: '#6b3a00' }
+	];
+
+	const OVERVIEW = { s: 1, fx: 450, fy: 450 };
+	const SVG_NS = 'http://www.w3.org/2000/svg';
+	const $ = (id) => document.getElementById(id);
+
+	const stage = $('stage');
+	const viewport = $('viewport');
+	const canvas = $('canvas');
+	const world = $('world');
+	const cursorEl = $('cursor');
+	const panel = $('panel');
+
+	const nodeEls = {};
+	const optionEls = {};
+	let cam = { ...OVERVIEW };
+	let cursor = { x: 780, y: 760 };
+
+	/**
+	 * Draws the stage once: a shape for every entry in NODES, the lines between them, and the options of the
+	 * step type menu. The timeline only ever shows and changes these, it never creates them.
+	 */
+	function build() {
+		for (const [id, c] of Object.entries(NODES)) {
+			const el = document.createElement('div');
+			el.className = `node ${c.kind}`;
+			el.style.width = c.w + 'px';
+			el.style.height = c.h + 'px';
+			el.style.transform = `translate(${c.x - c.w / 2}px, ${c.y - c.h / 2}px)`;
+			el.innerHTML =
+				c.kind === 'step'
+					? `<div class="inner step-body"><span class="text">${c.text}</span></div>
+						<i class="sq top"></i><i class="sq bot"></i>
+						<div class="toolbar">
+							<span class="tb on"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 12 L2.6 9.4 L9.6 2.4 L11.6 4.4 L4.6 11.4 Z" fill="none" stroke="#1d70b8" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+							<span class="tb"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="none" stroke="#505a5f" stroke-width="1.5"/><path d="M2 9 V3 Q2 2 3 2 H9" fill="none" stroke="#505a5f" stroke-width="1.5"/></svg></span>
+							<span class="tb"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 4 H11.5 M5 4 V2.5 H9 V4 M4 4 L4.5 12 H9.5 L10 4" fill="none" stroke="#d4351c" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+						</div>`
+					: `<div class="inner"><div class="start-disc"></div></div>`;
+			$('nodes').appendChild(el);
+			nodeEls[id] = el;
+		}
+
+		for (const [from, to] of LINES) {
+			const a = NODES[from];
+			const b = NODES[to];
+			const path = document.createElementNS(SVG_NS, 'path');
+			path.setAttribute('class', 'edge');
+			path.setAttribute('d', `M${a.x} ${a.y + a.h / 2}V${b.y - b.h / 2}`);
+			$('edges').appendChild(path);
+		}
+
+		for (const type of TYPES) {
+			const row = document.createElement('div');
+			row.className = 'opt';
+			row.innerHTML = `<span class="tag" style="background:${type.bg};color:${type.fg}">${type.name}</span><span class="desc">${type.desc}</span><svg class="tick" width="14" height="11" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#1d70b8" stroke-width="2.2"/></svg>`;
+			$('menu').appendChild(row);
+			optionEls[type.name] = row;
+		}
+	}
+
+	/**
+	 * Scales the fixed size stage to the width it has been given.
+	 */
+	function fit() {
+		stage.style.transform = `scale(${viewport.clientWidth / 1440})`;
+	}
+
+	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+	const lerp = (a, b, t) => a + (b - a) * t;
+	const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+	/**
+	 * Runs onFrame with a 0 to 1 progress value over the given milliseconds, and resolves when it is done.
+	 */
+	function tween(ms, onFrame, ease = easeInOut) {
+		return new Promise((resolve) => {
+			const start = performance.now();
+			function frame(now) {
+				const t = clamp((now - start) / ms, 0, 1);
+				onFrame(ease(t));
+				if (t < 1) requestAnimationFrame(frame);
+				else resolve();
+			}
+			requestAnimationFrame(frame);
+		});
+	}
+
+	const wait = (ms) => tween(ms, () => {}, (t) => t);
+
+	/**
+	 * Sets the view: the zoom, and the point of the drawing that sits in the middle of the canvas. The dot
+	 * grid is moved and spaced with it so the whole canvas, not just the shapes, appears to zoom.
+	 */
+	function setCamera(s, fx, fy) {
+		cam = { s, fx, fy };
+		const tx = 450 - fx * s;
+		const ty = 450 - fy * s;
+		world.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+		canvas.style.backgroundSize = `${30 * s}px ${30 * s}px`;
+		canvas.style.backgroundPosition = `${tx}px ${ty}px`;
+	}
+
+	/**
+	 * Eases the view to a new zoom and centre.
+	 */
+	function moveCamera(s, fx, fy, ms) {
+		const from = { ...cam };
+		return tween(ms, (e) =>
+			setCamera(from.s * Math.pow(s / from.s, e), lerp(from.fx, fx, e), lerp(from.fy, fy, e))
+		);
+	}
+
+	/**
+	 * Puts the pointer at a point on the stage.
+	 */
+	function setCursor(x, y) {
+		cursor = { x, y };
+		cursorEl.style.transform = `translate(${x}px, ${y}px)`;
+	}
+
+	/**
+	 * Finds the middle of an element on the stage, wherever it has got to, including while the view is
+	 * zoomed or the editor is still sliding in.
+	 */
+	function centreOf(el, dx = 0, dy = 0) {
+		const box = stage.getBoundingClientRect();
+		const scale = box.width / 1440;
+		const r = el.getBoundingClientRect();
+		return { x: (r.left + r.width / 2 - box.left) / scale + dx, y: (r.top + r.height / 2 - box.top) / scale + dy };
+	}
+
+	/**
+	 * Slides the pointer to the middle of an element.
+	 */
+	function moveToEl(el, ms = 700, dx = 0, dy = 0) {
+		const from = { ...cursor };
+		const to = centreOf(el, dx, dy);
+		return tween(ms, (e) => setCursor(lerp(from.x, to.x, e), lerp(from.y, to.y, e)));
+	}
+
+	/**
+	 * Moves to an element and clicks it, with a ring that spreads from the point of the click.
+	 */
+	async function click(el, ms = 700, dx = 0, dy = 0) {
+		await moveToEl(el, ms, dx, dy);
+		cursorEl.classList.remove('clicking');
+		void cursorEl.offsetWidth;
+		cursorEl.classList.add('clicking');
+		await wait(220);
+	}
+
+	/**
+	 * Presses a button down and lets it up again.
+	 */
+	async function press(el) {
+		el.classList.add('pressed');
+		await wait(160);
+		el.classList.remove('pressed');
+	}
+
+	/**
+	 * Tells screen readers what is happening, in plain words.
+	 */
+	function say(text) {
+		$('live').textContent = text;
+	}
+
+	const valOf = (field) => field.querySelector('.val');
+	const setFocus = (field, on) => field.classList.toggle('focus', on);
+
+	/**
+	 * Types text onto the end of whatever a field already says, a letter at a time.
+	 */
+	async function typeOnto(field, text, ms) {
+		const val = valOf(field);
+		const base = val.textContent;
+		await tween(ms, (e) => {
+			val.textContent = base + text.slice(0, Math.round(e * text.length));
+		}, (t) => t);
+	}
+
+	/**
+	 * Replaces what a field says: the old text is highlighted, as if selected, then typed over.
+	 */
+	async function typeOver(field, text, ms) {
+		const val = valOf(field);
+		val.classList.add('sel');
+		await wait(500);
+		val.classList.remove('sel');
+		val.textContent = '';
+		await typeOnto(field, text, ms);
+	}
+
+	/**
+	 * Shows a step type in the field as its coloured label, and ticks it in the menu.
+	 */
+	function showType(name) {
+		const type = TYPES.find((t) => t.name === name);
+		const tag = $('type-tag');
+		tag.textContent = type.name;
+		tag.style.background = type.bg;
+		tag.style.color = type.fg;
+		for (const [key, row] of Object.entries(optionEls)) row.classList.toggle('chosen', key === name);
+	}
+
+	/**
+	 * Puts everything back to the start: the step unselected, the editor closed and its fields as they were.
+	 */
+	function reset() {
+		world.classList.remove('fade');
+		panel.classList.remove('fade', 'in');
+		cursorEl.classList.remove('visible', 'clicking');
+		setCamera(OVERVIEW.s, OVERVIEW.fx, OVERVIEW.fy);
+		setCursor(780, 760);
+		for (const [id, c] of Object.entries(NODES)) {
+			nodeEls[id].classList.remove('show', 'selected', 'pop');
+			if (c.text) nodeEls[id].querySelector('.text').textContent = c.text;
+		}
+		$('head-title').textContent = START.name;
+		valOf($('name')).textContent = START.name;
+		valOf($('desc')).textContent = START.desc;
+		showType(START.type);
+		for (const id of ['name', 'desc', 'type']) setFocus($(id), false);
+		$('menu').classList.remove('open');
+		Object.values(optionEls).forEach((o) => o.classList.remove('hover'));
+		$('applied').classList.remove('on');
+	}
+
+	/**
+	 * The whole story, in order: a step is selected, its editor opens, and its name, description and type
+	 * are changed before the changes are applied.
+	 */
+	async function run() {
+		reset();
+		await wait(500);
+		Object.values(nodeEls).forEach((el) => el.classList.add('show'));
+		await wait(1200);
+
+		// Select the step on the canvas, and bring the editor in beside it.
+		say('Selecting a step on the canvas');
+		cursorEl.classList.add('visible');
+		await click(nodeEls.choose, 900);
+		nodeEls.choose.classList.add('selected');
+		panel.classList.add('in');
+		await moveCamera(1.15, 450, 600, 900);
+		await wait(500);
+
+		// Rename the step.
+		say('Changing the step name');
+		await click($('name'));
+		setFocus($('name'), true);
+		await wait(300);
+		await typeOver($('name'), EDIT.name, 1100);
+		await wait(400);
+
+		// Add to the description.
+		say('Adding to the step description');
+		setFocus($('name'), false);
+		await click($('desc'), 700, 120, 20);
+		setFocus($('desc'), true);
+		await wait(300);
+		await typeOnto($('desc'), EDIT.appendText, 1300);
+		await wait(400);
+
+		// Change the type from the menu.
+		say('Choosing a step type');
+		setFocus($('desc'), false);
+		await click($('type'));
+		setFocus($('type'), true);
+		$('menu').classList.add('open');
+		await wait(500);
+		const option = optionEls[EDIT.type];
+		await moveToEl(option, 700, -40);
+		option.classList.add('hover');
+		await wait(450);
+		await click(option, 150, -40);
+		showType(EDIT.type);
+		$('menu').classList.remove('open');
+		setFocus($('type'), false);
+		await wait(600);
+
+		// Apply the changes: the step on the canvas takes the new name.
+		say('Applying the changes');
+		await click($('apply'), 800);
+		await press($('apply'));
+		$('applied').classList.add('on');
+		$('head-title').textContent = EDIT.name;
+		const label = nodeEls.choose.querySelector('.text');
+		label.style.opacity = '0';
+		await wait(220);
+		label.textContent = EDIT.name;
+		label.style.opacity = '1';
+		nodeEls.choose.classList.add('pop');
+		await wait(2800);
+
+		cursorEl.classList.remove('visible');
+		world.classList.add('fade');
+		panel.classList.add('fade');
+		await wait(1000);
+	}
+
+	/**
+	 * Runs the story over and over.
+	 */
+	async function loop() {
+		while (true) await run();
+	}
+
+	/**
+	 * Shows the finished result straight away, with nothing moving, for anyone who has asked their device
+	 * to reduce motion.
+	 */
+	function showFinal() {
+		reset();
+		Object.values(nodeEls).forEach((el) => el.classList.add('show'));
+		nodeEls.choose.classList.add('selected');
+		nodeEls.choose.querySelector('.text').textContent = EDIT.name;
+		setCamera(1.15, 450, 600);
+		panel.classList.add('in');
+		$('head-title').textContent = EDIT.name;
+		valOf($('name')).textContent = EDIT.name;
+		valOf($('desc')).textContent = START.desc + EDIT.appendText;
+		showType(EDIT.type);
+		$('applied').classList.add('on');
+		say('The step has been renamed, described and given a new type');
+	}
+
+	build();
+	fit();
+	new ResizeObserver(fit).observe(viewport);
+
+	if (matchMedia('(prefers-reduced-motion: reduce)').matches) showFinal();
+	else loop();
+</script>
+</body>
+</html>

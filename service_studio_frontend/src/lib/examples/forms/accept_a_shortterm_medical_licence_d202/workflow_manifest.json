@@ -1,0 +1,48 @@
+{
+  "workflow_id": 266538,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.266538",
+  "version": "0.1.0",
+  "contact": "DVLA.CustomerFirst@dvla.gov.uk",
+  "description": "Accept a short-term medical licence (D202)",
+  "state": "draft",
+  "metadata": {
+    "form_id": "266538",
+    "form_slug": "accept-a-short-term-medical-licence-d202",
+    "status": "live",
+    "language": "en",
+    "available_languages": [
+      "en"
+    ],
+    "submission_type": null,
+    "submission_format": [],
+    "support_url": null,
+    "support_email": "DVLA.CustomerFirst@dvla.gov.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.gov.uk/government/publications/dvla-privacy-policy",
+    "payment_url": null,
+    "live_at": "2026-08-17T09:12:14.421761Z",
+    "created_at": "2026-07-28T06:55:35.835515Z",
+    "updated_at": "2026-08-17T09:12:14.421761Z",
+    "first_made_live_at": "2026-08-17T09:12:14.395285Z",
+    "creator_id": 4597,
+    "copied_from_id": null,
+    "send_copy_of_answers": "disabled",
+    "send_daily_submission_batch": null,
+    "send_weekly_submission_batch": null
+  },
+  "entry": "accept_a_shortterm_medical_licence_d202",
+  "executor": {
+    "workflow_id_template": "forms-266538-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "accept_a_shortterm_medical_licence_d202",
+      "version": "0.1.0"
+    }
+  ]
+}

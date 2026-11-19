@@ -1,0 +1,100 @@
+import type { WorkingState } from './working-process';
+
+/*
+	Every state can send the journey on in more than one place: next, a choice rule, a default, an
+	invalid answer route, a timeout and the catch clauses. The checks and the graph both need that
+	full list, so it is worked out here once and nothing else has to know which key holds a route.
+*/
+
+/**
+ * One way out of a state. The target is the name of the state it leads to, and the path says where
+ * in the state it was written, for example ["rules", 0, "next"], so an error can point at it. The
+ * kind names the key the route belongs to, so the graph can tell a normal onward route from a
+ * timeout or an error route without reading the path.
+ */
+export type Route = {
+	target: string;
+	path: (string | number)[];
+	kind: 'next' | 'rule' | 'default' | 'on_invalid' | 'timeout' | 'catch';
+};
+
+// The kinds of route that deal with something going wrong or running late: a named error, a timeout
+// and an invalid answer. They are kept in one list so the graph and the step numbers treat them alike.
+const errorRouteKinds = new Set<string>(['catch', 'timeout', 'on_invalid']);
+
+/**
+ * Tells whether a kind of route is an error route. The graph hides these by default, and the step
+ * numbers follow the main journey first, because several steps often lead to the same few end states
+ * and the lines cross the main journey.
+ */
+export function isErrorKind(kind: string): boolean {
+	return errorRouteKinds.has(kind);
+}
+
+// The onward route of a step, or no route when the step has not been joined to anything yet.
+function nextRoute(next: string | undefined): Route[] {
+	return next === undefined ? [] : [{ target: next, path: ['next'], kind: 'next' }];
+}
+
+/**
+ * Lists every route out of a state, in the order they are written. An end state has none, a step that has
+ * not been joined to anything yet has no onward route, and a decision has none for a way out that leads nowhere yet. The switch covers each state type, so
+ * adding a new type without handling it here fails to compile.
+ */
+export function routesOf(state: WorkingState): Route[] {
+	switch (state.state_type) {
+		case 'end':
+			return [];
+
+		case 'choice':
+			// Rules are listed first, in the order they are tested, and the default comes last. A way out that leads
+			// nowhere yet has no route, and the rules after it keep the place they have in the state.
+			return [
+				...state.rules.flatMap((rule, index): Route[] =>
+					rule.next === undefined ? [] : [{ target: rule.next, path: ['rules', index, 'next'], kind: 'rule' }]
+				),
+				...(state.default === undefined ? [] : [{ target: state.default, path: ['default'], kind: 'default' } satisfies Route])
+			];
+
+		case 'input': {
+			const routes: Route[] = nextRoute(state.next);
+			if (state.on_invalid) routes.push({ target: state.on_invalid, path: ['on_invalid'], kind: 'on_invalid' });
+			if (state.timeout) routes.push({ target: state.timeout.next, path: ['timeout', 'next'], kind: 'timeout' });
+			return routes;
+		}
+
+		case 'api_call':
+		case 'invoke':
+			// A call and an invoke both have a next state and can also route a named error elsewhere.
+			return [
+				...nextRoute(state.next),
+				...(state.catch ?? []).map(
+					(clause, index): Route => ({ target: clause.next, path: ['catch', index, 'next'], kind: 'catch' })
+				)
+			];
+
+		case 'output':
+		case 'assign':
+		case 'wait':
+			return nextRoute(state.next);
+	}
+}
+
+/**
+ * Returns a copy of the state with one route pointed at a different state. The path is the one the route
+ * carries, for example ["rules", 0, "next"], so the caller never needs to know which key holds a route.
+ * Everything the path does not pass through is the same object as before.
+ */
+export function withRouteTarget(state: WorkingState, path: (string | number)[], target: string): WorkingState {
+	return setAtPath(state, path, target) as WorkingState;
+}
+
+// Copies each object or list on the way down the path and puts the target at the end of it. Nothing that
+// is passed in is changed, because the page keeps the earlier copy of the workflow until a change is accepted.
+function setAtPath(value: unknown, path: (string | number)[], target: string): unknown {
+	if (path.length === 0) return target;
+
+	const [key, ...rest] = path;
+	if (Array.isArray(value)) return value.map((item, index) => (index === key ? setAtPath(item, rest, target) : item));
+	return { ...(value as object), [key]: setAtPath((value as Record<string | number, unknown>)[key], rest, target) };
+}

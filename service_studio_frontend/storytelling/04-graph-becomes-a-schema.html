@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Studio: the graph becomes a schema</title>
+<!--
+	A self contained animation of a journey drawn on the graph becoming a schema, which is then sent to the
+	executor. Everything it needs is in this one file, so it can be shared or opened on its own. To change
+	what is shown, edit the SCHEMA_LINES and CAPTIONS in the script at the bottom and the run() timeline.
+-->
+<style>
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--muted: #737373;
+		--border: #d8d8d3;
+		--node-border: #c9cac6;
+		--line: #7b8387;
+		--blue: #1d70b8;
+		--blue-tint: #e8f1f8;
+		--green: #00703c;
+		--green-tint: #cce2d8;
+		--divider: #ecece8;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: 20px;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: #ffffff;
+		color: var(--text);
+		font-family: arial, sans-serif;
+	}
+
+	.wrap {
+		width: min(100%, 1440px);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* The stage is drawn at a fixed 1440 by 900 and scaled to fit, so every position below is in the same
+		simple coordinates whatever size the page is viewed at. */
+	.viewport {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 1440 / 900;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.stage {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 1440px;
+		height: 900px;
+		transform-origin: 0 0;
+		transition: opacity 0.7s ease;
+	}
+
+	.stage.fade {
+		opacity: 0;
+	}
+
+	/* Anything that arrives during the story starts hidden and slightly low, then settles into place. */
+	.arrive {
+		opacity: 0;
+		transform: translateY(8px);
+		transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.arrive.show {
+		opacity: 1;
+		transform: none;
+	}
+
+	.abs {
+		position: absolute;
+	}
+
+	.card {
+		position: absolute;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		overflow: hidden;
+	}
+
+	/* The graph card */
+	.graph-card {
+		left: 72px;
+		top: 150px;
+		width: 380px;
+		height: 460px;
+	}
+
+	.graph-card .grid {
+		position: absolute;
+		inset: 0;
+		background-image: radial-gradient(circle at 2px 2px, #e9e9e5 1.2px, transparent 1.7px);
+		background-size: 26px 26px;
+	}
+
+	.graph-card svg {
+		position: absolute;
+		top: 0;
+		left: 0;
+	}
+
+	/* A line is drawn by letting its dash grow from nothing to the whole length of the path. */
+	.edge {
+		fill: none;
+		stroke: var(--line);
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-dasharray: 1;
+		stroke-dashoffset: 1;
+	}
+
+	.node {
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 32px;
+		background: #ffffff;
+		border: 1px solid var(--node-border);
+		border-radius: 5px;
+		font-size: 11.5px;
+		font-weight: 700;
+		line-height: 14px;
+		transition: opacity 0.4s ease, box-shadow 0.3s ease;
+	}
+
+	.node.selected {
+		border: 2px solid var(--blue);
+	}
+
+	.node.glow {
+		box-shadow: 0 0 0 5px rgba(29, 112, 184, 0.22);
+	}
+
+	.hidden {
+		opacity: 0;
+	}
+
+	/* The condition diamond is cut from a square, so its glow is a shadow on a wrapper around it. */
+	.diamond-wrap {
+		position: absolute;
+		left: 176px;
+		top: 114px;
+		width: 28px;
+		height: 28px;
+		transition: opacity 0.4s ease, filter 0.3s ease;
+	}
+
+	.diamond-wrap.glow {
+		filter: drop-shadow(0 0 5px rgba(29, 112, 184, 0.9));
+	}
+
+	.diamond {
+		width: 28px;
+		height: 28px;
+		background: #ffdd00;
+		clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+	}
+
+	.end-dot {
+		position: absolute;
+		left: 178px;
+		top: 338px;
+		width: 24px;
+		height: 24px;
+		background: var(--green);
+		border: 2px solid #ffffff;
+		border-radius: 50%;
+		box-shadow: 0 0 0 1.5px var(--green), 0 0 0 0 rgba(29, 112, 184, 0);
+		transition: opacity 0.4s ease, box-shadow 0.3s ease;
+	}
+
+	.end-dot.glow {
+		box-shadow: 0 0 0 1.5px var(--green), 0 0 0 7px rgba(29, 112, 184, 0.22);
+	}
+
+	.end-label {
+		position: absolute;
+		left: 150px;
+		top: 370px;
+		width: 80px;
+		text-align: center;
+		font-size: 11px;
+		line-height: 14px;
+		color: var(--secondary-text);
+		transition: opacity 0.4s ease;
+	}
+
+	/* The arrows between the cards are dotted lines that are uncovered from the left. */
+	.arrow {
+		position: absolute;
+		top: 360px;
+		width: 108px;
+		height: 40px;
+		clip-path: inset(0 100% 0 0);
+	}
+
+	.pill {
+		position: absolute;
+		top: 326px;
+		padding: 4px 0;
+		text-align: center;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		font-size: 12px;
+		line-height: 16px;
+	}
+
+	/* The schema card */
+	.schema-card {
+		left: 560px;
+		top: 150px;
+		width: 360px;
+		height: 460px;
+	}
+
+	.file-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 46px;
+		padding: 0 18px;
+		border-bottom: 1px solid #e5e5e0;
+	}
+
+	.file-name {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		font-weight: 700;
+		line-height: 16px;
+	}
+
+	.version {
+		padding: 2px 9px;
+		background: #e6e6e2;
+		border-radius: 4px;
+		font-size: 12px;
+		line-height: 16px;
+	}
+
+	.code {
+		padding: 16px 18px;
+		font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+		font-size: 12px;
+		line-height: 20px;
+		white-space: pre;
+	}
+
+	/* A block of lines that belong together is shaded as one while it is being written. */
+	.block {
+		margin: 0 -18px;
+		padding: 0 18px;
+		transition: background-color 0.35s ease;
+	}
+
+	.block.mark {
+		background: var(--blue-tint);
+	}
+
+	.line {
+		opacity: 0;
+		transition: opacity 0.25s ease;
+	}
+
+	.line.show {
+		opacity: 1;
+	}
+
+	.line.grey { color: var(--muted); }
+	.line.green { color: var(--green); }
+	.line.blue { color: var(--blue); }
+
+	/* The executor card */
+	.executor-card {
+		left: 1028px;
+		top: 235px;
+		width: 340px;
+		height: 290px;
+		padding: 26px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.executor-head {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+
+	.play {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 46px;
+		height: 46px;
+		border: 1.5px solid var(--blue);
+		border-radius: 50%;
+	}
+
+	.executor-title {
+		font-size: 21px;
+		font-weight: 700;
+		line-height: 26px;
+	}
+
+	.executor-sub {
+		margin-top: 2px;
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.checks {
+		border-top: 1px solid var(--divider);
+	}
+
+	.check-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 14px 0;
+		border-bottom: 1px solid var(--divider);
+		font-size: 15px;
+		line-height: 18px;
+	}
+
+	.check-row:last-child {
+		border-bottom: 0;
+	}
+
+	.check-row .label {
+		font-weight: 700;
+		transition: color 0.3s ease;
+	}
+
+	.check-row.done .label {
+		font-weight: 400;
+		color: var(--secondary-text);
+	}
+
+	.mark-slot {
+		position: relative;
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+	}
+
+	.mark-slot .waiting {
+		position: absolute;
+		inset: 0;
+		border: 2px dashed var(--blue);
+		border-radius: 50%;
+		animation: turn 6s linear infinite;
+		transition: opacity 0.25s ease;
+	}
+
+	.mark-slot .ticked {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		background: var(--green-tint);
+		border-radius: 50%;
+		opacity: 0;
+		transition: opacity 0.25s ease;
+	}
+
+	.check-row.done .waiting {
+		opacity: 0;
+	}
+
+	.check-row.done .ticked {
+		opacity: 1;
+	}
+
+	@keyframes turn {
+		to { transform: rotate(360deg); }
+	}
+
+	/* The three captions along the bottom. A caption is dim until its moment, blue while it is happening and
+		green with a tick once it is done. */
+	.caption {
+		position: absolute;
+		top: 690px;
+		display: flex;
+		gap: 14px;
+		opacity: 0.35;
+		transition: opacity 0.4s ease;
+	}
+
+	.caption.active,
+	.caption.done {
+		opacity: 1;
+	}
+
+	.badge {
+		position: relative;
+		flex-shrink: 0;
+		width: 30px;
+		height: 30px;
+		border-radius: 50%;
+		background: #d8d8d3;
+		transition: background-color 0.3s ease;
+	}
+
+	.caption.active .badge {
+		background: var(--blue);
+	}
+
+	.caption.done .badge {
+		background: var(--green-tint);
+	}
+
+	.badge .num,
+	.badge .tick {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		transition: opacity 0.25s ease;
+	}
+
+	.badge .num {
+		color: #ffffff;
+		font-size: 14px;
+		font-weight: 700;
+	}
+
+	.badge .tick {
+		opacity: 0;
+	}
+
+	.caption.done .num {
+		opacity: 0;
+	}
+
+	.caption.done .tick {
+		opacity: 1;
+	}
+
+	.caption-title {
+		font-size: 18px;
+		font-weight: 700;
+		line-height: 24px;
+	}
+
+	.caption-sub {
+		margin-top: 3px;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--secondary-text);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.arrive,
+		.node,
+		.diamond-wrap,
+		.end-dot,
+		.end-label,
+		.line,
+		.block,
+		.caption,
+		.badge,
+		.stage {
+			transition: none;
+		}
+
+		.mark-slot .waiting {
+			animation: none;
+		}
+	}
+</style>
+</head>
+<body>
+<main class="wrap">
+	<h1 class="sr-only">How a journey drawn on the graph becomes a schema that is sent to the executor</h1>
+
+	<div class="viewport" id="viewport">
+		<!-- The drawing is for sight only. What is happening is repeated in plain text just below for screen readers. -->
+		<div class="stage" id="stage" aria-hidden="true">
+
+			<div class="card graph-card arrive" id="graph-card">
+				<div class="grid"></div>
+				<svg width="380" height="460" viewBox="0 0 380 460">
+					<path class="edge" id="edge-1" pathLength="1" d="M190 82 V114" />
+					<path class="edge" id="edge-2" pathLength="1" d="M190 142 V170 Q190 178 182 178 H105 Q97 178 97 186 V200" />
+					<path class="edge" id="edge-3" pathLength="1" d="M190 170 Q190 178 198 178 H275 Q283 178 283 186 V200" />
+					<path class="edge" id="edge-4" pathLength="1" d="M97 232 V300 Q97 308 105 308 H182 Q190 308 190 316 V338" />
+				</svg>
+				<div class="node selected hidden" id="node-choose" style="left: 80px; top: 50px; width: 220px;">Choose how to enter your address</div>
+				<div class="diamond-wrap hidden" id="node-condition"><div class="diamond"></div></div>
+				<div class="node hidden" id="node-postcode" style="left: 17px; top: 200px; width: 160px;">Find address by postcode</div>
+				<div class="node hidden" id="node-manual" style="left: 203px; top: 200px; width: 160px;">Enter address manually</div>
+				<div class="end-dot hidden" id="node-end"></div>
+				<div class="end-label hidden" id="node-end-label">End</div>
+			</div>
+
+			<svg class="arrow" id="arrow-1" style="left: 452px;" viewBox="0 0 108 40">
+				<path d="M6 20 H92" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M90 13 L100 20 L90 27" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+			<div class="pill arrive" id="pill-generates" style="left: 468px; width: 76px;">Generates</div>
+
+			<div class="card schema-card arrive" id="schema-card">
+				<div class="file-head">
+					<div class="file-name">
+						<svg width="14" height="16" viewBox="0 0 14 16"><path d="M2 1 H9 L12 4 V15 H2 Z" fill="none" stroke="#505a5f" stroke-width="1.4" stroke-linejoin="round" /></svg>
+						journey.schema.json
+					</div>
+					<div class="version">v1 · draft</div>
+				</div>
+				<div class="code" id="code"></div>
+			</div>
+
+			<svg class="arrow" id="arrow-2" style="left: 920px;" viewBox="0 0 108 40">
+				<path d="M6 20 H92" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 6" />
+				<path d="M90 13 L100 20 L90 27" fill="none" stroke="#1d70b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+			<div class="pill arrive" id="pill-sent" style="left: 942px; width: 64px;">Sent to</div>
+
+			<div class="card executor-card arrive" id="executor-card">
+				<div class="executor-head">
+					<div class="play"><svg width="16" height="18" viewBox="0 0 16 18"><path d="M3 2 L14 9 L3 16 Z" fill="#1d70b8" /></svg></div>
+					<div>
+						<div class="executor-title">Executor</div>
+						<div class="executor-sub">Runs the journey from the schema</div>
+					</div>
+				</div>
+				<div class="checks" id="checks"></div>
+			</div>
+
+			<div class="caption" id="caption-1" style="left: 72px; width: 380px;"></div>
+			<div class="caption" id="caption-2" style="left: 560px; width: 360px;"></div>
+			<div class="caption" id="caption-3" style="left: 1028px; width: 340px;"></div>
+		</div>
+	</div>
+	<p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+	// The schema as it is written out, a line at a time. A line's group says which part of the graph it comes
+	// from, so the shaded block and the highlighted shapes can follow along.
+	const SCHEMA_LINES = [
+		{ group: 'open', text: '{', indent: 0, colour: 'grey' },
+		{ group: 'open', text: '"service": "change-address",', indent: 16, colour: 'green' },
+		{ group: 'open', text: '"steps": [', indent: 16, colour: 'blue' },
+		{ group: 'choose', text: '{', indent: 32, colour: 'grey' },
+		{ group: 'choose', text: '"id": "choose-entry",', indent: 48, colour: 'green' },
+		{ group: 'choose', text: '"type": "information",', indent: 48, colour: 'green' },
+		{ group: 'choose', text: '"next": "route"', indent: 48, colour: 'green' },
+		{ group: 'choose', text: '},', indent: 32, colour: 'grey' },
+		{ group: 'route', text: '{', indent: 32, colour: 'grey' },
+		{ group: 'route', text: '"id": "route",', indent: 48, colour: 'green' },
+		{ group: 'route', text: '"type": "condition",', indent: 48, colour: 'green' },
+		{ group: 'route', text: '"routes": [', indent: 48, colour: 'blue' },
+		{ group: 'route', text: '"postcode",', indent: 64, colour: 'green' },
+		{ group: 'route', text: '"manual"', indent: 64, colour: 'green' },
+		{ group: 'route', text: ']', indent: 48, colour: 'grey' },
+		{ group: 'route', text: '},', indent: 32, colour: 'grey' },
+		{ group: 'close', text: '…', indent: 32, colour: 'grey' },
+		{ group: 'close', text: ']', indent: 16, colour: 'grey' },
+		{ group: 'close', text: '}', indent: 0, colour: 'grey' }
+	];
+
+	// The three captions along the bottom, in order.
+	const CAPTIONS = [
+		{ title: 'Draw the journey', sub: 'Steps, conditions and ends on the canvas.' },
+		{ title: 'It becomes a schema', sub: 'The graph is saved as structured code.' },
+		{ title: 'The executor takes it', sub: 'It reads the schema and runs the journey.' }
+	];
+
+	// What the executor does with the schema it is handed, in order. The last one stays waiting, as it is
+	// ready to run rather than finished.
+	const CHECKS = ['Schema received · v1', 'Checked and valid', 'Ready to run'];
+
+	const TICK = '<svg width="11" height="9" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.6"/></svg>';
+	const $ = (id) => document.getElementById(id);
+
+	const stage = $('stage');
+	const viewport = $('viewport');
+	const blocks = {};
+	const lineEls = [];
+	const captionEls = [];
+	const checkEls = [];
+
+	/**
+	 * Draws the parts of the stage that come from the lists above: the schema lines, the captions and the
+	 * executor's checks. The timeline only ever shows and changes these, it never creates them.
+	 */
+	function build() {
+		const code = $('code');
+		for (const line of SCHEMA_LINES) {
+			// Lines that come from the same part of the graph share one block, so they can be shaded together.
+			if (!blocks[line.group]) {
+				blocks[line.group] = document.createElement('div');
+				blocks[line.group].className = 'block';
+				code.appendChild(blocks[line.group]);
+			}
+			const el = document.createElement('div');
+			el.className = `line ${line.colour}`;
+			el.style.paddingLeft = line.indent + 'px';
+			el.textContent = line.text;
+			blocks[line.group].appendChild(el);
+			lineEls.push({ el, group: line.group });
+		}
+
+		CAPTIONS.forEach((c, i) => {
+			const el = $(`caption-${i + 1}`);
+			el.innerHTML = `
+				<div class="badge"><span class="num">${i + 1}</span><span class="tick">${TICK.replace('width="11" height="9"', 'width="13" height="10"')}</span></div>
+				<div><div class="caption-title">${c.title}</div><div class="caption-sub">${c.sub}</div></div>`;
+			captionEls.push(el);
+		});
+
+		for (const label of CHECKS) {
+			const row = document.createElement('div');
+			row.className = 'check-row arrive';
+			row.innerHTML = `<span class="mark-slot"><span class="waiting"></span><span class="ticked">${TICK}</span></span><span class="label">${label}</span>`;
+			$('checks').appendChild(row);
+			checkEls.push(row);
+		}
+	}
+
+	/**
+	 * Scales the fixed size stage to the width it has been given.
+	 */
+	function fit() {
+		stage.style.transform = `scale(${viewport.clientWidth / 1440})`;
+	}
+
+	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+	const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+	/**
+	 * Runs onFrame with a 0 to 1 progress value over the given milliseconds, and resolves when it is done.
+	 */
+	function tween(ms, onFrame, ease = easeInOut) {
+		return new Promise((resolve) => {
+			const start = performance.now();
+			function frame(now) {
+				const t = clamp((now - start) / ms, 0, 1);
+				onFrame(ease(t));
+				if (t < 1) requestAnimationFrame(frame);
+				else resolve();
+			}
+			requestAnimationFrame(frame);
+		});
+	}
+
+	const wait = (ms) => tween(ms, () => {}, (t) => t);
+
+	/**
+	 * Fades a node in, or a part of the stage that arrives, depending on how it is marked up.
+	 */
+	function show(...els) {
+		for (const el of els) {
+			el.classList.remove('hidden');
+			el.classList.add('show');
+		}
+	}
+
+	/**
+	 * Draws a line from its start to its end.
+	 */
+	function draw(id, ms) {
+		const path = $(id);
+		return tween(ms, (e) => (path.style.strokeDashoffset = String(1 - e)));
+	}
+
+	/**
+	 * Uncovers a dotted arrow from the left, so it seems to be drawn towards its head.
+	 */
+	function uncover(id, ms) {
+		const el = $(id);
+		return tween(ms, (e) => (el.style.clipPath = `inset(0 ${(1 - e) * 100}% 0 0)`));
+	}
+
+	/**
+	 * Sets which caption is the current one. Captions before it are done and those after it wait their turn.
+	 */
+	function setCaption(index, state) {
+		captionEls[index].classList.remove('active', 'done');
+		if (state) captionEls[index].classList.add(state);
+	}
+
+	/**
+	 * Tells screen readers what is happening, in plain words.
+	 */
+	function say(text) {
+		$('live').textContent = text;
+	}
+
+	/**
+	 * Writes out the lines of one part of the schema one after another, shading the part while it is written.
+	 */
+	async function writeGroup(group, ms) {
+		const lines = lineEls.filter((l) => l.group === group);
+		blocks[group].classList.add('mark');
+		for (const l of lines) {
+			l.el.classList.add('show');
+			await wait(ms / lines.length);
+		}
+		await wait(250);
+		blocks[group].classList.remove('mark');
+	}
+
+	/**
+	 * Puts everything back to the start, with nothing drawn yet.
+	 */
+	function reset() {
+		stage.classList.remove('fade');
+		document.querySelectorAll('.arrive').forEach((el) => el.classList.remove('show'));
+		document.querySelectorAll('.node, .diamond-wrap, .end-dot, .end-label').forEach((el) => {
+			el.classList.add('hidden');
+			el.classList.remove('glow');
+		});
+		for (let i = 1; i <= 4; i++) $(`edge-${i}`).style.strokeDashoffset = '1';
+		for (const id of ['arrow-1', 'arrow-2']) $(id).style.clipPath = 'inset(0 100% 0 0)';
+		lineEls.forEach((l) => l.el.classList.remove('show'));
+		Object.values(blocks).forEach((b) => b.classList.remove('mark'));
+		captionEls.forEach((_, i) => setCaption(i, null));
+		checkEls.forEach((row) => row.classList.remove('done'));
+	}
+
+	/**
+	 * The whole story, in order: the journey is drawn, each part of it is written into the schema, and the
+	 * schema is sent to the executor, which checks it and is left ready to run.
+	 */
+	async function run() {
+		reset();
+		setCaption(0, 'active');
+		say('A journey is drawn on the canvas');
+		await wait(500);
+
+		// Draw the journey: a step, a condition, two branches and an end.
+		show($('graph-card'));
+		await wait(700);
+		show($('node-choose'));
+		await wait(400);
+		await draw('edge-1', 400);
+		show($('node-condition'));
+		await wait(250);
+		await Promise.all([draw('edge-2', 500), draw('edge-3', 500)]);
+		show($('node-postcode'), $('node-manual'));
+		await wait(450);
+		await draw('edge-4', 550);
+		show($('node-end'), $('node-end-label'));
+		await wait(700);
+		setCaption(0, 'done');
+
+		// The graph generates the schema, each part of the graph written as it is picked out.
+		setCaption(1, 'active');
+		say('The journey is written out as a schema');
+		await uncover('arrow-1', 800);
+		show($('pill-generates'));
+		await wait(350);
+		show($('schema-card'));
+		await wait(600);
+
+		for (const line of lineEls.filter((l) => l.group === 'open')) {
+			line.el.classList.add('show');
+			await wait(110);
+		}
+		await wait(200);
+
+		$('node-choose').classList.add('glow');
+		await writeGroup('choose', 900);
+		$('node-choose').classList.remove('glow');
+
+		$('node-condition').classList.add('glow');
+		$('node-postcode').classList.add('glow');
+		$('node-manual').classList.add('glow');
+		await writeGroup('route', 1300);
+		$('node-condition').classList.remove('glow');
+		$('node-postcode').classList.remove('glow');
+		$('node-manual').classList.remove('glow');
+
+		$('node-end').classList.add('glow');
+		await writeGroup('close', 500);
+		$('node-end').classList.remove('glow');
+		await wait(500);
+		setCaption(1, 'done');
+
+		// The schema is sent to the executor, which checks it.
+		setCaption(2, 'active');
+		say('The schema is sent to the executor');
+		await uncover('arrow-2', 800);
+		show($('pill-sent'));
+		await wait(350);
+		show($('executor-card'));
+		await wait(700);
+
+		for (let i = 0; i < checkEls.length; i++) {
+			show(checkEls[i]);
+			await wait(600);
+			// The last check stays waiting, because the executor is ready to run and has not run yet.
+			if (i < checkEls.length - 1) {
+				checkEls[i].classList.add('done');
+				await wait(350);
+			}
+		}
+		setCaption(2, 'done');
+		await wait(3200);
+
+		stage.classList.add('fade');
+		await wait(900);
+	}
+
+	/**
+	 * Runs the story over and over.
+	 */
+	async function loop() {
+		while (true) await run();
+	}
+
+	/**
+	 * Shows the finished picture straight away, with nothing moving, for anyone who has asked their device
+	 * to reduce motion.
+	 */
+	function showFinal() {
+		reset();
+		document.querySelectorAll('.arrive').forEach((el) => el.classList.add('show'));
+		document.querySelectorAll('.node, .diamond-wrap, .end-dot, .end-label').forEach((el) => el.classList.remove('hidden'));
+		for (let i = 1; i <= 4; i++) $(`edge-${i}`).style.strokeDashoffset = '0';
+		for (const id of ['arrow-1', 'arrow-2']) $(id).style.clipPath = 'inset(0)';
+		lineEls.forEach((l) => l.el.classList.add('show'));
+		captionEls.forEach((_, i) => setCaption(i, 'done'));
+		checkEls.slice(0, -1).forEach((row) => row.classList.add('done'));
+		say('The journey drawn on the graph has become a schema, which has been sent to the executor and is ready to run');
+	}
+
+	build();
+	fit();
+	new ResizeObserver(fit).observe(viewport);
+
+	if (matchMedia('(prefers-reduced-motion: reduce)').matches) showFinal();
+	else loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+{
+  "workflow_id": 7434,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.7434",
+  "version": "0.1.0",
+  "contact": "cashiers@ipo.gov.uk",
+  "description": "Add funds to your Intellectual Property Office deposit account",
+  "state": "draft",
+  "metadata": {
+    "form_id": "7434",
+    "form_slug": "add-funds-to-your-intellectual-property-office-deposit-account",
+    "status": "live",
+    "language": "en",
+    "available_languages": [
+      "en"
+    ],
+    "submission_type": "email",
+    "submission_format": [
+      "csv"
+    ],
+    "support_url": null,
+    "support_email": "cashiers@ipo.gov.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.gov.uk/government/publications/intellectual-property-office-privacy-notices/privacy-notice-for-personal-data-processed-for-the-administration-of-ip-rights",
+    "payment_url": null,
+    "live_at": "2026-05-29T13:09:03.085401Z",
+    "created_at": "2025-05-08T13:12:59.167825Z",
+    "updated_at": "2026-05-29T13:09:03.085401Z",
+    "first_made_live_at": "2025-07-30T00:00:00.000000Z",
+    "creator_id": 679,
+    "copied_from_id": null,
+    "send_copy_of_answers": "disabled",
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "add_funds_to_your_intellectual_property_office_deposit_account",
+  "executor": {
+    "workflow_id_template": "forms-7434-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "add_funds_to_your_intellectual_property_office_deposit_account",
+      "version": "0.1.0"
+    }
+  ]
+}

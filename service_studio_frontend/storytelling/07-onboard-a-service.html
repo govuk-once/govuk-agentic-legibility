@@ -1,0 +1,1455 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Studio: onboarding a service</title>
+<!--
+	A self contained animation of onboarding a service in Service Studio. A person starts a new service, picks
+	the automated way of drafting it, fills in what the assistant needs to know, and the first draft is
+	generated while a radial progress ring fills to completion. Everything it needs is in this one file, so it
+	can be shared or opened on its own. To change what is shown, edit the FORM and PROGRESS values in the
+	script at the bottom and the run() timeline.
+-->
+<style>
+	:root {
+		--text: #0b0c0c;
+		--secondary-text: #505a5f;
+		--placeholder: #9aa0a3;
+		--border: #d8d8d3;
+		--field-border: #c9cac6;
+		--divider: #ecece8;
+		--blue: #1d70b8;
+		--blue-tint: #e8f1f8;
+		--selected-tint: #f3f8fc;
+		--green: #00703c;
+		--green-dark: #005a30;
+		--green-tint: #cce2d8;
+		--grey-tint: #f1f1ee;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: 20px;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: #ffffff;
+		color: var(--text);
+		font-family: arial, sans-serif;
+	}
+
+	/* The animation is kept as wide as the window allows, but never so wide that its height runs off the bottom. */
+	.wrap {
+		width: min(100%, 1440px, calc((100vh - 40px) * 1.6));
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* The stage is drawn at a fixed 1440 by 900 and scaled to fit, so every position below is in the same
+		simple coordinates whatever size the page is viewed at. */
+	.viewport {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 1440 / 900;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.stage {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 1440px;
+		height: 900px;
+		transform-origin: 0 0;
+		transition: opacity 0.7s ease;
+	}
+
+	.stage.fade {
+		opacity: 0;
+	}
+
+	.abs {
+		position: absolute;
+	}
+
+	/* Each page sits on top of the others and is faded in when it is its turn. They are lifted a little, as
+		there is no header above them to leave room for. */
+	.screen {
+		position: absolute;
+		inset: -40px 0 40px;
+		opacity: 0;
+		transform: translateY(10px);
+		transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+		pointer-events: none;
+	}
+
+	.screen.active {
+		opacity: 1;
+		transform: none;
+	}
+
+	.grey { color: var(--secondary-text); }
+
+	.link {
+		color: var(--blue);
+		text-decoration: underline 1px;
+		text-underline-offset: 2px;
+	}
+
+	.button {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		padding: 14px 24px;
+		background: var(--green);
+		border-radius: 10px;
+		color: #ffffff;
+		font-size: 18px;
+		font-weight: 700;
+		line-height: 22px;
+		transition: transform 0.1s ease, background-color 0.1s ease;
+	}
+
+	.button.pressed {
+		transform: translateY(2px);
+		background: var(--green-dark);
+	}
+
+	/* Page one: the landing page */
+	.page-title {
+		position: absolute;
+		left: 40px;
+		top: 148px;
+		font-size: 44px;
+		font-weight: 700;
+		line-height: 50px;
+	}
+
+	.start-card {
+		position: absolute;
+		left: 40px;
+		top: 222px;
+		width: 640px;
+		display: flex;
+		flex-direction: column;
+		gap: 22px;
+		padding: 28px;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+	}
+
+	.start-card h2 {
+		margin: 0;
+		font-size: 24px;
+		line-height: 28px;
+	}
+
+	.start-card .intro {
+		margin-top: 4px;
+		font-size: 15px;
+		line-height: 21px;
+	}
+
+	.start-card .rule {
+		height: 1px;
+		background: var(--divider);
+	}
+
+	.start-card .note {
+		font-size: 14px;
+		line-height: 21px;
+	}
+
+	.side {
+		position: absolute;
+		left: 720px;
+		width: 680px;
+	}
+
+	.side h2 {
+		margin: 0;
+		font-size: 24px;
+		line-height: 28px;
+	}
+
+	.how-item {
+		display: flex;
+		gap: 16px;
+		margin-top: 18px;
+	}
+
+	.how-item:first-of-type {
+		margin-top: 20px;
+	}
+
+	.how-number {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 32px;
+		height: 32px;
+		background: var(--blue-tint);
+		border-radius: 50%;
+		color: var(--blue);
+		font-size: 14px;
+		font-weight: 700;
+	}
+
+	.how-title {
+		font-size: 17px;
+		font-weight: 700;
+		line-height: 22px;
+	}
+
+	.how-text {
+		margin-top: 3px;
+		font-size: 15px;
+		line-height: 22px;
+	}
+
+	.drafts {
+		margin-top: 14px;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		overflow: hidden;
+	}
+
+	.draft-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 16px 20px;
+		border-bottom: 1px solid var(--divider);
+		font-size: 17px;
+		line-height: 22px;
+	}
+
+	.draft-row:last-child {
+		border-bottom: 0;
+	}
+
+	.draft-meta {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		font-size: 14px;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.status {
+		padding: 3px 10px;
+		border-radius: 4px;
+		font-size: 13px;
+		line-height: 16px;
+	}
+
+	/* Pages two and three share a narrow column that starts the same distance from the left. */
+	.column {
+		position: absolute;
+		left: 160px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Page two: how to draft it */
+	.screen-draft .column {
+		top: 112px;
+		width: 640px;
+		gap: 14px;
+	}
+
+	.page-heading {
+		font-size: 44px;
+		font-weight: 700;
+		line-height: 52px;
+	}
+
+	.options {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		padding-top: 12px;
+	}
+
+	/* An option is a card with a radio button. The chosen one gets a thicker blue edge and a pale blue ground. */
+	.option {
+		display: flex;
+		gap: 16px;
+		padding: 24px;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+	}
+
+	.option.chosen {
+		background: var(--selected-tint);
+		border-color: var(--blue);
+		box-shadow: inset 0 0 0 1px var(--blue);
+	}
+
+	.radio {
+		position: relative;
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		margin-top: 2px;
+		border: 2px solid #9aa0a3;
+		border-radius: 50%;
+		transition: border-color 0.25s ease;
+	}
+
+	.radio::after {
+		content: '';
+		position: absolute;
+		inset: 4px;
+		background: var(--blue);
+		border-radius: 50%;
+		transform: scale(0);
+		transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.option.chosen .radio {
+		border-color: var(--blue);
+	}
+
+	.option.chosen .radio::after {
+		transform: scale(1);
+	}
+
+	.option-body {
+		flex-grow: 1;
+	}
+
+	.option-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 23px;
+		font-weight: 700;
+		line-height: 28px;
+	}
+
+	.option-text {
+		margin-top: 8px;
+		font-size: 16px;
+		line-height: 24px;
+	}
+
+	.option-body.single .option-text {
+		margin-top: 6px;
+	}
+
+	.recommended {
+		padding: 3px 10px;
+		background: var(--blue-tint);
+		border-radius: 4px;
+		color: var(--blue);
+		font-size: 12px;
+		font-weight: 400;
+		line-height: 16px;
+	}
+
+	.continue {
+		padding-top: 12px;
+	}
+
+	/* Page three: the form */
+	.screen-form .column {
+		top: 100px;
+		width: 520px;
+		gap: 12px;
+	}
+
+	.form-heading {
+		font-size: 40px;
+		font-weight: 700;
+		line-height: 46px;
+	}
+
+	.form-intro {
+		font-size: 16px;
+		line-height: 23px;
+	}
+
+	.fields {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		padding-top: 6px;
+	}
+
+	.group {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+	}
+
+	.label {
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 20px;
+	}
+
+	.field {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 46px;
+		padding: 0 14px;
+		background: #ffffff;
+		border: 1px solid var(--field-border);
+		border-radius: 10px;
+		font-size: 15px;
+		line-height: 18px;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	.field.tall {
+		align-items: flex-start;
+		height: 84px;
+		padding: 12px 14px;
+		line-height: 22px;
+	}
+
+	.field.focus {
+		border-color: var(--blue);
+		box-shadow: 0 0 0 1px var(--blue), 0 0 0 4px rgba(29, 112, 184, 0.16);
+	}
+
+	.val {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.val:empty::before {
+		content: attr(data-placeholder);
+		color: var(--placeholder);
+	}
+
+	.field.focus .val:empty::before {
+		content: '';
+	}
+
+	.caret {
+		display: none;
+		width: 2px;
+		height: 17px;
+		margin-left: 1px;
+		vertical-align: text-bottom;
+		background: var(--text);
+		animation: blink 1s steps(1) infinite;
+	}
+
+	.field.focus .caret {
+		display: inline-block;
+	}
+
+	@keyframes blink {
+		50% { opacity: 0; }
+	}
+
+	/* The link icon only takes up room once something has been typed beside it. */
+	.link-icon {
+		display: none;
+		flex-shrink: 0;
+	}
+
+	.link-icon.on {
+		display: block;
+	}
+
+	.dropzone {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		height: 62px;
+		background: #fafaf8;
+		border: 1.5px dashed #9aa0a3;
+		border-radius: 12px;
+		font-size: 14px;
+		line-height: 18px;
+		color: var(--secondary-text);
+	}
+
+	.generate {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		padding-top: 12px;
+		font-size: 15px;
+		line-height: 18px;
+	}
+
+	/* Page four: generating the first draft */
+	.dots {
+		position: absolute;
+		left: 720px;
+		top: 60px;
+		width: 720px;
+		height: 840px;
+		background-image: radial-gradient(circle at 2px 2px, #e9e9e5 1.2px, transparent 1.7px);
+		background-size: 30px 30px;
+	}
+
+	.dots-fade {
+		position: absolute;
+		left: 720px;
+		top: 60px;
+		width: 520px;
+		height: 840px;
+		background: linear-gradient(90deg, rgba(255, 255, 255, 0), #ffffff);
+	}
+
+	.progress {
+		position: absolute;
+		left: 140px;
+		top: 150px;
+		width: 520px;
+		display: flex;
+		flex-direction: column;
+		gap: 30px;
+	}
+
+	.progress-top {
+		display: flex;
+		align-items: center;
+		gap: 30px;
+	}
+
+	.ring {
+		position: relative;
+		flex-shrink: 0;
+		width: 120px;
+		height: 120px;
+	}
+
+	.ring svg {
+		display: block;
+	}
+
+	.ring-track {
+		fill: none;
+		stroke: var(--blue-tint);
+		stroke-width: 10;
+	}
+
+	.ring-fill {
+		fill: none;
+		stroke: var(--blue);
+		stroke-width: 10;
+		stroke-linecap: round;
+		transition: stroke 0.5s ease;
+	}
+
+	.ring-number {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		font-size: 26px;
+		font-weight: 700;
+		line-height: 32px;
+	}
+
+	.ring.finished {
+		animation: settle 0.6s ease-out;
+	}
+
+	@keyframes settle {
+		0% { transform: scale(1); }
+		40% { transform: scale(1.07); }
+		100% { transform: scale(1); }
+	}
+
+	.progress-title {
+		font-size: 36px;
+		font-weight: 700;
+		line-height: 42px;
+		transition: opacity 0.25s ease;
+	}
+
+	.progress-sub {
+		margin-top: 8px;
+		font-size: 16px;
+		line-height: 23px;
+		color: var(--secondary-text);
+		transition: opacity 0.25s ease;
+	}
+
+	.swap {
+		opacity: 0;
+	}
+
+	.bar {
+		height: 6px;
+		background: var(--blue-tint);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.bar-fill {
+		width: 0%;
+		height: 6px;
+		background: var(--blue);
+		border-radius: 3px;
+		transition: background-color 0.5s ease;
+	}
+
+	.steps {
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		overflow: hidden;
+	}
+
+	.step {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 15px 20px;
+		border-bottom: 1px solid var(--divider);
+		font-size: 15px;
+		line-height: 18px;
+		color: var(--placeholder);
+		transition: background-color 0.3s ease;
+	}
+
+	.step:last-child {
+		border-bottom: 0;
+	}
+
+	.mark {
+		position: relative;
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		border: 1.5px solid var(--border);
+		border-radius: 50%;
+		transition: border-color 0.25s ease, background-color 0.25s ease;
+	}
+
+	.mark .tick {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		opacity: 0;
+		transition: opacity 0.25s ease;
+	}
+
+	.step.active {
+		background: var(--selected-tint);
+		color: var(--text);
+		font-weight: 700;
+	}
+
+	.step.active .mark {
+		border: 2.5px dashed var(--blue);
+		animation: turn 6s linear infinite;
+	}
+
+	.step.done {
+		color: var(--secondary-text);
+	}
+
+	.step.done .mark {
+		background: var(--green-tint);
+		border-color: var(--green-tint);
+	}
+
+	.step.done .mark .tick {
+		opacity: 1;
+	}
+
+	@keyframes turn {
+		to { transform: rotate(360deg); }
+	}
+
+	/* The draft graph forming on the right. Parts of it are drawn as the progress passes them. */
+	.draft-card {
+		position: absolute;
+		left: 780px;
+		top: 170px;
+		width: 520px;
+		height: 480px;
+		background: #ffffff;
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		overflow: hidden;
+	}
+
+	.draft-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 46px;
+		padding: 0 20px;
+		border-bottom: 1px solid var(--divider);
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.draft-state {
+		padding: 2px 10px;
+		background: var(--blue-tint);
+		border-radius: 4px;
+		color: var(--blue);
+		font-size: 12px;
+		font-weight: 400;
+		line-height: 16px;
+		transition: background-color 0.4s ease, color 0.4s ease;
+	}
+
+	.draft-state.ready {
+		background: var(--green-tint);
+		color: var(--green);
+	}
+
+	.draft-card svg.lines {
+		position: absolute;
+		left: 0;
+		top: 50px;
+	}
+
+	.line-solid {
+		fill: none;
+		stroke: #9aa0a3;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-dasharray: 1;
+		stroke-dashoffset: 1;
+	}
+
+	/* The shapes are left blank on purpose. They show that a graph is being put together, not what is in it,
+		as a real service could have any number of steps and conditions. */
+	.gnode {
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 200px;
+		height: 36px;
+		background: #fafaf8;
+		border: 1px solid var(--field-border);
+		border-radius: 10px;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+	}
+
+	.gnode::after {
+		content: '';
+		width: 56%;
+		height: 8px;
+		background: #e4e4df;
+		border-radius: 4px;
+	}
+
+	.gnode.on {
+		opacity: 1;
+	}
+
+	.start-disc {
+		position: absolute;
+		left: 240px;
+		top: 90px;
+		width: 40px;
+		height: 40px;
+		background: var(--text);
+		border-radius: 50%;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+	}
+
+	.start-disc.on {
+		opacity: 1;
+	}
+
+	.diamond {
+		position: absolute;
+		left: 247px;
+		top: 212px;
+		width: 26px;
+		height: 26px;
+		background: #ffdd00;
+		clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+		opacity: 0;
+		transition: opacity 0.4s ease;
+	}
+
+	.diamond.on {
+		opacity: 1;
+	}
+
+	.end-disc {
+		position: absolute;
+		left: 240px;
+		top: 426px;
+		width: 40px;
+		height: 40px;
+		border: 2px solid #b1b4b6;
+		border-radius: 50%;
+		opacity: 0;
+		transition: opacity 0.4s ease, background-color 0.5s ease, border-color 0.5s ease;
+	}
+
+	.end-disc.on {
+		opacity: 1;
+	}
+
+	.end-disc.final {
+		background: var(--green);
+		border: 2px solid #ffffff;
+		box-shadow: 0 0 0 1.5px var(--green);
+	}
+
+	/* The pointer sits above everything, at stage level, and finds its targets by measuring them. */
+	.cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.3s;
+		z-index: 10;
+	}
+
+	.cursor.visible {
+		opacity: 1;
+	}
+
+	.cursor svg {
+		position: absolute;
+		top: -2px;
+		left: -2px;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+	}
+
+	.cursor .click {
+		position: absolute;
+		top: -18px;
+		left: -18px;
+		width: 36px;
+		height: 36px;
+		border: 2px solid var(--blue);
+		border-radius: 50%;
+		opacity: 0;
+	}
+
+	.cursor.clicking .click {
+		animation: click 0.45s ease-out;
+	}
+
+	@keyframes click {
+		0% { opacity: 0.8; transform: scale(0.4); }
+		100% { opacity: 0; transform: scale(1.3); }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.screen,
+		.option,
+		.radio,
+		.radio::after,
+		.field,
+		.ring-fill,
+		.progress-title,
+		.progress-sub,
+		.bar-fill,
+		.step,
+		.mark,
+		.mark .tick,
+		.gnode,
+		.start-disc,
+		.diamond,
+		.end-disc,
+		.draft-state,
+		.stage,
+		.button {
+			transition: none;
+		}
+
+		.step.active .mark,
+		.ring.finished,
+		.caret,
+		.cursor.clicking .click {
+			animation: none;
+		}
+	}
+</style>
+</head>
+<body>
+<main class="wrap">
+	<h1 class="sr-only">Onboarding a service: starting a new service, choosing to draft it with automation, filling in the form, and the first draft being generated</h1>
+
+	<div class="viewport" id="viewport">
+		<!-- The drawing is for sight only. What is happening is repeated in plain text just below for screen readers. -->
+		<div class="stage" id="stage" aria-hidden="true">
+
+			<!-- Page one: the landing page -->
+			<div class="screen screen-landing" id="screen-landing">
+				<div class="page-title">Create a service</div>
+
+				<div class="start-card">
+					<div>
+						<h2>Start a new service</h2>
+						<div class="intro grey">Create agentically legible service graphs that include steps and conditions.</div>
+					</div>
+					<div class="rule"></div>
+					<div><span class="button" id="start-button">Start a new service<svg width="8" height="12" viewBox="0 0 8 12"><path d="M1.5 1.5 L6.5 6 L1.5 10.5" fill="none" stroke="#ffffff" stroke-width="2" /></svg></span></div>
+					<div class="note grey">Next you will choose whether the assistant drafts a first version for you, or you begin with a blank graph.</div>
+				</div>
+
+				<div class="side" style="top: 222px;">
+					<h2>How it works</h2>
+					<div class="how-item"><span class="how-number">1</span><div><div class="how-title">A first draft is created</div><div class="how-text grey">A service graph including steps, questions and branching is drafted using a manual or automated process.</div></div></div>
+					<div class="how-item"><span class="how-number">2</span><div><div class="how-title">You edit the journey graph</div><div class="how-text grey">Reorder steps, change questions and adjust conditions visually.</div></div></div>
+					<div class="how-item"><span class="how-number">3</span><div><div class="how-title">Policy signs it off</div><div class="how-text grey">Policy colleagues set what is required and authorise each step.</div></div></div>
+				</div>
+
+				<div class="side" style="top: 520px;">
+					<h2>Your drafts</h2>
+					<div class="drafts">
+						<div class="draft-row"><span class="link">Renew your driving licence</span><span class="draft-meta">6 steps · edited 2 hours ago<span class="status" style="background: #fff4b8; color: #594d00;">In policy review</span></span></div>
+						<div class="draft-row"><span class="link">Book your theory test</span><span class="draft-meta">5 steps · edited yesterday<span class="status" style="background: #cce2d8; color: #00703c;">Live</span></span></div>
+						<div class="draft-row"><span class="link">Apply for a provisional licence</span><span class="draft-meta">8 steps · edited last week<span class="status" style="background: #f1f1ee; color: #505a5f;">Draft</span></span></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Page two: how to draft it -->
+			<div class="screen screen-draft" id="screen-draft">
+				<div class="column">
+					<div class="page-heading">How do you want to draft it?</div>
+					<div class="options">
+						<div class="option" id="option-automation">
+							<span class="radio"></span>
+							<div class="option-body">
+								<div class="option-head">Draft it with automation<span class="recommended">Recommended</span></div>
+								<div class="option-text grey">An assistant reads what is already on GOV.UK, plus anything you give it, and drafts a service journey and graph. Steps and conditions remain editable until published.</div>
+							</div>
+						</div>
+						<div class="option" id="option-blank">
+							<span class="radio"></span>
+							<div class="option-body single">
+								<div class="option-head">Start with a blank graph</div>
+								<div class="option-text grey">Build the journey yourself from scratch.</div>
+							</div>
+						</div>
+					</div>
+					<div class="continue"><span class="button" id="continue-button">Continue</span></div>
+				</div>
+			</div>
+
+			<!-- Page three: tell the assistant about the service -->
+			<div class="screen screen-form" id="screen-form">
+				<div class="column">
+					<div class="form-heading">Tell the assistant about the service</div>
+					<div class="form-intro grey">It will use this, plus what is already on GOV.UK, to draft the journey and graph.</div>
+					<div class="fields">
+						<div class="group">
+							<div class="label">What is the service called?</div>
+							<div class="field" id="field-name"><span class="text"><span class="val" data-placeholder=""></span><i class="caret"></i></span></div>
+						</div>
+						<div class="group">
+							<div class="label">What does the service do?</div>
+							<div class="field tall" id="field-description"><span class="text"><span class="val" data-placeholder=""></span><i class="caret"></i></span></div>
+						</div>
+						<div class="group" style="gap: 8px;">
+							<div class="label">Links to the service</div>
+							<div class="field" id="field-link"><svg class="link-icon" id="link-icon" width="14" height="14" viewBox="0 0 12 12"><path d="M5 7 L7 5 M4.5 8.5 L3 10 A1.7 1.7 0 0 1 1 8 L3 6 M7.5 3.5 L9 2 A1.7 1.7 0 0 1 11 4 L9 6" fill="none" stroke="#1d70b8" stroke-width="1.2" stroke-linecap="round" /></svg><span class="text"><span class="val" data-placeholder="https://"></span><i class="caret"></i></span></div>
+							<div class="field"><span class="text"><span class="val" data-placeholder="https://"></span></span></div>
+							<div class="link" style="font-size: 14px; line-height: 18px;">Add another link</div>
+						</div>
+						<div class="group" style="gap: 8px;">
+							<div class="label">Add a document (optional)</div>
+							<div class="dropzone"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 11 V2 M4.5 5.5 L8 2 L11.5 5.5 M2 11 V14 H14 V11" fill="none" stroke="#505a5f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>Drop a policy paper, spec or form here.</div>
+						</div>
+					</div>
+					<div class="generate">
+						<span class="button" id="generate-button"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1 L9.6 6.4 L15 8 L9.6 9.6 L8 15 L6.4 9.6 L1 8 L6.4 6.4 Z" fill="#ffffff" /></svg>Generate the first draft</span>
+						<span class="grey">usually under a minute</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Page four: generating the first draft -->
+			<div class="screen screen-generating" id="screen-generating">
+				<div class="dots"></div>
+				<div class="dots-fade"></div>
+
+				<div class="progress">
+					<div class="progress-top">
+						<div class="ring" id="ring">
+							<svg width="120" height="120" viewBox="0 0 120 120">
+								<circle class="ring-track" cx="60" cy="60" r="50" />
+								<circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="50" transform="rotate(-90 60 60)" stroke-dasharray="0 314.16" />
+							</svg>
+							<div class="ring-number" id="ring-number">0%</div>
+						</div>
+						<div>
+							<div class="progress-title" id="progress-title">Drafting your service</div>
+							<div class="progress-sub" id="progress-sub">Reading what is on GOV.UK and building the journey. Usually under a minute.</div>
+						</div>
+					</div>
+					<div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
+					<div class="steps" id="steps"></div>
+				</div>
+
+				<div class="draft-card">
+					<div class="draft-head">Change driving licence address<span class="draft-state" id="draft-state">Draft forming</span></div>
+					<svg class="lines" width="520" height="430" viewBox="0 0 520 430">
+						<path class="line-solid" id="edge-1" pathLength="1" d="M260 70 V110" />
+						<path class="line-solid" id="edge-2" pathLength="1" d="M260 146 V176" />
+						<path class="line-solid" id="edge-3" pathLength="1" d="M260 190 V210 Q260 216 254 216 H150 Q144 216 144 222 V240" />
+						<path class="line-solid" id="edge-4" pathLength="1" d="M260 210 Q260 216 266 216 H370 Q376 216 376 222 V240" />
+						<path class="line-solid" id="edge-5" pathLength="1" d="M144 276 V294 Q144 300 150 300 H254 Q260 300 260 306 V316" />
+						<path class="line-solid" id="edge-6" pathLength="1" d="M376 276 V294 Q376 300 370 300 H266 Q260 300 260 306 V316" />
+						<path class="line-solid" id="edge-7" pathLength="1" d="M260 352 V376" />
+					</svg>
+					<div class="start-disc" id="start-disc"></div>
+					<div class="gnode" id="node-1" style="left: 130px; top: 170px; width: 260px;"></div>
+					<div class="diamond" id="diamond"></div>
+					<div class="gnode" id="node-2" style="left: 44px; top: 290px;"></div>
+					<div class="gnode" id="node-3" style="left: 276px; top: 290px;"></div>
+					<div class="gnode" id="node-4" style="left: 160px; top: 366px;"></div>
+					<div class="end-disc" id="end-disc"></div>
+				</div>
+			</div>
+
+			<div class="cursor" id="cursor">
+				<span class="click"></span>
+				<svg width="18" height="24" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7 17 L11 26 L14 24.5 L10 16 L17 16 Z" fill="#0b0c0c" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" /></svg>
+			</div>
+		</div>
+	</div>
+	<p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+	// What the person types into the form.
+	const FORM = {
+		name: 'Change driving licence address',
+		description: "Change a user's driving licence address using either a postcode search or by entering the address manually.",
+		link: 'gov.uk/change-address-driving-licence'
+	};
+
+	// The checks shown while the draft is made. A check is finished once the progress passes its "doneAt"
+	// value, and is the one being worked on from the previous check's value until then.
+	const PROGRESS = {
+		checks: [
+			{ label: 'Read gov.uk/change-address-driving-licence', doneAt: 18 },
+			{ label: 'Understood your description', doneAt: 36 },
+			{ label: 'Found 4 steps and 1 branch', doneAt: 52 },
+			{ label: 'Drafting questions and conditions', doneAt: 84 },
+			{ label: 'Checking the journey graph', doneAt: 100 }
+		],
+		// Where the progress has got to over the length of the wait, as pairs of the share of the time
+		// that has passed and the percentage reached. It speeds up and slows down as real work does.
+		timing: [[0, 0], [0.14, 18], [0.32, 36], [0.5, 52], [0.78, 84], [0.92, 96], [1, 100]],
+		durationMs: 11000
+	};
+
+	// The blank graph that loops on the right while the draft is made, in the order its parts join up. A part
+	// is a shape to fade in or a line to draw, with the time in milliseconds to wait before the next one.
+	const GRAPH_LOOP = [
+		{ shape: 'start-disc', wait: 250 },
+		{ line: 'edge-1', wait: 150 },
+		{ shape: 'node-1', wait: 300 },
+		{ line: 'edge-2', wait: 150 },
+		{ shape: 'diamond', wait: 300 },
+		{ line: 'edge-3', also: 'edge-4', wait: 150 },
+		{ shape: 'node-2', also: 'node-3', wait: 350 },
+		{ line: 'edge-5', also: 'edge-6', wait: 250 },
+		{ shape: 'node-4', wait: 300 },
+		{ line: 'edge-7', wait: 200 },
+		{ shape: 'end-disc', wait: 1500 }
+	];
+
+	const TICK = '<svg width="11" height="9" viewBox="0 0 14 11"><path d="M1.5 5.5 L5 9 L12.5 1.5" fill="none" stroke="#00703c" stroke-width="2.6"/></svg>';
+	const CIRCUMFERENCE = 2 * Math.PI * 50;
+	const $ = (id) => document.getElementById(id);
+
+	const stage = $('stage');
+	const viewport = $('viewport');
+	const cursorEl = $('cursor');
+	const screens = ['landing', 'draft', 'form', 'generating'].map((name) => $(`screen-${name}`));
+	const stepEls = [];
+	let cursor = { x: 1200, y: 760 };
+
+	/**
+	 * Draws the list of checks, which comes from the PROGRESS values. The timeline only ever changes how
+	 * they look, it never creates them.
+	 */
+	function build() {
+		for (const check of PROGRESS.checks) {
+			const row = document.createElement('div');
+			row.className = 'step';
+			row.innerHTML = `<span class="mark"><span class="tick">${TICK}</span></span><span>${check.label}</span>`;
+			$('steps').appendChild(row);
+			stepEls.push(row);
+		}
+	}
+
+	/**
+	 * Scales the fixed size stage to the width it has been given.
+	 */
+	function fit() {
+		stage.style.transform = `scale(${viewport.clientWidth / 1440})`;
+	}
+
+	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+	const lerp = (a, b, t) => a + (b - a) * t;
+	const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+	/**
+	 * Runs onFrame with a 0 to 1 progress value over the given milliseconds, and resolves when it is done.
+	 */
+	function tween(ms, onFrame, ease = easeInOut) {
+		return new Promise((resolve) => {
+			const start = performance.now();
+			function frame(now) {
+				const t = clamp((now - start) / ms, 0, 1);
+				onFrame(ease(t));
+				if (t < 1) requestAnimationFrame(frame);
+				else resolve();
+			}
+			requestAnimationFrame(frame);
+		});
+	}
+
+	const wait = (ms) => tween(ms, () => {}, (t) => t);
+
+	/**
+	 * Puts the pointer at a point on the stage.
+	 */
+	function setCursor(x, y) {
+		cursor = { x, y };
+		cursorEl.style.transform = `translate(${x}px, ${y}px)`;
+	}
+
+	/**
+	 * Finds the middle of an element on the stage, wherever it has got to.
+	 */
+	function centreOf(el, dx = 0, dy = 0) {
+		const box = stage.getBoundingClientRect();
+		const scale = box.width / 1440;
+		const r = el.getBoundingClientRect();
+		return { x: (r.left + r.width / 2 - box.left) / scale + dx, y: (r.top + r.height / 2 - box.top) / scale + dy };
+	}
+
+	/**
+	 * Moves the pointer to an element and clicks it, with a ring that spreads from the point of the click.
+	 */
+	async function click(el, dx = 0, dy = 0, ms = 900) {
+		const from = { ...cursor };
+		const to = centreOf(el, dx, dy);
+		await tween(ms, (e) => setCursor(lerp(from.x, to.x, e), lerp(from.y, to.y, e)));
+		cursorEl.classList.remove('clicking');
+		void cursorEl.offsetWidth;
+		cursorEl.classList.add('clicking');
+		await wait(220);
+	}
+
+	/**
+	 * Presses a button down and lets it up again.
+	 */
+	async function press(el) {
+		el.classList.add('pressed');
+		await wait(160);
+		el.classList.remove('pressed');
+	}
+
+	/**
+	 * Shows one page and hides the rest.
+	 */
+	function showScreen(index) {
+		screens.forEach((screen, i) => screen.classList.toggle('active', i === index));
+	}
+
+	/**
+	 * Types text into a field, a letter at a time, with a caret and a blue edge while it is being typed in.
+	 */
+	async function typeInto(field, text, ms, onFirstLetter) {
+		const val = field.querySelector('.val');
+		field.classList.add('focus');
+		await wait(250);
+		let started = false;
+		await tween(ms, (e) => {
+			val.textContent = text.slice(0, Math.round(e * text.length));
+			if (!started && val.textContent) {
+				started = true;
+				if (onFirstLetter) onFirstLetter();
+			}
+		}, (t) => t);
+		await wait(250);
+		field.classList.remove('focus');
+	}
+
+	/**
+	 * Tells screen readers what is happening, in plain words.
+	 */
+	function say(text) {
+		$('live').textContent = text;
+	}
+
+	/**
+	 * Works out the percentage reached for a share of the time that has passed, easing between the points
+	 * in PROGRESS.timing.
+	 */
+	function percentAt(share) {
+		const points = PROGRESS.timing;
+		for (let i = 1; i < points.length; i++) {
+			if (share <= points[i][0]) {
+				const [t0, p0] = points[i - 1];
+				const [t1, p1] = points[i];
+				return lerp(p0, p1, easeInOut((share - t0) / (t1 - t0)));
+			}
+		}
+		return 100;
+	}
+
+	/**
+	 * Draws one line of the graph, from its start to its end.
+	 */
+	function drawLine(id, ms) {
+		const path = $(id);
+		return tween(ms, (e) => (path.style.strokeDashoffset = String(1 - e)));
+	}
+
+	/**
+	 * Sets everything on the generating page for a percentage: the ring and its number, the bar, the list
+	 * of checks.
+	 */
+	function setProgress(percent) {
+		const shown = Math.round(percent);
+		$('ring-fill').setAttribute('stroke-dasharray', `${(percent / 100) * CIRCUMFERENCE} ${CIRCUMFERENCE}`);
+		$('ring-number').textContent = `${shown}%`;
+		$('bar-fill').style.width = `${percent}%`;
+
+		// A check is finished once the progress passes it, is being worked on until then if the one before
+		// it is finished, and waits otherwise.
+		PROGRESS.checks.forEach((check, i) => {
+			const finished = percent >= check.doneAt;
+			const previousFinished = i === 0 || percent >= PROGRESS.checks[i - 1].doneAt;
+			stepEls[i].classList.toggle('done', finished);
+			stepEls[i].classList.toggle('active', !finished && previousFinished);
+		});
+	}
+
+	// Changes each time the graph is reset, so a loop that has been replaced knows to stop.
+	let graphRun = 0;
+
+	/**
+	 * Fades out every shape and line of the blank graph, ready for it to join up again.
+	 */
+	function clearGraph() {
+		document.querySelectorAll('.start-disc, .diamond, .gnode, .end-disc').forEach((el) => el.classList.remove('on', 'final'));
+		document.querySelectorAll('.line-solid').forEach((el) => (el.style.strokeDashoffset = '1'));
+	}
+
+	/**
+	 * Fades in a shape or draws a line, whichever the id belongs to.
+	 */
+	function revealGraphPart(id) {
+		const el = $(id);
+		if (el.classList.contains('line-solid')) return drawLine(id, 450);
+		el.classList.add('on');
+		return Promise.resolve();
+	}
+
+	/**
+	 * Joins the blank shapes up one after another, clears them and does it again, for as long as the draft is
+	 * being made. A new run number is taken each time, so starting again or finishing stops the old loop.
+	 */
+	async function loopGraph() {
+		const mine = ++graphRun;
+		while (mine === graphRun) {
+			clearGraph();
+			await wait(500);
+			for (const part of GRAPH_LOOP) {
+				if (mine !== graphRun) return;
+				const ids = [part.shape || part.line, part.also].filter(Boolean);
+				await Promise.all(ids.map(revealGraphPart));
+				await wait(part.wait);
+			}
+			if (mine !== graphRun) return;
+			// The finished shape is held for a moment and then faded out, so the loop reads as starting again.
+			await wait(600);
+		}
+	}
+
+	/**
+	 * Stops the loop and leaves the whole blank graph joined up.
+	 */
+	function completeGraph() {
+		graphRun++;
+		document.querySelectorAll('.start-disc, .diamond, .gnode, .end-disc').forEach((el) => el.classList.add('on'));
+		document.querySelectorAll('.line-solid').forEach((el) => (el.style.strokeDashoffset = '0'));
+	}
+
+	/**
+	 * The moment the draft is complete: the ring turns green, the draft graph settles into its finished
+	 * shape, and the heading says the draft is ready.
+	 */
+	async function finish() {
+		$('ring').classList.add('finished');
+		$('ring-fill').style.stroke = '#00703c';
+		$('bar-fill').style.backgroundColor = '#00703c';
+		say('The first draft is ready');
+
+		// The loop stops and the graph is left fully joined up, with its end shape filled in.
+		completeGraph();
+		$('end-disc').classList.add('final');
+		$('draft-state').textContent = 'Draft ready';
+		$('draft-state').classList.add('ready');
+
+		// The words change to say it is done.
+		$('progress-title').classList.add('swap');
+		$('progress-sub').classList.add('swap');
+		await wait(250);
+		$('progress-title').textContent = 'Your draft is ready';
+		$('progress-sub').textContent = 'The journey graph is ready for you to edit and review.';
+		$('progress-title').classList.remove('swap');
+		$('progress-sub').classList.remove('swap');
+	}
+
+	/**
+	 * Puts everything back to the start: the landing page showing and nothing filled in.
+	 */
+	function reset() {
+		stage.classList.remove('fade');
+		showScreen(0);
+		cursorEl.classList.remove('visible', 'clicking');
+		setCursor(1200, 760);
+		$('option-automation').classList.remove('chosen');
+		$('option-blank').classList.remove('chosen');
+		for (const id of ['field-name', 'field-description', 'field-link']) {
+			$(id).querySelector('.val').textContent = '';
+			$(id).classList.remove('focus');
+		}
+		$('link-icon').classList.remove('on');
+		$('ring').classList.remove('finished');
+		$('ring-fill').style.stroke = '';
+		$('bar-fill').style.backgroundColor = '';
+		$('progress-title').textContent = 'Drafting your service';
+		$('progress-sub').textContent = 'Reading what is on GOV.UK and building the journey. Usually under a minute.';
+		$('draft-state').textContent = 'Draft forming';
+		$('draft-state').classList.remove('ready');
+		graphRun++;
+		clearGraph();
+		setProgress(0);
+	}
+
+	/**
+	 * The whole story, in order: start a new service, choose automation, fill in the form, generate the first
+	 * draft and watch the progress fill to completion.
+	 */
+	async function run() {
+		reset();
+		say('Create a service page, with a button to start a new service');
+		await wait(900);
+
+		// Page one: start a new service.
+		cursorEl.classList.add('visible');
+		await click($('start-button'));
+		await press($('start-button'));
+		await wait(200);
+
+		// Page two: choose to draft it with automation.
+		say('Choosing how to draft the service');
+		showScreen(1);
+		await wait(1000);
+		await click($('option-automation'), 0, -10);
+		$('option-automation').classList.add('chosen');
+		say('Draft it with automation is chosen');
+		await wait(900);
+		await click($('continue-button'));
+		await press($('continue-button'));
+		await wait(200);
+
+		// Page three: tell the assistant about the service.
+		say('Telling the assistant about the service');
+		showScreen(2);
+		await wait(1000);
+		await click($('field-name'));
+		await typeInto($('field-name'), FORM.name, 1100);
+		await wait(250);
+		await click($('field-description'), 0, -10, 700);
+		await typeInto($('field-description'), FORM.description, 2300);
+		await wait(250);
+		await click($('field-link'), 0, 0, 700);
+		await typeInto($('field-link'), FORM.link, 1500, () => $('link-icon').classList.add('on'));
+		await wait(500);
+		await click($('generate-button'));
+		await press($('generate-button'));
+		await wait(200);
+
+		// Page four: the first draft is generated while the progress fills.
+		say('The first draft is being generated');
+		cursorEl.classList.remove('visible');
+		showScreen(3);
+		loopGraph();
+		await wait(900);
+		await tween(PROGRESS.durationMs, (t) => setProgress(percentAt(t)), (t) => t);
+		setProgress(100);
+		await finish();
+		await wait(3800);
+
+		stage.classList.add('fade');
+		await wait(900);
+	}
+
+	/**
+	 * Runs the story over and over.
+	 */
+	async function loop() {
+		while (true) await run();
+	}
+
+	/**
+	 * Shows the finished picture straight away, with nothing moving, for anyone who has asked their device
+	 * to reduce motion. This is the generating page once the draft is complete.
+	 */
+	function showFinal() {
+		reset();
+		showScreen(3);
+		setProgress(100);
+		completeGraph();
+		$('ring-fill').style.stroke = '#00703c';
+		$('bar-fill').style.backgroundColor = '#00703c';
+		$('end-disc').classList.add('final');
+		$('draft-state').textContent = 'Draft ready';
+		$('draft-state').classList.add('ready');
+		$('progress-title').textContent = 'Your draft is ready';
+		$('progress-sub').textContent = 'The journey graph is ready for you to edit and review.';
+		say('A new service has been started with automation, and the first draft is ready');
+	}
+
+	build();
+	fit();
+	new ResizeObserver(fit).observe(viewport);
+
+	if (matchMedia('(prefers-reduced-motion: reduce)').matches) showFinal();
+	else loop();
+</script>
+</body>
+</html>

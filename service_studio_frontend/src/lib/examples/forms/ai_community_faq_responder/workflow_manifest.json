@@ -1,0 +1,46 @@
+{
+  "workflow_id": 6865,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.6865",
+  "version": "0.1.0",
+  "contact": "jose.orjales@digital.cabinet-office.gov.uk",
+  "description": "AI Community FAQ Responder",
+  "state": "draft",
+  "metadata": {
+    "form_id": "6865",
+    "form_slug": "ai-community-faq-responder",
+    "status": "live",
+    "language": "en",
+    "available_languages": [],
+    "submission_type": "email",
+    "submission_format": [],
+    "support_url": null,
+    "support_email": "jose.orjales@digital.cabinet-office.gov.uk",
+    "support_phone": null,
+    "privacy_policy_url": "https://www.gov.uk/help/privacy-notice",
+    "payment_url": null,
+    "live_at": "2025-04-29T09:55:02.730Z",
+    "created_at": "2025-04-04T11:15:45.492Z",
+    "updated_at": "2025-04-29T09:55:02.730Z",
+    "first_made_live_at": "2025-04-22T00:00:00.000000Z",
+    "creator_id": 2496,
+    "copied_from_id": null,
+    "send_copy_of_answers": null,
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "ai_community_faq_responder",
+  "executor": {
+    "workflow_id_template": "forms-6865-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "ai_community_faq_responder",
+      "version": "0.1.0"
+    }
+  ]
+}

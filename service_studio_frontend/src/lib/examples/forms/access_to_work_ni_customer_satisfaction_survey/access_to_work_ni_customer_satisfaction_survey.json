@@ -1,0 +1,221 @@
+{
+  "process_id": "access_to_work_ni_customer_satisfaction_survey",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "step_1",
+  "vars": {
+    "answers": {}
+  },
+  "states": {
+    "step_1": {
+      "type": "input",
+      "name": "How satisfied are you with the support you are receiving through Access to Work (NI)",
+      "metadata": {
+        "forms_step_id": "TEnubBvJ",
+        "position": 1,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "false",
+          "selection_options": [
+            {
+              "name": "Very Satisfied",
+              "value": "Very Satisfied",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Satisfied",
+              "value": "Satisfied",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Neither Satisfied nor Dissatisfied",
+              "value": "Neither Satisfied nor Dissatisfied",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Dissatisfied",
+              "value": "Dissatisfied",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Very Dissatisfied",
+              "value": "Very Dissatisfied",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "How satisfied are you with the support you are receiving through Access to Work (NI)?",
+      "schema": {
+        "kind": "select_many",
+        "options": [
+          {
+            "value": "Very Satisfied",
+            "label": "Very Satisfied"
+          },
+          {
+            "value": "Satisfied",
+            "label": "Satisfied"
+          },
+          {
+            "value": "Neither Satisfied nor Dissatisfied",
+            "label": "Neither Satisfied nor Dissatisfied"
+          },
+          {
+            "value": "Dissatisfied",
+            "label": "Dissatisfied"
+          },
+          {
+            "value": "Very Dissatisfied",
+            "label": "Very Dissatisfied"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_2"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "Do you feel that Access to Work (NI) support has helped to increase your confidence in work",
+      "metadata": {
+        "forms_step_id": "vei6JFAR",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "false",
+          "selection_options": [
+            {
+              "name": "Strongly Agree",
+              "value": "Strongly Agree",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Agree",
+              "value": "Agree",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Neither Agree nor Disagree",
+              "value": "Neither Agree nor Disagree",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Disagree",
+              "value": "Disagree",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "Strongly Disagree",
+              "value": "Strongly Disagree",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you feel that Access to Work (NI) support has helped to increase your confidence in work?",
+      "schema": {
+        "kind": "select_many",
+        "options": [
+          {
+            "value": "Strongly Agree",
+            "label": "Strongly Agree"
+          },
+          {
+            "value": "Agree",
+            "label": "Agree"
+          },
+          {
+            "value": "Neither Agree nor Disagree",
+            "label": "Neither Agree nor Disagree"
+          },
+          {
+            "value": "Disagree",
+            "label": "Disagree"
+          },
+          {
+            "value": "Strongly Disagree",
+            "label": "Strongly Disagree"
+          }
+        ],
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "Do you have any further feedback regarding your Access to Work (NI) support",
+      "metadata": {
+        "forms_step_id": "Y2c4riFY",
+        "position": 3,
+        "page_heading": "Further Contact",
+        "guidance_markdown": "If you wish to be contacted further, please email your name and phone number to: AtWNICustSatSurvey@communities-ni.gov.uk",
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "Do you have any further feedback regarding your Access to Work (NI) support?",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_3",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "Thank you for completing the Access to Work (NI) Customer Satisfaction Survey.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}
