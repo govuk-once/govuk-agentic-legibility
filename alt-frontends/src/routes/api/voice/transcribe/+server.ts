@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-transcribe-streaming';
 import type { RequestHandler } from './$types';
 
-const DEFAULT_AWS_REGION = 'us-east-1';
+const DEFAULT_AWS_REGION = 'eu-west-2';
 const DEFAULT_LANGUAGE_CODE = 'en-GB';
 const SAMPLE_RATE_HZ = 16000;
 const CHUNK_BYTES = 6400; // ~200ms of 16-bit mono PCM at 16kHz
