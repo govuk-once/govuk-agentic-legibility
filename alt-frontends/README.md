@@ -174,3 +174,8 @@ Without `just`: `pnpm check`, `pnpm build`, `pnpm preview`. There is no
 frontend test suite yet — `durable_poc`'s own tests
 (`durable_poc/tests/`) and evaluation harness (`durable_poc/evaluation/`)
 cover the executor/agent behaviour this app talks to.
+
+
+## Deployment to AWS
+See `./infrastructure` directory for the [README](infrastructure/cdk/README.md) containing instructions for deploying the alternative frontends app to AWS.
+
