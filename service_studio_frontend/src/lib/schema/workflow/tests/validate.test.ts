@@ -443,32 +443,40 @@ describe('journeyErrors', () => {
 
 	it('names only the first state of a loose piece, not every state cut off behind it', () => {
 		const process = build('a', { a: wait('end'), b: wait('c'), c: wait('d'), d: wait('end'), end: finish });
-		expect(journeyErrors(process)).toEqual([{ path: 'states.b', state: 'b', message: 'is not joined to the journey' }]);
+		expect(journeyErrors(process)).toMatchObject([{ path: 'states.b', state: 'b', message: 'is not joined to the journey' }]);
 	});
 
 	it('names a loose loop once, by its first state', () => {
 		const process = build('a', { a: wait('end'), b: wait('c'), c: wait('b'), end: finish });
-		expect(journeyErrors(process)).toEqual([{ path: 'states.b', state: 'b', message: 'is not joined to the journey' }]);
+		expect(journeyErrors(process)).toMatchObject([{ path: 'states.b', state: 'b', message: 'is not joined to the journey' }]);
 	});
 
 	it('says once that the journey has no start, without naming every state as loose', () => {
 		const problems = journeyErrors(build(undefined, { a: wait('b'), b: wait('end'), end: finish }));
-		expect(problems).toEqual([
-			{ path: 'start', message: expect.stringContaining('The journey has no start') },
+		expect(problems).toMatchObject([
+			{ path: 'start', kind: 'no_start', title: 'No start' },
 			{ path: 'states.a', state: 'a', message: 'is not joined to the journey' }
 		]);
 	});
 
 	it('says a step has nothing after it, in its own words and not the schema words as well', () => {
-		expect(journeyErrors(build('a', { a: wait(), end: finish }))).toEqual([
-			{ path: 'states.a.next', state: 'a', message: 'has nothing after it' },
+		expect(journeyErrors(build('a', { a: wait(), end: finish }))).toMatchObject([
+			{ path: 'states.a.next', state: 'a', kind: 'no_next', message: 'has nothing after it', title: 'No next step' },
 			{ path: 'states.end', state: 'end', message: 'is not joined to the journey' }
 		]);
 	});
 
 	it('names the state a schema problem is about, when it is about one', () => {
 		const problems = journeyErrors(build('a', { a: wait('missing'), end: finish }));
-		expect(problems).toContainEqual({ path: 'states.a.next', state: 'a', message: expect.stringContaining('missing') });
+		expect(problems).toContainEqual(
+			expect.objectContaining({ path: 'states.a.next', state: 'a', kind: 'schema', fix: expect.stringContaining('missing') })
+		);
+	});
+
+	it('gives a decision whose ways out lead nowhere one problem, with a title that counts them', () => {
+		const decide = { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'x' } }], default: undefined };
+		const [problem] = journeyErrors(build('decide', { decide }));
+		expect(problem).toMatchObject({ state: 'decide', kind: 'way_out_leads_nowhere', title: '2 ways out lead nowhere' });
 	});
 });
 
@@ -483,11 +491,12 @@ describe('journeyWarnings', () => {
 			decide: { state_type: 'choice', rules: [{ when: undecidedRule, next: 'end' }, { when: undecidedRule, next: 'end' }], default: 'end' },
 			end: { state_type: 'end', status: 'success' }
 		});
-		expect(journeyWarnings(process).map((warning) => [warning.state, warning.message])).toEqual([
-			['ask', `still has the placeholder question "${placeholderQuestion}"`],
-			['say', `still has the placeholder message "${placeholderMessage}"`],
-			['decide', 'has 2 rules still to be confirmed']
+		expect(journeyWarnings(process).map((warning) => [warning.state, warning.kind, warning.message, warning.title])).toEqual([
+			['ask', 'placeholder_question', `still has the placeholder question "${placeholderQuestion}"`, 'Placeholder question'],
+			['say', 'placeholder_message', `still has the placeholder message "${placeholderMessage}"`, 'Placeholder message'],
+			['decide', 'rule_to_confirm', 'has 2 rules still to be confirmed', '2 rules to be confirmed']
 		]);
+		expect(journeyWarnings(process)[0].fix).toContain(placeholderQuestion);
 	});
 
 	it('does not list the placeholders a later review fills in, such as the details of a call', () => {

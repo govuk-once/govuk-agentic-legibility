@@ -3,6 +3,7 @@ import { hasNext } from './edit-state';
 import { isUndecidedRule, placeholderMessage, placeholderQuestion } from './placeholders';
 import { processSchema, type Process } from './process';
 import { journeyOrder, reachableInOrder } from './journey-order';
+import { schemaProblemTitle, wordsFor, type JourneyProblemKind } from './journey-problems';
 import { routesOf } from './routes';
 import type { WorkingProcess, WorkingWorkflow } from './working-process';
 import { workflowSchema, type Workflow } from './workflow';
@@ -260,15 +261,9 @@ export function parseWorkflow(input: unknown): WorkflowValidation {
 
 /**
  * One problem with a journey that is being edited: where it is in the process, the state it is about when it is
- * about one, and what is wrong. The message is written to follow the name of the state, such as "has nothing after
- * it", so an editor can name the state in its own words before it.
+ * about one, its sort, and its words from journey-problems.ts.
  */
-export type JourneyProblem = { path: string; state?: string; message: string };
-
-// The words a problem is given. They follow the name of the state the problem is about.
-const noStartMessage = 'The journey has no start. Draw a line from the start dot to the first step.';
-const noNextMessage = 'has nothing after it';
-const notJoinedMessage = 'is not joined to the journey';
+export type JourneyProblem = { path: string; state?: string; kind: JourneyProblemKind; message: string; title: string; fix: string };
 
 /**
  * Finds the first state of each piece of the journey that is not joined to the start. Every state cut off behind
@@ -308,11 +303,11 @@ export function journeyErrors(process: WorkingProcess): JourneyProblem[] {
 function findJourneyErrors(process: WorkingProcess): { problems: JourneyProblem[]; covered: Set<string> } {
 	const problems: JourneyProblem[] = [];
 	const covered = new Set<string>();
-	if (process.start === undefined) problems.push({ path: 'start', message: noStartMessage });
+	if (process.start === undefined) problems.push({ path: 'start', ...wordsFor('no_start') });
 
 	for (const [code, state] of Object.entries(process.states)) {
 		if (hasNext(state) && state.next === undefined) {
-			problems.push({ path: `states.${code}.next`, state: code, message: noNextMessage });
+			problems.push({ path: `states.${code}.next`, state: code, ...wordsFor('no_next') });
 		}
 
 		// A decision is listed once however many of its ways out lead nowhere, with the path of the first.
@@ -323,21 +318,22 @@ function findJourneyErrors(process: WorkingProcess): { problems: JourneyProblem[
 			];
 			for (const path of missing) covered.add(path);
 			if (missing.length > 0) {
-				const message = missing.length === 1 ? 'has a way out that leads nowhere' : `has ${missing.length} ways out that lead nowhere`;
-				problems.push({ path: missing[0], state: code, message });
+				problems.push({ path: missing[0], state: code, ...wordsFor('way_out_leads_nowhere', missing.length) });
 			}
 		}
 	}
 
 	for (const code of firstStatesOfLoosePieces(process)) {
-		problems.push({ path: `states.${code}`, state: code, message: notJoinedMessage });
+		problems.push({ path: `states.${code}`, state: code, ...wordsFor('not_joined') });
 	}
 
 	// The schema words a missing key in its own way, so a key already listed is left out and not said twice.
 	for (const problem of problems) covered.add(problem.path);
 	const parsed = parseProcess(process);
 	const fromSchema = parsed.ok ? [] : parsed.issues.filter((issue) => !listedUnder(covered, issue.path));
-	return { problems: [...problems, ...fromSchema.map((issue) => ({ ...issue, state: stateOfPath(issue.path) }))], covered };
+	// The schema's own words say what is wrong, so they are the fix under a title that says where they come from.
+	const schemaProblems = fromSchema.map((issue): JourneyProblem => ({ ...issue, state: stateOfPath(issue.path), kind: 'schema', title: schemaProblemTitle, fix: issue.message }));
+	return { problems: [...problems, ...schemaProblems], covered };
 }
 
 /**
@@ -348,16 +344,15 @@ function findJourneyErrors(process: WorkingProcess): { problems: JourneyProblem[
 export function journeyWarnings(process: WorkingProcess): JourneyProblem[] {
 	return Object.entries(process.states).flatMap(([code, state]): JourneyProblem[] => {
 		if (state.state_type === 'input' && state.prompt === placeholderQuestion) {
-			return [{ path: `states.${code}.prompt`, state: code, message: `still has the placeholder question "${placeholderQuestion}"` }];
+			return [{ path: `states.${code}.prompt`, state: code, ...wordsFor('placeholder_question') }];
 		}
 		if (state.state_type === 'output' && state.message === placeholderMessage) {
-			return [{ path: `states.${code}.message`, state: code, message: `still has the placeholder message "${placeholderMessage}"` }];
+			return [{ path: `states.${code}.message`, state: code, ...wordsFor('placeholder_message') }];
 		}
 		if (state.state_type === 'choice') {
 			const undecided = state.rules.filter((rule) => isUndecidedRule(rule.when)).length;
 			if (undecided === 0) return [];
-			const message = undecided === 1 ? 'has a rule still to be confirmed' : `has ${undecided} rules still to be confirmed`;
-			return [{ path: `states.${code}.rules`, state: code, message }];
+			return [{ path: `states.${code}.rules`, state: code, ...wordsFor('rule_to_confirm', undecided) }];
 		}
 		return [];
 	});
