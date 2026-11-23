@@ -14,7 +14,8 @@
 	interface Props {
 		// The decision as it is now. The card starts from it and only changes a copy.
 		currentState: Extract<WorkingState, { state_type: 'choice' }>;
-		// The title the decision has in the lists of choices.
+		// The title the decision has in the lists of choices. It is only read out to a screen reader, because the title
+		// field on the card already shows it.
 		title: string;
 		// The input the decision follows. There is none when a message leads to it, or more than one step does.
 		before: InputBefore | undefined;
@@ -65,8 +66,10 @@
 </script>
 
 <div class="decision-edit-card" role="group" aria-label="Decision: {title}, editing">
+	<!-- The header says which module the decision belongs to, when it came in with one, and what it decides on. The
+		title is not repeated here, because the title field below shows it. -->
 	<div class="decision-edit-card__header">
-		<h3 class="govuk-heading-s govuk-!-margin-bottom-0">{title}</h3>
+		<ModuleNote {currentState} />
 		<p class="govuk-body-s govuk-!-margin-bottom-0 decision-edit-card__status">
 			{#if before}
 				Decides on the answer to step {before.number}: {before.title}
@@ -85,8 +88,6 @@
 			applyChanges();
 		}}
 	>
-		<ModuleNote {currentState} />
-
 		<div class="govuk-form-group decision-edit-card__form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-title">Title</label>
 			<input class="govuk-input" id="{fieldId}-title" name="title" type="text" bind:value={draftTitle} />
@@ -139,8 +140,8 @@
 	.decision-edit-card__header {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
-		padding: 18px 16px 14px;
+		gap: 10px;
+		padding: 15px;
 		border-bottom: 1px solid #b1b4b6;
 	}
 

@@ -23,6 +23,7 @@
 <div class="developer-state-card" role="group" aria-label="{title}, set up by a developer">
 	<div class="developer-state-card__header">
 		<div class="developer-state-card__summary">
+			<ModuleNote {currentState} />
 			<h3 class="govuk-heading-s govuk-!-margin-bottom-0">{title}</h3>
 			<strong class="govuk-tag govuk-tag--{tagColour}">{tagLabel}</strong>
 		</div>
@@ -30,8 +31,6 @@
 	</div>
 
 	<div class="developer-state-card__body">
-		<ModuleNote {currentState} />
-
 		<div class="govuk-inset-text govuk-!-margin-top-0 govuk-!-margin-bottom-0">
 			A developer sets up this step at the technical review.
 		</div>

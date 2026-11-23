@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignBefore } from '../edit-process';
+import { stepWithItsAssign } from '../edit-process';
 import { reachableInOrder } from '../journey-order';
 import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '../move-state';
 import { processSchema, type Process } from '../process';
@@ -164,24 +164,24 @@ describe('moving with a state that travels in front of a step', () => {
 	});
 
 	it('moves a step down past the assign and the step it travels in front of together', () => {
-		const moved = moveLater(journey(), 'b', assignBefore);
+		const moved = moveLater(journey(), 'b', stepWithItsAssign);
 		expect(reachableInOrder(moved)).toEqual(['a', 'save', 'c', 'b', 'd', 'end']);
 		expect(processSchema.safeParse(moved).success).toBe(true);
 	});
 
 	it('moves a step up with the assign in front of it, which gives the same journey', () => {
-		expect(canMoveEarlier(journey(), 'c', assignBefore)).toBe(true);
-		expect(moveEarlier(journey(), 'c', assignBefore)).toEqual(moveLater(journey(), 'b', assignBefore));
+		expect(canMoveEarlier(journey(), 'c', stepWithItsAssign)).toBe(true);
+		expect(moveEarlier(journey(), 'c', stepWithItsAssign)).toEqual(moveLater(journey(), 'b', stepWithItsAssign));
 	});
 
 	it('moves a step down with the assign in front of it, past the step after', () => {
-		const moved = moveLater(journey(), 'c', assignBefore);
+		const moved = moveLater(journey(), 'c', stepWithItsAssign);
 		expect(reachableInOrder(moved)).toEqual(['a', 'b', 'd', 'save', 'c', 'end']);
-		expect(moveEarlier(journey(), 'd', assignBefore)).toEqual(moved);
+		expect(moveEarlier(journey(), 'd', stepWithItsAssign)).toEqual(moved);
 	});
 
 	it('undoes a move of the two together', () => {
-		const there = moveLater(journey(), 'b', assignBefore);
-		expect(reachableInOrder(moveEarlier(there, 'b', assignBefore))).toEqual(reachableInOrder(journey()));
+		const there = moveLater(journey(), 'b', stepWithItsAssign);
+		expect(reachableInOrder(moveEarlier(there, 'b', stepWithItsAssign))).toEqual(reachableInOrder(journey()));
 	});
 });

@@ -34,6 +34,18 @@ export function assignBefore(process: WorkingProcess, code: string): string | un
 }
 
 /**
+ * Lists a step together with the assign that saves an answer before it, the assign first. Given the assign, it
+ * lists the assign and the step it continues to. Any other state is listed on its own. An editor that keeps an
+ * answer's assign with its step moves and removes the two together with this.
+ */
+export function stepWithItsAssign(process: WorkingProcess, code: string): string[] {
+	const state = process.states[code];
+	if (state?.state_type === 'assign' && state.next !== undefined && assignBefore(process, state.next) === code) return [code, state.next];
+	const assign = assignBefore(process, code);
+	return assign ? [assign, code] : [code];
+}
+
+/**
  * Returns a copy of the process in which everything that led to one state leads to another instead. That
  * covers every kind of route and the start of the process, so a state can be taken out of the journey
  * without leaving anything pointing at it.

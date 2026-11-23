@@ -1,129 +1,177 @@
-import { redirectRoutes, routesInto } from './edit-process';
-import { hasNext, replaceState, withNext, withoutNext } from './edit-state';
-import type { WorkingProcess } from './working-process';
+import { routesInto } from './edit-process';
+import { hasNext, nothingYet, replaceState, withChoiceTargets, withoutNext } from './edit-state';
+import { journeyOrder } from './journey-order';
+import { routesOf, withRouteTarget } from './routes';
+import type { WorkingProcess, WorkingState } from './working-process';
 
 /*
 	Moving a step up or down changes the journey itself. The steps are not kept in a list, so there is no
 	list to reorder: a step moves by swapping places with the step it continues to, which rewires the routes
 	around the pair. The step numbers follow the routes, so they change by themselves.
 
-	1. A step can swap with any step it continues to. Nothing is refused to keep the journey working, because a
+	1. A step moves as part of a block. An editor says which states travel together, such as the assign that
+	   saves an answer before the next input, or every state of a module. On its own a step is a block of one.
+	2. A block can only move when it has one way in and one way out. The way in is the state that everything
+	   outside the block leads to. The way out is the one onward route that leaves the block, which may lead
+	   nowhere yet. A block that branches, such as a decision, or one that ends the journey, cannot move, and
+	   nothing can swap places with it.
+	3. A block swaps with the block its way out leads to. Nothing is refused to keep the journey working, because a
 	   journey is allowed to be rearranged freely and is checked before it is passed on.
-	2. A step cannot move when there is no step on that side to swap with: it continues to a decision, an end
-	   or nothing, or no single step leads to it.
-	3. An editor can name a state that travels in front of a step, such as the assign that saves an answer before
-	   the next input. The two then move as one block, and a step moving past them passes both.
+	4. Error routes, such as a call that fails, are not ways out. They stay where they lead when the block moves.
 */
 
 /**
- * Finds the state that travels in front of a step, or nothing when the step moves on its own. An editor that keeps
- * two states together gives a function of this shape to every function in this file.
+ * Lists the codes of every state that travels together with a state, the state itself among them. An editor that
+ * keeps states together gives a function of this shape to every function in this file.
  */
-export type AttachedBefore = (process: WorkingProcess, code: string) => string | undefined;
+export type BlockMembers = (process: WorkingProcess, code: string) => string[];
 
-const nothingAttached: AttachedBefore = () => undefined;
+const onItsOwn: BlockMembers = (_process, code) => [code];
 
-// The states that move together, named by the first and the last. A step on its own is both.
-type Block = { first: string; last: string };
+// One onward route of a state, which may lead nowhere yet: the state it is written in, where in that state it sits,
+// and the state it leads to.
+type WayOut = { source: string; path: (string | number)[]; target: string | undefined };
 
-// The block a step moves in: the step, with the state that travels in front of it when there is one.
-function blockOf(process: WorkingProcess, code: string, attachedBefore: AttachedBefore): Block {
-	return { first: attachedBefore(process, code) ?? code, last: code };
+// The states that move together, the one everything outside them leads to, and the one route that leaves them.
+type Block = { members: Set<string>; first: string; exit: WayOut };
+
+/**
+ * Lists the onward routes of a state, including those that lead nowhere yet. A decision has one for each rule and
+ * one for its default. An end has none. Error routes are left out.
+ */
+function onwardRoutes(code: string, state: WorkingState): WayOut[] {
+	if (state.state_type === 'choice') {
+		return [
+			...state.rules.map((rule, index): WayOut => ({ source: code, path: ['rules', index, 'next'], target: rule.next })),
+			{ source: code, path: ['default'], target: state.default }
+		];
+	}
+	return hasNext(state) ? [{ source: code, path: ['next'], target: state.next }] : [];
 }
 
 /**
- * Finds the block that a block would swap places with if it moved down, which is the block it continues to.
- * Returns nothing when there is no step there to swap with, so one check serves both the button and the move itself.
+ * Finds the block a state moves in, or nothing when that block cannot move: it has more than one way out or none,
+ * or something outside it leads to a state in it other than its way in.
  */
-function laterBlock(process: WorkingProcess, block: Block, attachedBefore: AttachedBefore): Block | undefined {
-	const last = process.states[block.last];
-	// A step with nothing after it has no neighbour to swap with.
-	if (!last || !hasNext(last) || last.next === undefined) return undefined;
+function blockOf(process: WorkingProcess, code: string, membersOf: BlockMembers): Block | undefined {
+	if (!(code in process.states)) return undefined;
+	const members = new Set(membersOf(process, code).filter((member) => member in process.states));
 
-	const afterCode = last.next;
-	const after = process.states[afterCode];
-	// A decision or an end is not a step, so there is nothing to swap with.
-	if (!after || !hasNext(after)) return undefined;
+	const exits = [...members]
+		.flatMap((member) => onwardRoutes(member, process.states[member]))
+		.filter((route) => route.target === undefined || !members.has(route.target));
+	if (exits.length !== 1) return undefined;
 
-	// The state after may travel in front of the step it continues to, and then the two are passed together.
-	const travelsWith = after.next !== undefined && attachedBefore(process, after.next) === afterCode ? after.next : undefined;
-	const later: Block = { first: afterCode, last: travelsWith ?? afterCode };
+	// The way in is the state of the block the journey reaches first.
+	const first = journeyOrder(process).find((each) => members.has(each));
+	if (first === undefined) return undefined;
 
-	// The later block must end in a step, and must be made of other states than the block that is moving.
-	const laterLast = process.states[later.last];
-	if (!laterLast || !hasNext(laterLast)) return undefined;
-	const moving = new Set([block.first, block.last]);
-	if (moving.has(later.first) || moving.has(later.last)) return undefined;
+	// Moving would cut a route that enters the block anywhere but its way in, so such a block stays where it is.
+	const entersElsewhere = Object.entries(process.states).some(
+		([source, state]) => !members.has(source) && routesOf(state).some((route) => members.has(route.target) && route.target !== first)
+	);
+	const startsElsewhere = process.start !== undefined && members.has(process.start) && process.start !== first;
+	return entersElsewhere || startsElsewhere ? undefined : { members, first, exit: exits[0] };
+}
+
+/**
+ * Finds the block that a block would swap places with if it moved down, which is the block its way out leads to.
+ * Returns nothing when there is no such block, so one check serves both the button and the move itself.
+ */
+function laterBlock(process: WorkingProcess, block: Block, membersOf: BlockMembers): Block | undefined {
+	const target = block.exit.target;
+	if (target === undefined) return undefined;
+
+	// The way out must lead to the way in of a block that can move, made of other states than the block that is moving.
+	const later = blockOf(process, target, membersOf);
+	if (!later || later.first !== target || [...later.members].some((member) => block.members.has(member))) return undefined;
 
 	// Two blocks that continue to each other have no order to change.
-	return laterLast.next === block.first ? undefined : later;
+	return later.exit.target === block.first ? undefined : later;
 }
 
 /**
- * Finds the block that a step would swap places with if it moved up, which is the block that leads to it.
- * Returns nothing when no single step leads to it.
+ * Finds the block that a block would swap places with if it moved up, which is the one block whose way out leads
+ * to it. Returns nothing when no block or more than one does.
  */
-function earlierBlock(process: WorkingProcess, code: string, attachedBefore: AttachedBefore): Block | undefined {
-	const block = blockOf(process, code, attachedBefore);
+function earlierBlock(process: WorkingProcess, block: Block, membersOf: BlockMembers): Block | undefined {
+	const candidates = new Map<string, Block>();
+	for (const { source } of routesInto(process, block.first)) {
+		if (block.members.has(source)) continue;
+		const earlier = blockOf(process, source, membersOf);
+		if (earlier && laterBlock(process, earlier, membersOf)?.first === block.first) candidates.set(earlier.first, earlier);
+	}
+	return candidates.size === 1 ? [...candidates.values()][0] : undefined;
+}
 
-	// The steps that continue to the block. A decision that leads to it is not a step, so it does not count.
-	const before = routesInto(process, block.first).filter(({ source, route }) => route.kind === 'next' && source !== block.last);
-	if (before.length !== 1) return undefined;
+/**
+ * Points one onward route of a state at a new state, or leaves it leading nowhere when there is none.
+ */
+function withWayOut(state: WorkingState, path: (string | number)[], target: string | undefined): WorkingState {
+	if (target !== undefined) return withRouteTarget(state, path, target);
+	if (state.state_type !== 'choice') return withoutNext(state);
 
-	const earlier = blockOf(process, before[0].source, attachedBefore);
-	return laterBlock(process, earlier, attachedBefore)?.last === code ? earlier : undefined;
+	const ruleTargets = state.rules.map((rule, index) => (path[0] === 'rules' && path[1] === index ? nothingYet : (rule.next ?? nothingYet)));
+	return withChoiceTargets(state, ruleTargets, path[0] === 'default' ? nothingYet : (state.default ?? nothingYet));
 }
 
 /**
  * Returns a copy of the process in which a block has swapped places with the block it continues to. Everything
- * that led to the first block now leads to the second, the second continues to the first, and the first continues
- * to where the second went.
+ * outside the two that led to the first block now leads to the second, the second continues to the first, and the
+ * first continues to where the second went.
  */
 function swapBlocks(process: WorkingProcess, first: Block, second: Block): WorkingProcess {
-	// Both ends are read before anything is redirected, because the swap rebuilds them from these copies.
-	const firstLast = process.states[first.last];
-	const secondLast = process.states[second.last];
-	if (!hasNext(secondLast)) return process;
+	const secondTarget = second.exit.target;
 
-	// Everything that led to the first block, including the start of the process, now leads to the second.
-	const redirected = redirectRoutes(process, first.first, second.first);
+	// Routes inside either block are left alone, so a loop inside a module still goes back to its own start.
+	const states = Object.fromEntries(
+		Object.entries(process.states).map(([code, state]) => {
+			if (first.members.has(code) || second.members.has(code)) return [code, state];
+			const redirected = routesOf(state)
+				.filter((route) => route.target === first.first)
+				.reduce((current, route) => withRouteTarget(current, route.path, second.first), state);
+			return [code, redirected];
+		})
+	);
+	const redirected: WorkingProcess = { ...process, start: process.start === first.first ? second.first : process.start, states };
 
-	// The second block comes first and continues to the first block, and its other routes are left as they were.
-	const secondFirst = replaceState(redirected, second.last, withNext(secondLast, first.first));
-	// The first block comes second and continues to wherever the second block used to go, which may be nowhere yet.
-	return replaceState(secondFirst, first.last, secondLast.next === undefined ? withoutNext(firstLast) : withNext(firstLast, secondLast.next));
+	const secondFirst = replaceState(redirected, second.exit.source, withWayOut(redirected.states[second.exit.source], second.exit.path, first.first));
+	return replaceState(secondFirst, first.exit.source, withWayOut(secondFirst.states[first.exit.source], first.exit.path, secondTarget));
 }
 
 /**
  * Tells whether a step can move down, so the panel only offers a button that will work.
  */
-export function canMoveLater(process: WorkingProcess, code: string, attachedBefore: AttachedBefore = nothingAttached): boolean {
-	return laterBlock(process, blockOf(process, code, attachedBefore), attachedBefore) !== undefined;
+export function canMoveLater(process: WorkingProcess, code: string, membersOf: BlockMembers = onItsOwn): boolean {
+	const block = blockOf(process, code, membersOf);
+	return block !== undefined && laterBlock(process, block, membersOf) !== undefined;
 }
 
 /**
  * Tells whether a step can move up, so the panel only offers a button that will work.
  */
-export function canMoveEarlier(process: WorkingProcess, code: string, attachedBefore: AttachedBefore = nothingAttached): boolean {
-	return earlierBlock(process, code, attachedBefore) !== undefined;
+export function canMoveEarlier(process: WorkingProcess, code: string, membersOf: BlockMembers = onItsOwn): boolean {
+	const block = blockOf(process, code, membersOf);
+	return block !== undefined && earlierBlock(process, block, membersOf) !== undefined;
 }
 
 /**
- * Returns a copy of the process in which a step has swapped places with the step after it. If there is no step
- * to swap with, the process is returned as it is.
+ * Returns a copy of the process in which a step, with the states that travel with it, has swapped places with the
+ * block after it. If there is nothing to swap with, the process is returned as it is.
  */
-export function moveLater(process: WorkingProcess, code: string, attachedBefore: AttachedBefore = nothingAttached): WorkingProcess {
-	const block = blockOf(process, code, attachedBefore);
-	const later = laterBlock(process, block, attachedBefore);
-	return later ? swapBlocks(process, block, later) : process;
+export function moveLater(process: WorkingProcess, code: string, membersOf: BlockMembers = onItsOwn): WorkingProcess {
+	const block = blockOf(process, code, membersOf);
+	const later = block && laterBlock(process, block, membersOf);
+	return block && later ? swapBlocks(process, block, later) : process;
 }
 
 /**
- * Returns a copy of the process in which a step has swapped places with the step before it. This is the
- * earlier step moving down, so it uses the same swap. If there is no step to swap with, the process is returned
- * as it is.
+ * Returns a copy of the process in which a step, with the states that travel with it, has swapped places with the
+ * block before it. This is the earlier block moving down, so it uses the same swap. If there is nothing to swap
+ * with, the process is returned as it is.
  */
-export function moveEarlier(process: WorkingProcess, code: string, attachedBefore: AttachedBefore = nothingAttached): WorkingProcess {
-	const earlier = earlierBlock(process, code, attachedBefore);
-	return earlier ? swapBlocks(process, earlier, blockOf(process, code, attachedBefore)) : process;
+export function moveEarlier(process: WorkingProcess, code: string, membersOf: BlockMembers = onItsOwn): WorkingProcess {
+	const block = blockOf(process, code, membersOf);
+	const earlier = block && earlierBlock(process, block, membersOf);
+	return block && earlier ? swapBlocks(process, earlier, block) : process;
 }

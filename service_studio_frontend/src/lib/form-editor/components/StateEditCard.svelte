@@ -6,7 +6,6 @@
 	import ModuleNote from '$lib/modules/ModuleNote.svelte';
 	import { isInModule } from '$lib/modules/module-group';
 	import { answerFormatOf, answerFormats, formatsFor, isAnswerFormatKey, withAnswerFormat } from '$lib/modules/answer-formats';
-	import StateReorderButtons from '$lib/process-graph/StateReorderButtons.svelte';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import { editableOptions, newOption, withOptions } from '$lib/schema/workflow/answer-options';
 	import {
@@ -27,17 +26,13 @@
 	interface Props {
 		// The input or message as it is now. The card starts from it and only changes a copy.
 		currentState: Extract<WorkingState, { state_type: 'input' | 'output' }>;
-		// The number and the title the step has on the graph and in the list, and how many steps there are.
+		// The number and the title the step has on the graph and in the list, and how many steps there are. The title
+		// is only read out to a screen reader, because the title field below already shows it.
 		number: number;
 		title: string;
 		totalSteps: number;
 		// Every other state this step could continue to, named for the list of choices.
 		targets: TargetOption[];
-		// Whether there is a step before or after this one in the list to open in its place.
-		canOpenPrevious: boolean;
-		canOpenNext: boolean;
-		onOpenPrevious: () => void;
-		onOpenNext: () => void;
 		// Context added for the agent on this step. It is held by the page and changed straight away when added or
 		// removed, not by Apply changes, because it is not part of the step.
 		contextItems: ContextItem[];
@@ -59,10 +54,6 @@
 		title,
 		totalSteps,
 		targets,
-		canOpenPrevious,
-		canOpenNext,
-		onOpenPrevious,
-		onOpenNext,
 		contextItems,
 		onContextChange,
 		onApply,
@@ -115,25 +106,11 @@
 </script>
 
 <div class="state-edit-card" role="group" aria-label="Step {number}: {title}, editing">
-	<!-- The header repeats the number and title of the step, so the open form stays tied to its place in the journey. -->
+	<!-- The header says which module the step belongs to, when it came in with one, and where it is in the journey.
+		The title is not repeated here, because the title field below shows it. -->
 	<div class="state-edit-card__header">
-		<StateReorderButtons
-			label="step {number}: {title}"
-			groupLabel="Move between steps"
-			upLabel="Edit the previous step"
-			downLabel="Edit the next step"
-			canMoveUp={canOpenPrevious}
-			canMoveDown={canOpenNext}
-			onMoveUp={onOpenPrevious}
-			onMoveDown={onOpenNext}
-		/>
-		<span class="govuk-body-s govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-edit-card__number">{number}</span>
-		<div class="state-edit-card__summary">
-			<h3 class="govuk-heading-s govuk-!-margin-bottom-0">{title}</h3>
-			<p class="govuk-body-s govuk-!-margin-bottom-0 state-edit-card__status">
-				Editing · step {number} of {totalSteps}
-			</p>
-		</div>
+		<ModuleNote {currentState} />
+		<p class="govuk-body-s govuk-!-margin-bottom-0 state-edit-card__status">Editing · step {number} of {totalSteps}</p>
 	</div>
 
 	<form
@@ -143,8 +120,6 @@
 			applyChanges();
 		}}
 	>
-		<ModuleNote {currentState} />
-
 		<div class="govuk-form-group state-edit-card__form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-title">Title</label>
 			<input class="govuk-input" id="{fieldId}-title" name="title" type="text" bind:value={draftTitle} />
@@ -314,25 +289,10 @@
 
 	.state-edit-card__header {
 		display: flex;
-		align-items: flex-start;
-		gap: 10px;
-		padding: 18px 16px 14px;
-		border-bottom: 1px solid #b1b4b6;
-	}
-
-	.state-edit-card__number {
-		flex-shrink: 0;
-		padding-top: 2px;
-		color: #505a5f;
-	}
-
-	.state-edit-card__summary {
-		display: flex;
 		flex-direction: column;
-		gap: 2px;
-		/* Without this, a flex item's automatic minimum size lets its content force this column, and the
-			panel around it, wider than it should be instead of wrapping within it. */
-		min-width: 0;
+		gap: 10px;
+		padding: 15px;
+		border-bottom: 1px solid #b1b4b6;
 	}
 
 	.state-edit-card__status,
@@ -398,7 +358,6 @@
 	}
 
 	@media (max-width: 640px) {
-		.state-edit-card__header,
 		.state-edit-card__actions {
 			align-items: flex-start;
 			flex-wrap: wrap;

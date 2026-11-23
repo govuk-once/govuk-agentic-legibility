@@ -20,6 +20,7 @@
 	import { isInModule, statesOfSameModule } from '$lib/modules/module-group';
 	import { withRoutesForNewOptions } from '$lib/modules/option-routes';
 	import { formPaletteTools } from '../palette-tools';
+	import { formStepBlock } from '../step-blocks';
 	import { formDeveloperStateTypes, formHiddenStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 	import DecisionEditCard from './DecisionEditCard.svelte';
@@ -208,10 +209,10 @@
 		selection = { code, open: false };
 	}
 
-	// Moves a step up or down the journey, taking with it the assign that saves an answer before it. The graph is
-	// arranged again, so the boxes follow the new order of the list.
+	// Moves a step up or down the journey, taking with it the assign that saves an answer before it, or every state
+	// of its module. The graph is arranged again, so the boxes follow the new order of the list.
 	function moveStep(code: string, direction: 'up' | 'down') {
-		applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code, assignBefore));
+		applyChange((direction === 'up' ? moveEarlier : moveLater)(process, code, formStepBlock));
 		onRearrange();
 	}
 
@@ -262,10 +263,6 @@
 						title={row.title}
 						totalSteps={rows.length}
 						targets={targets.filter((target) => target.stateId !== code)}
-						canOpenPrevious={openRowIndex > 0}
-						canOpenNext={openRowIndex < rows.length - 1}
-						onOpenPrevious={() => openCard(rows[openRowIndex - 1].stateId)}
-						onOpenNext={() => openCard(rows[openRowIndex + 1].stateId)}
 						contextItems={stepContext[code] ?? []}
 						onContextChange={(items) => onChangeStepContext(code, items)}
 						onApply={(updated, endsJourney) => applyEdit(code, updated, endsJourney)}
@@ -328,8 +325,8 @@
 							tagLabel={stateLabels[row.stateType]}
 							tagColour={stateTagColours[row.stateType]}
 							selected={row.stateId === selectedStateId}
-							canMoveUp={canMoveEarlier(process, row.stateId, assignBefore)}
-							canMoveDown={canMoveLater(process, row.stateId, assignBefore)}
+							canMoveUp={canMoveEarlier(process, row.stateId, formStepBlock)}
+							canMoveDown={canMoveLater(process, row.stateId, formStepBlock)}
 							onSelect={highlight}
 							onEdit={openCard}
 							onRemove={removeState}
