@@ -1,14 +1,22 @@
+import { answerFormats } from '$lib/modules/answer-formats';
 import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { descriptionKey, hintKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule } from '$lib/schema/workflow/placeholders';
 import { firstVersion } from '../shared/onboard-details';
 import { withProcessSchema } from '../shared/process-json-schema';
+import { describeDraftModule, draftFormModuleKeys } from './draft-modules';
 
 /* System prompt editable here */
 
 // The answer types are written into the text from the same list the app uses, so the model is told to write
 // exactly the words the rest of the app recognises.
 const textAnswerTypes = answerTypesByKind.string.join(', ');
+
+// The answer types that come with a format the app checks the answer against, such as email.
+const checkedAnswerTypes = Object.keys(answerFormats).join(', ');
+
+// The modules a drafted form may use, one line each, read from the modules themselves.
+const draftModules = draftFormModuleKeys.map(describeDraftModule).join('\n');
 
 // The placeholder values and the names of the notes are written into the text from the same constants the editor
 // and the checks use, for the same reason.
@@ -28,19 +36,25 @@ applicant_full_name, and its value is the state. Do not use UUIDs. Make sure eve
 to is one you also defined. The only state types to use are input, output, choice and end. Do not
 write any other type of state.
 
-Give every state a name, a short title in plain English for the person reading the journey, and a
-metadata object holding one sentence under the key "${descriptionKey}" for the team building the form.
+Give every state a name, a short title in plain English for the person reading the journey, such as
+"Email address" or "Terms decision". Do not copy the question or the message into the title. Also give
+every state a metadata object holding one sentence under the key "${descriptionKey}" for the team
+building the form.
 
 An input asks one question and saves the answer in a variable. Give it a prompt (the question as
 the citizen reads it), a schema with the kind of answer (boolean for yes or no, select_one or
 select_many with the options written out in full, string for anything typed, file_ref for an
-uploaded file), an assign (the variable the answer is saved in, in lower case with underscores,
-such as applicant_full_name) and a next. Ask one question in each input state. A page that asks
+uploaded file), an assign (the variable the answer is saved in: answers, a dot, then a short name in
+lower case with underscores that says what the answer is, such as answers.applicant_full_name) and a
+next. Ask one question in each input state. A page that asks
 several questions becomes several input states, one after the other.
 
 In the metadata of every input also write "${answerTypeKey}", which says what sort of answer is expected.
 For a string answer choose the closest of: ${textAnswerTypes}. For a boolean, select_one or
 select_many answer write "${answerTypesByKind.boolean[0]}". For a file_ref answer write "${answerTypesByKind.file_ref[0]}".
+The answer types ${checkedAnswerTypes} come with a set format that the app checks the answer
+against, so choose one of them whenever the question asks for that kind of answer. Do not write a
+pattern or an invalid_message yourself. The app adds them from the answer type.
 
 When the reference material gives guidance that helps a person answer a question, such as the
 format of a date or where to find a reference number, write it in the metadata of that input under
@@ -66,9 +80,22 @@ Questions asked only to collect information, such as a name or a date, do not ne
 Write the condition of a rule from the answer to the question directly before the choice. For a
 yes or no question use {"op": "is_true", "path": "<the variable>"} or {"op": "is_false", "path":
 "<the variable>"}. For a select_one question use {"op": "eq", "path": "<the variable>", "value":
-"<the value of the option>"}. Do not fabricate eligibility rules or decision logic that is not
+"<the value of the option>"}. For a typed question that can be left blank, use {"op": "not_empty",
+"path": "<the variable>"} to decide on whether it was answered. Do not fabricate eligibility rules or decision logic that is not
 supported by what you were given. If a rule genuinely cannot be known from what you were given, use
 exactly this placeholder condition: ${JSON.stringify(undecidedRule)}.
+
+Some states are written as a module: a fixed set of states that the form editor treats as one block.
+Use a module for a question whose answer has a set format or is a reference number, for a question
+whose answer decides what happens next, and for sending the person offline. Every other question or
+message is a state on its own, with no module.
+
+Mark every state of a module with two notes in its metadata: "group", the key of the module, and
+"group_id", a short label in lower case with underscores that is the same for every state of that one
+module and different from every other module in the form, such as accept_terms. Leave both out of a
+state that is not in a module. Write each module with exactly the states listed for it, in that
+order, each continuing to the next. The modules you may use are:
+${draftModules}
 
 Do not write error routes or timeouts. Leave out catch, on_invalid, timeout, timeouts and retry on
 every state.`;

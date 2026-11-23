@@ -1,5 +1,6 @@
 import { answerTypeKey } from '$lib/schema/workflow/answer-types';
 import { withNote } from '$lib/schema/workflow/edit-state';
+import type { AnswerDefinition } from '$lib/schema/workflow/input-state';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { isModuleKey } from './add-module';
 import { moduleDefinitions } from './module-states';
@@ -143,6 +144,29 @@ export function answerFormatOf(state: WorkingState): AnswerFormatKey | undefined
 	return isAnswerFormatKey(answerType) ? answerType : undefined;
 }
 
+// A typed answer, the only kind of answer a format can be checked on.
+type TypedAnswer = Extract<AnswerDefinition, { kind: 'string' }>;
+
+/**
+ * Gives a typed answer the pattern, message and tidying of a format, or takes all three away when there is no format.
+ * Used by the card and by a drafted form, so both check an answer in the same way.
+ */
+export function withFormatCheck(schema: TypedAnswer, key: AnswerFormatKey | undefined): TypedAnswer {
+	const checked = { ...schema };
+	const format = key === undefined ? undefined : answerFormats[key];
+	if (format) {
+		checked.pattern = format.pattern;
+		checked.invalid_message = format.invalidMessage;
+		if (format.normalise) checked.normalise = format.normalise;
+		else delete checked.normalise;
+	} else {
+		delete checked.pattern;
+		delete checked.invalid_message;
+		delete checked.normalise;
+	}
+	return checked;
+}
+
 /**
  * Gives a typed input the pattern, message and tidying of a format, and writes the format as its answer type.
  * Choosing no format takes all of them away, and takes away an answer type that was a format. An answer type with
@@ -151,19 +175,7 @@ export function answerFormatOf(state: WorkingState): AnswerFormatKey | undefined
 export function withAnswerFormat(state: WorkingState, key: AnswerFormatKey | undefined): WorkingState {
 	if (state.state_type !== 'input' || state.schema.kind !== 'string') return state;
 
-	const schema = { ...state.schema };
-	const format = key === undefined ? undefined : answerFormats[key];
-	if (format) {
-		schema.pattern = format.pattern;
-		schema.invalid_message = format.invalidMessage;
-		if (format.normalise) schema.normalise = format.normalise;
-		else delete schema.normalise;
-	} else {
-		delete schema.pattern;
-		delete schema.invalid_message;
-		delete schema.normalise;
-	}
-	const formatted = { ...state, schema };
+	const formatted = { ...state, schema: withFormatCheck(state.schema, key) };
 	if (key !== undefined) return withNote(formatted, answerTypeKey, key);
 	return answerFormatOf(state) === undefined ? formatted : withNote(formatted, answerTypeKey, '');
 }

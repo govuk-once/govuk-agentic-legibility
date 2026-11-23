@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { answerFormats } from '$lib/modules/answer-formats';
 import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { descriptionKey, hintKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule } from '$lib/schema/workflow/placeholders';
@@ -6,6 +7,7 @@ import { parseProcess } from '$lib/schema/workflow/validate';
 import { firstVersion } from '../../shared/onboard-details';
 import { schemaIntro } from '../../shared/process-json-schema';
 import { statesNotForForms } from '../build-form';
+import { describeDraftModule, draftFormModuleKeys } from '../draft-modules';
 import { FORM_SYSTEM_PROMPT } from '../system-prompt';
 
 // The instructions come first and the JSON Schema is added after the intro, so the two can be read separately.
@@ -31,6 +33,22 @@ describe('FORM_SYSTEM_PROMPT', () => {
 
 	it('names every answer type the app recognises', () => {
 		for (const type of Object.values(answerTypesByKind).flat()) expect(instructions, type).toContain(type);
+	});
+
+	it('lists every module a drafted form may use, as each module describes itself, and no other', () => {
+		for (const key of draftFormModuleKeys) expect(instructions).toContain(describeDraftModule(key));
+		for (const key of ['submit', 'many_answers']) expect(instructions).not.toContain(`- ${key} (`);
+		expect(instructions).toContain('"group_id"');
+	});
+
+	it('names the answer types that come with a format, and tells the model not to write a pattern', () => {
+		for (const key of Object.keys(answerFormats)) expect(instructions).toContain(key);
+		expect(instructions).toContain('Do not write a\npattern or an invalid_message yourself');
+	});
+
+	it('asks for answer names under answers, and titles that do not copy the question', () => {
+		expect(instructions).toContain('answers.applicant_full_name');
+		expect(instructions).toContain('Do not copy the question or the message into the title');
 	});
 
 	it('tells the model to leave out error routes and timeouts', () => {

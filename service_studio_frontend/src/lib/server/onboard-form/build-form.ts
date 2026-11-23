@@ -1,3 +1,4 @@
+import { answerFormatOf, withFormatCheck } from '$lib/modules/answer-formats';
 import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { isEditableInForm } from '$lib/form-editor/schema/form-states';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
@@ -9,8 +10,9 @@ import type { OnboardDetails } from '../shared/onboard-details';
 
 /*
 	What a form draft needs beyond the wrapping every draft gets. A form has no calls, so it has no defaults for
-	them and no error routes. Each question is given an answer type the app recognises, and a whole run is given
-	the limit the existing forms use. The description of the manifest holds the name of the form, as it does in the
+	them and no error routes. Each question is given an answer type the app recognises, a question whose answer type
+	has a format is given that format's check, each module the model marked is given a real group id, and a whole run
+	is given the limit the existing forms use. The description of the manifest holds the name of the form, as it does in the
 	existing forms, so the editor shows the form by its name, and what the person said the form does is kept as a
 	note in the metadata of the manifest.
 */
@@ -54,12 +56,46 @@ export function withAnswerTypes(process: Process): Process {
 }
 
 /**
+ * Gives every typed question whose answer type has a format, such as email, the pattern, message and tidying of
+ * that format, so a drafted question is checked in the same way as one given the format in the editor.
+ */
+export function withFormatChecks(process: Process): Process {
+	const states = Object.fromEntries(
+		Object.entries(process.states).map(([code, state]) => {
+			const format = answerFormatOf(state);
+			if (state.state_type !== 'input' || state.schema.kind !== 'string' || format === undefined) return [code, state];
+			return [code, { ...state, schema: withFormatCheck(state.schema, format) }];
+		})
+	);
+	return { ...process, states };
+}
+
+/**
+ * Swaps each group id label the model wrote, such as accept_terms, for a random code made once for that module, as
+ * dropping a module does. Every state that shared a label shares the code, so the module still moves and is removed
+ * as one, and two drafts never share one.
+ */
+export function withModuleGroupIds(process: Process): Process {
+	const codes = new Map<string, string>();
+	const states = Object.fromEntries(
+		Object.entries(process.states).map(([code, state]) => {
+			const label = state.metadata?.group_id;
+			if (typeof label !== 'string') return [code, state];
+			if (!codes.has(label)) codes.set(label, crypto.randomUUID());
+			return [code, { ...state, metadata: { ...state.metadata, group_id: codes.get(label) } }];
+		})
+	);
+	return { ...process, states };
+}
+
+/**
  * Wraps a generated process into a form workflow. Every question gets an answer type, and the manifest has no
  * defaults for calls and the run limit of a form. The manifest is described by the name of the form, and what the
  * form does is kept in the notes of the manifest. The process that is given in is never changed.
  */
 export function buildForm(generated: Process, details: OnboardDetails): Workflow {
-	const workflow = buildDraftWorkflow(withAnswerTypes(generated), details, { defaults: {}, runTimeout: formRunTimeout });
+	const completed = withModuleGroupIds(withFormatChecks(withAnswerTypes(generated)));
+	const workflow = buildDraftWorkflow(completed, details, { defaults: {}, runTimeout: formRunTimeout });
 
 	// A note is only added when the person said what the form does, so an empty one is never saved.
 	const purpose = details.description.trim();

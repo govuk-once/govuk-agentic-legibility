@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { isModuleKey } from '../add-module';
-import { moduleDefinitions } from '../module-states';
+import { moduleCopyProblems } from '../module-copies';
 
 // The form examples made of modules, each with its one process.
 const moduleForms = formExamples
@@ -11,10 +10,6 @@ const moduleForms = formExamples
 		const [process] = Object.values(example.workflow?.processes ?? {});
 		return process ? [{ slug: example.slug, process }] : [];
 	});
-
-// The kinds of state a module adds, sorted, so a copy in an example can be compared with the module itself.
-const typesOfModule = (key: string) =>
-	isModuleKey(key) ? Object.values(moduleDefinitions[key].build((part) => part).states).map((state) => state.state_type).sort() : [];
 
 describe('the form examples made of modules', () => {
 	it('has the three examples', () => {
@@ -25,22 +20,8 @@ describe('the form examples made of modules', () => {
 		]);
 	});
 
-	it('marks every copy of a module with a module key, and gives it the same kinds of state as the module', () => {
-		for (const { slug, process } of moduleForms) {
-			const copies = new Map<string, { key: unknown; types: string[] }>();
-			for (const state of Object.values(process.states)) {
-				const groupId = state.metadata?.group_id;
-				if (typeof groupId !== 'string') continue;
-				const copy = copies.get(groupId) ?? { key: state.metadata?.group, types: [] };
-				copy.types.push(state.state_type);
-				copies.set(groupId, copy);
-			}
-			expect(copies.size, slug).toBeGreaterThan(0);
-			for (const [groupId, copy] of copies) {
-				expect(typeof copy.key === 'string' && isModuleKey(copy.key), `${slug}: ${groupId}`).toBe(true);
-				expect(copy.types.sort(), `${slug}: ${copy.key}`).toEqual(typesOfModule(String(copy.key)));
-			}
-		}
+	it('marks every copy of a module with a module key, and gives it the same shape as the module', () => {
+		for (const { slug, process } of moduleForms) expect(moduleCopyProblems(process), slug).toEqual([]);
 	});
 
 	it('sends from Submit only the answers that a step in the form saves', () => {

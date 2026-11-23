@@ -3,7 +3,7 @@ import { formExamples } from '$lib/examples/forms';
 import { checkFormWorkflow } from '$lib/form-editor/schema/form-states';
 import type { Process } from '$lib/schema/workflow/process';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { buildForm, formRunTimeout, statesNotForForms, withAnswerTypes } from '../build-form';
+import { buildForm, formRunTimeout, statesNotForForms, withAnswerTypes, withFormatChecks, withModuleGroupIds } from '../build-form';
 
 const details = { name: 'Register a trainer', description: 'Tell us who needs training.', links: ['https://www.gov.uk/a'] };
 
@@ -75,6 +75,36 @@ describe('withAnswerTypes', () => {
 		const before = JSON.stringify(process);
 		expect(withAnswerTypes(process).states.finish).toBe(process.states.finish);
 		expect(JSON.stringify(process)).toBe(before);
+	});
+});
+
+describe('withFormatChecks', () => {
+	it('gives a typed question whose answer type has a format the check of that format', () => {
+		const process = withFormatChecks(generated({ ask: question({ kind: 'string' }, { answer_type: 'email' }) }));
+		const ask = process.states.ask;
+		expect(ask.state_type === 'input' && ask.schema).toMatchObject({ kind: 'string', normalise: 'lower_trim' });
+		expect(ask.state_type === 'input' && ask.schema.kind === 'string' && ask.schema.pattern).toEqual(expect.any(String));
+	});
+
+	it('leaves a question whose answer type has no format, such as name, without a check', () => {
+		const process = withFormatChecks(generated({ ask: question({ kind: 'string' }, { answer_type: 'name' }) }));
+		expect(process.states.ask.state_type === 'input' && process.states.ask.schema).toEqual({ kind: 'string' });
+	});
+});
+
+describe('withModuleGroupIds', () => {
+	it('gives the states that shared a label one random code, and a different code to another label', () => {
+		const process = withModuleGroupIds(
+			generated({
+				ask: question({ kind: 'boolean' }, { group: 'boolean_decision', group_id: 'accept_terms' }),
+				decide: { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'answer' }, next: 'finish' }], default: 'finish', metadata: { group: 'boolean_decision', group_id: 'accept_terms' } },
+				other: question({ kind: 'boolean' }, { group: 'boolean_decision', group_id: 'second' })
+			})
+		);
+		const idOf = (code: string) => process.states[code].metadata?.group_id;
+		expect(idOf('ask')).toBe(idOf('decide'));
+		expect(idOf('ask')).not.toBe('accept_terms');
+		expect(idOf('other')).not.toBe(idOf('ask'));
 	});
 });
 

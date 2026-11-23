@@ -53,6 +53,36 @@ describe('generateForm', () => {
 		expect(String(requests[1].messages[2].content)).toContain('A form cannot have a state of type "api_call"');
 	});
 
+	it('sends back a module the model gave the wrong states, and uses the corrected form', async () => {
+		const marked = { group: 'boolean_decision', group_id: 'has_permit' };
+		const decide = { state_type: 'choice', rules: [{ when: { op: 'is_true', path: 'answers.has_permit' }, next: 'finish' }], default: 'finish', metadata: marked };
+		const typed = { ...ask, assign: 'answers.has_permit', next: 'decide', metadata: marked };
+		const yesOrNo = { ...typed, schema: { kind: 'boolean' } };
+		const { client, requests } = fakeModel([reply({ ask: typed, decide, finish }), reply({ ask: yesOrNo, decide, finish })]);
+		const result = await generateForm(details, { client, modelId: 'the-model' });
+
+		if (!result.ok) throw new Error(JSON.stringify(result.issues));
+		expect(String(requests[1].messages[2].content)).toContain('must be made of: input with a boolean answer, choice');
+		const { states } = result.workflow.processes.register_a_trainer;
+		expect(states.ask.metadata?.group_id).toBe(states.decide.metadata?.group_id);
+		expect(states.ask.metadata?.group_id).not.toBe('has_permit');
+	});
+
+	it('sends back a module a drafted form may not use, such as Submit', async () => {
+		const { client, requests } = fakeModel([reply({ ask: { ...ask, metadata: { group: 'submit', group_id: 'send' } }, finish }), reply({ ask, finish })]);
+		await generateForm(details, { client, modelId: 'the-model' });
+		expect(String(requests[1].messages[2].content)).toContain('"submit" is not a module that can be used here');
+	});
+
+	it('gives a question the model gave a checked answer type the check of that format', async () => {
+		const { client } = fakeModel([reply({ ask: { ...ask, metadata: { answer_type: 'email' } }, finish })]);
+		const result = await generateForm(details, { client, modelId: 'the-model' });
+
+		if (!result.ok) throw new Error(JSON.stringify(result.issues));
+		const question = result.workflow.processes.register_a_trainer.states.ask;
+		expect(question.state_type === 'input' && question.schema.kind === 'string' && question.schema.pattern).toEqual(expect.any(String));
+	});
+
 	it('returns the problems when the second try still has a state a form cannot have', async () => {
 		const pause = { state_type: 'wait', duration: 'PT1S', next: 'finish' };
 		const { client } = fakeModel([reply({ ask: pause, finish }), reply({ ask: pause, finish })]);
