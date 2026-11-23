@@ -1,0 +1,320 @@
+{
+  "process_id": "add_funds_to_your_intellectual_property_office_deposit_account_with_modules",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {}
+  },
+  "states": {
+    "declaration": {
+      "state_type": "output",
+      "name": "Declaration",
+      "metadata": {
+        "group": "message",
+        "group_id": "b4bbcd88-319c-4855-a740-89ab074643cb"
+      },
+      "channel": "transcript",
+      "message": "By submitting this form, you accept the terms and conditions for using a deposit account. The terms and conditions are available on our website.",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "state_type": "input",
+      "name": "Accept Declaration",
+      "metadata": {
+        "group": "boolean_decision",
+        "group_id": "90bd9fef-cfb3-4d97-bb07-414d2d601100"
+      },
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "state_type": "choice",
+      "name": "Declaration decision",
+      "metadata": {
+        "group": "boolean_decision",
+        "group_id": "90bd9fef-cfb3-4d97-bb07-414d2d601100"
+      },
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "state_type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "state_type": "input",
+      "name": "Do you accept the terms and conditions for use of IPO deposit accounts",
+      "metadata": {
+        "forms_step_id": "7fVbWMbs",
+        "position": 1,
+        "page_heading": "Deposit account terms and conditions ",
+        "guidance_markdown": "To add funds to your deposit account, you must accept our terms and conditions for use of Intellectual Property Office deposit accounts:\r\n\r\n[Terms and conditions for use of IPO deposit accounts](https://www.gov.uk/government/publications/intellectual-property-office-how-to-pay-us/terms-and-conditions-for-use-of-intellectual-property-office-deposit-accounts)\r\n",
+        "answer_type": "selection",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": "true",
+          "selection_options": [
+            {
+              "name": "Yes",
+              "value": "Yes",
+              "is_other": false,
+              "requires_text": false
+            },
+            {
+              "name": "No",
+              "value": "No",
+              "is_other": false,
+              "requires_text": false
+            }
+          ],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        },
+        "group": "boolean_decision",
+        "group_id": "48963ef2-09e3-429e-ad38-68df5f2b5329"
+      },
+      "prompt": "Do you accept the terms and conditions for use of IPO deposit accounts?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "answers.terms_accepted",
+      "next": "step_1_routing"
+    },
+    "step_1_routing": {
+      "state_type": "choice",
+      "name": "Terms decision",
+      "metadata": {
+        "group": "boolean_decision",
+        "group_id": "48963ef2-09e3-429e-ad38-68df5f2b5329"
+      },
+      "rules": [
+        {
+          "when": {
+            "op": "is_false",
+            "path": "answers.terms_accepted"
+          },
+          "next": "step_1_exit_1"
+        }
+      ],
+      "default": "step_2"
+    },
+    "step_1_exit_1": {
+      "state_type": "output",
+      "name": "Exit Page",
+      "metadata": {
+        "group": "information",
+        "group_id": "207b4e5c-7210-4d74-84c1-c83486d5dd5c"
+      },
+      "channel": "transcript",
+      "message": "You're not eligible for this service\n\nYou must accept the terms and conditions to add funds to your deposit account.",
+      "on_error": "fail",
+      "next": "step_1_exit_1_end"
+    },
+    "step_1_exit_1_end": {
+      "state_type": "end",
+      "name": "Exit Page Complete",
+      "metadata": {
+        "group": "information",
+        "group_id": "207b4e5c-7210-4d74-84c1-c83486d5dd5c"
+      },
+      "status": "offramp",
+      "outcome": "exit_page"
+    },
+    "step_2": {
+      "state_type": "input",
+      "name": "What is your deposit account number",
+      "metadata": {
+        "forms_step_id": "4yFerKUd",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        },
+        "group": "simple_question",
+        "group_id": "32002457-1498-4de8-a3af-4dad5f10d2a7"
+      },
+      "prompt": "What is your deposit account number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.deposit_account_number",
+      "next": "step_3"
+    },
+    "step_3": {
+      "state_type": "input",
+      "name": "What is the name of the person completing this form",
+      "metadata": {
+        "forms_step_id": "CtA1wsbH",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "first_and_last_name",
+          "title_needed": false
+        },
+        "group": "simple_question",
+        "group_id": "2a2eb455-3d3d-4f6a-bb75-ae8e816872eb"
+      },
+      "prompt": "What is the name of the person completing this form?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.completed_by_name",
+      "next": "step_4"
+    },
+    "step_4": {
+      "state_type": "input",
+      "name": "What is your email address",
+      "metadata": {
+        "forms_step_id": "JAJcPqfe",
+        "position": 4,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": "We will only email you if we need more information about your request. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null,
+        "answer_format": "email",
+        "group": "formatted_question",
+        "group_id": "78ca5b51-2f3c-4db9-9eae-e7e36f71d639"
+      },
+      "prompt": "What is your email address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false,
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+        "invalid_message": "Please enter a valid email address (e.g., name@example.com).",
+        "normalise": "lower_trim"
+      },
+      "assign": "answers.email",
+      "next": "step_5"
+    },
+    "step_5": {
+      "state_type": "input",
+      "name": "What is your telephone number",
+      "metadata": {
+        "forms_step_id": "Vu3FHmGx",
+        "position": 5,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "phone_number",
+        "hint_text": "We will only call you if we do not receive a response to any emails we send you. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": null,
+          "title_needed": null
+        },
+        "answer_format": "phone",
+        "group": "formatted_question",
+        "group_id": "80d384f9-d69a-45cd-b68b-ef7649717788"
+      },
+      "prompt": "What is your telephone number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false,
+        "pattern": "^(?:0|\\+?44)\\d{9,10}$",
+        "invalid_message": "Please enter a valid UK telephone number."
+      },
+      "assign": "answers.phone",
+      "next": "step_6"
+    },
+    "step_6": {
+      "state_type": "input",
+      "name": "How much are you intending to add to your deposit account",
+      "metadata": {
+        "forms_step_id": "Gm9bhkTd",
+        "position": 6,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "For example, £1,000, £10,000 etc. ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        },
+        "group": "simple_question",
+        "group_id": "5e1ae9a6-50dc-4a26-a9ff-b22a4bb6c162"
+      },
+      "prompt": "How much are you intending to add to your deposit account?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.amount_to_add",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "state_type": "output",
+      "name": "What Happens Next",
+      "metadata": {
+        "group": "message",
+        "group_id": "62e06c22-4eab-451f-a747-6e0322515148"
+      },
+      "channel": "transcript",
+      "message": "You now need to make payment by bank transfer to complete this transaction. \r\n\r\nYou will need to:\r\n\r\n1. use your deposit account number as the payment reference or the form reference number above\r\n2. make payment to:\r\n\r\nBank sort code 20-18-23  \r\nAccount No. 80531766  \r\nSwift code: BARCGB22  \r\nIBAN number: GB92 BARC 2018 2380 5317 66  \r\n\r\nThese funds should be available within your deposit account within 3 working days after we've received your payment\r\n\r\n[What did you think of this service?]\r\n(https://response.questback.com/dynamic/intellectualpropertyoffice/zo2uykrxom/answer?sid=xUH4NZVxho&form=AddFundsToDepositAccountDP2)",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "state_type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

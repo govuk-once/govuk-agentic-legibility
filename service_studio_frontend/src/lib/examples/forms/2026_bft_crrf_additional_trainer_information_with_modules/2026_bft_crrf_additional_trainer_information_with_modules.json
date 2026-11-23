@@ -1,0 +1,324 @@
+{
+  "process_id": "2026_bft_crrf_additional_trainer_information_with_modules",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "declaration",
+  "vars": {
+    "answers": {},
+    "declaration": {},
+    "repeat": {}
+  },
+  "states": {
+    "declaration": {
+      "state_type": "output",
+      "name": "Declaration",
+      "metadata": {
+        "group": "message",
+        "group_id": "7d00a673-e087-491d-bdd3-340e4111da98"
+      },
+      "channel": "transcript",
+      "message": "In providing this information you agree that MMO can share these details of additional persons requiring training with Angling Trust in line with our privacy notice. See [Personal information charter - Marine Management Organisation - GOV.UK](https://www.gov.uk/government/organisations/marine-management-organisation/about/personal-information-charter)].",
+      "on_error": "fail",
+      "next": "declaration_accept"
+    },
+    "declaration_accept": {
+      "state_type": "input",
+      "name": "Accept Declaration",
+      "metadata": {
+        "group": "boolean_decision",
+        "group_id": "85d1d457-9854-4da9-a51d-48926ee83b80"
+      },
+      "prompt": "Do you accept this declaration?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "declaration.accepted",
+      "next": "declaration_route"
+    },
+    "declaration_route": {
+      "state_type": "choice",
+      "name": "Declaration decision",
+      "metadata": {
+        "group": "boolean_decision",
+        "group_id": "85d1d457-9854-4da9-a51d-48926ee83b80"
+      },
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "declaration.accepted"
+          },
+          "next": "step_1"
+        }
+      ],
+      "default": "declaration_declined"
+    },
+    "declaration_declined": {
+      "state_type": "end",
+      "name": "Declaration Declined",
+      "metadata": {},
+      "status": "offramp",
+      "outcome": "declaration_declined"
+    },
+    "step_1": {
+      "state_type": "input",
+      "name": "Please enter applicant full name",
+      "metadata": {
+        "forms_step_id": "b22bNSbn",
+        "position": 1,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": "Only the applicant that has received an offer can nominate additional persons required for training.\r\n\r\nYou will be asked for the details of the additional persons at the end of this form.  ",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "first_and_last_name",
+          "title_needed": true
+        },
+        "group": "simple_question",
+        "group_id": "7bca75a4-8ec9-4490-b3c8-66d6c3345f6e"
+      },
+      "prompt": "Please enter applicant full name",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.applicant_name",
+      "next": "step_2"
+    },
+    "step_2": {
+      "state_type": "input",
+      "name": "Name of vessel the your BFT CRRF application submission related to",
+      "metadata": {
+        "forms_step_id": "du868isA",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": null,
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        },
+        "group": "simple_question",
+        "group_id": "75665efa-4237-44f1-867c-d952a977e5fa"
+      },
+      "prompt": "Name of vessel the your BFT CRRF application submission related to",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.vessel_name",
+      "next": "step_3"
+    },
+    "step_3": {
+      "state_type": "input",
+      "name": "Please detail each additional person you are seeking training for",
+      "metadata": {
+        "forms_step_id": "cqtVpg4G",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "name",
+        "hint_text": " Note you only require one trained person on board the permitted vessel for each trip. No BFT trips can occur be without a Angling Trust accredited BFT trained person onboard. ",
+        "optional": false,
+        "repeatable": true,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "full_name",
+          "title_needed": true
+        },
+        "group": "many_answers",
+        "group_id": "97bea367-c71b-4d89-b242-c7f7e16d86b5"
+      },
+      "prompt": "Please detail each additional person you are seeking training for",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "repeat.additional_trainers.current",
+      "next": "step_3_append"
+    },
+    "step_3_append": {
+      "state_type": "assign",
+      "name": "Append Answer",
+      "metadata": {
+        "group": "many_answers",
+        "group_id": "97bea367-c71b-4d89-b242-c7f7e16d86b5"
+      },
+      "set": {
+        "answers.additional_trainers": {
+          "op": "append",
+          "path": "answers.additional_trainers",
+          "value_path": "repeat.additional_trainers.current"
+        }
+      },
+      "next": "step_3_more"
+    },
+    "step_3_more": {
+      "state_type": "input",
+      "name": "Add Another Answer",
+      "metadata": {
+        "group": "many_answers",
+        "group_id": "97bea367-c71b-4d89-b242-c7f7e16d86b5"
+      },
+      "prompt": "Do you want to add another answer?",
+      "schema": {
+        "kind": "boolean",
+        "allow_skip": false
+      },
+      "assign": "repeat.additional_trainers.more",
+      "next": "step_3_repeat_route"
+    },
+    "step_3_repeat_route": {
+      "state_type": "choice",
+      "name": "Repeat Question",
+      "metadata": {
+        "group": "many_answers",
+        "group_id": "97bea367-c71b-4d89-b242-c7f7e16d86b5"
+      },
+      "rules": [
+        {
+          "when": {
+            "op": "is_true",
+            "path": "repeat.additional_trainers.more"
+          },
+          "next": "step_3"
+        }
+      ],
+      "default": "submit"
+    },
+    "submit": {
+      "state_type": "api_call",
+      "name": "Submit form",
+      "method": "POST",
+      "service": "unconnected_service",
+      "url": "/unconnected",
+      "body": {
+        "applicant_name": {
+          "$": "answers.applicant_name"
+        },
+        "vessel_name": {
+          "$": "answers.vessel_name"
+        },
+        "trainers": {
+          "$": "answers.additional_trainers"
+        }
+      },
+      "idempotency_key": "{{workflow_id}}:submit_form",
+      "assign": "submission",
+      "capture": {
+        "submission_id": "body.submission_id"
+      },
+      "catch": [
+        {
+          "on": "any",
+          "next": "end_submit_failed"
+        }
+      ],
+      "next": "what_happens_next",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      }
+    },
+    "what_happens_next": {
+      "state_type": "output",
+      "name": "What Happens Next",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      },
+      "channel": "transcript",
+      "message": "Your form has been submitted.\r\n\r\nThis information must be submitted to the MMO by 23:59 Sunday 10 May 2026.\r\n\r\nOnce completed, the additional person/s nominated for training will be able to book their training, enrol, pay and be given access to the course via the Angling Trust Training Portal (from Tuesday 12 May 2026). Go to [https://anglingtrust.net/training-courses/atlantic-bluefin-tuna-recreational-fishery-training-for-participants/]",
+      "on_error": "fail",
+      "next": "wait_for_processing"
+    },
+    "wait_for_processing": {
+      "state_type": "wait",
+      "name": "Wait for the form to be processed",
+      "duration": "PT30M",
+      "next": "check_submission",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      }
+    },
+    "check_submission": {
+      "state_type": "api_call",
+      "name": "Check submission",
+      "method": "GET",
+      "service": "govuk_forms",
+      "url": "/app/forms/v1/submissions/{{submission_id}}",
+      "idempotency_key": "{{workflow_id}}:check_submission_{{step}}",
+      "assign": "submission_check",
+      "capture": {
+        "submission_status": "body.status"
+      },
+      "catch": [
+        {
+          "on": "any",
+          "next": "end_submit_failed"
+        }
+      ],
+      "next": "submission_processed",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      }
+    },
+    "submission_processed": {
+      "state_type": "choice",
+      "name": "Submission processed",
+      "rules": [
+        {
+          "when": {
+            "op": "eq",
+            "path": "submission_status",
+            "value": "processed"
+          },
+          "next": "end_process"
+        }
+      ],
+      "default": "wait_for_processing",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      }
+    },
+    "end_submit_failed": {
+      "state_type": "end",
+      "name": "Something went wrong",
+      "status": "failed",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      }
+    },
+    "end_process": {
+      "state_type": "end",
+      "name": "Process Complete",
+      "metadata": {
+        "group": "submit",
+        "group_id": "9a8b9e97-9771-44ab-9f9b-ac86d4f8578b"
+      },
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}
