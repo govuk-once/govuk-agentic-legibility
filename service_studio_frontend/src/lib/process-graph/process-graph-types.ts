@@ -6,6 +6,10 @@ import type { State } from '$lib/schema/workflow/process';
 import type { Route } from '$lib/schema/workflow/routes';
 import type { CompletionStatus } from '$lib/schema/workflow/states';
 
+// The copy of a module a state was added with: the key of the module, such as boolean_decision, and the random id
+// shared by every state of that one copy. The graph draws a border round the states that share an id.
+export type ModuleGroup = { key: string; id: string };
+
 // A box for any state that is neither a decision nor an end. The state type is the schema's own name
 // for it, such as input or api_call, so a label for the person can be chosen later without changing this.
 export type ProcessStepNodeData = StepNodeData & {
@@ -13,6 +17,7 @@ export type ProcessStepNodeData = StepNodeData & {
 	stateType: State['state_type'];
 	// Set on a box for a developer state. It takes no step number, and an editor can hide it from the graph.
 	developer?: boolean;
+	moduleGroup?: ModuleGroup;
 };
 
 // The colour of the outline of a box for each kind of state an editor wants to tell apart, written as a CSS colour.
@@ -23,6 +28,7 @@ export type StepOutlineColours = Partial<Record<State['state_type'], string>>;
 export type ProcessDecisionNodeData = DecisionNodeData & {
 	stateId: string;
 	title: string;
+	moduleGroup?: ModuleGroup;
 };
 
 // The dot for the start of the journey or for an end state. An end dot also carries the status of the
@@ -33,6 +39,7 @@ export type ProcessTerminalNodeData = TerminalNodeData & {
 	// The title of an end state, used by the list of states. The start dot has none.
 	title?: string;
 	status?: CompletionStatus;
+	moduleGroup?: ModuleGroup;
 };
 
 export type ProcessStepNode = Node<ProcessStepNodeData, 'step'>;

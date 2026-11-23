@@ -1,7 +1,11 @@
 <script lang="ts">
+	import ModuleNote from '$lib/modules/ModuleNote.svelte';
 	import type { StateFact } from '$lib/process-graph/describe-state';
+	import type { WorkingState } from '$lib/schema/workflow/working-process';
 
 	interface Props {
+		// The state shown, so the card can say which module it came from.
+		currentState: WorkingState;
 		title: string;
 		// The label and colour of the tag for this kind of state, the same as it has anywhere else in the editor.
 		tagLabel: string;
@@ -11,7 +15,7 @@
 		onClose: () => void;
 	}
 
-	let { title, tagLabel, tagColour, facts, onClose }: Props = $props();
+	let { currentState, title, tagLabel, tagColour, facts, onClose }: Props = $props();
 </script>
 
 <!-- A state that a developer sets up is shown with its values as words, so a person can see what it does without
@@ -26,6 +30,8 @@
 	</div>
 
 	<div class="developer-state-card__body">
+		<ModuleNote {currentState} />
+
 		<div class="govuk-inset-text govuk-!-margin-top-0 govuk-!-margin-bottom-0">
 			A developer sets up this step at the technical review.
 		</div>

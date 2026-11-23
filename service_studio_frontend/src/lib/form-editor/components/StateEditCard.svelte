@@ -3,6 +3,7 @@
 	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
 	import StateContext from '$lib/components/StateContext.svelte';
 	import type { ContextItem } from '$lib/components/context';
+	import ModuleNote from '$lib/modules/ModuleNote.svelte';
 	import { answerFormatOf, answerFormats, formatsFor, isAnswerFormatKey, withAnswerFormat } from '$lib/modules/answer-formats';
 	import StateReorderButtons from '$lib/process-graph/StateReorderButtons.svelte';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
@@ -139,6 +140,8 @@
 			applyChanges();
 		}}
 	>
+		<ModuleNote {currentState} />
+
 		<div class="govuk-form-group state-edit-card__form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-title">Title</label>
 			<input class="govuk-input" id="{fieldId}-title" name="title" type="text" bind:value={draftTitle} />

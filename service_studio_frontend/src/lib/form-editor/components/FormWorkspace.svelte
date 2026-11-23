@@ -289,6 +289,7 @@
 			{:else if openState && selection.code && !isEditableInForm(openState)}
 				{@const code = selection.code}
 				<DeveloperStateCard
+					currentState={openState}
 					title={stateTitle(openState, code)}
 					tagLabel={stateLabels[openState.state_type]}
 					tagColour={stateTagColours[openState.state_type]}

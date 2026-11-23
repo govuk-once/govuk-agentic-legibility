@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { basicCategories, moduleCategories } from '../module-catalogue';
+import { basicCategories, moduleCategories, moduleTileFor } from '../module-catalogue';
 
 const modules = moduleCategories.flatMap((category) => category.modules);
 
@@ -36,5 +36,12 @@ describe('moduleCategories', () => {
 describe('basicCategories', () => {
 	it('holds only the basic shapes', () => {
 		expect(basicCategories.flatMap((category) => category.modules.map((module) => module.key))).toEqual(['start', 'input', 'output', 'decision', 'end']);
+	});
+});
+
+describe('moduleTileFor', () => {
+	it('finds the tile of a module by its key, and nothing for a key that is not in the menu', () => {
+		expect(moduleTileFor('boolean_decision')?.label).toBe('Yes / No');
+		expect(moduleTileFor('not_a_module')).toBeUndefined();
 	});
 });

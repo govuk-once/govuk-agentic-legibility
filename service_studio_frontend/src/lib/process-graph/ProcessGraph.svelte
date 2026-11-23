@@ -3,10 +3,12 @@
 	import StepNode from '$lib/graph-kit/StepNode.svelte';
 	import ConditionNode from '$lib/graph-kit/ConditionNode.svelte';
 	import TerminalNode from '$lib/graph-kit/TerminalNode.svelte';
+	import ModuleBorderNode from '$lib/graph-kit/ModuleBorderNode.svelte';
 	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
 	import { nodeSize } from '$lib/graph-kit/layout';
 	import { arrangeProcessGraph, placeBesideNeighbours } from './arrange';
 	import type { Draft, DraftSet, Endpoint } from './drafts';
+	import { moduleBorderNodeType, moduleBorders } from './module-borders';
 	import { separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
 	import type { DeletedElements, NodePositions, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
 
@@ -68,8 +70,8 @@
 	}: Props = $props();
 
 	// The node components for a step, a decision and the start and end dots are shared with the other graph editor,
-	// so a state looks the same in either.
-	const nodeTypes = { step: StepNode, condition: ConditionNode, terminal: TerminalNode };
+	// so a state looks the same in either. The border is drawn round the states of one copy of a module.
+	const nodeTypes = { step: StepNode, condition: ConditionNode, terminal: TerminalNode, [moduleBorderNodeType]: ModuleBorderNode };
 
 	// Declared once so Svelte Flow receives the same object on every update. The arrow head shows the
 	// direction of a route, which matters when a route loops back to an earlier state.
@@ -123,7 +125,9 @@
 	// A box the person has dragged keeps its place, and every other box stays where it was placed. The
 	// selected flag is set here for a state, so the list of steps and the graph always agree about which
 	// state is highlighted.
+	// The borders round the states of each copy of a module come first, so they are drawn behind the shapes.
 	const nodes = $derived<Node[]>([
+		...moduleBorders(laidOut, (node) => positions[node.id] ?? node.position),
 		...laidOut.map((node) => ({
 			...node,
 			data: withOutlineColour(node),

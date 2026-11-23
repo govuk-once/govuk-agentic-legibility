@@ -103,3 +103,11 @@ export const moduleCategories: ModuleCategory[] = [
 
 // The category of basic shapes, on its own, for an editor that offers only those.
 export const basicCategories: ModuleCategory[] = [basics];
+
+/**
+ * Finds the tile of a module by its key, such as the key kept in the group of a state the module added. Returns
+ * nothing for a key that is not in the menu.
+ */
+export function moduleTileFor(key: string): ModuleTile | undefined {
+	return moduleCategories.flatMap((category) => category.modules).find((module) => module.key === key);
+}

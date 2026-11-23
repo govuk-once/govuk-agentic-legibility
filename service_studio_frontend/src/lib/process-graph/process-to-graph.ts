@@ -3,7 +3,7 @@ import type { State } from '$lib/schema/workflow/process';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 import { isErrorKind, routesOf } from '$lib/schema/workflow/routes';
 import { estimateStepNodeHeight, estimateStepNodeWidth } from '$lib/graph-kit/node-sizing';
-import type { ProcessEdge, ProcessEdgeData, ProcessGraphElements, ProcessNode } from './process-graph-types';
+import type { ModuleGroup, ProcessEdge, ProcessEdgeData, ProcessGraphElements, ProcessNode } from './process-graph-types';
 import { tidyCode } from '$lib/graph-kit/tidy-code';
 
 // A placeholder coordinate every node is created with. The layout replaces it, so this value is only
@@ -164,6 +164,16 @@ export function stateTitle(state: WorkingState, code: string): string {
 }
 
 /**
+ * Reads the copy of a module a state was added with, from the group and group id in its metadata. A state that was
+ * not added with a module has none, and nothing is added to its node.
+ */
+function moduleGroupOf(state: WorkingState): { moduleGroup?: ModuleGroup } {
+	const key = state.metadata?.group;
+	const id = state.metadata?.group_id;
+	return typeof key === 'string' && typeof id === 'string' ? { moduleGroup: { key, id } } : {};
+}
+
+/**
  * Turns one process into the nodes and edges the graph draws. Each state becomes one node: a choice
  * is a diamond, an end is a dot, and every other state is a numbered box. Nodes are listed in journey
  * order and boxes are numbered in that order, so the numbers follow the routes from the start and a
@@ -202,7 +212,8 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 					ariaLabel: `Journey end, ${title}`,
 					stateId: code,
 					title,
-					status: state.status
+					status: state.status,
+					...moduleGroupOf(state)
 				}
 			});
 		} else if (state.state_type === 'choice') {
@@ -210,7 +221,7 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 				id: code,
 				type: 'condition',
 				position: initialPosition,
-				data: { stateId: code, title, ariaLabel: `Decision, ${title}` }
+				data: { stateId: code, title, ariaLabel: `Decision, ${title}`, ...moduleGroupOf(state) }
 			});
 		} else {
 			const developer = developerStateTypes.includes(state.state_type);
@@ -234,6 +245,7 @@ export function processToGraph(process: WorkingProcess, developerStateTypes: rea
 					title,
 					stateType: state.state_type,
 					...(developer ? { developer: true, compact: true } : {}),
+					...moduleGroupOf(state),
 					opensProcess,
 					width,
 					height: estimateStepNodeHeight(label, width, opensProcess ? 1 : 0, size),

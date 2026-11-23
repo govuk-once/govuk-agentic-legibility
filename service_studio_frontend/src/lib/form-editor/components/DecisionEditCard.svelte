@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
+	import ModuleNote from '$lib/modules/ModuleNote.svelte';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import { descriptionOf, nothingYet, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
@@ -81,6 +82,8 @@
 			applyChanges();
 		}}
 	>
+		<ModuleNote {currentState} />
+
 		<div class="govuk-form-group decision-edit-card__form-group">
 			<label class="govuk-label govuk-label--s" for="{fieldId}-title">Title</label>
 			<input class="govuk-input" id="{fieldId}-title" name="title" type="text" bind:value={draftTitle} />
