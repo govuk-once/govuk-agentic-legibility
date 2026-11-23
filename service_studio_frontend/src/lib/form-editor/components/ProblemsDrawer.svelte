@@ -1,0 +1,263 @@
+<script lang="ts">
+	import type { JourneyProblem } from '$lib/schema/workflow/validate';
+
+	/*
+		The problems with the form, in a bar along the bottom of the editor that is always shown. Closed, the bar counts
+		the errors and the warnings and names the first problem. Open, it lists every problem in a table, errors first,
+		each with a link that highlights its step on the graph. Errors stop the form being sent to owner review and
+		warnings do not, but the list itself never stops anything: it only shows what is found as the form changes.
+	*/
+
+	interface Props {
+		errors: JourneyProblem[];
+		warnings: JourneyProblem[];
+		// The number a state has in the list of steps, or nothing for a state that is not a numbered step, such as a
+		// decision.
+		stepNumberOf: (code: string) => number | undefined;
+		// The title of a state, used to name one that has no step number.
+		titleOf: (code: string) => string;
+		onSelect: (code: string) => void;
+	}
+
+	let { errors, warnings, stepNumberOf, titleOf, onSelect }: Props = $props();
+
+	const drawerId = $props.id();
+	let open = $state(false);
+
+	// Every problem with how serious it is, errors first, so each row can be numbered and coloured in one list.
+	const problems = $derived([
+		...errors.map((problem) => ({ problem, severity: 'error' as const })),
+		...warnings.map((problem) => ({ problem, severity: 'warning' as const }))
+	]);
+
+	// The words that name the state a problem is about: its step number, or its title when it has no number.
+	function placeOf(code: string): { label: string; linkText: string } {
+		const number = stepNumberOf(code);
+		return number === undefined ? { label: titleOf(code), linkText: `Go to ${titleOf(code)}` } : { label: `Step ${number}`, linkText: `Go to step ${number}` };
+	}
+
+	// The line shown in the closed bar: the first problem as a sentence, and how many more there are.
+	const summary = $derived.by(() => {
+		const [first] = problems;
+		if (!first) return 'No problems found';
+		const { problem } = first;
+		const sentence = problem.state ? `${placeOf(problem.state).label} ${problem.message}` : problem.message;
+		const more = problems.length - 1;
+		return more === 0 ? sentence : `${sentence}, and ${more} more ${more === 1 ? 'problem' : 'problems'}`;
+	});
+</script>
+
+<section class="problems-drawer" aria-label="Problems">
+	<div class="problems-drawer__summary-bar">
+		<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0 problems-drawer__toggle" aria-expanded={open} aria-controls={drawerId} onclick={() => (open = !open)}>
+			{open ? 'Hide problems' : 'Show problems'}
+		</button>
+
+		<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
+			<span class="problem-count-dot problem-count-dot--error">{errors.length}</span>
+			<strong>{errors.length === 1 ? 'error' : 'errors'}</strong>
+		</p>
+		<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
+			<span class="problem-count-dot problem-count-dot--warning">{warnings.length}</span>
+			{warnings.length === 1 ? 'warning' : 'warnings'}
+		</p>
+
+		<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__note">
+			{open ? 'Fix errors before you send this form for owner review. Warnings can wait.' : summary}
+		</p>
+	</div>
+
+	<div id={drawerId} class="problems-drawer__list" hidden={!open}>
+		{#if problems.length === 0}
+			<p class="govuk-body-s govuk-!-margin-bottom-0">No problems found.</p>
+		{:else}
+			<table class="govuk-table govuk-!-font-size-16 govuk-!-margin-bottom-0 problems-drawer__table">
+				<colgroup>
+					<col class="problems-drawer__number-column" />
+					<col class="problems-drawer__step-column" />
+					<col class="problems-drawer__problem-column" />
+					<col />
+					<col class="problems-drawer__go-to-column" />
+				</colgroup>
+				<thead class="govuk-table__head">
+					<tr class="govuk-table__row">
+						<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Number</span></th>
+						<th scope="col" class="govuk-table__header problems-drawer__column-heading">Step</th>
+						<th scope="col" class="govuk-table__header problems-drawer__column-heading">Problem</th>
+						<th scope="col" class="govuk-table__header problems-drawer__column-heading">How to fix it</th>
+						<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Link to the step</span></th>
+					</tr>
+				</thead>
+				<tbody class="govuk-table__body">
+					{#each problems as { problem, severity }, index (index)}
+						{@const place = problem.state ? placeOf(problem.state) : undefined}
+						<tr class="govuk-table__row">
+							<td class="govuk-table__cell">
+								<span class="problem-count-dot problem-count-dot--{severity}">{index + 1}</span>
+								<span class="govuk-visually-hidden">{severity}</span>
+							</td>
+							<td class="govuk-table__cell govuk-!-font-weight-bold">{place?.label ?? ''}</td>
+							<td class="govuk-table__cell">
+								<span class="govuk-!-font-weight-bold">{problem.title}</span>
+								<span class="problems-drawer__fix">{problem.fix}</span>
+							</td>
+							<td class="govuk-table__cell problems-drawer__how-to-fix">{problem.howToFix ?? ''}</td>
+							<td class="govuk-table__cell problems-drawer__go-to">
+								{#if problem.state && place}
+									{@const code = problem.state}
+									<a
+										class="govuk-link govuk-!-font-weight-bold"
+										href="#{code}"
+										onclick={(event) => {
+											event.preventDefault();
+											onSelect(code);
+										}}>{place.linkText}</a
+									>
+								{/if}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</div>
+</section>
+
+<style>
+	/* The widths of the first two columns of the table. The button that shows and hides the list takes up both, so
+		the counts in the bar start where the Problem column starts and the two line up whether the list is open or
+		closed. */
+	.problems-drawer {
+		--problems-number-column-width: 45px;
+		--problems-step-column-width: 180px;
+		flex: 0 0 auto;
+		background-color: #ffffff;
+		border-top: 1px solid #b1b4b6;
+		box-shadow: 0 -5px 15px rgba(11, 12, 12, 0.07);
+	}
+
+	.problems-drawer__summary-bar {
+		display: flex;
+		align-items: center;
+		padding: 10px 25px;
+	}
+
+	/* A button that reads as a link, with a triangle drawn in CSS that points down when the list is open, in the
+		same way as the summary of a GOV.UK details component. */
+	.problems-drawer__toggle {
+		position: relative;
+		flex: 0 0 calc(var(--problems-number-column-width) + var(--problems-step-column-width));
+		text-align: left;
+		padding: 0 0 0 15px;
+		background: none;
+		border: 0;
+		cursor: pointer;
+	}
+
+	.problems-drawer__toggle::before {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 0;
+		border-style: solid;
+		border-color: transparent;
+		border-width: 5px 0 5px 8px;
+		border-left-color: currentColor;
+		transform: translateY(-50%);
+	}
+
+	.problems-drawer__toggle[aria-expanded='true']::before {
+		border-width: 8px 5px 0 5px;
+		border-color: transparent;
+		border-top-color: currentColor;
+	}
+
+	.problems-drawer__count {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-right: 20px;
+	}
+
+	/* The note sits at the far end of the bar, after the counts. */
+	.problems-drawer__note {
+		margin-left: auto;
+		color: #505a5f;
+	}
+
+	/* The list is held to a height that leaves the graph in view, and scrolls when there are more problems. */
+	.problems-drawer__list {
+		max-height: 300px;
+		overflow-y: auto;
+		padding: 0 25px 15px;
+		border-top: 1px solid #b1b4b6;
+	}
+
+	/* Fixed column widths, so every row lines up with the bar above it however long its words are. */
+	.problems-drawer__table {
+		table-layout: fixed;
+	}
+
+	.problems-drawer__number-column {
+		width: var(--problems-number-column-width);
+	}
+
+	.problems-drawer__step-column {
+		width: var(--problems-step-column-width);
+	}
+
+	.problems-drawer__problem-column {
+		width: 40%;
+	}
+
+	.problems-drawer__go-to-column {
+		width: 240px;
+	}
+
+	.problems-drawer__column-heading {
+		font-weight: 400;
+		color: #505a5f;
+	}
+
+	.problems-drawer__fix {
+		display: block;
+		color: #505a5f;
+	}
+
+	.problems-drawer__how-to-fix {
+		color: #505a5f;
+	}
+
+	.problems-drawer__go-to {
+		text-align: right;
+		white-space: nowrap;
+	}
+
+	/* A round number marker: red with white text for an error, yellow with black text for a warning. It is small,
+		subtle UI, so its number is under 16px. The GOV.UK font leaves more room below its figures than above them, so
+		the text box is trimmed to the height of the figures, which lets the flex box centre the number itself and not
+		the space around it. */
+	.problem-count-dot {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		font-size: 0.875rem;
+		font-weight: 700;
+		line-height: 1;
+		text-box: trim-both cap alphabetic;
+	}
+
+	.problem-count-dot--error {
+		background-color: #d4351c;
+		color: #ffffff;
+	}
+
+	.problem-count-dot--warning {
+		background-color: #ffdd00;
+		color: #0b0c0c;
+	}
+</style>

@@ -6,7 +6,9 @@ import { placeholderMessage, placeholderQuestion } from './placeholders';
 
 	1. The message follows the name of the state the problem is about, such as "has nothing after it", for a one line
 	   summary of a problem.
-	2. The title names the problem on its own in a list of problems, and the fix says what to do about it.
+	2. The title names the problem on its own in a list of problems, and the fix says what to do about it. A problem
+	   that is about wording and not about how steps connect also has a short how to fix line, for the column of a
+	   list that otherwise shows how to connect the steps.
 	3. A message or title that counts something, such as the ways out of a decision that lead nowhere, is given the
 	   count. Words that count nothing leave it unused.
 */
@@ -14,7 +16,7 @@ import { placeholderMessage, placeholderQuestion } from './placeholders';
 export type JourneyProblemKind =
 	'no_start' | 'no_next' | 'way_out_leads_nowhere' | 'not_joined' | 'schema' | 'placeholder_question' | 'placeholder_message' | 'rule_to_confirm';
 
-type ProblemWords = { message: (count: number) => string; title: (count: number) => string; fix: string };
+type ProblemWords = { message: (count: number) => string; title: (count: number) => string; fix: string; howToFix?: string };
 
 // The schema writes its own words for what is wrong, so a problem it finds only has a title here, and the schema's
 // words are its fix.
@@ -37,24 +39,27 @@ const journeyProblemWords: Record<Exclude<JourneyProblemKind, 'schema'>, Problem
 	placeholder_question: {
 		message: () => `still has the placeholder question "${placeholderQuestion}"`,
 		title: () => 'Placeholder question',
-		fix: `The question still says "${placeholderQuestion}". Replace it with the real question.`
+		fix: `The question still says "${placeholderQuestion}". Replace it with the real question.`,
+		howToFix: 'Update placeholder wording'
 	},
 	placeholder_message: {
 		message: () => `still has the placeholder message "${placeholderMessage}"`,
 		title: () => 'Placeholder message',
-		fix: `The message still says "${placeholderMessage}". Replace it with the real wording.`
+		fix: `The message still says "${placeholderMessage}". Replace it with the real wording.`,
+		howToFix: 'Update placeholder wording'
 	},
 	rule_to_confirm: {
 		message: (count) => (count === 1 ? 'has a rule still to be confirmed' : `has ${count} rules still to be confirmed`),
 		title: (count) => (count === 1 ? 'Rule to be confirmed' : `${count} rules to be confirmed`),
-		fix: 'Choose what the decision checks before each route.'
+		fix: 'Choose what the decision checks before each route.',
+		howToFix: 'Update the placeholder rule'
 	}
 };
 
 /**
- * Gives the sort of a problem with its message, title and fix, for the given count of what it counts.
+ * Gives the sort of a problem with its message, title, fix and how to fix line, for the given count of what it counts.
  */
 export function wordsFor(kind: Exclude<JourneyProblemKind, 'schema'>, count = 1) {
 	const words = journeyProblemWords[kind];
-	return { kind, message: words.message(count), title: words.title(count), fix: words.fix };
+	return { kind, message: words.message(count), title: words.title(count), fix: words.fix, howToFix: words.howToFix };
 }

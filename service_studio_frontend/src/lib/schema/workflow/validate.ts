@@ -263,7 +263,7 @@ export function parseWorkflow(input: unknown): WorkflowValidation {
  * One problem with a journey that is being edited: where it is in the process, the state it is about when it is
  * about one, its sort, and its words from journey-problems.ts.
  */
-export type JourneyProblem = { path: string; state?: string; kind: JourneyProblemKind; message: string; title: string; fix: string };
+export type JourneyProblem = { path: string; state?: string; kind: JourneyProblemKind; message: string; title: string; fix: string; howToFix?: string };
 
 /**
  * Finds the first state of each piece of the journey that is not joined to the start. Every state cut off behind

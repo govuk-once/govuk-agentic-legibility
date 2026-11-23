@@ -25,7 +25,7 @@
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 	import DecisionEditCard from './DecisionEditCard.svelte';
 	import DeveloperStateCard from './DeveloperStateCard.svelte';
-	import JourneyCheckPanel from './JourneyCheckPanel.svelte';
+	import ProblemsDrawer from './ProblemsDrawer.svelte';
 	import StateEditCard from './StateEditCard.svelte';
 
 	interface Props {
@@ -83,22 +83,22 @@
 	// and not only what is shown, because a step can continue to a state that is hidden with the developer states.
 	const targets = $derived(targetOptions(graph.nodes));
 
-	// The name of each state as the lists of choices give it, so a problem names a state in the same words.
-	const targetNames = $derived(new Map(targets.map((target) => [target.stateId, target.label])));
+	// The problems with the form, worked out again with every change, so the bar along the bottom always shows what
+	// is wrong now and a problem that is fixed leaves it.
+	const errors = $derived(journeyErrors(process));
+	const warnings = $derived(journeyWarnings(process));
 
-	// Whether the check before owner review is shown in place of the list of steps. While it is, the problems are
-	// worked out again with every change, so a problem that is fixed leaves the list.
-	let checking = $state(false);
-	const errors = $derived(checking ? journeyErrors(process) : []);
-	const warnings = $derived(checking ? journeyWarnings(process) : []);
+	// Whether Send was pressed while there were errors. The message by the button shows only while that is so, and
+	// goes once the errors are fixed.
+	let sendRefused = $state(false);
 
 	/**
-	 * Checks the form before it is sent to owner review. A form with nothing to fix or finish goes straight on.
-	 * Otherwise the problems are shown in the side panel.
+	 * Sends the form to owner review when it has no errors. Warnings do not stop it. With errors, a message by the
+	 * button points to the problems bar instead.
 	 */
 	function sendToOwnerReview() {
-		if (journeyErrors(process).length === 0 && journeyWarnings(process).length === 0) onSendToOwnerReview();
-		else checking = true;
+		sendRefused = errors.length > 0;
+		if (!sendRefused) onSendToOwnerReview();
 	}
 
 	// The state highlighted on the graph and in the list, and whether its card is open in place of the list. They
@@ -297,15 +297,6 @@
 					facts={describeState(openState, code, () => undefined).facts}
 					onClose={() => (selection = { code, open: false })}
 				/>
-			{:else if checking}
-				<JourneyCheckPanel
-					{errors}
-					{warnings}
-					nameOf={(code) => targetNames.get(code) ?? code}
-					onSelect={highlight}
-					onBack={() => (checking = false)}
-					onContinue={onSendToOwnerReview}
-				/>
 			{:else}
 				<div class="form-workspace__list">
 					<div class="form-workspace__list-header">
@@ -338,15 +329,27 @@
 				</div>
 
 				<div class="form-workspace__panel-footer">
+					{#if sendRefused && errors.length > 0}
+						<p class="govuk-error-message" role="alert">Fix the errors in problems before sending</p>
+					{/if}
 					<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to owner review</button>
 				</div>
 			{/if}
 		</aside>
 	</div>
+
+	<ProblemsDrawer
+		{errors}
+		{warnings}
+		stepNumberOf={(code) => rows.find((row) => row.stateId === code)?.number}
+		titleOf={(code) => stateTitle(process.states[code], code)}
+		onSelect={highlight}
+	/>
 </div>
 
 <style>
-	/* The module menu runs across the top, over the canvas and the panel, which sit side by side below it. */
+	/* The module menu runs across the top, over the canvas and the panel, which sit side by side below it, and the
+		problems bar runs across the bottom. */
 	.form-workspace {
 		display: flex;
 		flex-direction: column;
