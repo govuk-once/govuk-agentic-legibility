@@ -11,8 +11,8 @@ describe('stateLabels', () => {
 		expect(Object.keys(stateLabels).sort()).toEqual([...stateTypes].sort());
 	});
 
-	it('uses the plain words for the two kinds that a person adds most', () => {
-		expect(stateLabels.input).toBe('Question');
+	it('names an input by its schema name and an output by the plain word message', () => {
+		expect(stateLabels.input).toBe('Input');
 		expect(stateLabels.output).toBe('Message');
 	});
 
@@ -32,7 +32,7 @@ describe('stateTagColours', () => {
 		expect(Object.keys(stateTagColours).sort()).toEqual([...stateTypes].sort());
 	});
 
-	it('uses the colours chosen for questions, messages, decisions and assign states', () => {
+	it('uses the colours chosen for inputs, messages, decisions and assign states', () => {
 		expect(stateTagColours.input).toBe('blue');
 		expect(stateTagColours.output).toBe('purple');
 		expect(stateTagColours.choice).toBe('yellow');
@@ -41,7 +41,7 @@ describe('stateTagColours', () => {
 });
 
 describe('stateOutlineColours', () => {
-	it('gives a question box and a message box an outline colour, and no other kind of state', () => {
+	it('gives an input box and a message box an outline colour, and no other kind of state', () => {
 		expect(Object.keys(stateOutlineColours).sort()).toEqual(['input', 'output']);
 	});
 

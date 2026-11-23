@@ -12,7 +12,7 @@ import type { WorkingProcess } from './working-process';
 	2. A step cannot move when there is no step on that side to swap with: it continues to a decision, an end
 	   or nothing, or no single step leads to it.
 	3. An editor can name a state that travels in front of a step, such as the assign that saves an answer before
-	   the next question. The two then move as one block, and a step moving past them passes both.
+	   the next input. The two then move as one block, and a step moving past them passes both.
 */
 
 /**

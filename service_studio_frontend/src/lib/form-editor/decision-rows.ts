@@ -5,12 +5,12 @@ import type { WorkingState } from '$lib/schema/workflow/working-process';
 /*
 	The words shown beside each way out of a decision on its card. A decision has one way out for each of its rules
 	and one more that is taken when no rule matches. A person does not think in rules, so each way out is named by
-	the answer that leads to it, in the words of the question before the decision.
+	the answer that leads to it, in the words of the input before the decision.
 
-	1. A way out whose rule is for one of the question's answers is named by that answer.
+	1. A way out whose rule is for one of the input's answers is named by that answer.
 	2. The last way out is taken when no rule matches. When every rule is for an answer and exactly one answer is
 	   left over, it is named by that answer. When several are left over it is named as anything else.
-	3. A decision drawn by hand has no answers yet, and so does a decision that follows no question. Its ways out
+	3. A decision drawn by hand has no answers yet, and so does a decision that follows no input. Its ways out
 	   are numbered, so each can still be told from the others.
 	4. A decision that follows a developer step, such as an API call, tests what that step saved and not an answer.
 	   Its ways out are named by their rules in words, and the last one is named as otherwise.
@@ -35,14 +35,14 @@ export function shortAnswerLabel(label: string): string {
 
 /**
  * Names every way out of a decision, in order: one for each rule and then the one taken when no rule matches. The
- * question is the one the decision follows, or nothing when it follows no single question.
+ * input is the one the decision follows, or nothing when it follows no single input.
  */
-export function decisionRowLabels(choice: WorkingChoice, question: WorkingInput | undefined): string[] {
-	const answers = question ? answerChoices(question) : [];
+export function decisionRowLabels(choice: WorkingChoice, input: WorkingInput | undefined): string[] {
+	const answers = input ? answerChoices(input) : [];
 	const labelOf = (value: string) => `If the answer is ${shortAnswerLabel(answers.find((answer) => answer.value === value)?.label ?? value)}`;
 
-	// The answer each rule is for, or nothing for a rule that is not about one of the question's answers.
-	const ruleAnswers = choice.rules.map((rule) => (question ? answerOfCondition(question, rule.when) : undefined));
+	// The answer each rule is for, or nothing for a rule that is not about one of the input's answers.
+	const ruleAnswers = choice.rules.map((rule) => (input ? answerOfCondition(input, rule.when) : undefined));
 	const ruleLabels = ruleAnswers.map((answer, index) => (answer === undefined ? `Answer ${index + 1}` : labelOf(answer)));
 
 	// The last way out can only be named by an answer when every rule before it is.

@@ -7,7 +7,7 @@
 	import type { DeletedElements, NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stateTitle, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
-	import { questionBefore, stateBefore } from '$lib/schema/workflow/choice-answers';
+	import { inputBefore, stateBefore } from '$lib/schema/workflow/choice-answers';
 	import { applyStateEdit, canEndJourneyAt, endJourneyAt } from '$lib/schema/workflow/edit-journey';
 	import { assignBefore, setStart } from '$lib/schema/workflow/edit-process';
 	import { descriptionOf, hasNext } from '$lib/schema/workflow/edit-state';
@@ -104,7 +104,7 @@
 	const selectedStateId = $derived(selection.code);
 
 	/**
-	 * Tells whether a state has a card of its own to open: a question, a message or a decision, which a person
+	 * Tells whether a state has a card of its own to open: an input, a message or a decision, which a person
 	 * edits, or a state that a developer sets up, which is shown with its values as words. An end is only
 	 * highlighted.
 	 */
@@ -113,13 +113,13 @@
 	}
 
 	/**
-	 * Finds the question a decision follows, with the number and title it has in the list, for the decision card.
-	 * There is none when the decision follows no single question, or the question is not a numbered step.
+	 * Finds the input a decision follows, with the number and title it has in the list, for the decision card.
+	 * There is none when the decision follows no single input, or the input is not a numbered step.
 	 */
-	function questionRowBefore(code: string) {
-		const found = questionBefore(process, code);
+	function inputRowBefore(code: string) {
+		const found = inputBefore(process, code);
 		const row = found && rows.find((candidate) => candidate.stateId === found.code);
-		return found && row ? { question: found.question, number: row.number, title: row.title } : undefined;
+		return found && row ? { input: found.input, number: row.number, title: row.title } : undefined;
 	}
 
 	// Finds the title of the developer step a decision follows, such as an API call, for the decision card.
@@ -160,7 +160,7 @@
 
 	/**
 	 * Lists a state to take out together with the assign that goes with it. A form saves an answer with an assign
-	 * placed straight before the next question or message. That assign is hidden with the developer states, so it is
+	 * placed straight before the next input or message. That assign is hidden with the developer states, so it is
 	 * taken out with its step and is not left behind where the person cannot see it.
 	 */
 	function withAttachedAssign(code: string): string[] {
@@ -276,7 +276,7 @@
 					<DecisionEditCard
 						currentState={openState}
 						title={stateTitle(openState, code)}
-						before={questionRowBefore(code)}
+						before={inputRowBefore(code)}
 						afterDeveloperStep={developerStepBefore(code)}
 						targets={targets.filter((target) => target.stateId !== code)}
 						onApply={(updated) => applyEdit(code, updated)}

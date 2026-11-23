@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { addModule, isModuleKey } from '$lib/modules/add-module';
 	import type { PaletteTool } from '$lib/modules/module-catalogue';
+	import type { ModuleKey } from '$lib/modules/module-states';
 	import { addLooseStep, addStepBeforeStart, isNewStepKind, type NewStepKind } from '$lib/schema/workflow/edit-journey';
 	import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 	import {
@@ -29,8 +31,8 @@
 		// The nodes and edges of the process, built by the editor so its list of steps uses the same ones.
 		graph: ProcessGraphElements;
 		// What can be dropped from the module menu. The editor says which, so a drop it does not allow is ignored.
-		// The value of a box shape is the kind of step it adds, input or output. A decision, a start and an end are
-		// told apart by their shape.
+		// The value of a box shape is the kind of step it adds, input or output, and the value of a module is its key.
+		// A decision, a start and an end are told apart by their shape.
 		paletteTools: PaletteTool[];
 		// The kind of step added when a line is let go on empty canvas, where no shape was chosen from the palette.
 		connectedStepKind: NewStepKind;
@@ -122,15 +124,28 @@
 
 	/**
 	 * Adds what a tile dropped from the module menu stands for. It is found among the ones the editor offers, so
-	 * the canvas adds only what that editor allows. A box adds a step of the kind its value names. A decision, a
-	 * start or an end is placed as a draft.
+	 * the canvas adds only what that editor allows. A box adds a step of the kind its value names, and a module adds
+	 * all of its states. A decision, a start or an end is placed as a draft.
 	 */
 	function handleDropShape(value: string, position: { x: number; y: number }) {
 		const tool = paletteTools.find((candidate) => candidate.value === value);
 		if (!tool) return;
 
-		if (tool.shape !== 'step') handleCreateDraft(tool.shape, position);
+		if (tool.shape === 'module') {
+			if (isModuleKey(tool.value)) handleCreateModule(tool.value, position);
+		} else if (tool.shape !== 'step') handleCreateDraft(tool.shape, position);
 		else if (isNewStepKind(tool.value)) handleCreateStep(tool.value, position);
+	}
+
+	// Adds every state of a module, joined to each other but not to the rest of the journey. The state it begins at
+	// is placed where it was dropped, and the graph places each of the others below the state that leads into it.
+	// The first state's form opens so its words can be typed.
+	function handleCreateModule(key: ModuleKey, position: { x: number; y: number }) {
+		const added = addModule(process, key);
+		onChangeProcess(added.process);
+
+		onMoveNodes({ [added.first]: position });
+		onEditState(added.first);
 	}
 
 	// Adds a new step where it was dropped. It is part of the process at once, with nothing after it, and its edit

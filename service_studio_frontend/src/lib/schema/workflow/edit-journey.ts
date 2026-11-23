@@ -136,7 +136,7 @@ export function endJourneyAt(process: WorkingProcess, sourceCode: string): EditR
 	return { ok: true, process: replaceState(added.process, sourceCode, { ...source, next: added.code }), code: added.code };
 }
 
-// The kinds of step a person can add to a journey: a question, which is an input, or a message, which is an output.
+// The kinds of step a person can add to a journey: an input, or a message, which is an output.
 export type NewStepKind = 'input' | 'output';
 
 // Builds a new step of each kind from its code, with placeholder wording and nothing after it. The record is keyed
@@ -157,10 +157,10 @@ export function isNewStepKind(kind: string): kind is NewStepKind {
 /**
  * Adds a new step that is not joined to the journey yet. It has nothing after it, because the person decides
  * where it goes by drawing a line, and a step may be left that way while a journey is being built. The step is a
- * question or a message with a placeholder wording. The result carries the name of the new step.
+ * input or a message with a placeholder wording. The result carries the name of the new step.
  */
 export function addLooseStep(process: WorkingProcess, kind: NewStepKind): { process: WorkingProcess; code: string } {
-	// The name is chosen first, because a question names the variable for its answer after it.
+	// The name is chosen first, because an input names the variable for its answer after it.
 	const code = uniqueStateCode(process, newStepCode);
 	return addState(process, code, newStepOfKind[kind](code));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
-import { answerChoices, answerOfCondition, conditionForAnswer, noAnswer, questionBefore, yesAnswer } from '../choice-answers';
+import { answerChoices, answerOfCondition, conditionForAnswer, noAnswer, inputBefore, yesAnswer } from '../choice-answers';
 import type { Condition } from '../condition';
 import type { InputState } from '../input-state';
 import type { Process } from '../process';
@@ -12,60 +12,60 @@ const rule = (next: string, when: unknown = { op: 'is_true', path: 'ok' }) => ({
 const build = (start: string, states: Record<string, unknown>) =>
 	({ process_id: 'p', version: '0.1.0', vars: {}, start, states }) as unknown as Process;
 
-// A question with only the keys the functions read.
-const question = (schema: unknown, assign = 'answer') => ({ schema, assign }) as Pick<InputState, 'schema' | 'assign'>;
+// An input with only the keys the functions read.
+const input = (schema: unknown, assign = 'answer') => ({ schema, assign }) as Pick<InputState, 'schema' | 'assign'>;
 
-const yesOrNo = question({ kind: 'boolean' }, 'ok');
-const chooseOne = question({ kind: 'select_one', options: [{ value: 'post', label: 'By post' }, { value: 'online', label: 'Online' }] }, 'method');
+const yesOrNo = input({ kind: 'boolean' }, 'ok');
+const chooseOne = input({ kind: 'select_one', options: [{ value: 'post', label: 'By post' }, { value: 'online', label: 'Online' }] }, 'method');
 
-describe('questionBefore', () => {
+describe('inputBefore', () => {
 	const ask = { state_type: 'input', prompt: 'Is it right?', schema: { kind: 'boolean' }, assign: 'ok', next: 'decide' };
 	const decide = { state_type: 'choice', rules: [rule('yes')], default: 'no' };
 
-	it('finds the question whose next is the decision', () => {
-		const found = questionBefore(build('ask', { ask, decide, yes: finish, no: finish }), 'decide');
+	it('finds the input whose next is the decision', () => {
+		const found = inputBefore(build('ask', { ask, decide, yes: finish, no: finish }), 'decide');
 		expect(found?.code).toBe('ask');
-		expect(found?.question.assign).toBe('ok');
+		expect(found?.input.assign).toBe('ok');
 	});
 
 	it('finds none when a message leads to the decision', () => {
 		const say = { state_type: 'output', channel: 'transcript', message: 'Hello', next: 'decide' };
-		expect(questionBefore(build('say', { say, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
+		expect(inputBefore(build('say', { say, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
 	});
 
 	it('finds none when two states lead to the decision, or none does', () => {
 		const other = { ...ask, next: 'decide' };
-		expect(questionBefore(build('ask', { ask, other, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
-		expect(questionBefore(build('ask', { ask: { ...ask, next: 'yes' }, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
+		expect(inputBefore(build('ask', { ask, other, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
+		expect(inputBefore(build('ask', { ask: { ...ask, next: 'yes' }, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
 	});
 
-	it('finds none when the question only leads to the decision by a route for an invalid answer', () => {
+	it('finds none when the input only leads to the decision by a route for an invalid answer', () => {
 		const invalid = { ...ask, next: 'yes', on_invalid: 'decide' };
-		expect(questionBefore(build('ask', { ask: invalid, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
+		expect(inputBefore(build('ask', { ask: invalid, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
 	});
 
 	it('finds none when the decision is the start of the process', () => {
-		expect(questionBefore(build('decide', { ask, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
+		expect(inputBefore(build('decide', { ask, decide, yes: finish, no: finish }), 'decide')).toBeUndefined();
 	});
 });
 
 describe('answerChoices', () => {
-	it('offers yes and no for a yes or no question', () => {
+	it('offers yes and no for a yes or no input', () => {
 		expect(answerChoices(yesOrNo)).toEqual([
 			{ value: yesAnswer, label: 'Yes' },
 			{ value: noAnswer, label: 'No' }
 		]);
 	});
 
-	it('offers the options of a question where the person chooses one or several', () => {
+	it('offers the options of an input where the person chooses one or several', () => {
 		expect(answerChoices(chooseOne).map((choice) => choice.label)).toEqual(['By post', 'Online']);
-		expect(answerChoices(question({ kind: 'select_many', options: [{ value: 'a', label: 'A' }] }))).toEqual([{ value: 'a', label: 'A' }]);
+		expect(answerChoices(input({ kind: 'select_many', options: [{ value: 'a', label: 'A' }] }))).toEqual([{ value: 'a', label: 'A' }]);
 	});
 
-	it('offers nothing for a question answered by typing, by a file, or with options read at run time', () => {
-		expect(answerChoices(question({ kind: 'string' }))).toEqual([]);
-		expect(answerChoices(question({ kind: 'file_ref' }))).toEqual([]);
-		expect(answerChoices(question({ kind: 'select_one', options_from: 'list' }))).toEqual([]);
+	it('offers nothing for an input answered by typing, by a file, or with options read at run time', () => {
+		expect(answerChoices(input({ kind: 'string' }))).toEqual([]);
+		expect(answerChoices(input({ kind: 'file_ref' }))).toEqual([]);
+		expect(answerChoices(input({ kind: 'select_one', options_from: 'list' }))).toEqual([]);
 	});
 });
 
@@ -79,9 +79,9 @@ describe('conditionForAnswer and answerOfCondition', () => {
 		expect(conditionForAnswer(chooseOne, 'post')).toEqual({ op: 'eq', path: 'method', value: 'post' });
 	});
 
-	it('writes nothing for an answer the question does not offer', () => {
+	it('writes nothing for an answer the input does not offer', () => {
 		expect(conditionForAnswer(chooseOne, 'by_phone')).toBeUndefined();
-		expect(conditionForAnswer(question({ kind: 'string' }), 'anything')).toBeUndefined();
+		expect(conditionForAnswer(input({ kind: 'string' }), 'anything')).toBeUndefined();
 	});
 
 	it('reads back the answer of every rule it writes', () => {
@@ -105,26 +105,26 @@ describe('conditionForAnswer and answerOfCondition', () => {
 });
 
 describe('the decisions in the form examples', () => {
-	// Every rule of every decision in the converted forms, with the question the decision follows. The demo form is
+	// Every rule of every decision in the converted forms, with the input the decision follows. The demo form is
 	// left out, because its added decision follows an API call and tests what the call saved.
 	const rules = formExamples.filter((example) => !example.slug.endsWith('_with_submit')).flatMap((example) =>
 		Object.values(example.workflow?.processes ?? {}).flatMap((process) =>
 			Object.entries(process.states).flatMap(([code, state]) =>
-				state.state_type === 'choice' ? state.rules.map((each) => ({ slug: example.slug, code, when: each.when, before: questionBefore(process, code) })) : []
+				state.state_type === 'choice' ? state.rules.map((each) => ({ slug: example.slug, code, when: each.when, before: inputBefore(process, code) })) : []
 			)
 		)
 	);
 
-	it('all follow a single question', () => {
+	it('all follow a single input', () => {
 		expect(rules).toHaveLength(44);
 		for (const each of rules) expect(each.before, `${each.slug}: ${each.code}`).toBeDefined();
 	});
 
-	it('are each read as an answer of that question, and written back exactly', () => {
+	it('are each read as an answer of that input, and written back exactly', () => {
 		for (const each of rules) {
-			const answer = answerOfCondition(each.before!.question, each.when);
+			const answer = answerOfCondition(each.before!.input, each.when);
 			expect(answer, `${each.slug}: ${each.code}`).toBeDefined();
-			expect(conditionForAnswer(each.before!.question, answer!)).toEqual(each.when);
+			expect(conditionForAnswer(each.before!.input, answer!)).toEqual(each.when);
 		}
 	});
 });

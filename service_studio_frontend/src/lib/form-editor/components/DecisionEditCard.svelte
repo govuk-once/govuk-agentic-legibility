@@ -6,16 +6,16 @@
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
 	import { decisionRowLabels, ruleRowLabels } from '../decision-rows';
 
-	// The question a decision follows, with the number and title it has on the graph.
-	type QuestionBefore = { question: Extract<WorkingState, { state_type: 'input' }>; number: number; title: string };
+	// The input a decision follows, with the number and title it has on the graph.
+	type InputBefore = { input: Extract<WorkingState, { state_type: 'input' }>; number: number; title: string };
 
 	interface Props {
 		// The decision as it is now. The card starts from it and only changes a copy.
 		currentState: Extract<WorkingState, { state_type: 'choice' }>;
 		// The title the decision has in the lists of choices.
 		title: string;
-		// The question the decision follows. There is none when a message leads to it, or more than one step does.
-		before: QuestionBefore | undefined;
+		// The input the decision follows. There is none when a message leads to it, or more than one step does.
+		before: InputBefore | undefined;
 		// The title of the developer step the decision follows, such as an API call. Its ways out are then named by
 		// their rules, because they test what that step saved and not an answer.
 		afterDeveloperStep?: string;
@@ -35,7 +35,7 @@
 	// The words beside each way out of the decision, one for each rule and then one for the way taken when no rule
 	// matches. They name the answer that leads that way, and cannot be changed here.
 	const rowLabels = $derived(
-		afterDeveloperStep && !before ? ruleRowLabels(currentState) : decisionRowLabels(currentState, before?.question)
+		afterDeveloperStep && !before ? ruleRowLabels(currentState) : decisionRowLabels(currentState, before?.input)
 	);
 
 	// What the person is choosing. It is held here, and not in the form being edited, until they choose Apply changes.
@@ -69,7 +69,7 @@
 			{:else if afterDeveloperStep}
 				Decides on what {afterDeveloperStep} saved
 			{:else}
-				Does not follow a single question
+				Does not follow a single input
 			{/if}
 		</p>
 	</div>

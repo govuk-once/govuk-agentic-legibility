@@ -6,7 +6,7 @@ import type { StepValueProblem, StepValuesResult } from './step-values';
 /*
 	The values of an assign step. An assign sets one or more variables, and each is given a value of one kind: a fixed
 	value, a copy of another variable, or one of the operations the schema offers. At the technical review the kind of
-	each value is shown but cannot be changed, because a decision that reads the variable, or a question that saves
+	each value is shown but cannot be changed, because a decision that reads the variable, or an input that saves
 	into it, cannot be changed anywhere in Service Studio, so a new kind could break the journey with no way to put it
 	right. Only the parts of the value can be changed.
 */

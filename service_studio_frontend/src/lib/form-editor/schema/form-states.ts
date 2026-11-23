@@ -5,7 +5,7 @@ import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 
 /*
-	What the form editor does with each kind of state. A form is mostly questions and messages joined by decisions,
+	What the form editor does with each kind of state. A form is mostly inputs and messages joined by decisions,
 	so those are edited here, and so is the end. The other kinds may appear in a form, for example an assign that
 	saves a repeated answer or an API call that submits the form, and they are shown but not edited. They are set by a
 	developer at the technical review.

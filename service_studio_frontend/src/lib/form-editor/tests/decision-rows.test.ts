@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
-import { questionBefore } from '$lib/schema/workflow/choice-answers';
+import { inputBefore } from '$lib/schema/workflow/choice-answers';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { decisionRowLabels, ruleRowLabels, shortAnswerLabel } from '../decision-rows';
 
@@ -35,7 +35,7 @@ describe('shortAnswerLabel', () => {
 });
 
 describe('decisionRowLabels', () => {
-	it('names the two ways out of a decision on a yes or no question by yes and no', () => {
+	it('names the two ways out of a decision on a yes or no input by yes and no', () => {
 		expect(decisionRowLabels(choice([{ op: 'is_true', path: 'ok' }]), yesOrNo)).toEqual(['If the answer is Yes', 'If the answer is No']);
 		expect(decisionRowLabels(choice([{ op: 'is_false', path: 'ok' }]), yesOrNo)).toEqual(['If the answer is No', 'If the answer is Yes']);
 	});
@@ -56,7 +56,7 @@ describe('decisionRowLabels', () => {
 		expect(decisionRowLabels(choice([undecided, undecided]), yesOrNo)).toEqual(['Answer 1', 'Answer 2', 'Answer 3']);
 	});
 
-	it('numbers every way out of a decision that follows no question', () => {
+	it('numbers every way out of a decision that follows no input', () => {
 		expect(decisionRowLabels(choice([{ op: 'is_true', path: 'ok' }]), undefined)).toEqual(['Answer 1', 'Answer 2']);
 	});
 
@@ -68,7 +68,7 @@ describe('decisionRowLabels', () => {
 				for (const [code, state] of Object.entries(process.states)) {
 					if (state.state_type !== 'choice') continue;
 					decisions += 1;
-					const labels = decisionRowLabels(state, questionBefore(process, code)?.question);
+					const labels = decisionRowLabels(state, inputBefore(process, code)?.input);
 					expect(labels, `${example.slug}: ${code}`).toHaveLength(state.rules.length + 1);
 					for (const label of labels) expect(label, `${example.slug}: ${code}`).toMatch(/^If the answer is /);
 				}

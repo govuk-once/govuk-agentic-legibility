@@ -18,10 +18,10 @@
 		withTitleAndDescription
 	} from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
-	import { answerKindLabels, stateLabels } from '../state-labels';
+	import { answerKindLabels } from '../state-labels';
 
 	interface Props {
-		// The question or message as it is now. The card starts from it and only changes a copy.
+		// The input or message as it is now. The card starts from it and only changes a copy.
 		currentState: Extract<WorkingState, { state_type: 'input' | 'output' }>;
 		// The number and the title the step has on the graph and in the list, and how many steps there are.
 		number: number;
@@ -71,9 +71,10 @@
 	// Makes the id of each field unique, so the labels stay correct if two cards are ever on the page.
 	const fieldId = $props.id();
 
-	// A question has a hint and an answer type. A message has neither.
-	const isQuestion = $derived(currentState.state_type === 'input');
-	const wordsLabel = $derived(stateLabels[currentState.state_type]);
+	// An input has a hint and an answer type. A message has neither. The words field is named after what it holds:
+	// the question an input asks, or the message an output shows.
+	const isInput = $derived(currentState.state_type === 'input');
+	const wordsLabel = $derived(isInput ? 'Question' : 'Message');
 
 	// What the person is typing. It is held here, and not in the form being edited, until they choose Apply changes.
 	// The card is shown afresh for each step, so it only needs the values the step had when it opened.
@@ -87,12 +88,12 @@
 	let confirmingRemoval = $state(false);
 
 	/**
-	 * Builds the changed step from what was typed and hands it over. The hint is only put on a question. Closing
+	 * Builds the changed step from what was typed and hands it over. The hint is only put on an input. Closing
 	 * the card is left to the page, because the page holds which step is open.
 	 */
 	function applyChanges() {
 		const described = withTitleAndDescription(withText(currentState, draftWords), draftTitle, draftDescription);
-		const hinted = isQuestion ? withNote(described, hintKey, draftHint) : described;
+		const hinted = isInput ? withNote(described, hintKey, draftHint) : described;
 		onApply(withNextChoice(hinted, draftNext), draftNext === endsTheJourney);
 	}
 </script>
@@ -156,7 +157,7 @@
 			></textarea>
 		</div>
 
-		{#if isQuestion}
+		{#if isInput}
 			<div class="govuk-form-group state-edit-card__form-group">
 				<label class="govuk-label govuk-label--s" for="{fieldId}-hint">Hint</label>
 				<textarea

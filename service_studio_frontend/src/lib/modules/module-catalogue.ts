@@ -20,13 +20,14 @@ export interface ModuleTile {
 
 /**
  * Something an editor lets the person drag from the menu onto the canvas, found by the key of its tile. The value is
- * what the canvas reads from the drop: for a step it is the kind of state added, input or output, and for a decision,
- * a start or an end it is the name of the shape. The shape says which of those it is.
+ * what the canvas reads from the drop: for a step it is the kind of state added, input or output, for a decision,
+ * a start or an end it is the name of the shape, and for a module it is the key of the module. The shape says which
+ * of those it is.
  */
 export interface PaletteTool {
 	module: ModuleIconName;
 	value: string;
-	shape: 'step' | 'condition' | 'start' | 'end';
+	shape: 'step' | 'condition' | 'start' | 'end' | 'module';
 }
 
 export interface ModuleCategory {
