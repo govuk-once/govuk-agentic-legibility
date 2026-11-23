@@ -69,12 +69,9 @@ describe('processToGraph nodes', () => {
 	const { nodes } = processToGraph(process);
 	const node = (id: string) => nodes.find((candidate) => candidate.id === id)!;
 
-	it('uses the question as the title of an input', () => {
-		expect(node('ask').data).toMatchObject({ title: 'Is your address correct?', stepNumber: 1, stateType: 'input' });
-	});
-
-	it('uses the message as the title of an output', () => {
-		expect(node('say_thanks').data).toMatchObject({ title: 'Thank you.', stateType: 'output' });
+	it('uses the code tidied into words as the title of a state with no title, and not its question or message', () => {
+		expect(node('ask').data).toMatchObject({ title: 'Ask', stepNumber: 1, stateType: 'input' });
+		expect(node('say_thanks').data).toMatchObject({ title: 'Say thanks', stateType: 'output' });
 	});
 
 	it('tidies the code into words for a state with no text of its own', () => {
@@ -95,7 +92,7 @@ describe('processToGraph nodes', () => {
 		expect(node('check')).toMatchObject({ type: 'condition', data: { title: 'Address correct?' } });
 		expect(node('finish')).toMatchObject({
 			type: 'terminal',
-			data: { appearance: 'end', status: 'success', stateId: 'finish', ariaLabel: 'Journey end, Address confirmed' }
+			data: { appearance: 'end', status: 'success', stateId: 'finish', ariaLabel: 'Journey end, Finish' }
 		});
 	});
 
@@ -115,7 +112,7 @@ describe('processToGraph nodes', () => {
 	});
 
 	it('words the label read by a screen reader from the number and the title', () => {
-		expect(node('ask').data.ariaLabel).toBe('Step 1, Is your address correct?');
+		expect(node('ask').data.ariaLabel).toBe('Step 1, Ask');
 		expect(node('check').data.ariaLabel).toBe('Decision, Address correct?');
 	});
 

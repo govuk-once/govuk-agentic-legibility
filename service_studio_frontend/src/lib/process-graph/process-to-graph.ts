@@ -157,29 +157,10 @@ export function stepCount(graph: ProcessGraphElements): number {
 }
 
 /**
- * Returns the words a state already carries that make a good title: the question an input asks, the
- * message an output says, or the outcome of an end. A state with none of these, such as a call, has
- * no text of its own.
- */
-function stateText(state: WorkingState): string | undefined {
-	switch (state.state_type) {
-		case 'input':
-			return state.prompt;
-		case 'output':
-			return state.message;
-		case 'end':
-			return state.outcome ? tidyCode(state.outcome) : undefined;
-		default:
-			return undefined;
-	}
-}
-
-/**
- * Chooses the title shown for a state. A title written by the author comes first, then the state's
- * own text, then its code tidied into words, so every state has something readable to show.
+ * Chooses the title shown for a state: the title written for it, or its code tidied into words when it has none.
  */
 export function stateTitle(state: WorkingState, code: string): string {
-	return state.name ?? stateText(state) ?? tidyCode(code);
+	return state.name ?? tidyCode(code);
 }
 
 /**

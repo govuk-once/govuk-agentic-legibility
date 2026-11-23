@@ -14,15 +14,16 @@ import type { ModuleIconName } from './ModuleIcon.svelte';
 	The states each module adds to a journey. The flows come from the executor team, and the words are placeholders
 	that the person replaces once the module is on the canvas.
 
-	1. A module is built by a function rather than written out as fixed data, because the same module can be added
+	1. Every state has a short title, so its box on the graph is readable before the person writes their own.
+	2. A module is built by a function rather than written out as fixed data, because the same module can be added
 	   to a journey more than once. The function is given a way to turn each part of the module, such as "ask" or
 	   "decide", into the code of a state, and the editor makes sure every code is unique in the journey. The
 	   variable an input saves its answer in is named after the code of its state, so it is unique as well.
-	2. A route that leaves the module, such as the routes out of a decision, is left loose. The person joins it to
+	3. A route that leaves the module, such as the routes out of a decision, is left loose. The person joins it to
 	   the rest of the journey, and the checks at the end of the editor catch one that is never joined.
-	3. The group and group id that tie the states of a module together are added when the module is dropped onto
+	4. The group and group id that tie the states of a module together are added when the module is dropped onto
 	   the canvas, not here.
-	4. The basic shapes in the menu add a single state of their own and are not listed here.
+	5. The basic shapes in the menu add a single state of their own and are not listed here.
 */
 
 // The keys of the basic shapes, which are not modules.
@@ -56,17 +57,17 @@ function placeholderOptions(count: number) {
 	return Array.from({ length: count }, (_, index) => ({ value: `option_${index + 1}`, label: `Option ${index + 1}` }));
 }
 
-// An input with a placeholder question that saves its answer in a variable named after its code.
-function input(code: string, schema: InputState['schema'] = { kind: 'string' }, prompt = ''): LinkedState {
-	return { state_type: 'input', ...placeholderInput(code, prompt), schema };
+// An input with a title and a placeholder question that saves its answer in a variable named after its code.
+function input(code: string, name: string, schema: InputState['schema'] = { kind: 'string' }, prompt = ''): LinkedState {
+	return { state_type: 'input', name, ...placeholderInput(code, prompt), schema };
 }
 
 // A state that continues to one next state, so it can sit anywhere in a chain. A decision and an end cannot.
 type LinkedState = Exclude<WorkingState, { state_type: 'choice' | 'end' }>;
 
-// A message shown to the person, with placeholder words unless some are given.
-function output(message = ''): LinkedState {
-	return { state_type: 'output', ...placeholderOutput(message) };
+// A message shown to the person, with a title and placeholder words unless some are given.
+function output(name: string, message = ''): LinkedState {
+	return { state_type: 'output', name, ...placeholderOutput(message) };
 }
 
 /**
@@ -105,14 +106,14 @@ function chain(parts: [part: string, makeState: (code: string) => LinkedState][]
 /**
  * A decision module: a question and a decision on its answer. The decision has one rule for each answer but the
  * last, which takes the default route, and every route is left loose for the person to join. The decision is given
- * a title so its box does not fall back to its code, and the person can write over it.
+ * a title, as every module state is, and the person can write over it.
  */
-function decideOn(schema: InputState['schema'], rulesFor: (answer: string) => WorkingState): ModuleDefinition {
+function decideOn(questionName: string, schema: InputState['schema'], rulesFor: (answer: string) => WorkingState): ModuleDefinition {
 	return {
 		build: (code) => {
 			const ask = code('ask');
 			const decide = code('decide');
-			const question = input(ask, schema);
+			const question = input(ask, questionName, schema);
 			return { first: ask, states: { [ask]: { ...question, next: decide }, [decide]: { ...rulesFor(placeholderAnswerVariable(ask)), name: 'Question decision' } } };
 		}
 	};
@@ -142,15 +143,15 @@ const phoneCallWait = 'P1D';
 const letterWait = 'P7D';
 
 export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
-	start_page: single(() => output(startPageMessage)),
-	message: single(() => output()),
+	start_page: single(() => output('Start information', startPageMessage)),
+	message: single(() => output('Message')),
 
-	simple_question: single((code) => input(code)),
-	formatted_question: single((code) => input(code)),
-	boolean_question: single((code) => input(code, { kind: 'boolean' })),
-	select_one: single((code) => input(code, { kind: 'select_one', options: placeholderOptions(2) })),
-	select_many: single((code) => input(code, { kind: 'select_many', options: placeholderOptions(3) })),
-	data_question: single((code) => input(code)),
+	simple_question: single((code) => input(code, 'Question')),
+	formatted_question: single((code) => input(code, 'Formatted question')),
+	boolean_question: single((code) => input(code, 'Yes or no question', { kind: 'boolean' })),
+	select_one: single((code) => input(code, 'Select one question', { kind: 'select_one', options: placeholderOptions(2) })),
+	select_many: single((code) => input(code, 'Select many question', { kind: 'select_many', options: placeholderOptions(3) })),
+	data_question: single((code) => input(code, 'ID number question')),
 
 	// The add another loop: the answer is added to a list, the person is asked whether there is another, and a yes
 	// goes back to the question. It is written the way the form files write it, as in the trainer example.
@@ -161,7 +162,7 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 			return {
 				first: ask,
 				states: {
-					[ask]: { state_type: 'input', ...placeholderInput(ask), assign: `repeat.${list}.current`, next: keep },
+					[ask]: { state_type: 'input', name: 'Question', ...placeholderInput(ask), assign: `repeat.${list}.current`, next: keep },
 					[keep]: {
 						state_type: 'assign',
 						name: 'Append answer',
@@ -183,30 +184,30 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 	},
 
 	choice_decision: {
-		...decideOn({ kind: 'select_one', options: placeholderOptions(2) }, (answer) => ({
+		...decideOn('Select one question', { kind: 'select_one', options: placeholderOptions(2) }, (answer) => ({
 			state_type: 'choice',
 			rules: [{ when: { op: 'eq', path: answer, value: 'option_1' } }]
 		})),
 		addsRoutesForOptions: true
 	},
-	boolean_decision: decideOn({ kind: 'boolean' }, (answer) => ({
+	boolean_decision: decideOn('Yes or no question', { kind: 'boolean' }, (answer) => ({
 		state_type: 'choice',
 		rules: [{ when: { op: 'is_true', path: answer } }]
 	})),
 	// An ID the person may not have, so the question can be left blank and the decision routes on whether it was.
-	data_decision: decideOn({ kind: 'string', allow_skip: true }, (answer) => ({
+	data_decision: decideOn('ID number question', { kind: 'string', allow_skip: true }, (answer) => ({
 		state_type: 'choice',
 		rules: [{ when: { op: 'not_empty', path: answer } }]
 	})),
 
 	// The flow is as the executor team gave it, and may change once the deadline is clarified with them.
 	deadline: chain([
-		['tell', () => output('You must finish this form by [date].')],
-		['pause', () => ({ state_type: 'wait', duration: deadlineWait })],
-		['ask', (code) => input(code)],
-		['after', () => output()]
+		['tell', () => output('Deadline', 'You must finish this form by [date].')],
+		['pause', () => ({ state_type: 'wait', name: 'Wait until deadline', duration: deadlineWait })],
+		['ask', (code) => input(code, 'Deadline question')],
+		['after', () => output('After the deadline')]
 	]),
-	wait: single(() => ({ state_type: 'wait', duration: placeholderWaitDuration })),
+	wait: single(() => ({ state_type: 'wait', name: 'Wait', duration: placeholderWaitDuration })),
 
 	user_details: {
 		build: (code) => {
@@ -214,8 +215,8 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 			return {
 				first: tell,
 				states: {
-					[tell]: { ...output(), next: ask },
-					[ask]: { ...input(ask), next: fetch },
+					[tell]: { ...output('Before getting your details'), next: ask },
+					[ask]: { ...input(ask, 'Details question'), next: fetch },
 					[fetch]: {
 						state_type: 'api_call',
 						name: 'Get user details',
@@ -223,7 +224,7 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 						catch: [{ on: 'any', next: failed }],
 						next: show
 					},
-					[show]: output(),
+					[show]: output('Your details'),
 					[failed]: placeholderFailedEnd
 				}
 			};
@@ -247,7 +248,7 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 						catch: [{ on: 'any', next: failed }],
 						next: tell
 					},
-					[tell]: { ...output('Your form has been submitted.'), name: 'What happens next', next: pause },
+					[tell]: { ...output('What happens next', 'Your form has been submitted.'), next: pause },
 					[pause]: { state_type: 'wait', name: 'Wait for the form to be processed', duration: 'PT30M', next: check },
 					[check]: {
 						state_type: 'api_call',
@@ -270,25 +271,25 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 		}
 	},
 
-	payment: single(() => output(paymentMessage)),
+	payment: single(() => output('Payment', paymentMessage)),
 
 	// The person is sent away to do this offline, with no way to carry on digitally.
 	information: {
 		build: (code) => {
 			const [tell, leave] = ['tell', 'leave'].map(code);
-			return { first: tell, states: { [tell]: { ...output(), next: leave }, [leave]: { state_type: 'end', status: 'offramp' } } };
+			return { first: tell, states: { [tell]: { ...output('Offline information'), next: leave }, [leave]: { state_type: 'end', name: 'Continue offline', status: 'offramp' } } };
 		}
 	},
 	phone_call: chain([
-		['tell', () => output(phoneCallMessage)],
-		['pause', () => ({ state_type: 'wait', duration: phoneCallWait })],
-		['ask', (code) => input(code, { kind: 'boolean' }, 'Have you rung us?')],
-		['after', () => output()]
+		['tell', () => output('Phone call details', phoneCallMessage)],
+		['pause', () => ({ state_type: 'wait', name: 'Wait for phone call', duration: phoneCallWait })],
+		['ask', (code) => input(code, 'Have you rung us', { kind: 'boolean' }, 'Have you rung us?')],
+		['after', () => output('After the phone call')]
 	]),
 	letter: chain([
-		['tell', () => output(letterMessage)],
-		['pause', () => ({ state_type: 'wait', duration: letterWait })],
-		['ask', (code) => input(code, { kind: 'boolean' }, 'Have you posted it?')],
-		['after', () => output()]
+		['tell', () => output('Letter details', letterMessage)],
+		['pause', () => ({ state_type: 'wait', name: 'Wait for letter', duration: letterWait })],
+		['ask', (code) => input(code, 'Have you posted it', { kind: 'boolean' }, 'Have you posted it?')],
+		['after', () => output('After the letter')]
 	])
 };

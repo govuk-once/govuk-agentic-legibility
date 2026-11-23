@@ -32,8 +32,8 @@ describe('journeySteps', () => {
 		} as unknown as WorkingProcess;
 
 		expect(journeySteps(process).map((step) => [step.number, step.title, step.stateType])).toEqual([
-			[1, 'What is your name?', 'input'],
-			[2, 'Thank you', 'output']
+			[1, 'Name', 'input'],
+			[2, 'Thanks', 'output']
 		]);
 	});
 });

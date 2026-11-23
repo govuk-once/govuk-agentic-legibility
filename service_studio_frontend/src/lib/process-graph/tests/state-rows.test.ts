@@ -18,8 +18,8 @@ describe('stateRows', () => {
 
 	it('lists only the numbered boxes, leaving out the start dot, the diamond and the end dot', () => {
 		expect(rows).toEqual([
-			{ stateId: 'ask', title: 'Is it right?', number: 1, stateType: 'input' },
-			{ stateId: 'say', title: 'Thank you.', number: 2, stateType: 'output' }
+			{ stateId: 'ask', title: 'Ask', number: 1, stateType: 'input' },
+			{ stateId: 'say', title: 'Say', number: 2, stateType: 'output' }
 		]);
 	});
 
@@ -45,9 +45,9 @@ describe('targetOptions', () => {
 
 	it('names a box by its number and title, a diamond and an end dot by their shape, and leaves out the start', () => {
 		expect(targetOptions(processToGraph(process).nodes)).toEqual([
-			{ stateId: 'ask', label: '1. Is it right?' },
+			{ stateId: 'ask', label: '1. Ask' },
 			{ stateId: 'check', label: 'Decision: Right?' },
-			{ stateId: 'finish', label: 'End: All done' }
+			{ stateId: 'finish', label: 'End: Finish' }
 		]);
 	});
 

@@ -1,7 +1,7 @@
 /**
  * Turns a state's code, such as "confirm_intent" or "uploadPhoto", into a short readable label such
- * as "Confirm intent" or "Upload photo". A step with no title and no text of its own falls back to
- * this, so the graph never shows a raw code to the person reading it.
+ * as "Confirm intent" or "Upload photo". A step with no title is shown with this, so the graph never
+ * shows a raw code to the person reading it.
  *
  * Words are split at underscores, hyphens, dots and camel case boundaries, then written in lower
  * case with a capital on the first word only. A word that is already all capitals, such as "DVLA" or

@@ -44,6 +44,10 @@ describe('moduleDefinitions', () => {
 		for (const state of Object.values(build(key).states)) expect(stateUnionSchema.safeParse(joined(state)).success).toBe(true);
 	});
 
+	it.each(definedKeys)('%s gives every state a title', (key) => {
+		for (const [code, state] of Object.entries(build(key).states)) expect(state.name, code).toEqual(expect.any(String));
+	});
+
 	it.each(definedKeys)('%s saves its answers in different variables when it is added a second time', (key) => {
 		const savedIn = (states: Record<string, WorkingState>) =>
 			Object.values(states).flatMap((state) => (state.state_type === 'input' ? [state.assign] : []));
