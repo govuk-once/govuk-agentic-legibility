@@ -24,6 +24,7 @@
     "states": {
         "get_organ_status": {
             "state_type": "api_call",
+            "name": "Get organ donor preferences",
             "method": "GET",
             "service": "dvla",
             "url": "/app/dvla/v1/organs/{{input.driver_id}}",
@@ -48,6 +49,7 @@
         },
         "prompt_organ_status": {
             "state_type": "input",
+            "name": "Update organ donor preferences?",
             "prompt": "Your current NHS Organ Donor preferences on file:\n• All Organs: {{organ_data.anyOrgans}}\n• Kidneys: {{organ_data.kidneys}}\n• Liver: {{organ_data.liver}}\n• Heart: {{organ_data.heart}}\n• Pancreas: {{organ_data.pancreas}}\n• Cornea: {{organ_data.cornea}}\n• Lungs: {{organ_data.lungs}}\n\nWould you like to update your preferences on the NHS Organ Donor Register?",
             "schema": {
                 "kind": "boolean"
@@ -57,6 +59,7 @@
         },
         "prompt_organ_status_fallback": {
             "state_type": "input",
+            "name": "Register organ donor preferences?",
             "prompt": "Would you like to register or update your preferences on the NHS Organ Donor Register?",
             "schema": {
                 "kind": "boolean"
@@ -66,6 +69,7 @@
         },
         "branch_organ": {
             "state_type": "choice",
+            "name": "Update preferences decision",
             "rules": [
                 {
                     "when": {
@@ -79,6 +83,7 @@
         },
         "prompt_decision": {
             "state_type": "input",
+            "name": "New organ donation decision",
             "prompt": "Select your new NHS Organ Donation decision:",
             "schema": {
                 "kind": "select_one",
@@ -91,18 +96,21 @@
         },
         "say_preference_submitted": {
             "state_type": "output",
+            "name": "Preference submitted",
             "channel": "transcript",
             "message": "Your organ donation preference has been submitted to the NHS Organ Donor Register.",
             "next": "end_updated"
         },
         "say_no_change": {
             "state_type": "output",
+            "name": "No change made",
             "channel": "transcript",
             "message": "No changes have been made to your Organ Donation preferences.",
             "next": "end_no_change"
         },
         "end_updated": {
             "state_type": "end",
+            "name": "Preferences updated",
             "status": "success",
             "outcome": "organ_preference_updated",
             "return": {
@@ -111,6 +119,7 @@
         },
         "end_no_change": {
             "state_type": "end",
+            "name": "Preferences unchanged",
             "status": "success",
             "outcome": "organ_preference_unchanged"
         }

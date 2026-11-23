@@ -17,6 +17,7 @@
     "states": {
         "get_driver_details": {
             "state_type": "api_call",
+            "name": "Get driver details",
             "method": "GET",
             "service": "dvla",
             "url": "/app/dvla/v1/driver-summary",
@@ -39,6 +40,7 @@
         },
         "confirm_driver_details": {
             "state_type": "input",
+            "name": "Confirm driver details",
             "prompt": "Are these driver details correct?\nName: {{driver.first_name}} {{driver.last_name}}\nLicence Number: {{driver.driver_id}}\nDOB: {{driver.date_of_birth}}\nEmail: {{driver.email}}",
             "schema": {
                 "kind": "boolean"
@@ -48,6 +50,7 @@
         },
         "branch_driver_details": {
             "state_type": "choice",
+            "name": "Driver details correct?",
             "rules": [
                 {
                     "when": {
@@ -61,6 +64,7 @@
         },
         "prompt_manual_first_name": {
             "state_type": "input",
+            "name": "First name",
             "prompt": "Please enter your correct First Name:",
             "schema": {
                 "kind": "string",
@@ -71,6 +75,7 @@
         },
         "prompt_manual_last_name": {
             "state_type": "input",
+            "name": "Last name",
             "prompt": "Please enter your correct Last Name:",
             "schema": {
                 "kind": "string",
@@ -81,6 +86,7 @@
         },
         "prompt_manual_dob": {
             "state_type": "input",
+            "name": "Date of birth",
             "prompt": "Please enter your Date of Birth (DD/MM/YYYY):",
             "schema": {
                 "kind": "string",
@@ -91,6 +97,7 @@
         },
         "prompt_manual_email": {
             "state_type": "input",
+            "name": "Email address",
             "prompt": "Please enter your Email Address:",
             "schema": {
                 "kind": "string",
@@ -103,6 +110,7 @@
         },
         "prompt_manual_licence_no": {
             "state_type": "input",
+            "name": "Driving licence number",
             "prompt": "Please enter your Driving Licence Number:",
             "schema": {
                 "kind": "string",
@@ -113,6 +121,7 @@
         },
         "confirm_manual_summary": {
             "state_type": "input",
+            "name": "Confirm updated details",
             "prompt": "Please confirm your updated details are correct:\nName: {{manual_first_name}} {{manual_last_name}}\nDOB: {{manual_dob}}\nEmail: {{manual_email}}\nLicence Number: {{manual_licence_no}}",
             "schema": {
                 "kind": "boolean"
@@ -122,6 +131,7 @@
         },
         "branch_manual_summary": {
             "state_type": "choice",
+            "name": "Updated details correct?",
             "rules": [
                 {
                     "when": {
@@ -135,6 +145,7 @@
         },
         "end_success": {
             "state_type": "end",
+            "name": "Driver details confirmed",
             "status": "success",
             "outcome": "details_confirmed",
             "return": {
@@ -148,6 +159,7 @@
         },
         "end_manual_updated": {
             "state_type": "end",
+            "name": "Driver details updated",
             "status": "success",
             "outcome": "details_manually_updated",
             "return": {
@@ -161,6 +173,7 @@
         },
         "end_api_failure": {
             "state_type": "end",
+            "name": "Driver details failed",
             "status": "failed",
             "outcome": "api_failure"
         }

@@ -19,6 +19,7 @@
     "states": {
         "prompt_reason_stopped_work": {
             "state_type": "input",
+            "name": "Work status",
             "prompt": "What is your current work status regarding your pregnancy?",
             "schema": {
                 "kind": "select_one",
@@ -46,6 +47,7 @@
         },
         "branch_reason_stopped_work": {
             "state_type": "choice",
+            "name": "Still working?",
             "rules": [
                 {
                     "when": {
@@ -60,6 +62,7 @@
         },
         "prompt_date_stopped_work": {
             "state_type": "input",
+            "name": "Date you stopped work",
             "prompt": "On what date did you stop working or begin your absence/leave (DD/MM/YYYY)?",
             "schema": {
                 "kind": "string",
@@ -71,6 +74,7 @@
         },
         "evaluate_map_flexibility": {
             "state_type": "choice",
+            "name": "Can the start date be chosen?",
             "rules": [
                 {
                     "when": {
@@ -92,6 +96,7 @@
         },
         "check_sickness_in_4wk_window": {
             "state_type": "input",
+            "name": "Sick near your due week?",
             "prompt": "Was your pregnancy-related sickness absence within 4 weeks of your expected due week?",
             "schema": {
                 "kind": "boolean"
@@ -101,6 +106,7 @@
         },
         "branch_sickness_window": {
             "state_type": "choice",
+            "name": "Sickness decision",
             "rules": [
                 {
                     "when": {
@@ -114,6 +120,7 @@
         },
         "set_non_flexible_early_birth": {
             "state_type": "assign",
+            "name": "Set start date after birth",
             "set": {
                 "is_map_flexible": false,
                 "chosen_ma_start_date": {
@@ -124,6 +131,7 @@
         },
         "set_non_flexible_sickness": {
             "state_type": "assign",
+            "name": "Set start date after sickness",
             "set": {
                 "is_map_flexible": false,
                 "chosen_ma_start_date": {
@@ -134,6 +142,7 @@
         },
         "set_flexible_map": {
             "state_type": "assign",
+            "name": "Allow a chosen start date",
             "set": {
                 "is_map_flexible": true
             },
@@ -141,24 +150,28 @@
         },
         "display_non_flexible_early_birth_window": {
             "state_type": "output",
+            "name": "Start date set by birth",
             "channel": "transcript",
             "message": "Because your baby has already been born, statutory rules require your Maternity Allowance Period (MAP) to start automatically on your baby's birth date ({{chosen_ma_start_date}}).",
             "next": "calculate_map_end_date"
         },
         "display_non_flexible_sickness_window": {
             "state_type": "output",
+            "name": "Start date set by sickness",
             "channel": "transcript",
             "message": "Because you are off sick due to pregnancy within 4 weeks of your due week, your Maternity Allowance Period (MAP) starts automatically on your sickness absence date ({{chosen_ma_start_date}}).",
             "next": "calculate_map_end_date"
         },
         "display_flexible_payment_window": {
             "state_type": "output",
+            "name": "Choose a start date",
             "channel": "transcript",
             "message": "Your Maternity Allowance Period (MAP) is Flexible. You can choose a start date from 11 weeks before your due date (the week starting {{input.calculated_dates.earliest_signing_date}}) up to the day after your baby is born.",
             "next": "prompt_flexible_start_date"
         },
         "prompt_flexible_start_date": {
             "state_type": "input",
+            "name": "Payment start date",
             "prompt": "When would you like your Maternity Allowance payments to start (DD/MM/YYYY)?",
             "schema": {
                 "kind": "string",
@@ -170,6 +183,7 @@
         },
         "evaluate_flexible_start_date": {
             "state_type": "choice",
+            "name": "Start date too early?",
             "rules": [
                 {
                     "when": {
@@ -184,12 +198,14 @@
         },
         "say_start_date_too_early": {
             "state_type": "output",
+            "name": "Start date too early",
             "channel": "transcript",
             "message": "Invalid Start Date: You cannot choose a Maternity Allowance start date earlier than 11 weeks before your due week ({{input.calculated_dates.earliest_signing_date}}). Please enter a valid start date.",
             "next": "prompt_flexible_start_date"
         },
         "calculate_map_end_date": {
             "state_type": "assign",
+            "name": "Work out end date",
             "set": {
                 "map_end_date": {
                     "op": "date_add",
@@ -201,6 +217,7 @@
         },
         "prompt_payment_frequency": {
             "state_type": "input",
+            "name": "Payment frequency",
             "prompt": "How often do you want to receive your Maternity Allowance payments?",
             "schema": {
                 "kind": "select_one",
@@ -220,6 +237,7 @@
         },
         "prompt_account_holder_name": {
             "state_type": "input",
+            "name": "Account holder name",
             "prompt": "Enter the Name of the Account Holder (as it appears on your account):",
             "schema": {
                 "kind": "string",
@@ -231,6 +249,7 @@
         },
         "prompt_bank_or_society_name": {
             "state_type": "input",
+            "name": "Bank or building society",
             "prompt": "Enter the Name of your Bank or Building Society:",
             "schema": {
                 "kind": "string",
@@ -242,6 +261,7 @@
         },
         "prompt_sort_code": {
             "state_type": "input",
+            "name": "Sort code",
             "prompt": "Enter your 6-digit Sort Code (e.g. 20-40-60 or 204060):",
             "schema": {
                 "kind": "string",
@@ -253,6 +273,7 @@
         },
         "prompt_account_number": {
             "state_type": "input",
+            "name": "Account number",
             "prompt": "Enter your 8-digit Bank Account Number:",
             "schema": {
                 "kind": "string",
@@ -264,6 +285,7 @@
         },
         "confirm_payment_summary": {
             "state_type": "input",
+            "name": "Confirm payment details",
             "prompt": "Please review and confirm your payment preferences and bank details:\n• Chosen Start Date: {{chosen_ma_start_date}}\n• MAP Payment End Date (39 weeks): {{map_end_date}}\n• Payment Frequency: {{payment_frequency}}\n• Account Holder: {{account_holder_name}}\n• Bank Name: {{bank_or_society_name}}\n• Sort Code: {{sort_code}}\n• Account Number: {{account_number}}\n\nAre these details correct?",
             "schema": {
                 "kind": "boolean"
@@ -273,6 +295,7 @@
         },
         "branch_payment_confirmation": {
             "state_type": "choice",
+            "name": "Payment details correct?",
             "rules": [
                 {
                     "when": {
@@ -286,6 +309,7 @@
         },
         "end_section4": {
             "state_type": "end",
+            "name": "About payment finished",
             "status": "success",
             "return": {
                 "reason_stopped_work": {

@@ -19,6 +19,7 @@
     "states": {
         "prompt_test_period_employments": {
             "state_type": "input",
+            "name": "Types of work",
             "prompt": "Tell us all types of employment you have had during your 66-week Test Period.",
             "schema": {
                 "kind": "select_many",
@@ -46,6 +47,7 @@
         },
         "branch_foreign_work_check": {
             "state_type": "choice",
+            "name": "Worked outside the UK?",
             "rules": [
                 {
                     "when": {
@@ -60,12 +62,14 @@
         },
         "say_offramp_paper_foreign_work": {
             "state_type": "output",
+            "name": "Worked outside the UK",
             "channel": "transcript",
             "message": "Because you worked outside the UK during your Test Period, you cannot complete your claim online.",
             "next": "end_offramp_paper"
         },
         "branch_employed_check": {
             "state_type": "choice",
+            "name": "Employed?",
             "rules": [
                 {
                     "when": {
@@ -80,6 +84,7 @@
         },
         "lookup_hmrc_rti_details": {
             "state_type": "api_call",
+            "name": "Get HMRC employment records",
             "method": "POST",
             "service": "hmrc",
             "url": "/app/hmrc/v1/employment-and-earnings",
@@ -108,6 +113,7 @@
         },
         "confirm_hmrc_rti_details": {
             "state_type": "input",
+            "name": "Confirm employment records",
             "prompt": "We retrieved your employment records from HMRC for National Insurance number {{input.nino}}:\n\n• Employers Found: {{rti_history.employers}}\n• Average Monthly Earnings: £{{rti_history.average_monthly_earnings}}\n• Average Weekly Earnings (Top 13 Weeks): £{{rti_history.average_weekly_earnings}}\n\nAre these details correct?",
             "schema": {
                 "kind": "boolean"
@@ -117,6 +123,7 @@
         },
         "branch_confirm_hmrc_rti": {
             "state_type": "choice",
+            "name": "Employment records correct?",
             "rules": [
                 {
                     "when": {
@@ -130,6 +137,7 @@
         },
         "prompt_worked_in_15th_week": {
             "state_type": "input",
+            "name": "Working in the 15th week?",
             "prompt": "Were you working in any of these employments during the 15th week before your due week (the week starting {{input.calculated_dates.smp_qualifying_week}})?",
             "schema": {
                 "kind": "boolean"
@@ -139,6 +147,7 @@
         },
         "branch_worked_in_15th_week": {
             "state_type": "choice",
+            "name": "15th week decision",
             "rules": [
                 {
                     "when": {
@@ -152,12 +161,14 @@
         },
         "say_smp1_notice": {
             "state_type": "output",
+            "name": "SMP1 form needed",
             "channel": "transcript",
             "message": "Because you worked as an employee during the 15th week before your due week, statutory rules require proof that your employer cannot pay you Statutory Maternity Pay (SMP).",
             "next": "upload_smp1_form"
         },
         "upload_smp1_form": {
             "state_type": "input",
+            "name": "Upload SMP1 form",
             "prompt": "Please upload a SMP1 form for each employer you worked for in the 15th week before your due week (JPEG, PNG, or PDF).",
             "schema": {
                 "kind": "file_ref",
@@ -173,6 +184,7 @@
         },
         "upload_smp1_api": {
             "state_type": "api_call",
+            "name": "Send SMP1 form",
             "method": "POST",
             "service": "dwp",
             "url": "/app/dwp/v1/upload",
@@ -204,6 +216,7 @@
         },
         "check_smp1_upload": {
             "state_type": "choice",
+            "name": "SMP1 form uploaded?",
             "rules": [
                 {
                     "when": {
@@ -217,6 +230,7 @@
         },
         "increment_smp1_attempts": {
             "state_type": "assign",
+            "name": "Count SMP1 attempts",
             "set": {
                 "smp1_upload_attempts": {
                     "op": "add",
@@ -228,6 +242,7 @@
         },
         "evaluate_smp1_attempts": {
             "state_type": "choice",
+            "name": "Too many SMP1 attempts?",
             "rules": [
                 {
                     "when": {
@@ -242,12 +257,14 @@
         },
         "prompt_retry_smp1": {
             "state_type": "output",
+            "name": "Try SMP1 form again",
             "channel": "transcript",
             "message": "Upload failed or missing. Please try uploading your SMP1 form again (Attempt {{smp1_upload_attempts}} of 3).",
             "next": "upload_smp1_form"
         },
         "branch_self_employed_check": {
             "state_type": "choice",
+            "name": "Self employed?",
             "rules": [
                 {
                     "when": {
@@ -262,12 +279,14 @@
         },
         "say_self_employed_notice": {
             "state_type": "output",
+            "name": "Self employment check",
             "channel": "transcript",
             "message": "Because you selected self-employment, we must verify your Class 2 National Insurance record with HMRC.",
             "next": "prompt_se_utr"
         },
         "prompt_se_utr": {
             "state_type": "input",
+            "name": "Unique Taxpayer Reference",
             "prompt": "Please enter your 10-digit Unique Taxpayer Reference (UTR) for self-employment:",
             "schema": {
                 "kind": "string",
@@ -279,6 +298,7 @@
         },
         "branch_se_utr": {
             "state_type": "choice",
+            "name": "UTR given?",
             "rules": [
                 {
                     "when": {
@@ -292,6 +312,7 @@
         },
         "branch_unpaid_partner_check": {
             "state_type": "choice",
+            "name": "Unpaid work for partner?",
             "rules": [
                 {
                     "when": {
@@ -306,12 +327,14 @@
         },
         "say_unpaid_partner_notice": {
             "state_type": "output",
+            "name": "Partner details needed",
             "channel": "transcript",
             "message": "Because you selected unpaid work for your spouse or civil partner's business, statutory rules require proof of your partner's business and your relationship to evaluate your eligibility for Maternity Allowance.",
             "next": "prompt_partner_nino"
         },
         "prompt_partner_nino": {
             "state_type": "input",
+            "name": "Partner's National Insurance number",
             "prompt": "Please enter your partner's National Insurance Number:",
             "schema": {
                 "kind": "string",
@@ -324,6 +347,7 @@
         },
         "branch_partner_nino": {
             "state_type": "choice",
+            "name": "Partner's NI number given?",
             "rules": [
                 {
                     "when": {
@@ -337,6 +361,7 @@
         },
         "prompt_partner_utr": {
             "state_type": "input",
+            "name": "Partner's Unique Taxpayer Reference",
             "prompt": "Please enter your partner's 10-digit Unique Taxpayer Reference (UTR):",
             "schema": {
                 "kind": "string",
@@ -348,6 +373,7 @@
         },
         "branch_partner_utr": {
             "state_type": "choice",
+            "name": "Partner's UTR given?",
             "rules": [
                 {
                     "when": {
@@ -361,6 +387,7 @@
         },
         "upload_marriage_cert": {
             "state_type": "input",
+            "name": "Upload marriage certificate",
             "prompt": "Please upload a digital copy of your Marriage or Civil Partnership Certificate (JPEG, PNG, or PDF).",
             "schema": {
                 "kind": "file_ref",
@@ -376,6 +403,7 @@
         },
         "upload_marriage_cert_api": {
             "state_type": "api_call",
+            "name": "Send marriage certificate",
             "method": "POST",
             "service": "dwp",
             "url": "/app/dwp/v1/upload",
@@ -407,6 +435,7 @@
         },
         "check_marriage_cert_upload": {
             "state_type": "choice",
+            "name": "Marriage certificate uploaded?",
             "rules": [
                 {
                     "when": {
@@ -420,6 +449,7 @@
         },
         "increment_marriage_cert_attempts": {
             "state_type": "assign",
+            "name": "Count certificate attempts",
             "set": {
                 "marriage_cert_upload_attempts": {
                     "op": "add",
@@ -431,6 +461,7 @@
         },
         "evaluate_marriage_cert_attempts": {
             "state_type": "choice",
+            "name": "Too many certificate attempts?",
             "rules": [
                 {
                     "when": {
@@ -445,22 +476,26 @@
         },
         "prompt_retry_marriage_cert": {
             "state_type": "output",
+            "name": "Try marriage certificate again",
             "channel": "transcript",
             "message": "Upload failed or missing. Please try uploading your Marriage or Civil Partnership Certificate again (Attempt {{marriage_cert_upload_attempts}} of 3).",
             "next": "upload_marriage_cert"
         },
         "end_rti_disputed": {
             "state_type": "end",
+            "name": "Employment records disputed",
             "status": "failed",
             "outcome": "rti_disputed"
         },
         "end_offramp_paper": {
             "state_type": "end",
+            "name": "Claim by post",
             "status": "offramp",
             "outcome": "offramp_paper"
         },
         "end_section3": {
             "state_type": "end",
+            "name": "About your work finished",
             "status": "success",
             "return": {
                 "selected_employments": {

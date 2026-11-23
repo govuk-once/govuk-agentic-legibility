@@ -8,6 +8,7 @@
     "states": {
         "submit": {
             "state_type": "api_call",
+            "name": "Submit new address",
             "method": "POST",
             "service": "dvla",
             "url": "/app/dvla/v1/licence/address",
@@ -39,6 +40,7 @@
         },
         "branch_accepted": {
             "state_type": "choice",
+            "name": "Address update accepted?",
             "rules": [
                 {
                     "when": {
@@ -53,18 +55,21 @@
         },
         "say_update_accepted": {
             "state_type": "output",
+            "name": "Update submitted",
             "channel": "transcript",
             "message": "Your driving licence address update has been submitted. Please wait while your application is processed (this background check typically takes up to 24 hours to complete).",
             "next": "end_ok"
         },
         "say_update_rejected": {
             "state_type": "output",
+            "name": "Update not submitted",
             "channel": "transcript",
             "message": "Your address update could not be submitted. Please contact DVLA customer support.",
             "next": "end_rejected"
         },
         "end_ok": {
             "state_type": "end",
+            "name": "Address updated",
             "status": "success",
             "outcome": "updated",
             "return": {
@@ -73,11 +78,13 @@
         },
         "end_rejected": {
             "state_type": "end",
+            "name": "Address update rejected",
             "status": "failed",
             "outcome": "rejected"
         },
         "end_api_failure": {
             "state_type": "end",
+            "name": "Address update failed",
             "status": "failed",
             "outcome": "api_failure"
         }

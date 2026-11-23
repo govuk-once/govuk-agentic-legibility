@@ -21,6 +21,7 @@
     "states": {
         "prompt_nino": {
             "state_type": "input",
+            "name": "National Insurance number",
             "prompt": "Please enter your National Insurance Number to verify your identity:",
             "schema": {
                 "kind": "string",
@@ -33,6 +34,7 @@
         },
         "lookup_identity_api": {
             "state_type": "api_call",
+            "name": "Find identity records",
             "method": "POST",
             "service": "dwp",
             "url": "/app/dwp/v1/identity-lookup",
@@ -62,6 +64,7 @@
         },
         "confirm_fetched_identity": {
             "state_type": "input",
+            "name": "Confirm identity records",
             "prompt": "We found the following identity records with DWP:\n• Title: {{lookup_res.title}}\n• First Name: {{lookup_res.first_name}}\n• Middle Name: {{lookup_res.middle_name}}\n• Surname: {{lookup_res.surname}}\n• Date of Birth: {{lookup_res.date_of_birth}}\n• Phone Number: {{lookup_res.phone}}\n• Address Line 1: {{lookup_res.address.address_line_1}}\n• Address Line 2: {{lookup_res.address.address_line_2}}\n• Town or City: {{lookup_res.address.town_or_city}}\n• Postcode: {{lookup_res.address.postcode}}\n\nAre these details correct?",
             "schema": {
                 "kind": "boolean"
@@ -71,6 +74,7 @@
         },
         "branch_identity_confirmation": {
             "state_type": "choice",
+            "name": "Identity records correct?",
             "rules": [
                 {
                     "when": {
@@ -84,6 +88,7 @@
         },
         "prompt_manual_title": {
             "state_type": "input",
+            "name": "Title",
             "prompt": "Please select your Title:",
             "schema": {
                 "kind": "select_one",
@@ -115,6 +120,7 @@
         },
         "prompt_manual_first_name": {
             "state_type": "input",
+            "name": "First name",
             "prompt": "Please enter your First Name:",
             "schema": {
                 "kind": "string",
@@ -126,6 +132,7 @@
         },
         "prompt_manual_middle_name": {
             "state_type": "input",
+            "name": "Middle name",
             "prompt": "Please enter your Middle Name:",
             "schema": {
                 "kind": "string"
@@ -135,6 +142,7 @@
         },
         "prompt_manual_surname": {
             "state_type": "input",
+            "name": "Surname",
             "prompt": "Please enter your Surname:",
             "schema": {
                 "kind": "string",
@@ -146,6 +154,7 @@
         },
         "prompt_manual_dob": {
             "state_type": "input",
+            "name": "Date of birth",
             "prompt": "Please enter your Date of Birth (DD/MM/YYYY):",
             "schema": {
                 "kind": "string",
@@ -157,6 +166,7 @@
         },
         "prompt_manual_phone": {
             "state_type": "input",
+            "name": "Phone number",
             "prompt": "Please enter your UK contact Phone Number:",
             "schema": {
                 "kind": "string",
@@ -168,6 +178,7 @@
         },
         "prompt_manual_address_line_1": {
             "state_type": "input",
+            "name": "Address line 1",
             "prompt": "Please enter your Address Line 1 (Building number and street):",
             "schema": {
                 "kind": "string",
@@ -179,6 +190,7 @@
         },
         "prompt_manual_address_line_2": {
             "state_type": "input",
+            "name": "Address line 2",
             "prompt": "Please enter Address Line 2:",
             "schema": {
                 "kind": "string"
@@ -188,6 +200,7 @@
         },
         "prompt_manual_town_or_city": {
             "state_type": "input",
+            "name": "Town or city",
             "prompt": "Please enter your Town or City:",
             "schema": {
                 "kind": "string",
@@ -199,6 +212,7 @@
         },
         "prompt_manual_postcode": {
             "state_type": "input",
+            "name": "Postcode",
             "prompt": "Please enter your Postcode:",
             "schema": {
                 "kind": "string",
@@ -210,6 +224,7 @@
         },
         "confirm_manual_summary": {
             "state_type": "input",
+            "name": "Confirm your details",
             "prompt": "Please confirm your entered details:\n• Title: {{title}}\n• First Name: {{first_name}}\n• Middle Name: {{middle_name}}\n• Surname: {{surname}}\n• Date of Birth: {{dob}}\n• Phone Number: {{phone}}\n• Address Line 1: {{address_line_1}}\n• Address Line 2: {{address_line_2}}\n• Town/City: {{town_or_city}}\n• Postcode: {{postcode}}\n\nAre these details correct?",
             "schema": {
                 "kind": "boolean"
@@ -219,6 +234,7 @@
         },
         "branch_manual_summary": {
             "state_type": "choice",
+            "name": "Details correct?",
             "rules": [
                 {
                     "when": {
@@ -232,6 +248,7 @@
         },
         "end_identity_success": {
             "state_type": "end",
+            "name": "Identity confirmed",
             "status": "success",
             "outcome": "identity_confirmed_via_dwp",
             "return": {
@@ -276,6 +293,7 @@
         },
         "end_identity_manual": {
             "state_type": "end",
+            "name": "Identity entered",
             "status": "success",
             "outcome": "identity_entered_manually",
             "return": {
