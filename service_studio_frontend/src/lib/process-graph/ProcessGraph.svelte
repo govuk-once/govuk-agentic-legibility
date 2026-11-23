@@ -5,12 +5,13 @@
 	import TerminalNode from '$lib/graph-kit/TerminalNode.svelte';
 	import ModuleBorderNode from '$lib/graph-kit/ModuleBorderNode.svelte';
 	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
+	import ProblemStrip from './ProblemStrip.svelte';
 	import { nodeSize } from '$lib/graph-kit/layout';
 	import { arrangeProcessGraph, placeBesideNeighbours } from './arrange';
 	import type { Draft, DraftSet, Endpoint } from './drafts';
 	import { moduleBorderNodeType, moduleBorders } from './module-borders';
 	import { separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
-	import type { DeletedElements, NodePositions, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
+	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
 
 	interface Props {
 		// The nodes and edges of the process, built by the component that owns it so the list of states uses the same ones.
@@ -49,6 +50,9 @@
 		// Called once for each press of the Delete key with everything that was selected: draft shapes and lines,
 		// states of the process, and the lines between states. The page decides what each one means.
 		onDeleteElements?: (deleted: DeletedElements) => void;
+		// The problems to mark on a strip down the right edge of the canvas. The strip is only drawn while there is a
+		// problem to mark, so an editor that gives none, or a journey with no problems, has no strip.
+		problemMarks?: ProblemMark[];
 	}
 
 	let {
@@ -66,7 +70,8 @@
 		onConnect,
 		onCreateConnectedStep,
 		onDropShape,
-		onDeleteElements
+		onDeleteElements,
+		problemMarks
 	}: Props = $props();
 
 	// The node components for a step, a decision and the start and end dots are shared with the other graph editor,
@@ -346,7 +351,10 @@
 		<FlowPositionBridge onready={(instance) => (flowInstance = instance)} />
 		<Background />
 		<Controls showLock={false} />
-		<MiniMap pannable zoomable />
+		<MiniMap pannable zoomable position="bottom-left" class="process-graph__minimap" />
+		{#if problemMarks && problemMarks.length > 0}
+			<ProblemStrip marks={problemMarks} />
+		{/if}
 	</SvelteFlow>
 </section>
 
@@ -360,6 +368,12 @@
 
 	.process-graph :global(.svelte-flow) {
 		background-color: #ffffff;
+	}
+
+	/* The small map of the graph sits at the bottom left, beside the zoom buttons, where the canvas has the most room.
+		It is moved right by the width of the buttons and the gap on either side of them, so it does not cover them. */
+	.process-graph :global(.process-graph__minimap) {
+		margin-left: 55px;
 	}
 
 	/* A small dot at each connection point that grows when the pointer is over it, so it is clear which one

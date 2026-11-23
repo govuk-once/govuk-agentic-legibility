@@ -88,6 +88,29 @@
 	const errors = $derived(journeyErrors(process));
 	const warnings = $derived(journeyWarnings(process));
 
+	/**
+	 * Gives the words that name the state a problem is about: its step number, or its title when it is not a numbered
+	 * step, such as a decision. The problems bar and the strip on the canvas name a state in the same words.
+	 */
+	function placeOf(code: string): { label: string; linkText: string } {
+		const number = rows.find((row) => row.stateId === code)?.number;
+		const title = stateTitle(process.states[code], code);
+		return number === undefined ? { label: title, linkText: `Go to ${title}` } : { label: `Step ${number}`, linkText: `Go to step ${number}` };
+	}
+
+	// Every problem with how serious it is, errors first, for the problems bar and the strip on the canvas.
+	const problems = $derived([
+		...errors.map((problem) => ({ problem, severity: 'error' as const })),
+		...warnings.map((problem) => ({ problem, severity: 'warning' as const }))
+	]);
+
+	// A mark on the strip down the edge of the canvas for each problem that is about a state.
+	const problemMarks = $derived(
+		problems.flatMap(({ problem, severity }) =>
+			problem.state ? [{ stateId: problem.state, severity, label: `${severity === 'error' ? 'Error' : 'Warning'} at ${placeOf(problem.state).label}: ${problem.title}` }] : []
+		)
+	);
+
 	// Whether Send was pressed while there were errors. The message by the button shows only while that is so, and
 	// goes once the errors are fixed.
 	let sendRefused = $state(false);
@@ -249,6 +272,7 @@
 			bind:messages
 			onEditState={openCard}
 			onDeleteStates={removeFromProcess}
+			{problemMarks}
 		/>
 
 		<aside class="form-workspace__panel" aria-label="Steps">
@@ -339,10 +363,8 @@
 	</div>
 
 	<ProblemsDrawer
-		{errors}
-		{warnings}
-		stepNumberOf={(code) => rows.find((row) => row.stateId === code)?.number}
-		titleOf={(code) => stateTitle(process.states[code], code)}
+		{problems}
+		{placeOf}
 		onSelect={highlight}
 	/>
 </div>

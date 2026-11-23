@@ -5,6 +5,7 @@ import type { DecisionNodeData, StepNodeData, TerminalNodeData } from '$lib/grap
 import type { State } from '$lib/schema/workflow/process';
 import type { Route } from '$lib/schema/workflow/routes';
 import type { CompletionStatus } from '$lib/schema/workflow/states';
+import type { ProblemSeverity } from '$lib/schema/workflow/journey-problems';
 
 // The copy of a module a state was added with: the key of the module, such as boolean_decision, and the random id
 // shared by every state of that one copy. The graph draws a border round the states that share an id.
@@ -72,3 +73,7 @@ export type DeletedElements = {
 	stateCodes: string[];
 	lines: Array<{ source: string; path: (string | number)[]; target: string }>;
 };
+
+// A problem to mark on the strip down the edge of the canvas: the state it is about, whether it is an error or a
+// warning, and the words that say what it is, for a screen reader and the tooltip.
+export type ProblemMark = { stateId: string; severity: ProblemSeverity; label: string };

@@ -16,6 +16,10 @@ import { placeholderMessage, placeholderQuestion } from './placeholders';
 export type JourneyProblemKind =
 	'no_start' | 'no_next' | 'way_out_leads_nowhere' | 'not_joined' | 'schema' | 'placeholder_question' | 'placeholder_message' | 'rule_to_confirm';
 
+// Whether a problem stops a journey being passed on, which an error does, or is only worth finishing, which a warning
+// is.
+export type ProblemSeverity = 'error' | 'warning';
+
 type ProblemWords = { message: (count: number) => string; title: (count: number) => string; fix: string; howToFix?: string };
 
 // The schema writes its own words for what is wrong, so a problem it finds only has a title here, and the schema's

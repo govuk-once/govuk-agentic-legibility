@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ProblemSeverity } from '$lib/schema/workflow/journey-problems';
 	import type { JourneyProblem } from '$lib/schema/workflow/validate';
 
 	/*
@@ -9,32 +10,20 @@
 	*/
 
 	interface Props {
-		errors: JourneyProblem[];
-		warnings: JourneyProblem[];
-		// The number a state has in the list of steps, or nothing for a state that is not a numbered step, such as a
-		// decision.
-		stepNumberOf: (code: string) => number | undefined;
-		// The title of a state, used to name one that has no step number.
-		titleOf: (code: string) => string;
+		// Every problem with how serious it is, errors first.
+		problems: { problem: JourneyProblem; severity: ProblemSeverity }[];
+		// The words that name a state: a label for the Step column, such as "Step 8", and the words of the link to it.
+		placeOf: (code: string) => { label: string; linkText: string };
 		onSelect: (code: string) => void;
 	}
 
-	let { errors, warnings, stepNumberOf, titleOf, onSelect }: Props = $props();
+	let { problems, placeOf, onSelect }: Props = $props();
 
 	const drawerId = $props.id();
 	let open = $state(false);
 
-	// Every problem with how serious it is, errors first, so each row can be numbered and coloured in one list.
-	const problems = $derived([
-		...errors.map((problem) => ({ problem, severity: 'error' as const })),
-		...warnings.map((problem) => ({ problem, severity: 'warning' as const }))
-	]);
-
-	// The words that name the state a problem is about: its step number, or its title when it has no number.
-	function placeOf(code: string): { label: string; linkText: string } {
-		const number = stepNumberOf(code);
-		return number === undefined ? { label: titleOf(code), linkText: `Go to ${titleOf(code)}` } : { label: `Step ${number}`, linkText: `Go to step ${number}` };
-	}
+	const errorCount = $derived(problems.filter((each) => each.severity === 'error').length);
+	const warningCount = $derived(problems.length - errorCount);
 
 	// The line shown in the closed bar: the first problem as a sentence, and how many more there are.
 	const summary = $derived.by(() => {
@@ -48,98 +37,115 @@
 </script>
 
 <section class="problems-drawer" aria-label="Problems">
-	<div class="problems-drawer__summary-bar">
-		<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0 problems-drawer__toggle" aria-expanded={open} aria-controls={drawerId} onclick={() => (open = !open)}>
-			{open ? 'Hide problems' : 'Show problems'}
-		</button>
+	<div class="problems-drawer__panel">
+		<div class="problems-drawer__summary-bar">
+			<button type="button" class="govuk-link govuk-body-s govuk-!-margin-bottom-0 problems-drawer__toggle" aria-expanded={open} aria-controls={drawerId} onclick={() => (open = !open)}>
+				{open ? 'Hide problems' : 'Show problems'}
+			</button>
 
-		<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
-			<span class="problem-count-dot problem-count-dot--error">{errors.length}</span>
-			<strong>{errors.length === 1 ? 'error' : 'errors'}</strong>
-		</p>
-		<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
-			<span class="problem-count-dot problem-count-dot--warning">{warnings.length}</span>
-			{warnings.length === 1 ? 'warning' : 'warnings'}
-		</p>
+			<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
+				<span class="problem-count-dot problem-count-dot--error">{errorCount}</span>
+				<strong>{errorCount === 1 ? 'error' : 'errors'}</strong>
+			</p>
+			<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
+				<span class="problem-count-dot problem-count-dot--warning">{warningCount}</span>
+				{warningCount === 1 ? 'warning' : 'warnings'}
+			</p>
 
-		<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__note">
-			{open ? 'Fix errors before you send this form for owner review. Warnings can wait.' : summary}
-		</p>
-	</div>
+			<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__note">
+				{open ? 'Fix errors before you send this form for owner review. Warnings can wait.' : summary}
+			</p>
+		</div>
 
-	<div id={drawerId} class="problems-drawer__list" hidden={!open}>
-		{#if problems.length === 0}
-			<p class="govuk-body-s govuk-!-margin-bottom-0">No problems found.</p>
-		{:else}
-			<table class="govuk-table govuk-!-font-size-16 govuk-!-margin-bottom-0 problems-drawer__table">
-				<colgroup>
-					<col class="problems-drawer__number-column" />
-					<col class="problems-drawer__step-column" />
-					<col class="problems-drawer__problem-column" />
-					<col />
-					<col class="problems-drawer__go-to-column" />
-				</colgroup>
-				<thead class="govuk-table__head">
-					<tr class="govuk-table__row">
-						<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Number</span></th>
-						<th scope="col" class="govuk-table__header problems-drawer__column-heading">Step</th>
-						<th scope="col" class="govuk-table__header problems-drawer__column-heading">Problem</th>
-						<th scope="col" class="govuk-table__header problems-drawer__column-heading">How to fix it</th>
-						<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Link to the step</span></th>
-					</tr>
-				</thead>
-				<tbody class="govuk-table__body">
-					{#each problems as { problem, severity }, index (index)}
-						{@const place = problem.state ? placeOf(problem.state) : undefined}
+		<div id={drawerId} class="problems-drawer__list" hidden={!open}>
+			{#if problems.length === 0}
+				<p class="govuk-body-s govuk-!-margin-bottom-0">No problems found.</p>
+			{:else}
+				<table class="govuk-table govuk-!-font-size-16 govuk-!-margin-bottom-0 problems-drawer__table">
+					<colgroup>
+						<col class="problems-drawer__number-column" />
+						<col class="problems-drawer__step-column" />
+						<col class="problems-drawer__problem-column" />
+						<col />
+						<col class="problems-drawer__go-to-column" />
+					</colgroup>
+					<thead class="govuk-table__head">
 						<tr class="govuk-table__row">
-							<td class="govuk-table__cell">
-								<span class="problem-count-dot problem-count-dot--{severity}">{index + 1}</span>
-								<span class="govuk-visually-hidden">{severity}</span>
-							</td>
-							<td class="govuk-table__cell govuk-!-font-weight-bold">{place?.label ?? ''}</td>
-							<td class="govuk-table__cell">
-								<span class="govuk-!-font-weight-bold">{problem.title}</span>
-								<span class="problems-drawer__fix">{problem.fix}</span>
-							</td>
-							<td class="govuk-table__cell problems-drawer__how-to-fix">{problem.howToFix ?? ''}</td>
-							<td class="govuk-table__cell problems-drawer__go-to">
-								{#if problem.state && place}
-									{@const code = problem.state}
-									<a
-										class="govuk-link govuk-!-font-weight-bold"
-										href="#{code}"
-										onclick={(event) => {
-											event.preventDefault();
-											onSelect(code);
-										}}>{place.linkText}</a
-									>
-								{/if}
-							</td>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Number</span></th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading">Step</th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading">Problem</th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading">How to fix it</th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Link to the step</span></th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/if}
+					</thead>
+					<tbody class="govuk-table__body">
+						{#each problems as { problem, severity }, index (index)}
+							{@const place = problem.state ? placeOf(problem.state) : undefined}
+							<tr class="govuk-table__row">
+								<td class="govuk-table__cell">
+									<span class="problem-count-dot problem-count-dot--{severity}">{index + 1}</span>
+									<span class="govuk-visually-hidden">{severity}</span>
+								</td>
+								<td class="govuk-table__cell govuk-!-font-weight-bold">{place?.label ?? ''}</td>
+								<td class="govuk-table__cell">
+									<span class="govuk-!-font-weight-bold">{problem.title}</span>
+									<span class="problems-drawer__fix">{problem.fix}</span>
+								</td>
+								<td class="govuk-table__cell problems-drawer__how-to-fix">{problem.howToFix ?? ''}</td>
+								<td class="govuk-table__cell problems-drawer__go-to">
+									{#if problem.state && place}
+										{@const code = problem.state}
+										<a
+											class="govuk-link govuk-!-font-weight-bold"
+											href="#{code}"
+											onclick={(event) => {
+												event.preventDefault();
+												onSelect(code);
+											}}>{place.linkText}</a
+										>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
 	</div>
 </section>
 
 <style>
 	/* The widths of the first two columns of the table. The button that shows and hides the list takes up both, so
 		the counts in the bar start where the Problem column starts and the two line up whether the list is open or
-		closed. */
+		closed. The height of the bar is the room the editor keeps for it at the bottom. */
 	.problems-drawer {
 		--problems-number-column-width: 45px;
 		--problems-step-column-width: 180px;
-		flex: 0 0 auto;
+		--problems-bar-height: 45px;
+		position: relative;
+		z-index: 10;
+		flex: 0 0 var(--problems-bar-height);
+	}
+
+	/* The bar keeps its place at the bottom of the editor, and the list opens upwards over the graph and the side
+		panel instead of pushing them up, so the editor keeps its size and the steps list and its button stay where
+		they are, covered while the list is open. */
+	.problems-drawer__panel {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		background-color: #ffffff;
 		border-top: 1px solid #b1b4b6;
 		box-shadow: 0 -5px 15px rgba(11, 12, 12, 0.07);
 	}
 
 	.problems-drawer__summary-bar {
+		box-sizing: border-box;
 		display: flex;
 		align-items: center;
-		padding: 10px 25px;
+		height: var(--problems-bar-height);
+		padding: 0 25px;
 	}
 
 	/* A button that reads as a link, with a triangle drawn in CSS that points down when the list is open, in the

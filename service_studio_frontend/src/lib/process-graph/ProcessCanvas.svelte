@@ -17,7 +17,7 @@
 		type Endpoint
 	} from './drafts';
 	import ProcessGraph from './ProcessGraph.svelte';
-	import type { DeletedElements, NodePositions, ProcessGraphElements, StepOutlineColours } from './process-graph-types';
+	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, StepOutlineColours } from './process-graph-types';
 
 	/*
 		The graph and the message that explains a refused change, with everything the person can do on the canvas:
@@ -63,6 +63,8 @@
 		onEditState: (code: string) => void;
 		// Called with the states and lines that a press of Delete selected, which the editor takes out of the process.
 		onDeleteStates: (deleted: Pick<DeletedElements, 'stateCodes' | 'lines'>) => void;
+		// The problems to mark on a strip down the right edge of the canvas. An editor that gives none has no strip.
+		problemMarks?: ProblemMark[];
 	}
 
 	let {
@@ -83,7 +85,8 @@
 		selectedStateId = $bindable(null),
 		messages = $bindable([]),
 		onEditState,
-		onDeleteStates
+		onDeleteStates,
+		problemMarks
 	}: Props = $props();
 
 	/**
@@ -226,6 +229,7 @@
 		onCreateConnectedStep={handleCreateConnectedStep}
 		onDropShape={handleDropShape}
 		onDeleteElements={handleDeleteElements}
+		{problemMarks}
 	/>
 
 	{#if messages.length > 0}
