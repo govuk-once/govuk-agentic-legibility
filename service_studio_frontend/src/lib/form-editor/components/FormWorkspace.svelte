@@ -17,6 +17,7 @@
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 	import ModuleMenu from '$lib/modules/ModuleMenu.svelte';
 	import { moduleCategories } from '$lib/modules/module-catalogue';
+	import { withRoutesForNewOptions } from '$lib/modules/option-routes';
 	import { formPaletteTools } from '../palette-tools';
 	import { formDeveloperStateTypes, formHiddenStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
@@ -211,9 +212,10 @@
 	}
 
 	// Applies the edit card of a step or a decision and closes it, leaving it highlighted. The end is made in the
-	// same change when the person chose that a step ends the journey.
+	// same change when the person chose that a step ends the journey. An option added to the input of a module such
+	// as the Choice decision also adds a way out to that module's decision.
 	function applyEdit(code: string, updated: WorkingState, endsJourney = false) {
-		applyChange(applyStateEdit(process, code, updated, endsJourney));
+		applyChange(applyStateEdit(withRoutesForNewOptions(process, code, updated), code, updated, endsJourney));
 		selection = { code, open: false };
 	}
 </script>

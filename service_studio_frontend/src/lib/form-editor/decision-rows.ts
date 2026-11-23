@@ -14,6 +14,8 @@ import type { WorkingState } from '$lib/schema/workflow/working-process';
 	   are numbered, so each can still be told from the others.
 	4. A decision that follows a developer step, such as an API call, tests what that step saved and not an answer.
 	   Its ways out are named by their rules in words, and the last one is named as otherwise.
+	5. A decision with one rule, that a typed answer is not empty, decides on whether the person answered or left
+	   the question blank, so its ways out are named that way.
 */
 
 type WorkingChoice = Extract<WorkingState, { state_type: 'choice' }>;
@@ -38,6 +40,12 @@ export function shortAnswerLabel(label: string): string {
  * input is the one the decision follows, or nothing when it follows no single input.
  */
 export function decisionRowLabels(choice: WorkingChoice, input: WorkingInput | undefined): string[] {
+	const [onlyRule, ...otherRules] = choice.rules;
+	const when = onlyRule?.when;
+	if (input && otherRules.length === 0 && when?.op === 'not_empty' && 'path' in when && when.path === input.assign) {
+		return ['If answered', 'If left blank'];
+	}
+
 	const answers = input ? answerChoices(input) : [];
 	const labelOf = (value: string) => `If the answer is ${shortAnswerLabel(answers.find((answer) => answer.value === value)?.label ?? value)}`;
 

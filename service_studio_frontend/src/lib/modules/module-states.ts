@@ -8,6 +8,7 @@ import {
 	unconnectedApiCallDetails
 } from '$lib/schema/workflow/placeholders';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
+import type { AnswerFormatKey } from './answer-formats';
 import type { ModuleIconName } from './ModuleIcon.svelte';
 
 /*
@@ -49,6 +50,9 @@ export interface ModuleDefinition {
 	// Set on a decision module whose question offers options, so that adding an option to the question also adds a
 	// route for it to the decision. It is read by the editor, so a new module of this kind only needs this setting.
 	addsRoutesForOptions?: boolean;
+	// The formats the typed question of the module can be checked against, offered on its card. A module without
+	// this offers no formats.
+	answerFormats?: AnswerFormatKey[];
 }
 
 // Placeholder options for a question where the person chooses. Each value is made once and never changes, and only
@@ -137,6 +141,11 @@ const phoneCallMessage = 'Call [team name] on [phone number]. Lines are open [da
 
 const letterMessage = 'Post your form to:\n\n[Team name]\n[Address line 1]\n[Town or city]\n[Postcode]';
 
+// The formats offered by the Formatted question, for contact details and dates, and by the ID questions, for
+// reference numbers.
+const contactFormats: AnswerFormatKey[] = ['email', 'phone', 'postcode', 'date'];
+const idNumberFormats: AnswerFormatKey[] = ['ni_number', 'utr', 'passport', 'driving_licence', 'vat_number', 'company_number', 'vehicle_registration'];
+
 // How long the deadline, the phone call and the letter wait. They are placeholders that the technical review sets.
 const deadlineWait = 'P28D';
 const phoneCallWait = 'P1D';
@@ -147,11 +156,11 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 	message: single(() => output('Message')),
 
 	simple_question: single((code) => input(code, 'Question')),
-	formatted_question: single((code) => input(code, 'Formatted question')),
+	formatted_question: { ...single((code) => input(code, 'Formatted question')), answerFormats: contactFormats },
 	boolean_question: single((code) => input(code, 'Yes or no question', { kind: 'boolean' })),
 	select_one: single((code) => input(code, 'Select one question', { kind: 'select_one', options: placeholderOptions(2) })),
 	select_many: single((code) => input(code, 'Select many question', { kind: 'select_many', options: placeholderOptions(3) })),
-	data_question: single((code) => input(code, 'ID number question')),
+	data_question: { ...single((code) => input(code, 'ID number question')), answerFormats: idNumberFormats },
 
 	// The add another loop: the answer is added to a list, the person is asked whether there is another, and a yes
 	// goes back to the question. It is written the way the form files write it, as in the trainer example.
@@ -195,10 +204,13 @@ export const moduleDefinitions: Record<ModuleKey, ModuleDefinition> = {
 		rules: [{ when: { op: 'is_true', path: answer } }]
 	})),
 	// An ID the person may not have, so the question can be left blank and the decision routes on whether it was.
-	data_decision: decideOn('ID number question', { kind: 'string', allow_skip: true }, (answer) => ({
-		state_type: 'choice',
-		rules: [{ when: { op: 'not_empty', path: answer } }]
-	})),
+	data_decision: {
+		...decideOn('ID number question', { kind: 'string', allow_skip: true }, (answer) => ({
+			state_type: 'choice',
+			rules: [{ when: { op: 'not_empty', path: answer } }]
+		})),
+		answerFormats: idNumberFormats
+	},
 
 	// The flow is as the executor team gave it, and may change once the deadline is clarified with them.
 	deadline: chain([

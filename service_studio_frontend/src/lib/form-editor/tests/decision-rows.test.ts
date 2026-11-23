@@ -40,6 +40,16 @@ describe('decisionRowLabels', () => {
 		expect(decisionRowLabels(choice([{ op: 'is_false', path: 'ok' }]), yesOrNo)).toEqual(['If the answer is No', 'If the answer is Yes']);
 	});
 
+	it('names the two ways out of a decision on whether a typed answer was given by answered and left blank', () => {
+		const typed = { state_type: 'input', prompt: 'Your reference?', schema: { kind: 'string', allow_skip: true }, assign: 'ref' } as Input;
+		expect(decisionRowLabels(choice([{ op: 'not_empty', path: 'ref' }]), typed)).toEqual(['If answered', 'If left blank']);
+	});
+
+	it('does not name a not empty rule on a different variable as answered', () => {
+		const typed = { state_type: 'input', prompt: 'Your reference?', schema: { kind: 'string' }, assign: 'ref' } as Input;
+		expect(decisionRowLabels(choice([{ op: 'not_empty', path: 'other' }]), typed)).toEqual(['Answer 1', 'Answer 2']);
+	});
+
 	it('names the last way out as anything else when more than one answer is left over', () => {
 		expect(decisionRowLabels(choice([{ op: 'eq', path: 'method', value: 'post' }]), chooseOne)).toEqual([
 			'If the answer is post',

@@ -1,0 +1,165 @@
+import { withNote } from '$lib/schema/workflow/edit-state';
+import type { WorkingState } from '$lib/schema/workflow/working-process';
+import { isModuleKey } from './add-module';
+import { moduleDefinitions } from './module-states';
+
+/*
+	The formats a typed answer can be checked against, such as an email address or a National Insurance number.
+	Choosing a format fills in the pattern the answer must match, the message shown when it does not, and how the
+	answer is tidied before it is checked. The person never writes a pattern.
+
+	1. The module an input came from says which formats it offers, so the Formatted question offers contact details
+	   and dates, and the ID questions offer reference numbers. An input that is not from such a module offers none.
+	2. The format chosen is kept in the metadata as answer_format, so the card can show it again. The pattern alone
+	   would not say which format it came from.
+	3. The patterns for email, phone, postcode, date, National Insurance number and Unique Taxpayer Reference are
+	   copied from the example services, and each names the file it came from. The others are written here and
+	   need to be replaced with the patterns the team uses.
+*/
+
+// The key in an input's metadata that holds the format chosen for its answer.
+export const answerFormatKey = 'answer_format';
+
+export type AnswerFormatKey =
+	| 'email'
+	| 'phone'
+	| 'postcode'
+	| 'date'
+	| 'ni_number'
+	| 'utr'
+	| 'passport'
+	| 'driving_licence'
+	| 'vat_number'
+	| 'company_number'
+	| 'vehicle_registration';
+
+export interface AnswerFormat {
+	label: string;
+	pattern: string;
+	invalidMessage: string;
+	normalise?: 'upper_trim' | 'lower_trim';
+}
+
+export const answerFormats: Record<AnswerFormatKey, AnswerFormat> = {
+	// From services/change_of_address/driver_details.json, prompt_manual_email.
+	email: {
+		label: 'Email address',
+		pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+		invalidMessage: 'Please enter a valid email address (e.g., name@example.com).',
+		normalise: 'lower_trim'
+	},
+	// From services/maternity_allowance/about_you.json, prompt_manual_phone.
+	phone: {
+		label: 'UK phone number',
+		pattern: '^(?:0|\\+?44)\\d{9,10}$',
+		invalidMessage: 'Please enter a valid UK telephone number.'
+	},
+	// From services/maternity_allowance/about_you.json, prompt_manual_postcode. The pattern only accepts capital
+	// letters, so the answer is put into capitals first.
+	postcode: {
+		label: 'UK postcode',
+		pattern: '^[A-Z]{1,2}[0-9][A-Z0-9]?\\s?[0-9][A-Z]{2}$',
+		invalidMessage: 'Please enter a valid UK postcode.',
+		normalise: 'upper_trim'
+	},
+	// From services/maternity_allowance/about_baby.json, prompt_actual_birth_date.
+	date: {
+		label: 'Date (DD/MM/YYYY)',
+		pattern: '^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$',
+		invalidMessage: 'Please enter a valid date in DD/MM/YYYY format.'
+	},
+	// From services/maternity_allowance/about_you.json, prompt_nino.
+	ni_number: {
+		label: 'National Insurance number',
+		pattern: '^[A-CEGHJ-PR-TW-Z]{1}[A-CEGHJ-NPR-TW-Z]{1}[0-9]{6}[A-D]{1}$',
+		invalidMessage: 'Please enter a valid UK National Insurance number.',
+		normalise: 'upper_trim'
+	},
+	// From services/maternity_allowance/about_work.json, prompt_se_utr.
+	utr: {
+		label: 'Unique Taxpayer Reference',
+		pattern: '^[0-9]{10}$',
+		invalidMessage: 'Unique Taxpayer Reference must be exactly 10 digits.'
+	},
+	// Written here and not taken from an example. To be replaced with the pattern the team uses.
+	passport: {
+		label: 'UK passport number',
+		pattern: '^[0-9]{9}$',
+		invalidMessage: 'Passport number must be 9 digits.'
+	},
+	// Written here and not taken from an example. To be replaced with the pattern the team uses.
+	driving_licence: {
+		label: 'UK driving licence number',
+		pattern: '^[A-Z9]{5}[0-9]{6}[A-Z9]{2}[0-9][A-Z]{2}$',
+		invalidMessage: 'Driving licence number must be 16 characters, as shown on the licence.',
+		normalise: 'upper_trim'
+	},
+	// Written here and not taken from an example. To be replaced with the pattern the team uses.
+	vat_number: {
+		label: 'VAT registration number',
+		pattern: '^(GB)?[0-9]{9}([0-9]{3})?$',
+		invalidMessage: 'VAT registration number must be 9 or 12 digits, and may start with GB.',
+		normalise: 'upper_trim'
+	},
+	// Written here and not taken from an example. To be replaced with the pattern the team uses.
+	company_number: {
+		label: 'Company registration number',
+		pattern: '^([0-9]{8}|[A-Z]{2}[0-9]{6})$',
+		invalidMessage: 'Company registration number must be 8 characters.',
+		normalise: 'upper_trim'
+	},
+	// Written here and not taken from an example. It only accepts the current style of number plate, such as AB12 CDE,
+	// and is to be replaced with the pattern the team uses.
+	vehicle_registration: {
+		label: 'Vehicle registration number',
+		pattern: '^[A-Z]{2}[0-9]{2}\\s?[A-Z]{3}$',
+		invalidMessage: 'Please enter a valid vehicle registration number.',
+		normalise: 'upper_trim'
+	}
+};
+
+/**
+ * Lists the formats an input offers, which are the ones the module it came from names. An input that did not come
+ * from a module, or from one that names no formats, offers none.
+ */
+export function formatsFor(state: WorkingState): AnswerFormatKey[] {
+	const group = state.metadata?.group;
+	return typeof group === 'string' && isModuleKey(group) ? (moduleDefinitions[group].answerFormats ?? []) : [];
+}
+
+/**
+ * Tells whether a value names one of the formats, such as one read back from metadata or from a list of choices.
+ */
+export function isAnswerFormatKey(value: unknown): value is AnswerFormatKey {
+	return typeof value === 'string' && Object.hasOwn(answerFormats, value);
+}
+
+/**
+ * Reads the format chosen for an input's answer, or nothing when none has been chosen.
+ */
+export function answerFormatOf(state: WorkingState): AnswerFormatKey | undefined {
+	const chosen = state.metadata?.[answerFormatKey];
+	return isAnswerFormatKey(chosen) ? chosen : undefined;
+}
+
+/**
+ * Gives a typed input the pattern, message and tidying of a format, and keeps which format it is. Choosing no format
+ * takes all of them away. Any other state is returned as it is.
+ */
+export function withAnswerFormat(state: WorkingState, key: AnswerFormatKey | undefined): WorkingState {
+	if (state.state_type !== 'input' || state.schema.kind !== 'string') return state;
+
+	const schema = { ...state.schema };
+	const format = key === undefined ? undefined : answerFormats[key];
+	if (format) {
+		schema.pattern = format.pattern;
+		schema.invalid_message = format.invalidMessage;
+		if (format.normalise) schema.normalise = format.normalise;
+		else delete schema.normalise;
+	} else {
+		delete schema.pattern;
+		delete schema.invalid_message;
+		delete schema.normalise;
+	}
+	return withNote({ ...state, schema }, answerFormatKey, key ?? '');
+}

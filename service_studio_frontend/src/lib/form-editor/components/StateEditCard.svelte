@@ -3,8 +3,10 @@
 	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
 	import StateContext from '$lib/components/StateContext.svelte';
 	import type { ContextItem } from '$lib/components/context';
+	import { answerFormatOf, answerFormats, formatsFor, isAnswerFormatKey, withAnswerFormat } from '$lib/modules/answer-formats';
 	import StateReorderButtons from '$lib/process-graph/StateReorderButtons.svelte';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
+	import { editableOptions, newOption, withOptions } from '$lib/schema/workflow/answer-options';
 	import {
 		descriptionOf,
 		endsTheJourney,
@@ -83,6 +85,14 @@
 	let draftDescription = $state(untrack(() => descriptionOf(currentState)));
 	let draftHint = $state(untrack(() => noteOf(currentState, hintKey)));
 	let draftNext = $state(untrack(() => currentState.next ?? nothingYet));
+	// The options of an input where the person chooses, copied so each label can be typed into. An input with no
+	// options to change has none, and the options are not shown.
+	let draftOptions = $state(untrack(() => editableOptions(currentState)?.map((option) => ({ ...option }))));
+
+	// The formats the module this input came from offers for its answer, and the one chosen. No format is held as an
+	// empty value, which is the first choice in the list.
+	const formats = untrack(() => formatsFor(currentState));
+	let draftFormat = $state(untrack(() => answerFormatOf(currentState) ?? ''));
 
 	// Removing asks first, in place of the buttons, so one stray click does not lose a step.
 	let confirmingRemoval = $state(false);
@@ -94,7 +104,9 @@
 	function applyChanges() {
 		const described = withTitleAndDescription(withText(currentState, draftWords), draftTitle, draftDescription);
 		const hinted = isInput ? withNote(described, hintKey, draftHint) : described;
-		onApply(withNextChoice(hinted, draftNext), draftNext === endsTheJourney);
+		const optioned = draftOptions ? withOptions(hinted, draftOptions) : hinted;
+		const formatted = formats.length > 0 ? withAnswerFormat(optioned, isAnswerFormatKey(draftFormat) ? draftFormat : undefined) : optioned;
+		onApply(withNextChoice(formatted, draftNext), draftNext === endsTheJourney);
 	}
 </script>
 
@@ -168,6 +180,64 @@
 					bind:value={draftHint}
 				></textarea>
 			</div>
+		{/if}
+
+		{#if formats.length > 0}
+			<div class="govuk-form-group state-edit-card__form-group">
+				<label class="govuk-label govuk-label--s" for="{fieldId}-format">Answer format</label>
+				<div id="{fieldId}-format-hint" class="govuk-hint govuk-!-margin-bottom-1">The answer is checked against this format</div>
+				<select
+					class="govuk-select"
+					id="{fieldId}-format"
+					name="format"
+					aria-describedby="{fieldId}-format-hint"
+					bind:value={draftFormat}
+				>
+					<option value="">None</option>
+					{#each formats as format (format)}
+						<option value={format}>{answerFormats[format].label}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
+
+		{#if draftOptions}
+			<!-- Each option is typed in its own field. Its value was made when it was added and is not shown, because a
+				decision tests the value and it must not change while the words are edited. -->
+			<fieldset class="govuk-fieldset state-edit-card__form-group">
+				<legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Options</legend>
+				<ul class="govuk-list state-edit-card__options">
+					{#each draftOptions as option, index (option.value)}
+						<li class="state-edit-card__option">
+							<label class="govuk-label govuk-visually-hidden" for="{fieldId}-option-{index}">Option {index + 1}</label>
+							<input
+								class="govuk-input"
+								id="{fieldId}-option-{index}"
+								name="option-{index}"
+								type="text"
+								required
+								bind:value={option.label}
+							/>
+							{#if draftOptions.length > 1}
+								<button
+									type="button"
+									class="govuk-link govuk-body-s govuk-!-margin-bottom-0 state-edit-card__remove"
+									onclick={() => draftOptions?.splice(index, 1)}
+								>
+									Remove<span class="govuk-visually-hidden"> option {index + 1}</span>
+								</button>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+				<button
+					type="button"
+					class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
+					onclick={() => draftOptions?.push(newOption(draftOptions))}
+				>
+					+ Add option
+				</button>
+			</fieldset>
 		{/if}
 
 		<!-- Sits before the route, straight after the step's own details. -->
@@ -283,6 +353,20 @@
 		longest option instead of filling the field the way every other control in this form does. */
 	.state-edit-card__form-group .govuk-select {
 		width: 100%;
+	}
+
+	.state-edit-card__options {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		margin-bottom: 15px;
+	}
+
+	.state-edit-card__option {
+		display: flex;
+		align-items: center;
+		gap: 15px;
+		margin-bottom: 0;
 	}
 
 	.state-edit-card__journey-actions {
