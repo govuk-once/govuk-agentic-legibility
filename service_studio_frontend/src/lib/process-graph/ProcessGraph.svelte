@@ -125,13 +125,28 @@
 	// A box the person has dragged keeps its place, and every other box stays where it was placed. The
 	// selected flag is set here for a state, so the list of steps and the graph always agree about which
 	// state is highlighted.
+	// The module being dragged by the move symbol on its border: its group id, where the border was when the drag began,
+	// and how far it has moved since. Every shape of that module is drawn moved by the same amount while the drag
+	// lasts, and the border follows them, because it is worked out from where they are.
+	let moduleDrag = $state<{ groupId: string; start: { x: number; y: number }; offset: { x: number; y: number } }>();
+
+	/**
+	 * Gives where a shape is drawn: where the person dragged it to, or where it was placed, moved along with its
+	 * module while the module is being dragged by its move symbol.
+	 */
+	function positionOf(node: ProcessNode): { x: number; y: number } {
+		const place = positions[node.id] ?? node.position;
+		if (!moduleDrag || node.data.moduleGroup?.id !== moduleDrag.groupId) return place;
+		return { x: place.x + moduleDrag.offset.x, y: place.y + moduleDrag.offset.y };
+	}
+
 	// The borders round the states of each copy of a module come first, so they are drawn behind the shapes.
 	const nodes = $derived<Node[]>([
-		...moduleBorders(laidOut, (node) => positions[node.id] ?? node.position),
+		...moduleBorders(laidOut, positionOf),
 		...laidOut.map((node) => ({
 			...node,
 			data: withOutlineColour(node),
-			position: positions[node.id] ?? node.position,
+			position: positionOf(node),
 			selected: node.data.stateId === selectedStateId
 		})),
 		...draftNodes.map((node) => ({ ...node, position: positions[node.id] ?? node.position }))
@@ -276,7 +291,27 @@
 		{defaultEdgeOptions}
 		{proOptions}
 		nodesDraggable
-		onnodedragstop={({ nodes: dragged }) => onMoveNodes?.(Object.fromEntries(dragged.map((node) => [node.id, node.position])))}
+		onnodedragstart={({ targetNode }) => {
+			const groupId = targetNode?.type === moduleBorderNodeType ? targetNode.data.groupId : undefined;
+			if (!targetNode || typeof groupId !== 'string') return;
+			moduleDrag = { groupId, start: targetNode.position, offset: { x: 0, y: 0 } };
+		}}
+		onnodedrag={({ targetNode }) => {
+			if (!moduleDrag || targetNode?.type !== moduleBorderNodeType) return;
+			moduleDrag.offset = { x: targetNode.position.x - moduleDrag.start.x, y: targetNode.position.y - moduleDrag.start.y };
+		}}
+		onnodedragstop={({ nodes: dragged }) => {
+			// A module dragged by its move symbol keeps every shape where it was let go. The border itself has no place of its
+			// own to keep, because it is worked out from the shapes.
+			if (moduleDrag) {
+				const { groupId } = moduleDrag;
+				const moved = laidOut.filter((node) => node.data.moduleGroup?.id === groupId);
+				onMoveNodes?.(Object.fromEntries(moved.map((node) => [node.id, positionOf(node)])));
+				moduleDrag = undefined;
+				return;
+			}
+			onMoveNodes?.(Object.fromEntries(dragged.map((node) => [node.id, node.position])));
+		}}
 		{isValidConnection}
 		onconnect={({ source, target }) => {
 			const from = endpointOf(source);

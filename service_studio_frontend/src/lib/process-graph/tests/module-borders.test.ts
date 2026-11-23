@@ -19,8 +19,10 @@ describe('moduleBorders', () => {
 
 		expect(border.position).toEqual({ x: 80, y: 80 });
 		expect(border.width).toBe((ask?.type === 'step' ? ask.data.width : 0) + 40);
-		expect(border.data).toEqual({ label: 'Yes / No' });
+		expect(border.data).toEqual({ label: 'Yes / No', groupId: process.states.boolean_decision_ask.metadata?.group_id });
 		expect(border.selectable).toBe(false);
+		// The border is only dragged by its dot.
+		expect(border.dragHandle).toBe('.module-border-node__handle');
 	});
 
 	it('draws a border for each copy, and none for shapes that are not from a module', () => {
@@ -31,6 +33,6 @@ describe('moduleBorders', () => {
 	it('draws a border round a module with only one shape as well, named with the module', () => {
 		const { process } = addModule(journey, 'message');
 		const borders = moduleBorders(processToGraph(process).nodes, placeAt({}));
-		expect(borders.map((border) => border.data)).toEqual([{ label: 'Message' }]);
+		expect(borders.map((border) => border.data.label)).toEqual(['Message']);
 	});
 });
