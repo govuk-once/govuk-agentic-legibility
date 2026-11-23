@@ -265,6 +265,18 @@ describe('visibleGraph', () => {
 		expect(visibleGraph(graph, { showErrorRoutes: false }).nodes.map((node) => node.id)).toContain('unused');
 	});
 
+	it('removes the error end of steps that are not joined to the start yet, such as a module just dropped', () => {
+		const loose = processToGraph(
+			build('done', {
+				done: finish,
+				call: { state_type: 'api_call', method: 'GET', service: 's', url: '/u', next: 'after', catch: [{ on: 'any', next: 'failed' }] },
+				after: finish,
+				failed: { state_type: 'end', status: 'failed' }
+			})
+		);
+		expect(visibleGraph(loose, { showErrorRoutes: false }).nodes.map((node) => node.id)).not.toContain('failed');
+	});
+
 	it('keeps a state that the main journey also reaches', () => {
 		const shared = processToGraph(
 			build('call', {

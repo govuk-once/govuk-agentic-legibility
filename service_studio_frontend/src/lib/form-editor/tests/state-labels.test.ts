@@ -41,13 +41,14 @@ describe('stateTagColours', () => {
 });
 
 describe('stateOutlineColours', () => {
-	it('gives an input box and a message box an outline colour, and no other kind of state', () => {
-		expect(Object.keys(stateOutlineColours).sort()).toEqual(['input', 'output']);
+	it('gives an outline colour to the kinds of box a form draws, and not to an invoke', () => {
+		expect(Object.keys(stateOutlineColours).sort()).toEqual(['api_call', 'assign', 'input', 'output', 'wait']);
 	});
 
-	it('gives the two boxes different colours, each written as a CSS colour', () => {
-		expect(stateOutlineColours.input).not.toBe(stateOutlineColours.output);
-		for (const colour of Object.values(stateOutlineColours)) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
+	it('gives each kind a different colour, each written as a CSS colour', () => {
+		const colours = Object.values(stateOutlineColours);
+		expect(new Set(colours).size).toBe(colours.length);
+		for (const colour of colours) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
 	});
 });
 

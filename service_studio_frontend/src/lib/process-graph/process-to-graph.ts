@@ -24,12 +24,12 @@ export function isErrorRoute(edge: ProcessEdge): boolean {
 }
 
 /**
- * Finds every node that can be reached from the start dot by following the given edges. The walk is
+ * Finds every node that can be reached from the given nodes by following the given edges. The walk is
  * used to tell the main journey from the states that only an error route leads to.
  */
-function reachableNodes(edges: ProcessEdge[]): Set<string> {
-	const reached = new Set<string>([startNodeId]);
-	const queue = [startNodeId];
+function reachableNodes(edges: ProcessEdge[], from: string[]): Set<string> {
+	const reached = new Set<string>(from);
+	const queue = [...from];
 
 	while (queue.length) {
 		const node = queue.shift()!;
@@ -64,8 +64,15 @@ export function visibleGraph(graph: ProcessGraphElements, { showErrorRoutes, sho
  */
 function withoutErrorRoutes(graph: ProcessGraphElements): ProcessGraphElements {
 	const mainEdges = graph.edges.filter((edge) => !isErrorRoute(edge));
-	const reachedWithErrorRoutes = reachableNodes(graph.edges);
-	const reachedOnMainJourney = reachableNodes(mainEdges);
+
+	// The walks begin at the start dot and at every state that nothing leads to, such as the first state of a module
+	// that has just been dropped and is not joined to the journey yet. Without these, the error end of that module
+	// could not be reached from the start at all, and would be kept as if nothing led to it.
+	const targets = new Set(graph.edges.map((edge) => edge.target));
+	const beginnings = graph.nodes.filter((node) => node.id === startNodeId || !targets.has(node.id)).map((node) => node.id);
+
+	const reachedWithErrorRoutes = reachableNodes(graph.edges, beginnings);
+	const reachedOnMainJourney = reachableNodes(mainEdges, beginnings);
 	const nodes = graph.nodes.filter((node) => !reachedWithErrorRoutes.has(node.id) || reachedOnMainJourney.has(node.id));
 	const shown = new Set(nodes.map((node) => node.id));
 

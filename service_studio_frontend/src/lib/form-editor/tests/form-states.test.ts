@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { checkFormWorkflow, checkLoadedForm, formDeveloperStateTypes, formStateAccess, isEditableInForm } from '../schema/form-states';
+import { checkFormWorkflow, checkLoadedForm, formDeveloperStateTypes, formHiddenStateTypes, formStateAccess, isEditableInForm } from '../schema/form-states';
 
 const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
 
@@ -37,6 +37,13 @@ describe('formDeveloperStateTypes', () => {
 	it('holds assign, API call and wait, which a person never edits in the form editor', () => {
 		expect(formDeveloperStateTypes).toEqual(['assign', 'api_call', 'wait']);
 		for (const type of formDeveloperStateTypes) expect(formStateAccess[type]).toBe('read only');
+	});
+});
+
+describe('formHiddenStateTypes', () => {
+	it('hides only assign, so an API call and a wait are drawn as ordinary steps', () => {
+		expect(formHiddenStateTypes).toEqual(['assign']);
+		for (const type of formHiddenStateTypes) expect(formDeveloperStateTypes).toContain(type);
 	});
 });
 

@@ -1,7 +1,7 @@
 import { processToGraph, visibleGraph } from '$lib/process-graph/process-to-graph';
 import { stateRows, type StateRow } from '$lib/process-graph/state-rows';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { formDeveloperStateTypes } from './schema/form-states';
+import { formHiddenStateTypes } from './schema/form-states';
 
 /*
 	What the owner review shows about the form's journey and its checks. The real checks come from the tech review,
@@ -20,10 +20,11 @@ export interface CheckProblem {
 
 /**
  * Lists the steps of the form in the order and with the numbers the form editor gives them, so a step is called the
- * same thing in both. Developer states are left out, as they are in the editor until it is asked to show them.
+ * same thing in both. The hidden states, such as an assign, are left out, as they are in the editor until it is asked
+ * to show them.
  */
 export function journeySteps(process: WorkingProcess): StateRow[] {
-	const graph = visibleGraph(processToGraph(process, formDeveloperStateTypes), {
+	const graph = visibleGraph(processToGraph(process, formHiddenStateTypes), {
 		showErrorRoutes: false,
 		showDeveloperSteps: false
 	});

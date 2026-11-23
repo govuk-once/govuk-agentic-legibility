@@ -11,7 +11,7 @@
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
 	import type { Workflow } from '$lib/schema/workflow/workflow';
 	import { saveFormForReview } from '../review-store';
-	import { formDeveloperStateTypes } from '../schema/form-states';
+	import { formHiddenStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
 
 	// The page for editing one form. A form is a single process, which the route has already checked, so the page
@@ -71,7 +71,7 @@
 
 	// The number of steps is the number of numbered boxes shown, so it matches the numbers on the graph and the list.
 	const shown = $derived(
-		visibleGraph(processToGraph(process, formDeveloperStateTypes), {
+		visibleGraph(processToGraph(process, formHiddenStateTypes), {
 			showErrorRoutes: showDeveloperStates,
 			showDeveloperSteps: showDeveloperStates
 		})

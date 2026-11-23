@@ -51,7 +51,7 @@ export const moduleCategories: ModuleCategory[] = [
 	{
 		label: 'Feedback',
 		modules: [
-			{ key: 'start_page', label: 'Start page', description: 'Information before the journey begins' },
+			{ key: 'start_page', label: 'Start info', description: 'Information before the journey begins' },
 			{ key: 'message', label: 'Message', description: 'Show information' }
 		]
 	},

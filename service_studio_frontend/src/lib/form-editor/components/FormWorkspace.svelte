@@ -18,7 +18,7 @@
 	import ModuleMenu from '$lib/modules/ModuleMenu.svelte';
 	import { moduleCategories } from '$lib/modules/module-catalogue';
 	import { formPaletteTools } from '../palette-tools';
-	import { formDeveloperStateTypes, isEditableInForm } from '../schema/form-states';
+	import { formDeveloperStateTypes, formHiddenStateTypes, isEditableInForm } from '../schema/form-states';
 	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
 	import DecisionEditCard from './DecisionEditCard.svelte';
 	import DeveloperStateCard from './DeveloperStateCard.svelte';
@@ -67,7 +67,7 @@
 	}: Props = $props();
 
 	// The graph is built once here and shared, so the canvas and the list always show the same titles and numbers.
-	const graph = $derived(processToGraph(process, formDeveloperStateTypes));
+	const graph = $derived(processToGraph(process, formHiddenStateTypes));
 
 	// What is shown with the developer states on or off. The list uses it, so it never offers a step that is not
 	// on the graph.

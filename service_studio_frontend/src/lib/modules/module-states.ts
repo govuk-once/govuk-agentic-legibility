@@ -104,7 +104,8 @@ function chain(parts: [part: string, makeState: (code: string) => LinkedState][]
 
 /**
  * A decision module: a question and a decision on its answer. The decision has one rule for each answer but the
- * last, which takes the default route, and every route is left loose for the person to join.
+ * last, which takes the default route, and every route is left loose for the person to join. The decision is given
+ * a title so its box does not fall back to its code, and the person can write over it.
  */
 function decideOn(schema: InputState['schema'], rulesFor: (answer: string) => WorkingState): ModuleDefinition {
 	return {
@@ -112,7 +113,7 @@ function decideOn(schema: InputState['schema'], rulesFor: (answer: string) => Wo
 			const ask = code('ask');
 			const decide = code('decide');
 			const question = input(ask, schema);
-			return { first: ask, states: { [ask]: { ...question, next: decide }, [decide]: rulesFor(placeholderAnswerVariable(ask)) } };
+			return { first: ask, states: { [ask]: { ...question, next: decide }, [decide]: { ...rulesFor(placeholderAnswerVariable(ask)), name: 'Question decision' } } };
 		}
 	};
 }

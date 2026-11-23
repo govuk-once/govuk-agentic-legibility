@@ -34,12 +34,15 @@ export const stateTagColours: Record<State['state_type'], string> = {
 	api_call: 'teal'
 };
 
-// The colour of the outline of an input box and a message box on the graph, so the two can be told apart there as
-// they are by their tags. They are the blue and the purple of the GOV.UK palette. Every other kind of state keeps
-// the usual grey outline.
+// The colour of the outline of each kind of box on the graph, so the kinds can be told apart there as they are by
+// their tags. They are the GOV.UK palette colours that match each tag. A kind with no colour here, such as an
+// invoke, keeps the usual light grey outline.
 export const stateOutlineColours: StepOutlineColours = {
 	input: '#1d70b8',
-	output: '#4c2c92'
+	output: '#4c2c92',
+	api_call: '#28a197',
+	wait: '#f47738',
+	assign: '#505a5f'
 };
 
 // The words a person sees for each kind of answer an input can take. The record is keyed by every kind of answer,

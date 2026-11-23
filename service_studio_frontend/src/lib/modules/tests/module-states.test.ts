@@ -94,6 +94,13 @@ describe('the modules as the executor team gave them', () => {
 		}
 	});
 
+	it('titles the decision of every decision module Question decision', () => {
+		for (const key of ['choice_decision', 'boolean_decision', 'data_decision'] as const) {
+			const decision = Object.values(build(key).states)[1];
+			expect(decision.name).toBe('Question decision');
+		}
+	});
+
 	it('lets the question of a Data decision be left blank and routes on whether it was answered', () => {
 		const [question, decision] = Object.values(build('data_decision').states);
 		expect(question.state_type === 'input' && question.schema.allow_skip).toBe(true);
