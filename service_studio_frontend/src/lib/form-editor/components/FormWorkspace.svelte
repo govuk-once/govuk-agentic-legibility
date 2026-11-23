@@ -17,6 +17,7 @@
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 	import ModuleMenu from '$lib/modules/ModuleMenu.svelte';
 	import { moduleCategories } from '$lib/modules/module-catalogue';
+	import { isInModule, statesOfSameModule } from '$lib/modules/module-group';
 	import { withRoutesForNewOptions } from '$lib/modules/option-routes';
 	import { formPaletteTools } from '../palette-tools';
 	import { formDeveloperStateTypes, formHiddenStateTypes, isEditableInForm } from '../schema/form-states';
@@ -170,9 +171,12 @@
 		return attached ? [attached, code] : [code];
 	}
 
-	// Takes states and lines out of the process, and drops the selection if the selected state went with them.
+	// Takes states and lines out of the process, and drops the selection if the selected state went with them. A state
+	// that came in with a module takes every other state of that copy of the module with it, so no part of a module
+	// is left behind.
 	function removeFromProcess(deleted: Pick<DeletedElements, 'stateCodes' | 'lines'>) {
-		const stateCodes = [...new Set(deleted.stateCodes.flatMap(withAttachedAssign))];
+		const withModules = deleted.stateCodes.flatMap((code) => statesOfSameModule(process, code));
+		const stateCodes = [...new Set(withModules.flatMap(withAttachedAssign))];
 		const result = deleteFromJourney(process, { stateCodes, lines: deleted.lines });
 		if (!result.ok) {
 			messages = [result.reason];
@@ -329,6 +333,7 @@
 							onSelect={highlight}
 							onEdit={openCard}
 							onRemove={removeState}
+							removeNoun={isInModule(process.states[row.stateId]) ? 'module' : 'step'}
 							onMoveUp={(stateId) => moveStep(stateId, 'up')}
 							onMoveDown={(stateId) => moveStep(stateId, 'down')}
 						/>

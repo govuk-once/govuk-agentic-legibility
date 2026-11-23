@@ -20,7 +20,7 @@
 {#if tile}
 	<p class="govuk-body govuk-!-margin-bottom-0 module-note">
 		<span class="module-note__icon"><ModuleIcon name={tile.key} /></span>
-		<span>This state belongs to the {tile.label} module.</span>
+		<span>This state belongs to the {tile.label} module. Deleting it removes the whole module.</span>
 	</p>
 {/if}
 

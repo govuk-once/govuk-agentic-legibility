@@ -4,6 +4,7 @@
 	import StateContext from '$lib/components/StateContext.svelte';
 	import type { ContextItem } from '$lib/components/context';
 	import ModuleNote from '$lib/modules/ModuleNote.svelte';
+	import { isInModule } from '$lib/modules/module-group';
 	import { answerFormatOf, answerFormats, formatsFor, isAnswerFormatKey, withAnswerFormat } from '$lib/modules/answer-formats';
 	import StateReorderButtons from '$lib/process-graph/StateReorderButtons.svelte';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
@@ -95,8 +96,10 @@
 	const formats = untrack(() => formatsFor(currentState));
 	let draftFormat = $state(untrack(() => answerFormatOf(currentState) ?? ''));
 
-	// Removing asks first, in place of the buttons, so one stray click does not lose a step.
+	// Removing asks first, in place of the buttons, so one stray click does not lose a step. A step that came in with
+	// a module takes the whole module with it, so the buttons say module.
 	let confirmingRemoval = $state(false);
+	const removeNoun = $derived(isInModule(currentState) ? 'module' : 'step');
 
 	/**
 	 * Builds the changed step from what was typed and hands it over. The hint is only put on an input. Closing
@@ -282,7 +285,7 @@
 		{/if}
 
 		{#if confirmingRemoval}
-			<RemoveStepConfirm noun="step" {onRemove} onCancel={() => (confirmingRemoval = false)} />
+			<RemoveStepConfirm noun={removeNoun} {onRemove} onCancel={() => (confirmingRemoval = false)} />
 		{:else}
 			<div class="state-edit-card__actions">
 				<button class="govuk-button state-edit-card__apply" type="submit">Apply changes</button>
@@ -292,7 +295,7 @@
 					class="govuk-link govuk-body-s govuk-!-margin-bottom-0 state-edit-card__remove"
 					onclick={() => (confirmingRemoval = true)}
 				>
-					Remove step
+					Remove {removeNoun}
 				</button>
 			</div>
 		{/if}

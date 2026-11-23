@@ -3,6 +3,7 @@ import { conditionForAnswer } from '$lib/schema/workflow/choice-answers';
 import { replaceState } from '$lib/schema/workflow/edit-state';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 import { isModuleKey } from './add-module';
+import { isInModule, statesOfSameModule } from './module-group';
 import { moduleDefinitions } from './module-states';
 
 /*
@@ -24,15 +25,12 @@ import { moduleDefinitions } from './module-states';
 export function withRoutesForNewOptions(process: WorkingProcess, code: string, updated: WorkingState): WorkingProcess {
 	const before = process.states[code];
 	const group = before?.metadata?.group;
-	const groupId = before?.metadata?.group_id;
 	if (updated.state_type !== 'input' || typeof group !== 'string' || !isModuleKey(group)) return process;
-	if (!moduleDefinitions[group].addsRoutesForOptions || groupId === undefined) return process;
+	if (!moduleDefinitions[group].addsRoutesForOptions || !isInModule(before)) return process;
 
 	const known = new Set((editableOptions(before) ?? []).map((option) => option.value));
 	const added = (editableOptions(updated) ?? []).filter((option) => !known.has(option.value));
-	const decisionCode = Object.keys(process.states).find(
-		(each) => process.states[each].state_type === 'choice' && process.states[each].metadata?.group_id === groupId
-	);
+	const decisionCode = statesOfSameModule(process, code).find((each) => process.states[each].state_type === 'choice');
 	const decision = decisionCode === undefined ? undefined : process.states[decisionCode];
 	if (added.length === 0 || decisionCode === undefined || decision?.state_type !== 'choice') return process;
 

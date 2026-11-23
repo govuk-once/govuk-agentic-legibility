@@ -19,6 +19,9 @@
 		// and choosing it does nothing.
 		onEdit?: (stateId: string) => void;
 		onRemove?: (stateId: string) => void;
+		// What removing takes out, in the person's words. A step that came in with a module takes the whole module, so
+		// an editor can say module here. It is step when left out.
+		removeNoun?: string;
 		onMoveUp?: (stateId: string) => void;
 		onMoveDown?: (stateId: string) => void;
 	}
@@ -36,6 +39,7 @@
 		onSelect,
 		onEdit,
 		onRemove,
+		removeNoun = 'step',
 		onMoveUp,
 		onMoveDown
 	}: Props = $props();
@@ -79,7 +83,7 @@
 
 	{#if confirmingRemoval}
 		<RemoveStepConfirm
-			noun="step"
+			noun={removeNoun}
 			onRemove={() => {
 				confirmingRemoval = false;
 				onRemove?.(stateId);
@@ -93,7 +97,7 @@
 			<button
 				type="button"
 				class="state-card__remove"
-				aria-label="Remove step {number}: {title}"
+				aria-label={removeNoun === 'step' ? `Remove step ${number}: ${title}` : `Remove the ${removeNoun} that step ${number}: ${title} belongs to`}
 				onclick={() => (confirmingRemoval = true)}
 			>
 				<svg width="10" height="10" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

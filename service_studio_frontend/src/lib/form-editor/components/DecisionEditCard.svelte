@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
 	import ModuleNote from '$lib/modules/ModuleNote.svelte';
+	import { isInModule } from '$lib/modules/module-group';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import { descriptionOf, nothingYet, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
@@ -48,8 +49,10 @@
 		untrack(() => [...currentState.rules.map((rule) => rule.next ?? nothingYet), currentState.default ?? nothingYet])
 	);
 
-	// Removing asks first, in place of the buttons, so one stray click does not lose a decision.
+	// Removing asks first, in place of the buttons, so one stray click does not lose a decision. A decision that came
+	// in with a module takes the whole module with it, so the buttons say module.
 	let confirmingRemoval = $state(false);
+	const removeNoun = $derived(isInModule(currentState) ? 'module' : 'decision');
 
 	/**
 	 * Builds the changed decision from what was chosen and hands it over. Only where each way out leads and the
@@ -105,7 +108,7 @@
 
 		{#if confirmingRemoval}
 			<div class="decision-edit-card__confirm">
-				<RemoveStepConfirm noun="decision" {onRemove} onCancel={() => (confirmingRemoval = false)} />
+				<RemoveStepConfirm noun={removeNoun} {onRemove} onCancel={() => (confirmingRemoval = false)} />
 			</div>
 		{:else}
 			<div class="decision-edit-card__actions">
@@ -116,7 +119,7 @@
 					class="govuk-link govuk-body-s govuk-!-margin-bottom-0 decision-edit-card__remove"
 					onclick={() => (confirmingRemoval = true)}
 				>
-					Remove decision
+					Remove {removeNoun}
 				</button>
 			</div>
 		{/if}
