@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { answerDefinitionSchema } from '$lib/schema/workflow/input-state';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 import { addModule } from '../add-module';
@@ -10,10 +11,10 @@ const typed: WorkingState = { state_type: 'input', prompt: 'Your email?', schema
 // Answers each format must accept and refuse, so a pattern copied or written wrongly is noticed.
 const examples: Record<AnswerFormatKey, { accepts: string; refuses: string }> = {
 	email: { accepts: 'name@example.com', refuses: 'name.example.com' },
-	phone: { accepts: '07700900123', refuses: '12345' },
+	phone_number: { accepts: '07700900123', refuses: '12345' },
 	postcode: { accepts: 'SW1A 1AA', refuses: 'SW1A' },
 	date: { accepts: '31/12/2024', refuses: '2024-12-31' },
-	ni_number: { accepts: 'AB123456C', refuses: 'AB123456' },
+	national_insurance_number: { accepts: 'AB123456C', refuses: 'AB123456' },
 	utr: { accepts: '1234567890', refuses: '123456789' },
 	passport: { accepts: '123456789', refuses: '12345678A' },
 	driving_licence: { accepts: 'MORGA753116SM9IJ', refuses: 'MORGA753116' },
@@ -29,6 +30,10 @@ describe('answerFormats', () => {
 		expect(pattern.test(examples[key].refuses)).toBe(false);
 	});
 
+	it('names every format by an answer type for a typed answer', () => {
+		for (const key of Object.keys(answerFormats)) expect(answerTypesByKind.string).toContain(key);
+	});
+
 	it.each(Object.keys(answerFormats) as AnswerFormatKey[])('%s gives an input the schema accepts', (key) => {
 		const formatted = withAnswerFormat(typed, key);
 		expect(formatted.state_type === 'input' && answerDefinitionSchema.safeParse(formatted.schema).success).toBe(true);
@@ -42,7 +47,7 @@ describe('formatsFor', () => {
 			return formatsFor(added.process.states[added.first]);
 		};
 		expect(offered('formatted_question')).toContain('email');
-		expect(offered('data_question')).toContain('ni_number');
+		expect(offered('data_question')).toContain('national_insurance_number');
 		expect(offered('data_decision')).toEqual(offered('data_question'));
 	});
 
@@ -54,7 +59,7 @@ describe('formatsFor', () => {
 });
 
 describe('withAnswerFormat', () => {
-	it('fills in the pattern, message and tidying of the format, and keeps which format it is', () => {
+	it('fills in the pattern, message and tidying of the format, and writes the format as the answer type', () => {
 		const formatted = withAnswerFormat(typed, 'email');
 		expect(formatted.state_type === 'input' && formatted.schema).toEqual({
 			kind: 'string',
@@ -62,11 +67,18 @@ describe('withAnswerFormat', () => {
 			invalid_message: answerFormats.email.invalidMessage,
 			normalise: 'lower_trim'
 		});
+		expect(formatted.metadata?.[answerTypeKey]).toBe('email');
 		expect(answerFormatOf(formatted)).toBe('email');
 	});
 
+	it('keeps an answer type that has no format, such as name, when no format is chosen', () => {
+		const named: WorkingState = { ...typed, metadata: { [answerTypeKey]: 'name' } };
+		expect(withAnswerFormat(named, undefined).metadata?.[answerTypeKey]).toBe('name');
+		expect(answerFormatOf(named)).toBeUndefined();
+	});
+
 	it('takes the tidying away when the new format has none', () => {
-		const changed = withAnswerFormat(withAnswerFormat(typed, 'email'), 'phone');
+		const changed = withAnswerFormat(withAnswerFormat(typed, 'email'), 'phone_number');
 		expect(changed.state_type === 'input' && changed.schema).not.toHaveProperty('normalise');
 	});
 

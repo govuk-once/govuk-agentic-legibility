@@ -80,7 +80,6 @@
         "optional": null,
         "repeatable": false,
         "answer_settings": null,
-        "answer_format": "ni_number",
         "group": "data_question",
         "group_id": "815e85ec-3809-4f09-b003-de038f462808"
       },
@@ -107,7 +106,6 @@
         "optional": null,
         "repeatable": false,
         "answer_settings": null,
-        "answer_format": "email",
         "group": "formatted_question",
         "group_id": "0db858e6-e779-469b-aa6a-13a82eb43f88"
       },
@@ -140,7 +138,6 @@
           "input_type": "date_of_birth",
           "title_needed": null
         },
-        "answer_format": "date",
         "group": "formatted_question",
         "group_id": "33c87af1-08dc-4778-af9f-51d019b0b6f9"
       },

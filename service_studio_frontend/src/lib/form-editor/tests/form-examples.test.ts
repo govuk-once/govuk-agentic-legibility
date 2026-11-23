@@ -9,15 +9,20 @@ import { checkFormWorkflow, formStateAccess } from '../schema/form-states';
 const forms = formExamples.flatMap((example) => (example.workflow ? [{ slug: example.slug, workflow: example.workflow }] : []));
 const statesOf = (workflow: Workflow) => Object.values(workflow.processes).flatMap((process) => Object.entries(process.states));
 
-// The demo form is a copy of a converted form with developer steps added by hand, to show the technical review. The
-// facts about what the converter writes are about the other 14.
-const demoSlug = '2026_bft_crrf_additional_trainer_information_with_submit';
-const convertedForms = forms.filter((form) => form.slug !== demoSlug);
+// The demo forms are copies of converted forms changed by hand: one with developer steps added to show the technical
+// review, and three made of modules. The facts about what the converter writes are about the other 14.
+const demoSlugs = [
+	'2026_bft_crrf_additional_trainer_information_with_submit',
+	'2026_bft_crrf_additional_trainer_information_with_modules',
+	'add_funds_to_your_intellectual_property_office_deposit_account_with_modules',
+	'amend_my_claim_for_unpaid_wages_with_modules'
+];
+const convertedForms = forms.filter((form) => !demoSlugs.includes(form.slug));
 
 describe('the form examples, as the form editor sees them', () => {
-	it('has all 14 converted forms and the demo form loaded', () => {
+	it('has all 14 converted forms and the 4 demo forms loaded', () => {
 		expect(convertedForms).toHaveLength(14);
-		expect(forms).toHaveLength(15);
+		expect(forms).toHaveLength(18);
 	});
 
 	it('gives every form a single process, which is what the form editor opens', () => {
@@ -44,7 +49,7 @@ describe('the form examples, as the form editor sees them', () => {
 
 describe('how the form files are read', () => {
 	const rawStates = Object.entries(formExampleFolders)
-		.filter(([folder]) => folder !== demoSlug)
+		.filter(([folder]) => !demoSlugs.includes(folder))
 		.flatMap(([, files]) =>
 		Object.entries(files)
 			.filter(([name]) => name !== 'workflow_manifest.json')
@@ -111,7 +116,7 @@ describe('the one question that is asked more than once', () => {
 });
 
 describe('the demo form with a submit step', () => {
-	const process = Object.values(forms.find((form) => form.slug === demoSlug)!.workflow.processes)[0];
+	const process = Object.values(forms.find((form) => form.slug === demoSlugs[0])!.workflow.processes)[0];
 	const { states } = process;
 
 	it('submits the form after the last question, then tells the person straight away', () => {

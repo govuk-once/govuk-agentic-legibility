@@ -1,10 +1,11 @@
-import type { AnswerDefinition } from '$lib/schema/workflow/input-state';
+import type { AnswerDefinition } from './input-state';
 
 /*
 	The answer type of a question in a form. The kind of answer in the schema says how an answer is given: typed,
 	yes or no, chosen from options or uploaded. The answer type is a finer note kept with the question, which says
-	what a typed answer is, such as an email address or a date, so the form can show the right kind of box. The
-	words are the ones the existing forms use.
+	what a typed answer is, such as an email address or a date, so the form can show the right kind of box. A typed
+	answer type that has a format, such as email or postcode, is checked against the pattern of that format in
+	answer-formats.ts.
 */
 
 // The key in the notes of a question that holds its answer type.
@@ -14,7 +15,24 @@ export const answerTypeKey = 'answer_type';
 // answer type is not known. The record is keyed by every kind of answer, so adding a kind to the schema without
 // saying which answer types it takes fails to compile.
 export const answerTypesByKind: Record<AnswerDefinition['kind'], readonly string[]> = {
-	string: ['text', 'name', 'number', 'email', 'address', 'date', 'phone_number', 'national_insurance_number', 'organisation_name'],
+	string: [
+		'text',
+		'name',
+		'number',
+		'email',
+		'address',
+		'date',
+		'phone_number',
+		'national_insurance_number',
+		'organisation_name',
+		'postcode',
+		'utr',
+		'passport',
+		'driving_licence',
+		'vat_number',
+		'company_number',
+		'vehicle_registration'
+	],
 	boolean: ['selection'],
 	select_one: ['selection'],
 	select_many: ['selection'],

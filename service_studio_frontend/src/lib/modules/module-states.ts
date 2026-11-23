@@ -143,8 +143,16 @@ const letterMessage = 'Post your form to:\n\n[Team name]\n[Address line 1]\n[Tow
 
 // The formats offered by the Formatted question, for contact details and dates, and by the ID questions, for
 // reference numbers.
-const contactFormats: AnswerFormatKey[] = ['email', 'phone', 'postcode', 'date'];
-const idNumberFormats: AnswerFormatKey[] = ['ni_number', 'utr', 'passport', 'driving_licence', 'vat_number', 'company_number', 'vehicle_registration'];
+const contactFormats: AnswerFormatKey[] = ['email', 'phone_number', 'postcode', 'date'];
+const idNumberFormats: AnswerFormatKey[] = [
+	'national_insurance_number',
+	'utr',
+	'passport',
+	'driving_licence',
+	'vat_number',
+	'company_number',
+	'vehicle_registration'
+];
 
 // How long the deadline, the phone call and the letter wait. They are placeholders that the technical review sets.
 const deadlineWait = 'P28D';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
-import { answerTypeKey, answerTypesByKind } from '../schema/answer-types';
+import { answerTypeKey, answerTypesByKind } from '../answer-types';
 
 describe('answerTypesByKind', () => {
 	it('gives every kind of answer at least one answer type, with the most general first', () => {

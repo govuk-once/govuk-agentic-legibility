@@ -1,3 +1,4 @@
+import { answerTypeKey } from '$lib/schema/workflow/answer-types';
 import { withNote } from '$lib/schema/workflow/edit-state';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import { isModuleKey } from './add-module';
@@ -10,22 +11,21 @@ import { moduleDefinitions } from './module-states';
 
 	1. The module an input came from says which formats it offers, so the Formatted question offers contact details
 	   and dates, and the ID questions offer reference numbers. An input that is not from such a module offers none.
-	2. The format chosen is kept in the metadata as answer_format, so the card can show it again. The pattern alone
-	   would not say which format it came from.
+	2. Each format is named by its answer type, the note in the metadata that says what sort of typed answer a
+	   question takes, such as email. Choosing a format writes that answer type, so the card can show the choice
+	   again, and one note says both what the answer is and how it is checked.
 	3. The patterns for email, phone, postcode, date, National Insurance number and Unique Taxpayer Reference are
 	   copied from the example services, and each names the file it came from. The others are written here and
 	   need to be replaced with the patterns the team uses.
 */
 
-// The key in an input's metadata that holds the format chosen for its answer.
-export const answerFormatKey = 'answer_format';
-
+// The answer types that have a format to check against. Each is also in the list of answer types for a typed answer.
 export type AnswerFormatKey =
 	| 'email'
-	| 'phone'
+	| 'phone_number'
 	| 'postcode'
 	| 'date'
-	| 'ni_number'
+	| 'national_insurance_number'
 	| 'utr'
 	| 'passport'
 	| 'driving_licence'
@@ -49,7 +49,7 @@ export const answerFormats: Record<AnswerFormatKey, AnswerFormat> = {
 		normalise: 'lower_trim'
 	},
 	// From services/maternity_allowance/about_you.json, prompt_manual_phone.
-	phone: {
+	phone_number: {
 		label: 'UK phone number',
 		pattern: '^(?:0|\\+?44)\\d{9,10}$',
 		invalidMessage: 'Please enter a valid UK telephone number.'
@@ -69,7 +69,7 @@ export const answerFormats: Record<AnswerFormatKey, AnswerFormat> = {
 		invalidMessage: 'Please enter a valid date in DD/MM/YYYY format.'
 	},
 	// From services/maternity_allowance/about_you.json, prompt_nino.
-	ni_number: {
+	national_insurance_number: {
 		label: 'National Insurance number',
 		pattern: '^[A-CEGHJ-PR-TW-Z]{1}[A-CEGHJ-NPR-TW-Z]{1}[0-9]{6}[A-D]{1}$',
 		invalidMessage: 'Please enter a valid UK National Insurance number.',
@@ -135,16 +135,18 @@ export function isAnswerFormatKey(value: unknown): value is AnswerFormatKey {
 }
 
 /**
- * Reads the format chosen for an input's answer, or nothing when none has been chosen.
+ * Reads the format of an input's answer from its answer type, or nothing when its answer type has no format, such as
+ * name or address, or it has none.
  */
 export function answerFormatOf(state: WorkingState): AnswerFormatKey | undefined {
-	const chosen = state.metadata?.[answerFormatKey];
-	return isAnswerFormatKey(chosen) ? chosen : undefined;
+	const answerType = state.metadata?.[answerTypeKey];
+	return isAnswerFormatKey(answerType) ? answerType : undefined;
 }
 
 /**
- * Gives a typed input the pattern, message and tidying of a format, and keeps which format it is. Choosing no format
- * takes all of them away. Any other state is returned as it is.
+ * Gives a typed input the pattern, message and tidying of a format, and writes the format as its answer type.
+ * Choosing no format takes all of them away, and takes away an answer type that was a format. An answer type with
+ * no format, such as name, is kept. Any other state is returned as it is.
  */
 export function withAnswerFormat(state: WorkingState, key: AnswerFormatKey | undefined): WorkingState {
 	if (state.state_type !== 'input' || state.schema.kind !== 'string') return state;
@@ -161,5 +163,7 @@ export function withAnswerFormat(state: WorkingState, key: AnswerFormatKey | und
 		delete schema.invalid_message;
 		delete schema.normalise;
 	}
-	return withNote({ ...state, schema }, answerFormatKey, key ?? '');
+	const formatted = { ...state, schema };
+	if (key !== undefined) return withNote(formatted, answerTypeKey, key);
+	return answerFormatOf(state) === undefined ? formatted : withNote(formatted, answerTypeKey, '');
 }

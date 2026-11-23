@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerTypeKey, answerTypesByKind } from '$lib/form-editor/schema/answer-types';
+import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { descriptionKey, hintKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule } from '$lib/schema/workflow/placeholders';
 import { parseProcess } from '$lib/schema/workflow/validate';

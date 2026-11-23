@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { formExampleFolders, formExamples } from '../forms';
 
 describe('formExampleFolders', () => {
-	it('has a folder for each of the 14 converted forms and the demo form, each holding a manifest and one process file', () => {
-		expect(Object.keys(formExampleFolders)).toHaveLength(15);
+	it('has a folder for each of the 14 converted forms and the 4 demo forms, each holding a manifest and one process file', () => {
+		expect(Object.keys(formExampleFolders)).toHaveLength(18);
 		for (const [name, files] of Object.entries(formExampleFolders)) {
 			const fileNames = Object.keys(files);
 			expect(fileNames, name).toHaveLength(2);
@@ -20,7 +20,7 @@ describe('formExamples', () => {
 	it('lists the forms in name order', () => {
 		const slugs = formExamples.map((example) => example.slug);
 		expect(slugs).toEqual([...slugs].sort((a, b) => a.localeCompare(b)));
-		expect(slugs).toHaveLength(15);
+		expect(slugs).toHaveLength(18);
 	});
 
 	it('validates every form with no errors and no warnings', () => {

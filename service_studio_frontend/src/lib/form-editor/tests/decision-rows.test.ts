@@ -72,8 +72,9 @@ describe('decisionRowLabels', () => {
 
 	it('names every way out of every decision in the form examples by an answer, with none numbered', () => {
 		let decisions = 0;
-		// The demo form is left out, because its added decision follows an API call and is named by its rule.
-		for (const example of formExamples.filter((candidate) => !candidate.slug.endsWith('_with_submit'))) {
+		// The demo forms are left out: the submit demo's added decision follows an API call and is named by its rule,
+		// and the module copies repeat decisions already counted in the forms they were made from.
+		for (const example of formExamples.filter((candidate) => !candidate.slug.endsWith('_with_submit') && !candidate.slug.endsWith('_with_modules'))) {
 			for (const process of Object.values(example.workflow?.processes ?? {})) {
 				for (const [code, state] of Object.entries(process.states)) {
 					if (state.state_type !== 'choice') continue;

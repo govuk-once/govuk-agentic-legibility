@@ -1,4 +1,4 @@
-import { answerTypeKey, answerTypesByKind } from '$lib/form-editor/schema/answer-types';
+import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { descriptionKey, hintKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule } from '$lib/schema/workflow/placeholders';
 import { firstVersion } from '../shared/onboard-details';

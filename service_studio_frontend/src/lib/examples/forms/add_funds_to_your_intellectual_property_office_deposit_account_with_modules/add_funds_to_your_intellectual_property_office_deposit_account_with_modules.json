@@ -218,7 +218,6 @@
         "optional": false,
         "repeatable": false,
         "answer_settings": null,
-        "answer_format": "email",
         "group": "formatted_question",
         "group_id": "78ca5b51-2f3c-4db9-9eae-e7e36f71d639"
       },
@@ -252,7 +251,6 @@
           "input_type": null,
           "title_needed": null
         },
-        "answer_format": "phone",
         "group": "formatted_question",
         "group_id": "80d384f9-d69a-45cd-b68b-ef7649717788"
       },

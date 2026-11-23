@@ -1,4 +1,4 @@
-import { answerTypeKey, answerTypesByKind } from '$lib/form-editor/schema/answer-types';
+import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { isEditableInForm } from '$lib/form-editor/schema/form-states';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import type { Process } from '$lib/schema/workflow/process';
