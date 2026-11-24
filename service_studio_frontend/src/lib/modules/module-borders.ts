@@ -1,7 +1,7 @@
 import type { Node } from '@xyflow/svelte';
 import { nodeSize } from '$lib/graph-kit/layout';
-import { moduleTileFor } from '$lib/modules/module-catalogue';
-import type { ProcessNode } from './process-graph-types';
+import { moduleTileFor } from './module-catalogue';
+import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 
 /*
 	The borders drawn round the states of each copy of a module, so a person can see which boxes came in together.

@@ -69,6 +69,9 @@
 	// Developer states and the error routes are hidden at first so the questions are easy to follow. One tick shows both.
 	let showDeveloperStates = $state(false);
 
+	// Whether the best practice hints are drawn on the graph. They are hidden at first.
+	let showHints = $state(false);
+
 	// The number of steps is the number of numbered boxes shown, so it matches the numbers on the graph and the list.
 	const shown = $derived(
 		visibleGraph(processToGraph(process, formHiddenStateTypes), {
@@ -108,6 +111,10 @@
 
 		<div class="form-editor-page__toolbar-controls">
 			<label class="govuk-body-s govuk-!-margin-bottom-0 form-editor-page__toggle">
+				<input type="checkbox" bind:checked={showHints} />
+				Show hints
+			</label>
+			<label class="govuk-body-s govuk-!-margin-bottom-0 form-editor-page__toggle">
 				<!-- Showing or hiding the developer states arranges the graph again, so boxes dragged before are put back. -->
 				<input type="checkbox" bind:checked={showDeveloperStates} onchange={() => (positions = {})} />
 				Show developer states
@@ -122,6 +129,7 @@
 		<FormWorkspace
 			{process}
 			{showDeveloperStates}
+			{showHints}
 			{positions}
 			{layoutRound}
 			onMoveNodes={moveNodes}

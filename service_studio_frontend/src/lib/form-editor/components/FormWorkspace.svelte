@@ -15,6 +15,7 @@
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 	import { journeyErrors, journeyWarnings } from '$lib/schema/workflow/validate';
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
+	import { sampleHints } from '$lib/hints/sample-hints';
 	import ModuleMenu from '$lib/modules/ModuleMenu.svelte';
 	import { moduleCategories } from '$lib/modules/module-catalogue';
 	import { isInModule, statesOfSameModule } from '$lib/modules/module-group';
@@ -32,6 +33,8 @@
 		process: WorkingProcess;
 		// Shows the developer states and the error routes. Off, the graph and the list hold only the form's own steps.
 		showDeveloperStates: boolean;
+		// Draws the sample best practice hints on the graph.
+		showHints: boolean;
 		// Where the person has dragged boxes to, and the call that records a drag. The page holds them, so they last
 		// when the developer states are shown or hidden and this component is shown afresh.
 		positions: NodePositions;
@@ -57,6 +60,7 @@
 	let {
 		process,
 		showDeveloperStates,
+		showHints,
 		positions,
 		onMoveNodes,
 		layoutRound,
@@ -110,6 +114,9 @@
 			problem.state ? [{ stateId: problem.state, severity, label: `${severity === 'error' ? 'Error' : 'Warning'} at ${placeOf(problem.state).label}: ${problem.title}` }] : []
 		)
 	);
+
+	// The sample hints for this form, while they are shown. They are not worked out from the form yet.
+	const hints = $derived(showHints ? (sampleHints[process.process_id] ?? []) : []);
 
 	// Whether Send was pressed while there were errors. The message by the button shows only while that is so, and
 	// goes once the errors are fixed.
@@ -276,6 +283,7 @@
 				onEditState={openCard}
 				onDeleteStates={removeFromProcess}
 				{problemMarks}
+				{hints}
 			/>
 
 			<ProblemsDrawer {problems} {placeOf} onSelect={highlight}>

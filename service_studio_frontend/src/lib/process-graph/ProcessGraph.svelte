@@ -3,13 +3,15 @@
 	import StepNode from '$lib/graph-kit/StepNode.svelte';
 	import ConditionNode from '$lib/graph-kit/ConditionNode.svelte';
 	import TerminalNode from '$lib/graph-kit/TerminalNode.svelte';
-	import ModuleBorderNode from '$lib/graph-kit/ModuleBorderNode.svelte';
+	import HintNode from '$lib/hints/HintNode.svelte';
+	import { hintNodeType, hintNodes, type CanvasHint } from '$lib/hints/hint-nodes';
+	import ModuleBorderNode from '$lib/modules/ModuleBorderNode.svelte';
+	import { moduleBorderNodeType, moduleBorders } from '$lib/modules/module-borders';
 	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
 	import ProblemStrip from './ProblemStrip.svelte';
 	import { nodeSize } from '$lib/graph-kit/layout';
 	import { arrangeProcessGraph, placeBesideNeighbours } from './arrange';
 	import type { Draft, DraftSet, Endpoint } from './drafts';
-	import { moduleBorderNodeType, moduleBorders } from './module-borders';
 	import { separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
 	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
 
@@ -53,6 +55,8 @@
 		// The problems to mark on a strip down the right edge of the canvas. The strip is only drawn while there is a
 		// problem to mark, so an editor that gives none, or a journey with no problems, has no strip.
 		problemMarks?: ProblemMark[];
+		// The best practice hints to draw beside the shapes they are about. An editor that gives none has no hints.
+		hints?: CanvasHint[];
 	}
 
 	let {
@@ -71,12 +75,14 @@
 		onCreateConnectedStep,
 		onDropShape,
 		onDeleteElements,
-		problemMarks
+		problemMarks,
+		hints = []
 	}: Props = $props();
 
 	// The node components for a step, a decision and the start and end dots are shared with the other graph editor,
-	// so a state looks the same in either. The border is drawn round the states of one copy of a module.
-	const nodeTypes = { step: StepNode, condition: ConditionNode, terminal: TerminalNode, [moduleBorderNodeType]: ModuleBorderNode };
+	// so a state looks the same in either. The border is drawn round the states of one copy of a module, and a hint
+	// beside the states it is about.
+	const nodeTypes = { step: StepNode, condition: ConditionNode, terminal: TerminalNode, [moduleBorderNodeType]: ModuleBorderNode, [hintNodeType]: HintNode };
 
 	// Declared once so Svelte Flow receives the same object on every update. The arrow head shows the
 	// direction of a route, which matters when a route loops back to an earlier state.
@@ -154,7 +160,8 @@
 			position: positionOf(node),
 			selected: node.data.stateId === selectedStateId
 		})),
-		...draftNodes.map((node) => ({ ...node, position: positions[node.id] ?? node.position }))
+		...draftNodes.map((node) => ({ ...node, position: positions[node.id] ?? node.position })),
+		...hintNodes(hints, laidOut, positionOf)
 	]);
 
 	// The lines drawn to and from the shapes placed from the palette. A line to a state that is not on the

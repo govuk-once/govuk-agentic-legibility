@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { addModule } from '$lib/modules/add-module';
+import { addModule } from '../add-module';
 import { moduleBorders } from '../module-borders';
-import { processToGraph } from '../process-to-graph';
-import type { ProcessNode } from '../process-graph-types';
+import { processToGraph } from '$lib/process-graph/process-to-graph';
+import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 
 const journey: WorkingProcess = { process_id: 'test', version: '0.1.0', start: 'hello', vars: {}, states: { hello: { state_type: 'output', channel: 'transcript', message: 'Hello' } } };
 

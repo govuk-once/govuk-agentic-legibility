@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Node, NodeProps } from '@xyflow/svelte';
-	import type { ModuleBorderData } from '$lib/process-graph/module-borders';
+	import type { ModuleBorderData } from './module-borders';
 
 	let { data }: NodeProps<Node<ModuleBorderData>> = $props();
 </script>

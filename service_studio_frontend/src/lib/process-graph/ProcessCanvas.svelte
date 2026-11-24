@@ -17,6 +17,7 @@
 		type Endpoint
 	} from './drafts';
 	import ProcessGraph from './ProcessGraph.svelte';
+	import type { CanvasHint } from '$lib/hints/hint-nodes';
 	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, StepOutlineColours } from './process-graph-types';
 
 	/*
@@ -65,6 +66,8 @@
 		onDeleteStates: (deleted: Pick<DeletedElements, 'stateCodes' | 'lines'>) => void;
 		// The problems to mark on a strip down the right edge of the canvas. An editor that gives none has no strip.
 		problemMarks?: ProblemMark[];
+		// The best practice hints to draw beside the shapes they are about. An editor that gives none has no hints.
+		hints?: CanvasHint[];
 	}
 
 	let {
@@ -86,7 +89,8 @@
 		messages = $bindable([]),
 		onEditState,
 		onDeleteStates,
-		problemMarks
+		problemMarks,
+		hints
 	}: Props = $props();
 
 	/**
@@ -230,6 +234,7 @@
 		onDropShape={handleDropShape}
 		onDeleteElements={handleDeleteElements}
 		{problemMarks}
+		{hints}
 	/>
 
 	{#if messages.length > 0}
