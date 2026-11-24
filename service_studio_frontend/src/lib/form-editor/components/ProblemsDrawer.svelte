@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ProblemSeverity } from '$lib/schema/workflow/journey-problems';
 	import type { JourneyProblem } from '$lib/schema/workflow/validate';
+	import { fixPictures } from '../fix-pictures';
+	import HowToFixPicture from './HowToFixPicture.svelte';
 
 	/*
 		The problems with the form, in a bar along the bottom of the editor that is always shown. Closed, the bar counts
@@ -81,6 +83,7 @@
 					<tbody class="govuk-table__body">
 						{#each problems as { problem, severity }, index (index)}
 							{@const place = problem.state ? placeOf(problem.state) : undefined}
+							{@const picture = fixPictures[problem.kind]}
 							<tr class="govuk-table__row problems-drawer__row">
 								<td class="govuk-table__cell">
 									<span class="problem-count-box problem-count-box--{severity}"><span class="problem-count-box__number">{index + 1}</span></span>
@@ -91,7 +94,13 @@
 									<span class="govuk-!-font-weight-bold">{problem.title}</span>
 									<span class="problems-drawer__fix">{problem.fix}</span>
 								</td>
-								<td class="govuk-table__cell problems-drawer__text-cell problems-drawer__how-to-fix">{problem.howToFix ?? ''}</td>
+								<td class="govuk-table__cell problems-drawer__text-cell problems-drawer__how-to-fix">
+									{#if picture}
+										<HowToFixPicture {picture} />
+									{:else}
+										{problem.howToFix ?? ''}
+									{/if}
+								</td>
 								<td class="govuk-table__cell problems-drawer__text-cell problems-drawer__go-to">
 									{#if problem.state && place}
 										{@const code = problem.state}
