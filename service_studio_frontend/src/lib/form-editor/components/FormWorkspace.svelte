@@ -52,9 +52,12 @@
 		// change to the context of one step. The page holds it for the same reason as the positions.
 		stepContext: Record<string, ContextItem[]>;
 		onChangeStepContext: (code: string, items: ContextItem[]) => void;
-		// Called when the form has passed its check and goes on to owner review. The page holds the whole form, so it
-		// is the page that passes it on.
-		onSendToOwnerReview: () => void;
+		// Saves the form as a draft, so it can be opened again later. Says whether it was saved, because the browser
+		// may refuse to store it. The page holds the whole form, so it is the page that saves it.
+		onSaveDraft: () => Promise<boolean>;
+		// Called when the form has passed its check and goes on to owner review. Says whether it went, because the
+		// form is saved first and the browser may refuse to store it.
+		onSendToOwnerReview: () => Promise<boolean>;
 	}
 
 	let {
@@ -70,6 +73,7 @@
 		onChangeProcess,
 		stepContext,
 		onChangeStepContext,
+		onSaveDraft,
 		onSendToOwnerReview
 	}: Props = $props();
 
@@ -126,9 +130,23 @@
 	 * Sends the form to owner review when it has no errors. Warnings do not stop it. With errors, a message by the
 	 * button points to the problems bar instead.
 	 */
-	function sendToOwnerReview() {
+	async function sendToOwnerReview() {
 		sendRefused = errors.length > 0;
-		if (!sendRefused) onSendToOwnerReview();
+		if (!sendRefused) saveFailed = !(await onSendToOwnerReview());
+	}
+
+	// The time the draft was last saved, shown by the buttons, and whether the last save was refused by the browser.
+	let savedAt = $state<Date>();
+	let saveFailed = $state(false);
+
+	/**
+	 * Saves the form as a draft. It can be saved with errors and warnings, because a draft is a way to stop part way
+	 * through or to ask for help before the form is finished.
+	 */
+	async function saveDraft() {
+		const saved = await onSaveDraft();
+		saveFailed = !saved;
+		if (saved) savedAt = new Date();
 	}
 
 	// The state highlighted on the graph and in the list, and whether its card is open in place of the list. They
@@ -291,6 +309,14 @@
 					{#if sendRefused && errors.length > 0}
 						<p class="govuk-error-message govuk-!-font-size-16 govuk-!-margin-bottom-0" role="alert">Fix the errors in problems before sending</p>
 					{/if}
+					{#if saveFailed}
+						<p class="govuk-error-message govuk-!-font-size-16 govuk-!-margin-bottom-0" role="alert">The draft could not be saved in this browser</p>
+					{:else if savedAt}
+						<p class="govuk-body-s govuk-!-margin-bottom-0" role="status">
+							Draft saved at {savedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+						</p>
+					{/if}
+					<button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" type="button" onclick={saveDraft}>Save draft</button>
 					<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to review</button>
 				{/snippet}
 			</ProblemsDrawer>

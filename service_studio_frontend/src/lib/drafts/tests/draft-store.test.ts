@@ -89,6 +89,13 @@ describe('saving and opening a draft', () => {
 		local.items.set('service-studio.draft.first', JSON.stringify({ id: 'first', stage: 'Somewhere else' }));
 		expect(await openDraft('first')).toEqual({ ok: false, reason: 'unreadable' });
 	});
+
+	it('says a draft cannot be read when the process its manifest starts at is not in it', async () => {
+		const saved = await saveDraft(firstDraft);
+		const withoutEntry = { ...saved, workflow: { ...saved.workflow, processes: {} } };
+		local.items.set('service-studio.draft.first', JSON.stringify(withoutEntry));
+		expect(await openDraft('first')).toEqual({ ok: false, reason: 'unreadable' });
+	});
 });
 
 describe('the list of drafts', () => {

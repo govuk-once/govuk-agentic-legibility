@@ -43,14 +43,17 @@ const draftKeyPrefix = 'service-studio.draft.';
 // Where the id of the draft open in this tab is kept.
 const openDraftKey = 'service-studio.open-draft';
 
-// The parts of a stored draft that are checked when it is read back. The form is checked only to be an object with a
-// manifest and processes, for the reason given on DraftOpen.
+// The parts of a stored draft that are checked when it is read back. The form is checked only to have a manifest and
+// processes, with the process the manifest names as its entry among them, because an editor opens that process. The
+// rest of the form is not checked, for the reason given on DraftOpen.
 const storedDraftSchema = z.object({
 	id: z.string().min(1),
 	name: z.string(),
 	stage: z.enum(draftStages),
 	savedAt: z.iso.datetime(),
-	workflow: z.object({ manifest: z.record(z.string(), z.unknown()), processes: z.record(z.string(), z.unknown()) }),
+	workflow: z
+		.object({ manifest: z.looseObject({ entry: z.string() }), processes: z.record(z.string(), z.unknown()) })
+		.refine((workflow) => workflow.manifest.entry in workflow.processes, 'The entry process is not in the draft'),
 	positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() }))
 });
 

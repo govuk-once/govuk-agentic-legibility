@@ -7,8 +7,9 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
-{#if data.draft.ok}
-	<FormEditorPage workflow={data.draft.workflow} />
+{#if data.opened.ok}
+	{@const draft = data.opened.draft}
+	<FormEditorPage workflow={draft.workflow} draftId={draft.id} savedPositions={draft.positions} />
 {:else}
-	<DraftProblemPage problem={data.draft} startHref={resolve('/onboard/form/method')} />
+	<DraftProblemPage problem={data.opened} startHref={resolve('/onboard/form/method')} />
 {/if}

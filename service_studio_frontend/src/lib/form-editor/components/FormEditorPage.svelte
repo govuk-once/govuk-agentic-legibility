@@ -5,23 +5,33 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
+	import { saveDraft, setOpenDraft, type DraftStage } from '$lib/drafts/draft-store';
 	import { noDrafts, type DraftSet } from '$lib/process-graph/drafts';
 	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
-	import type { Workflow } from '$lib/schema/workflow/workflow';
 	import { saveFormForReview } from '../review-store';
 	import { formHiddenStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
 
-	// The page for editing one form. A form is a single process, which the route has already checked, so the page
-	// edits the process the manifest names as its entry.
-	let { workflow }: { workflow: Workflow } = $props();
+	interface Props {
+		// The form to edit. The page edits the process the manifest names as its entry. A form opened from a saved
+		// draft may be unfinished, so it is taken in its editing shape.
+		workflow: WorkingWorkflow;
+		// The id of the saved draft the form was opened from, and where its boxes were dragged to. A form opened from
+		// an example has neither, and is given an id the first time it is saved.
+		draftId?: string;
+		savedPositions?: NodePositions;
+	}
+
+	let { workflow, draftId: openedDraftId, savedPositions }: Props = $props();
 
 	// The form being edited. It starts as the one that was loaded and is replaced by a new copy with every change. It
-	// is not saved, and it is not checked against the schema while it is being edited, because a journey is allowed
-	// to be unfinished then.
+	// is not checked against the schema while it is being edited, because a journey is allowed to be unfinished then.
 	let workingWorkflow = $derived<WorkingWorkflow>(workflow);
+
+	// The id the form is saved under, once it has one.
+	let draftId = $derived(openedDraftId);
 
 	const processId = $derived(workflow.manifest.entry);
 	const process = $derived(workingWorkflow.processes[processId]);
@@ -31,16 +41,34 @@
 		workingWorkflow = { ...workingWorkflow, processes: { ...workingWorkflow.processes, [processId]: updated } };
 	}
 
-	// Holds the edited form in the browser tab and goes on to owner review, so the review pages can open what was
-	// edited here. The form has passed its check by now, and the review pages check it again when they load it.
-	function sendToOwnerReview() {
-		saveFormForReview(workingWorkflow);
-		goto(resolve('/owner-review/form'));
+	/**
+	 * Saves the form and where its boxes were dragged to as a draft, at the stage it is going on to, and marks it as
+	 * the draft open in this browser tab so the next page opens it. Says whether it was saved, because the browser may
+	 * refuse to store it.
+	 */
+	async function keepDraft(stage: DraftStage): Promise<boolean> {
+		draftId ??= crypto.randomUUID();
+		try {
+			await saveDraft({ id: draftId, name: workflow.manifest.description, stage, workflow: workingWorkflow, positions });
+		} catch {
+			return false;
+		}
+		setOpenDraft(draftId);
+		return true;
 	}
 
-	// Where the person has dragged boxes to. It is only how the graph is drawn, so it is not part of the form and is
-	// not saved.
-	let positions = $state<NodePositions>({});
+	// Saves the form and goes on to owner review. The form has passed its check by now, and the review pages check
+	// it again when they load it. It is also held in the browser tab for the review pages, until they open the draft.
+	async function sendToOwnerReview(): Promise<boolean> {
+		if (!(await keepDraft('Owner review'))) return false;
+		saveFormForReview(workingWorkflow);
+		await goto(resolve('/owner-review/form'));
+		return true;
+	}
+
+	// Where the person has dragged boxes to. It is saved with a draft, beside the form and not inside it, because it
+	// is only how the graph is drawn.
+	let positions = $derived<NodePositions>(savedPositions ?? {});
 
 	function moveNodes(moved: NodePositions) {
 		positions = { ...positions, ...moved };
@@ -58,8 +86,8 @@
 	}
 
 	// The shapes placed from the palette that are not in the process yet. They are held here and not beside the
-	// graph, because the graph is built again when the developer states are shown or hidden. Like the positions they
-	// are only how the graph is drawn, so they are not part of the form and are not saved.
+	// graph, because the graph is built again when the developer states are shown or hidden. They are not part of the
+	// form and are not saved with a draft.
 	let drafts = $state.raw<DraftSet>(noDrafts);
 
 	// The context added for the agent, by the code of the step it was added to. It lasts while the page is open. It
@@ -139,6 +167,7 @@
 			onChangeProcess={changeProcess}
 			{stepContext}
 			onChangeStepContext={(code, items) => (stepContext = { ...stepContext, [code]: items })}
+			onSaveDraft={() => keepDraft('Edit')}
 			onSendToOwnerReview={sendToOwnerReview}
 		/>
 	{/key}
