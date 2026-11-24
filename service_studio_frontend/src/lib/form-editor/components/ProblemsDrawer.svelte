@@ -44,12 +44,12 @@
 			</button>
 
 			<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
-				<span class="problem-count-dot problem-count-dot--error">{errorCount}</span>
-				<strong>{errorCount === 1 ? 'error' : 'errors'}</strong>
+				<span class="problem-count-box problem-count-box--error"><span class="problem-count-box__number">{errorCount}</span></span>
+				<strong class="problems-drawer__count-label">{errorCount === 1 ? 'error' : 'errors'}</strong>
 			</p>
 			<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__count">
-				<span class="problem-count-dot problem-count-dot--warning">{warningCount}</span>
-				{warningCount === 1 ? 'warning' : 'warnings'}
+				<span class="problem-count-box problem-count-box--warning"><span class="problem-count-box__number">{warningCount}</span></span>
+				<span class="problems-drawer__count-label">{warningCount === 1 ? 'warning' : 'warnings'}</span>
 			</p>
 
 			<p class="govuk-body-s govuk-!-margin-bottom-0 problems-drawer__note">
@@ -81,18 +81,18 @@
 					<tbody class="govuk-table__body">
 						{#each problems as { problem, severity }, index (index)}
 							{@const place = problem.state ? placeOf(problem.state) : undefined}
-							<tr class="govuk-table__row">
+							<tr class="govuk-table__row problems-drawer__row">
 								<td class="govuk-table__cell">
-									<span class="problem-count-dot problem-count-dot--{severity}">{index + 1}</span>
+									<span class="problem-count-box problem-count-box--{severity}"><span class="problem-count-box__number">{index + 1}</span></span>
 									<span class="govuk-visually-hidden">{severity}</span>
 								</td>
-								<td class="govuk-table__cell govuk-!-font-weight-bold">{place?.label ?? ''}</td>
-								<td class="govuk-table__cell">
+								<td class="govuk-table__cell govuk-!-font-weight-bold problems-drawer__text-cell">{place?.label ?? ''}</td>
+								<td class="govuk-table__cell problems-drawer__text-cell">
 									<span class="govuk-!-font-weight-bold">{problem.title}</span>
 									<span class="problems-drawer__fix">{problem.fix}</span>
 								</td>
-								<td class="govuk-table__cell problems-drawer__how-to-fix">{problem.howToFix ?? ''}</td>
-								<td class="govuk-table__cell problems-drawer__go-to">
+								<td class="govuk-table__cell problems-drawer__text-cell problems-drawer__how-to-fix">{problem.howToFix ?? ''}</td>
+								<td class="govuk-table__cell problems-drawer__text-cell problems-drawer__go-to">
 									{#if problem.state && place}
 										{@const code = problem.state}
 										<a
@@ -119,7 +119,7 @@
 		the counts in the bar start where the Problem column starts and the two line up whether the list is open or
 		closed. The height of the bar is the room the editor keeps for it at the bottom. */
 	.problems-drawer {
-		--problems-number-column-width: 45px;
+		--problems-number-column-width: 50px;
 		--problems-step-column-width: 180px;
 		--problems-bar-height: 45px;
 		position: relative;
@@ -178,6 +178,16 @@
 		border-top-color: currentColor;
 	}
 
+	/* The GOV.UK font leaves more room below its letters than above them, so text centred in a box sits high. The text
+		box of each count and the word beside it is trimmed to the height of its capital letters, so the browser
+		centres the letters themselves and they line up with each other. A browser that does not support text-box yet
+		centres the whole line, which leaves them about a pixel high but still level. The number has a span of its own
+		because only a block of text can be trimmed, and the square round it is a flex box. */
+	.problem-count-box__number,
+	.problems-drawer__count-label {
+		text-box: trim-both cap alphabetic;
+	}
+
 	.problems-drawer__count {
 		display: flex;
 		align-items: center;
@@ -220,6 +230,18 @@
 		width: 240px;
 	}
 
+	/* Every cell of a problem is centred from top to bottom, so the step, the link and the number square line up
+		with each other and with the middle of the problem's two lines. GOV.UK tables set cells to the top. */
+	.problems-drawer__row > .govuk-table__cell {
+		vertical-align: middle;
+	}
+
+	/* The cells that hold words are trimmed in the same way as the number squares, so their letters are centred and
+		not the font's extra space. */
+	.problems-drawer__text-cell {
+		text-box: trim-both cap alphabetic;
+	}
+
 	.problems-drawer__column-heading {
 		font-weight: 400;
 		color: #505a5f;
@@ -239,30 +261,25 @@
 		white-space: nowrap;
 	}
 
-	/* A round number marker: red with white text for an error, yellow with black text for a warning. It is small,
-		subtle UI, so its number is under 16px. The GOV.UK font leaves more room below its figures than above them, so
-		the text box is trimmed to the height of the figures, which lets the flex box centre the number itself and not
-		the space around it. */
-	.problem-count-dot {
+	/* A square number marker: red with white text for an error, yellow with black text for a warning. It is the same
+		size as the numbered squares in the stage banner at the top of the editor. */
+	.problem-count-box {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		font-size: 0.875rem;
+		width: 28px;
+		height: 28px;
+		font-size: 1rem;
 		font-weight: 700;
-		line-height: 1;
-		text-box: trim-both cap alphabetic;
 	}
 
-	.problem-count-dot--error {
+	.problem-count-box--error {
 		background-color: #d4351c;
 		color: #ffffff;
 	}
 
-	.problem-count-dot--warning {
+	.problem-count-box--warning {
 		background-color: #ffdd00;
 		color: #0b0c0c;
 	}

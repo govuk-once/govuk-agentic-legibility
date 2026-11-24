@@ -166,7 +166,6 @@
 		color: #3f484c;
 		background-color: #f3f2f1;
 		border: 1.5px solid transparent;
-		border-radius: 9px;
 		cursor: grab;
 	}
 
@@ -199,7 +198,6 @@
 		padding: 10px 15px;
 		color: #ffffff;
 		background-color: #0b0c0c;
-		border-radius: 8px;
 		pointer-events: none;
 	}
 

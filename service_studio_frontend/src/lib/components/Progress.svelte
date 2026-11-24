@@ -41,7 +41,7 @@
 					class="progress__marker"
 					class:progress__marker--current={stage.state === 'current'}
 				>
-					{stage.number}
+					<span class="progress__number">{stage.number}</span>
 				</span>
 			{/if}
 			<span
@@ -91,6 +91,16 @@
 
 	.progress--compact .progress__divider {
 		height: 22px;
+	}
+
+	/* The GOV.UK font leaves more room below its letters than above them, so text centred in a box sits high. The
+		text box of each number and each label is trimmed to the height of its capital letters, so the browser centres
+		the letters themselves and the numbers and labels line up with each other. A browser that does not support
+		text-box yet centres the whole line, which leaves them all about a pixel high but still level. The number has
+		a span of its own because only a block of text can be trimmed, and the marker round it is a flex box. */
+	.progress__number,
+	.progress__label {
+		text-box: trim-both cap alphabetic;
 	}
 
 	.progress__marker {

@@ -43,6 +43,5 @@
 		height: 44px;
 		color: #3f484c;
 		background-color: #f3f2f1;
-		border-radius: 9px;
 	}
 </style>
