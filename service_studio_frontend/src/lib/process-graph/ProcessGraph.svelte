@@ -349,7 +349,8 @@
 		onpaneclick={() => (selectedStateId = null)}
 	>
 		<FlowPositionBridge onready={(instance) => (flowInstance = instance)} />
-		<Background />
+		<!-- <Background /> -->
+		 <Background gap={25} size={1.5} patternColor="#646462" />
 		<Controls showLock={false} />
 		<MiniMap pannable zoomable position="bottom-left" class="process-graph__minimap" />
 		{#if problemMarks && problemMarks.length > 0}

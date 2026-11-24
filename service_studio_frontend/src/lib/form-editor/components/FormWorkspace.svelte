@@ -252,28 +252,41 @@
 	<ModuleMenu categories={moduleCategories} tools={formPaletteTools} />
 
 	<div class="form-workspace__body">
-		<!-- Choosing a box or a diamond on the graph opens its card, and a step that has just been added opens its card
-			too, ready for its words to be typed. -->
-		<ProcessCanvas
-			{process}
-			{graph}
-			paletteTools={formPaletteTools}
-			connectedStepKind="input"
-			showErrorRoutes={showDeveloperStates}
-			showDeveloperSteps={showDeveloperStates}
-			stepOutlineColours={stateOutlineColours}
-			{positions}
-			{layoutRound}
-			{onMoveNodes}
-			{drafts}
-			{onChangeDrafts}
-			onChangeProcess={applyChange}
-			bind:selectedStateId={() => selectedStateId, openCard}
-			bind:messages
-			onEditState={openCard}
-			onDeleteStates={removeFromProcess}
-			{problemMarks}
-		/>
+		<!-- The canvas and the problems bar under it share one column, so the bar stops at the side panel and never
+			covers the panel's buttons. -->
+		<div class="form-workspace__canvas-column">
+			<!-- Choosing a box or a diamond on the graph opens its card, and a step that has just been added opens its card
+				too, ready for its words to be typed. -->
+			<ProcessCanvas
+				{process}
+				{graph}
+				paletteTools={formPaletteTools}
+				connectedStepKind="input"
+				showErrorRoutes={showDeveloperStates}
+				showDeveloperSteps={showDeveloperStates}
+				stepOutlineColours={stateOutlineColours}
+				{positions}
+				{layoutRound}
+				{onMoveNodes}
+				{drafts}
+				{onChangeDrafts}
+				onChangeProcess={applyChange}
+				bind:selectedStateId={() => selectedStateId, openCard}
+				bind:messages
+				onEditState={openCard}
+				onDeleteStates={removeFromProcess}
+				{problemMarks}
+			/>
+
+			<ProblemsDrawer {problems} {placeOf} onSelect={highlight}>
+				{#snippet actions()}
+					{#if sendRefused && errors.length > 0}
+						<p class="govuk-error-message govuk-!-font-size-16 govuk-!-margin-bottom-0" role="alert">Fix the errors in problems before sending</p>
+					{/if}
+					<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to review</button>
+				{/snippet}
+			</ProblemsDrawer>
+		</div>
 
 		<aside class="form-workspace__panel" aria-label="Steps">
 			{#if openState && selection.code && (openState.state_type === 'input' || openState.state_type === 'output') && openRowIndex >= 0}
@@ -352,26 +365,14 @@
 					{/each}
 				</div>
 
-				<div class="form-workspace__panel-footer">
-					{#if sendRefused && errors.length > 0}
-						<p class="govuk-error-message" role="alert">Fix the errors in problems before sending</p>
-					{/if}
-					<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to owner review</button>
-				</div>
 			{/if}
 		</aside>
 	</div>
-
-	<ProblemsDrawer
-		{problems}
-		{placeOf}
-		onSelect={highlight}
-	/>
 </div>
 
 <style>
-	/* The module menu runs across the top, over the canvas and the panel, which sit side by side below it, and the
-		problems bar runs across the bottom. */
+	/* The module menu runs across the top, over the canvas and the panel, which sit side by side below it. The
+		problems bar runs along the bottom of the canvas. */
 	.form-workspace {
 		display: flex;
 		flex-direction: column;
@@ -383,6 +384,13 @@
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
+	}
+
+	.form-workspace__canvas-column {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-width: 0;
 	}
 
 	.form-workspace__panel {
@@ -414,16 +422,6 @@
 
 	.form-workspace__list-hint {
 		color: #505a5f;
-	}
-
-	.form-workspace__panel-footer {
-		padding: 16px;
-	}
-
-	/* GOV.UK's own button is full width only below its tablet breakpoint, auto width above it. This panel is much
-		narrower than that breakpoint even on a wide screen, so the button is told to stay full width of it. */
-	.form-workspace__panel-footer .govuk-button {
-		width: 100%;
 	}
 
 	@media (max-width: 900px) {

@@ -135,10 +135,14 @@
 </main>
 
 <style>
+	/* The page takes the height left under the service header, whatever height the header is, so the editor reaches
+		the bottom of the window with no gap. It does not grow with its content, which scrolls inside the canvas and
+		the side panel instead. */
 	.editor-page {
 		display: flex;
 		flex-direction: column;
-		height: calc(100vh - 74px);
+		flex: 1 1 0;
+		min-height: 0;
 		font-family: 'GDS Transport', arial, sans-serif;
 	}
 

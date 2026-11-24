@@ -4,8 +4,8 @@ import { placeholderMessage, placeholderQuestion } from './placeholders';
 	The words for each sort of problem a journey that is being edited can have. They are kept together here so they
 	can be read and changed in one place, while validate.ts only finds the problems.
 
-	1. The message follows the name of the state the problem is about, such as "has nothing after it", for a one line
-	   summary of a problem.
+	1. The message follows the name of the state the problem is about, such as "has nothing after it", for the list the
+	   check before proceeding gives.
 	2. The title names the problem on its own in a list of problems, and the fix says what to do about it. A problem
 	   that is about wording and not about how steps connect also has a short how to fix line, for the column of a
 	   list that otherwise shows how to connect the steps.

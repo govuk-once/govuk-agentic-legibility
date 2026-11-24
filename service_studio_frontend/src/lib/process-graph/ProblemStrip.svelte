@@ -5,11 +5,12 @@
 	/*
 		A thin strip down the right edge of the canvas that shows where the problems are in a long journey, and moves
 		the canvas up and down the journey. The top of the strip is the top of the graph and the bottom is the bottom of
-		the graph, so each mark sits level with where its step is in the journey, red for an error and yellow for a
-		warning.
+		the graph, so each mark is as far down the strip as its step is down the journey, red for an error and yellow
+		for a warning.
 
 		1. The blue handle is a slider for how far down the journey the canvas is. It is always the same size, like the
-		   handle of a physical slider, and sits level with the middle of what is on screen. Dragging it, or pressing
+		   handle of a physical slider, and is as far down the strip as the middle of what is on screen is down the
+		   journey. Dragging it, or pressing
 		   anywhere on the strip, moves the canvas, and so do the arrow keys, Page Up, Page Down, Home and End when it
 		   has focus.
 		2. Each mark is a button that moves the canvas to its step. The marks are drawn over the slider and are not
@@ -31,8 +32,7 @@
 	const viewport = useViewport();
 	const store = useStore();
 
-	// The height of the handle in pixels. The handle and the marks share the same scale, so a mark sits in the middle
-	// of the handle when its step is in the middle of the screen.
+	// The height of the handle in pixels. The marks are placed on the same scale as the handle.
 	const handleHeight = 40;
 
 	// Whether the handle is being dragged, so moving the pointer moves the canvas until it is let go.
