@@ -67,7 +67,9 @@
 			</dl>
 
 			{#snippet actions()}
-				<button class="govuk-button govuk-!-margin-bottom-0" type="button" disabled>Go to service dashboard</button>
+				<!-- The address of the app sends a person to the start page, where they can start again or open a draft. -->
+				<a class="govuk-button govuk-!-margin-bottom-0" href={resolve('/')}>Start a new journey</a>
+				<!-- Not built yet, because where the published journey is viewed has not been decided. -->
 				<a class="govuk-link" role="link" aria-disabled="true">View the published journey</a>
 			{/snippet}
 		</ReviewStep>
