@@ -16,17 +16,20 @@ api:
 durable-api:
     cd durable_poc && uv run uvicorn agent.api.app:create_app --factory --reload --port 8010
 
-durable-frontend-install:
-    pnpm --prefix durable-frontend install
+alt-frontends-install:
+    pnpm --prefix alt-frontends install
 
-durable-frontend:
-    pnpm --prefix durable-frontend run dev
+alt-frontends-dev:
+    pnpm --prefix alt-frontends run dev
 
-durable-frontend-check:
-    pnpm --prefix durable-frontend run check
+alt-frontends-dev-mock:
+    pnpm --prefix alt-frontends run dev:mock
 
-durable-frontend-build:
-    pnpm --prefix durable-frontend run build
+alt-frontends-check:
+    pnpm --prefix alt-frontends run check
+
+alt-frontends-build:
+    pnpm --prefix alt-frontends run build
 
 format:
     uv run ruff format

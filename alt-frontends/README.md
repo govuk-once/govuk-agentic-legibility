@@ -73,8 +73,8 @@ Run these in order, from the repo root (`govuk-agentic-legibility/`), using the
    origins hardcoded in `durable_poc/agent/api/app.py`).
 
    ```bash
-   just durable-frontend-install   # first time only
-   just durable-frontend
+   just alt-frontends-install   # first time only
+   just alt-frontends-dev
    ```
 
    Equivalent without `just`: `pnpm install` then `pnpm dev` from this
@@ -87,6 +87,10 @@ workflow server running:
 
 ```bash
 pnpm dev:mock
+```
+or using Just:
+```
+just alt-frontends-dev-mock
 ```
 
 This serves a stand-in executor from this app at `/mock-api/api/v1/...` and
@@ -166,8 +170,8 @@ an instance role, etc.) in addition to the vars above.
 ## Other commands
 
 ```bash
-just durable-frontend-check   # svelte-check, 0 errors expected
-just durable-frontend-build   # production build (adapter-node)
+just alt-frontends-check   # svelte-check, 0 errors expected
+just alt-frontends-build   # production build (adapter-node)
 ```
 
 Without `just`: `pnpm check`, `pnpm build`, `pnpm preview`. There is no
