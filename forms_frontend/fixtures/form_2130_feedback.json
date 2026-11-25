@@ -1,0 +1,29 @@
+{
+  "id": "form-2130-feedback",
+  "version": "1",
+  "title": "Land charges feedback — satisfied, no assistance",
+  "description": "The user has described their experience with the service. They are a member of the public, satisfied overall, but found the map confusing. They did not receive any assistance. The agent should be able to answer most questions and the boolean branch should skip the assistance section.",
+  "form_id": "2130",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I'd like to give some feedback about the Search for local land charges service."
+    },
+    {
+      "role": "assistant",
+      "content": "Of course, I'd be happy to help you submit feedback. Could you tell me about your experience?"
+    },
+    {
+      "role": "user",
+      "content": "I'm just a member of the public, not a professional. Overall I was pretty satisfied with the service — it did what I needed. But the map was really confusing to use, it was hard to find the right area. I didn't need any help from anyone to use it though, I managed on my own."
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you for sharing that. So you're a member of the public, generally satisfied but the map needs improvement, and you didn't receive any assistance. I'll help you work through the feedback form with this information. Would you like to provide an email address for follow-up, or would you prefer to skip that?"
+    },
+    {
+      "role": "user",
+      "content": "I'd rather not give my email, thanks."
+    }
+  ]
+}

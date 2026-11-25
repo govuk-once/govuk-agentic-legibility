@@ -1,13 +1,7 @@
 """Path resolution, interpolation, and duration parsing."""
 
 import re
-from datetime import timedelta
 from typing import Any
-
-# Matches ISO 8601 Durations requiring at least one populated unit
-DURATION_RE = re.compile(
-    r"^P(?=.)(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?)?$"
-)
 
 
 def resolve_path(context: dict[str, Any], path: str) -> Any:
@@ -57,6 +51,22 @@ def set_path(context: dict[str, Any], path: str, value: Any) -> None:
         current[idx] = value
 
 
+def append_path(context: dict[str, Any], path: str, value: Any) -> None:
+    """Append one typed value without mutating an existing accumulator list.
+
+    An absent or null target starts an empty list.  Rejecting a missing value
+    avoids accidentally recording an answer that was never submitted.
+    """
+    if not path or any(not part for part in path.split(".")):
+        raise ValueError("Append target must be a non-empty dotted path")
+    existing = resolve_path(context, path)
+    if existing is not None and not isinstance(existing, list):
+        raise ValueError(f"Append target '{path}' must be a list or unset, got {type(existing).__name__}")
+    if value is None:
+        raise ValueError(f"Append operation for '{path}' resolved no value")
+    set_path(context, path, [*(existing or []), value])
+
+
 def interpolate(template: str, context: dict[str, Any]) -> str:
     """Replace {{path.to.var}} in strings with resolved context values."""
 
@@ -77,23 +87,3 @@ def resolve_dict(data: Any, context: dict[str, Any]) -> Any:
         return [resolve_dict(item, context) for item in data]
     return data
 
-
-def parse_duration(duration_str: str) -> timedelta:
-    """Parse an ISO 8601 duration string into a timedelta."""
-    if not duration_str or duration_str == "P":
-        raise ValueError(f"Invalid duration format: '{duration_str}'")
-
-    match = DURATION_RE.match(duration_str)
-    if not match:
-        raise ValueError(f"Invalid duration format: '{duration_str}'")
-
-    groups = match.groupdict(default="0")
-    days = int(groups["days"])
-    hours = int(groups["hours"])
-    minutes = int(groups["minutes"])
-    seconds = float(groups["seconds"])
-
-    if days == 0 and hours == 0 and minutes == 0 and seconds == 0:
-        raise ValueError(f"Duration string '{duration_str}' resolved to 0 time")
-
-    return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)

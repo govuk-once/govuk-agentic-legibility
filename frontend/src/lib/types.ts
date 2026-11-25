@@ -9,6 +9,9 @@ export interface JsonSchemaProperty {
   format?: string;
   default?: JsonPrimitive;
   enum?: JsonPrimitive[];
+  enum_labels?: Record<string, string>;
+  items?: JsonSchemaProperty;
+  ui_hint?: string;
 }
 
 export interface JsonSchema {

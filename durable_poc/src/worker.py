@@ -9,7 +9,7 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 from temporalio.contrib.opentelemetry import TracingInterceptor
 
-from src.activities import http_call, notify
+from src.activities import http_call, notify, load_workflow_definition
 from src.interpreter import SFSMInterpreter
 from src.telemetry import create_worker_provider
 
@@ -44,7 +44,7 @@ async def main() -> None:
         client,
         task_queue="sfsm-queue",
         workflows=[SFSMInterpreter],
-        activities=[http_call, notify],
+        activities=[http_call, notify, load_workflow_definition],
         interceptors=[tracing_interceptor],
     )
     logging.info("Starting worker on %s...", temporal_address)
@@ -53,3 +53,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+

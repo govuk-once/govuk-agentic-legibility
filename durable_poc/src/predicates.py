@@ -32,7 +32,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         try:
             p_num, c_num = float(path_val), float(cmp_val)
             return p_num < c_num if op in ["lt", "less_than"] else p_num <= c_num
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return False
 
     # Numeric Comparisons (Greater Than / Greater Than or Equal)
@@ -44,7 +44,7 @@ def evaluate(condition: dict[str, Any], context: dict[str, Any]) -> bool:
         try:
             p_num, c_num = float(path_val), float(cmp_val)
             return p_num > c_num if op in ["gt", "greater_than"] else p_num >= c_num
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return False
 
     # Boolean Checks
@@ -184,7 +184,7 @@ def _parse_date(val: Any) -> datetime | None:
     ):
         try:
             return datetime.strptime(val_str.split(".")[0], fmt)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             pass
 
     return None

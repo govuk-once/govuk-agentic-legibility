@@ -1,0 +1,37 @@
+{
+  "id": "form-6-full-details",
+  "version": "1",
+  "title": "Holiday pay claim amendment — full details in chat history",
+  "description": "The user has provided all required personal details and wants to amend their holiday entitlement. The agent should be able to answer the security questions (name, reference, NI, email, DOB, address, company) and the amendment questions (holiday year start, days entitled, days taken). The user has not mentioned days carried over.",
+  "form_id": "6",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "Hi, I need to amend my holiday pay claim. My name is Sarah Thompson and my claim reference is LN98765432."
+    },
+    {
+      "role": "assistant",
+      "content": "Hello Sarah. I can help you amend your holiday pay claim. I've noted your name and claim reference number. Could you tell me a bit more about what you'd like to change?"
+    },
+    {
+      "role": "user",
+      "content": "Sure. My National Insurance number is QQ 12 34 56 C and my email is sarah.thompson@example.com. I was born on 15 March 1985 and I live at 42 Oak Avenue, Swindon, Wiltshire, SN1 4AB."
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you, I've noted all your details. Which company were you made redundant from, and what changes do you need to make to your claim?"
+    },
+    {
+      "role": "user",
+      "content": "I was made redundant from Parkfield Manufacturing Ltd. I need to correct my holiday information — my leave year actually started on 1 April 2024, and I was entitled to 28 days including bank holidays. I took 12 days before I was made redundant. I also carried over 0 days from my last leave year allowance."
+    },
+    {
+      "role": "assistant",
+      "content": "Understood. So to summarise, you want to amend your claim to show that your holiday year started 1 April 2024, you were entitled to 28 days, you had taken 12 days and carried over 0 days. I'll help you work through the amendment form with this information. Shall we proceed?"
+    },
+    {
+      "role": "user",
+      "content": "Yes please, let's go ahead."
+    }
+  ]
+}

@@ -1,12 +1,11 @@
 """Interactive terminal CLI for the FSM workflow."""
 
 import asyncio
-import json
 import os
-from pathlib import Path
 
 from temporalio.client import Client, WorkflowExecutionStatus
 from src.context import InputSubmission
+from src.activities import load_workflow_definition
 
 
 async def main() -> None:
@@ -15,17 +14,18 @@ async def main() -> None:
     client = await Client.connect("localhost:7233")
 
     # Load your schema (assuming it's saved as workflow.json)
+
     print("Loading definition...")
-    file_path = Path(f"{os.getcwd()}/dwp_ma1_schema.json")
-    with open(file_path, "r") as f:
-        definition = json.load(f)
+    definition = await load_workflow_definition(
+        workflow_id=1
+    )
 
     # Patch long timeouts for human interaction
     print("Patching time intervals...")
     if "finalisation" in definition.get("processes", {}):
         definition["processes"]["finalisation"]["vars"]["poll_interval"] = "PT2S"
-        definition["processes"]["finalisation"]["vars"]["delivery_wait"] = "PT15S"
-        definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT10S"
+        definition["processes"]["finalisation"]["vars"]["delivery_wait"] = "PT10S"
+        definition["processes"]["finalisation"]["vars"]["reminder_after"] = "PT5S"
 
     definition.setdefault("vars", {})["env"] = {
         "dvla_base": "http://localhost:8000/app/photo",
@@ -236,3 +236,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nDemo terminated.")
+

@@ -10,6 +10,7 @@ import uuid
 import httpx
 
 from src.context import InputSubmission
+from src.activities import load_workflow_definition
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ async def list_available_workflows(
         raise WorkflowServerError(
             f"Workflow server returned {response.status_code} while listing workflows"
         )
-    workflows = response.json()
+    workflows = response.json()["workflows"]
     logger.info("Retrieved %d workflow definition(s) from server", len(workflows))
     return workflows
 
@@ -66,26 +67,36 @@ async def find_workflow_by_intent(
     workflows = await list_available_workflows(
         http_client=http_client, base_url=base_url
     )
+    logger.info("Workflows=%r", workflows)
 
     keyword = domain_keyword.strip().lower()
 
     for wf in workflows:
-        if isinstance(wf, str):
-            if keyword in wf.lower():
-                return await get_workflow_definition(
-                    workflow_id=wf, http_client=http_client, base_url=base_url
-                )
+        if not isinstance(wf, dict):
             continue
 
-        if isinstance(wf, dict):
-            wf_id = str(wf.get("id", "")).lower()
-            wf_slug = str(wf.get("slug", "")).lower()
-            wf_name = str(wf.get("name", "")).lower()
+        workflow_slug = str(wf.get("id", "")).lower()
+        workflow_version = str(wf.get("version", "")).lower()
 
-            if keyword in wf_id or keyword in wf_slug or keyword in wf_name:
-                target_id = wf.get("id") or wf.get("slug") or wf_id
-                return await get_workflow_definition(
-                    workflow_id=target_id, http_client=http_client, base_url=base_url
+        searchable = " ".join(
+            [
+                workflow_slug,
+                workflow_version,
+            ]
+        )
+
+        if keyword in searchable:
+            return await get_workflow_definition(
+                workflow_id=int(wf.get("workflow_id")),
+                http_client=http_client,
+                base_url=base_url,
+            )
+
+        logger.info(
+            "Checking workflow_id=%s slug=%s keyword=%s",
+            wf.get("workflow_id"),
+            workflow_slug,
+            keyword,
                 )
 
     raise ValueError(f"No workflow found matching keyword: {domain_keyword!r}")
@@ -147,14 +158,13 @@ async def get_workflow_definition(
 async def start_workflow(
     *,
     workflow_id: int | str,
-    http_client: httpx.AsyncClient,
     base_url: str,
     temporal_client: Any,
     task_queue: str,
 ) -> str:
     """Fetch a workflow definition and start it on Temporal."""
-    definition = await get_workflow_definition(
-        workflow_id=workflow_id, http_client=http_client, base_url=base_url
+    definition = await load_workflow_definition(
+        workflow_id=workflow_id, base_url=base_url
     )
 
     # Append unique execution token to prevent duplicate workflow ID errors

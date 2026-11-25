@@ -9,4 +9,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC"
+  "dependencies": {
+    "marked": "^18.0.14"
+  },
+  "devDependencies": {
+    "@types/marked": "^5.0.2"
+  }
 }

@@ -61,9 +61,21 @@
     setValue(name, property.enum?.find((value) => String(value) === raw) ?? raw);
   }
 
+  function isSelected(name: string, item: unknown): boolean {
+    return Array.isArray(values[name]) && values[name].includes(item);
+  }
+
+  function toggleArrayValue(name: string, item: unknown, checked: boolean): void {
+    const current = Array.isArray(values[name]) ? (values[name] as unknown[]) : [];
+    setValue(name, checked ? [...current, item] : current.filter((value) => value !== item));
+  }
+
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     errors = validateValues(schema, values);
+    for (const name of schema.required ?? []) {
+      if (Array.isArray(values[name]) && (values[name] as unknown[]).length === 0) errors[name] = 'Select at least one option';
+    }
     if (Object.keys(errors).length === 0) onSubmit(values);
   }
   function label(name: string, property: JsonSchemaProperty): string {
@@ -110,19 +122,33 @@
           <label class="choice"><input type="radio" {name} checked={values[name] === true} onchange={() => setValue(name, true)} {disabled} /> <span>Yes</span></label>
           <label class="choice"><input type="radio" {name} checked={values[name] === false} onchange={() => setValue(name, false)} {disabled} /> <span>No</span></label>
         </fieldset>
+      {:else if renderableType(property) === 'array' && property.items?.enum}
+        <fieldset>
+          <legend>{label(name, property)} {#if !required(name)}<span>(optional)</span>{/if}</legend>
+          {#if property.description}<p class="hint">{property.description}</p>{/if}
+          {#if errors[name]}<p class="error-message">{errors[name]}</p>{/if}
+          {#each property.items.enum as option}
+            <label class="choice"><input type="checkbox" name={name} checked={isSelected(name, option)} onchange={(event) => toggleArrayValue(name, option, event.currentTarget.checked)} {disabled} /> {property.enum_labels?.[String(option)] ?? String(option)}</label>
+          {/each}
+        </fieldset>
       {:else if property.enum}
         <label for={name}>{label(name, property)} {#if !required(name)}<span>(optional)</span>{/if}</label>
         {#if property.description}<p class="hint">{property.description}</p>{/if}
         {#if errors[name]}<p class="error-message">{errors[name]}</p>{/if}
         <select id={name} value={values[name] === undefined ? '' : String(values[name])} onchange={(event) => selectValue(name, property, event)} {disabled}>
           <option value="">Select an option</option>
-          {#each property.enum as option}<option value={String(option)}>{String(option)}</option>{/each}
+          {#each property.enum as option}<option value={String(option)}>{property.enum_labels?.[String(option)] ?? String(option)}</option>{/each}
         </select>
+      {:else if renderableType(property) === 'string' && property.ui_hint === 'textarea'}
+        <label for={name}>{label(name, property)} {#if !required(name)}<span>(optional)</span>{/if}</label>
+        {#if property.description}<p class="hint">{property.description}</p>{/if}
+        {#if errors[name]}<p class="error-message">{errors[name]}</p>{/if}
+        <textarea id={name} rows="5" value={String(values[name] ?? '')} oninput={(event) => textValue(name, event)} {disabled}></textarea>
       {:else if renderableType(property) === 'string'}
         <label for={name}>{label(name, property)} {#if !required(name)}<span>(optional)</span>{/if}</label>
         {#if property.description}<p class="hint">{property.description}</p>{/if}
         {#if errors[name]}<p class="error-message">{errors[name]}</p>{/if}
-        <input id={name} type="text" value={String(values[name] ?? '')} oninput={(event) => textValue(name, event)} aria-invalid={errors[name] ? 'true' : undefined} {disabled} />
+        <input id={name} type={property.format === 'email' ? 'email' : property.format === 'date' ? 'date' : 'text'} value={String(values[name] ?? '')} oninput={(event) => textValue(name, event)} aria-invalid={errors[name] ? 'true' : undefined} {disabled} />
       {:else if renderableType(property) === 'number' || renderableType(property) === 'integer'}
         <label for={name}>{label(name, property)} {#if !required(name)}<span>(optional)</span>{/if}</label>
         {#if property.description}<p class="hint">{property.description}</p>{/if}
@@ -148,7 +174,7 @@
   legend span, label span { color: #505a5f; font-weight: 400; }
   .hint { margin: 0 0 .65rem; color: #505a5f; }
   .error-message { margin: 0 0 .65rem; color: #d4351c; font-weight: 700; }
-  input[type='text'], input[type='number'], select { box-sizing: border-box; width: min(100%,32rem); min-height: 2.75rem; border: 2px solid #0b0c0c; background: #fff; padding: .45rem .55rem; font: inherit; }
+  input[type='text'], input[type='email'], input[type='date'], input[type='number'], textarea, select { box-sizing: border-box; width: min(100%,32rem); min-height: 2.75rem; border: 2px solid #0b0c0c; background: #fff; padding: .45rem .55rem; font: inherit; }
   input:focus, select:focus { outline: .2rem solid #ffdd00; outline-offset: 0; box-shadow: inset 0 0 0 2px #0b0c0c; }
   .choice { display: flex; align-items: center; gap: .7rem; width: fit-content; margin: .65rem 0; cursor: pointer; font-size: 1.05rem; }
   .choice input { width: 1.6rem; height: 1.6rem; margin: 0; accent-color: #1d70b8; }

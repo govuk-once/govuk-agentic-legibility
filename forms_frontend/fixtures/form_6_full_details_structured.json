@@ -1,0 +1,30 @@
+
+{
+  "id": "form-6-full-details",
+  "version": "2",
+  "title": "Holiday pay amendment — known facts",
+  "description": "Personal details retrieved from structured data, with holiday entitlement information from a previous conversation.",
+  "form_id": "6",
+  "known_facts": {
+    "structured_data": {
+      "name": "Sarah Thompson",
+      "claim_reference": "LN98765432",
+      "national_insurance_number": "QQ 12 34 56 C",
+      "email": "sarah.thompson@example.com",
+      "date_of_birth": "1985-03-15",
+      "address": {
+        "line_1": "42 Oak Avenue",
+        "town": "Swindon",
+        "county": "Wiltshire",
+        "postcode": "SN1 4AB"
+      }
+    },
+    "previous_conversation": "I was made redundant from Parkfield Manufacturing Ltd. I need to correct my holiday information — my leave year actually started on 1 April 2024, and I was entitled to 28 days including bank holidays. I took 12 days before I was made redundant. I also carried over 0 days from my last leave year allowance."
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": "Yes please, let's go ahead with amending my holiday pay claim."
+    }
+  ]
+}

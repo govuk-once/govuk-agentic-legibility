@@ -95,7 +95,7 @@ async def http_call(params: CallParams) -> dict[str, Any]:
     if response.headers.get("Content-Type", "").startswith("application/json"):
         try:
             body = response.json()
-        except Exception:
+        except ValueError:
             pass
 
     full_context = {
@@ -158,3 +158,137 @@ async def notify(params: NotifyParams) -> None:
     logger.info(
         f"Notifying via {params.channel} using {params.template}: {params.params}"
     )
+
+
+@activity.defn
+async def load_workflow_definition(
+    workflow_id: int,
+    base_url: str | None = None,
+) -> dict[str, Any]:
+    """
+    Load and assemble a workflow definition from the Workflow Server.
+    """
+
+    span = trace.get_current_span()
+
+    wf_id = _workflow_id_from_activity()
+
+    if wf_id:
+        span.set_attribute(
+            "workflow_id",
+            wf_id,
+        )
+
+    span.set_attribute(
+        "definition.workflow_id",
+        workflow_id,
+    )
+
+    workflow_server_url = (
+        base_url
+        or os.environ.get("WORKFLOW_SERVER_URL")
+    )
+
+    if not workflow_server_url:
+        raise ValidationError(
+            "WORKFLOW_SERVER_URL environment variable is not configured"
+        )
+    http_client = httpx.AsyncClient()
+    close_client = True
+
+    try:
+        workflow_response = await http_client.get(
+            f"{workflow_server_url}/api/v1/workflows/{workflow_id}",
+            timeout=15.0,
+        )
+
+        if workflow_response.status_code == 404:
+            raise ValidationError(
+                f"Workflow {workflow_id} not found"
+            )
+
+        workflow_response.raise_for_status()
+
+        definition = workflow_response.json()
+
+        assembled_processes: dict[str, Any] = {}
+
+        for process_ref in definition.get(
+            "processes",
+            [],
+        ):
+            process_id = process_ref.get(
+                "process_id"
+            )
+
+            version = process_ref.get(
+                "version"
+            )
+
+            if not process_id:
+                raise ValidationError(
+                    f"Process reference missing process_id: {process_ref}"
+                )
+
+            if not version:
+                raise ValidationError(
+                    f"Process reference missing version: {process_ref}"
+                )
+
+            process_response = await http_client.get(
+                (
+                    f"{workflow_server_url}"
+                    f"/api/v1/processes/{process_id}/{version}"
+                ),
+                timeout=15.0,
+            )
+
+            if process_response.status_code == 404:
+                raise ValidationError(
+                    f"Process '{process_id}' "
+                    f"version '{version}' not found"
+                )
+
+            process_response.raise_for_status()
+
+            process_definition = process_response.json()
+
+            actual_process_id = process_definition.get(
+                "process_id"
+            )
+
+            if actual_process_id != process_id:
+                raise ValidationError(
+                    f"Expected process '{process_id}' "
+                    f"but server returned '{actual_process_id}'"
+                )
+
+            assembled_processes[
+                process_id
+            ] = process_definition
+
+        entry_process = definition.get("entry")
+
+        if entry_process not in assembled_processes:
+            raise ValidationError(
+                f"Entry process '{entry_process}' not found"
+            )
+
+        definition["processes"] = assembled_processes
+
+        span.set_attribute(
+            "definition.process_count",
+            len(assembled_processes),
+        )
+
+        logger.info(
+            "Loaded workflow '%s' (%s processes)",
+            definition.get("id"),
+            len(assembled_processes),
+        )
+
+        return definition
+
+    finally:
+        if close_client:
+            await http_client.aclose()

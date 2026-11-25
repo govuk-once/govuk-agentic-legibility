@@ -1,0 +1,165 @@
+{
+    "process_id": "driver_details",
+    "version": "0.1.0",
+    "start": "get_driver_details",
+    "vars": {
+        "driver": null,
+        "driver_id": null,
+        "email": null,
+        "details_confirmed": null,
+        "manual_first_name": null,
+        "manual_last_name": null,
+        "manual_dob": null,
+        "manual_email": null,
+        "manual_licence_no": null,
+        "manual_summary_confirmed": null
+    },
+    "states": {
+        "get_driver_details": {
+            "type": "call",
+            "method": "GET",
+            "service": "dvla",
+            "url": "/app/dvla/v1/driver-summary",
+            "idempotency_key": "{{workflow_id}}:get_driver_summary",
+            "assign": "driver",
+            "capture": {
+                "driver_id": "body.driverViewResponse.driver.drivingLicenceNumber",
+                "first_name": "body.driverViewResponse.driver.firstNames",
+                "last_name": "body.driverViewResponse.driver.lastName",
+                "date_of_birth": "body.driverViewResponse.driver.dateOfBirth",
+                "email": "body.driverViewResponse.driver.email"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "end_api_failure"
+                }
+            ],
+            "next": "confirm_driver_details"
+        },
+        "confirm_driver_details": {
+            "type": "input",
+            "prompt": "Are these driver details correct?\nName: {{driver.first_name}} {{driver.last_name}}\nLicence Number: {{driver.driver_id}}\nDOB: {{driver.date_of_birth}}\nEmail: {{driver.email}}",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "details_confirmed",
+            "next": "branch_driver_details"
+        },
+        "branch_driver_details": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "details_confirmed"
+                    },
+                    "next": "end_success"
+                }
+            ],
+            "default": "prompt_manual_first_name"
+        },
+        "prompt_manual_first_name": {
+            "type": "input",
+            "prompt": "Please enter your correct First Name:",
+            "schema": {
+                "kind": "string"
+            },
+            "assign": "manual_first_name",
+            "next": "prompt_manual_last_name"
+        },
+        "prompt_manual_last_name": {
+            "type": "input",
+            "prompt": "Please enter your correct Last Name:",
+            "schema": {
+                "kind": "string"
+            },
+            "assign": "manual_last_name",
+            "next": "prompt_manual_dob"
+        },
+        "prompt_manual_dob": {
+            "type": "input",
+            "prompt": "Please enter your Date of Birth (DD/MM/YYYY):",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[0-9]{2}/[0-9]{2}/[0-9]{4}$"
+            },
+            "assign": "manual_dob",
+            "next": "prompt_manual_email"
+        },
+        "prompt_manual_email": {
+            "type": "input",
+            "prompt": "Please enter your Email Address:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+                "normalise": "lower_trim",
+                "invalid_message": "Please enter a valid email address (e.g., name@example.com)."
+            },
+            "assign": "manual_email",
+            "next": "prompt_manual_licence_no"
+        },
+        "prompt_manual_licence_no": {
+            "type": "input",
+            "prompt": "Please enter your Driving Licence Number:",
+            "schema": {
+                "kind": "string"
+            },
+            "assign": "manual_licence_no",
+            "next": "confirm_manual_summary"
+        },
+        "confirm_manual_summary": {
+            "type": "input",
+            "prompt": "Please confirm your updated details are correct:\nName: {{manual_first_name}} {{manual_last_name}}\nDOB: {{manual_dob}}\nEmail: {{manual_email}}\nLicence Number: {{manual_licence_no}}",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "manual_summary_confirmed",
+            "next": "branch_manual_summary"
+        },
+        "branch_manual_summary": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "manual_summary_confirmed"
+                    },
+                    "next": "end_manual_updated"
+                }
+            ],
+            "default": "prompt_manual_first_name"
+        },
+        "end_success": {
+            "type": "end",
+            "status": "success",
+            "outcome": "details_confirmed",
+            "return": {
+                "driver_id": {
+                    "$": "driver.driver_id"
+                },
+                "email": {
+                    "$": "driver.email"
+                }
+            }
+        },
+        "end_manual_updated": {
+            "type": "end",
+            "status": "success",
+            "outcome": "details_manually_updated",
+            "return": {
+                "driver_id": {
+                    "$": "manual_licence_no"
+                },
+                "email": {
+                    "$": "manual_email"
+                }
+            }
+        },
+        "end_api_failure": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "api_failure"
+        }
+    }
+}

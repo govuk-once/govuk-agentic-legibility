@@ -1,0 +1,198 @@
+{
+    "process_id": "photo_update",
+    "version": "0.1.0",
+    "start": "check_photocard",
+    "vars": {
+        "photocard_res": null,
+        "user_wants_upload": false,
+        "uploaded_photo": null,
+        "photo_validation": null,
+        "upload_attempts": 0
+    },
+    "states": {
+        "check_photocard": {
+            "type": "call",
+            "method": "GET",
+            "service": "dvla",
+            "url": "/app/dvla/v1/photo_expiry/{{input.driver_id}}",
+            "idempotency_key": "{{workflow_id}}:check_photocard",
+            "assign": "photocard_res",
+            "capture": {
+                "expired": "body.expired",
+                "photo_id": "body.photo_id"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "prompt_mandatory_upload"
+                }
+            ],
+            "next": "branch_photocard_expired"
+        },
+        "branch_photocard_expired": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "photocard_res.expired"
+                    },
+                    "next": "prompt_mandatory_upload"
+                }
+            ],
+            "default": "prompt_optional_upload"
+        },
+        "prompt_optional_upload": {
+            "type": "input",
+            "prompt": "Your photocard photo is up to date. Would you still like to upload a new photo?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "user_wants_upload",
+            "next": "branch_optional_upload"
+        },
+        "branch_optional_upload": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "user_wants_upload"
+                    },
+                    "next": "prompt_photo_upload"
+                }
+            ],
+            "default": "say_photo_up_to_date"
+        },
+        "say_photo_up_to_date": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your current photocard photo will be kept.",
+            "next": "end_photo_reused"
+        },
+        "prompt_mandatory_upload": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your photocard photo has expired and must be updated.",
+            "next": "prompt_photo_upload"
+        },
+        "prompt_photo_upload": {
+            "type": "input",
+            "prompt": "Please upload a new passport-style photo file:",
+            "schema": {
+                "kind": "file_ref"
+            },
+            "assign": "uploaded_photo",
+            "next": "validate_photo_api"
+        },
+        "validate_photo_api": {
+            "type": "call",
+            "method": "POST",
+            "service": "dvla",
+            "url": "/app/dvla/v1/photo_validity",
+            "body": {
+                "driver_id": {
+                    "$": "input.driver_id"
+                },
+                "photo_data": {
+                    "$": "uploaded_photo"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:upload_photo_{{upload_attempts}}",
+            "assign": "photo_validation",
+            "capture": {
+                "uploaded_photo_id": "body.photo_id",
+                "is_icao_compliant": "body.photo.icaoCompliant"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "increment_attempt_counter"
+                }
+            ],
+            "next": "branch_photo_validation"
+        },
+        "branch_photo_validation": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "photo_validation.is_icao_compliant"
+                    },
+                    "next": "say_photo_accepted"
+                }
+            ],
+            "default": "increment_attempt_counter"
+        },
+        "say_photo_accepted": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Your uploaded photo has been validated and accepted.",
+            "next": "end_uploaded_photo"
+        },
+        "increment_attempt_counter": {
+            "type": "assign",
+            "set": {
+                "upload_attempts": {
+                    "op": "add",
+                    "path": "upload_attempts",
+                    "value": 1
+                }
+            },
+            "next": "check_retry_limit"
+        },
+        "check_retry_limit": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "gte",
+                        "path": "upload_attempts",
+                        "value": 3
+                    },
+                    "next": "say_max_attempts_exceeded"
+                }
+            ],
+            "default": "say_invalid_photo_retry"
+        },
+        "say_invalid_photo_retry": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "The uploaded photo was invalid. Please try uploading again (Attempt {{upload_attempts}} of 3).",
+            "next": "prompt_photo_upload"
+        },
+        "say_max_attempts_exceeded": {
+            "type": "output",
+            "channel": "transcript",
+            "message": "Maximum photo upload attempts exceeded. Please try again later.",
+            "next": "end_invalid_photo"
+        },
+        "end_photo_reused": {
+            "type": "end",
+            "status": "success",
+            "outcome": "photo_reused",
+            "return": {
+                "$": "photocard_res.photo_id"
+            }
+        },
+        "end_uploaded_photo": {
+            "type": "end",
+            "status": "success",
+            "outcome": "photo_updated",
+            "return": {
+                "$": "photo_validation.uploaded_photo_id"
+            }
+        },
+        "end_invalid_photo": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "invalid_photo"
+        },
+        "end_api_failure": {
+            "type": "end",
+            "status": "failed",
+            "outcome": "api_failure"
+        }
+    }
+}

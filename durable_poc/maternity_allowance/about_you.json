@@ -1,0 +1,322 @@
+{
+    "process_id": "about_you",
+    "version": "0.1.0",
+    "start": "prompt_nino",
+    "vars": {
+        "nino": null,
+        "lookup_res": null,
+        "details_confirmed": null,
+        "title": null,
+        "first_name": null,
+        "middle_name": null,
+        "surname": null,
+        "dob": null,
+        "phone": null,
+        "address_line_1": null,
+        "address_line_2": null,
+        "town_or_city": null,
+        "postcode": null,
+        "manual_summary_confirmed": null
+    },
+    "states": {
+        "prompt_nino": {
+            "type": "input",
+            "prompt": "Please enter your National Insurance Number to verify your identity:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[A-CEGHJ-PR-TW-Z]{1}[A-CEGHJ-NPR-TW-Z]{1}[0-9]{6}[A-D]{1}$",
+                "normalise": "upper_trim",
+                "invalid_message": "Please enter a valid UK National Insurance number."
+            },
+            "assign": "nino",
+            "next": "lookup_identity_api"
+        },
+        "lookup_identity_api": {
+            "type": "call",
+            "method": "POST",
+            "service": "dwp",
+            "url": "/app/dwp/v1/identity-lookup",
+            "body": {
+                "nino": {
+                    "$": "nino"
+                }
+            },
+            "idempotency_key": "{{workflow_id}}:identity_lookup_{{nino}}",
+            "assign": "lookup_res",
+            "capture": {
+                "title": "body.title",
+                "first_name": "body.first_name",
+                "middle_name": "body.middle_name",
+                "surname": "body.surname",
+                "date_of_birth": "body.date_of_birth",
+                "phone": "body.phone",
+                "address": "body.address"
+            },
+            "catch": [
+                {
+                    "on": "any",
+                    "next": "prompt_manual_title"
+                }
+            ],
+            "next": "confirm_fetched_identity"
+        },
+        "confirm_fetched_identity": {
+            "type": "input",
+            "prompt": "We found the following identity records with DWP:\n• Title: {{lookup_res.title}}\n• First Name: {{lookup_res.first_name}}\n• Middle Name: {{lookup_res.middle_name}}\n• Surname: {{lookup_res.surname}}\n• Date of Birth: {{lookup_res.date_of_birth}}\n• Phone Number: {{lookup_res.phone}}\n• Address Line 1: {{lookup_res.address.address_line_1}}\n• Address Line 2: {{lookup_res.address.address_line_2}}\n• Town or City: {{lookup_res.address.town_or_city}}\n• Postcode: {{lookup_res.address.postcode}}\n\nAre these details correct?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "details_confirmed",
+            "next": "branch_identity_confirmation"
+        },
+        "branch_identity_confirmation": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "details_confirmed"
+                    },
+                    "next": "end_identity_success"
+                }
+            ],
+            "default": "prompt_manual_title"
+        },
+        "prompt_manual_title": {
+            "type": "input",
+            "prompt": "Please select your Title:",
+            "schema": {
+                "kind": "select_one",
+                "options": [
+                    {
+                        "value": "mrs",
+                        "label": "Mrs"
+                    },
+                    {
+                        "value": "ms",
+                        "label": "Ms"
+                    },
+                    {
+                        "value": "miss",
+                        "label": "Miss"
+                    },
+                    {
+                        "value": "mr",
+                        "label": "Mr"
+                    },
+                    {
+                        "value": "dr",
+                        "label": "Dr"
+                    }
+                ]
+            },
+            "assign": "title",
+            "next": "prompt_manual_first_name"
+        },
+        "prompt_manual_first_name": {
+            "type": "input",
+            "prompt": "Please enter your First Name:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[a-zA-Z\\s\\-']{2,50}$",
+                "invalid_message": "Please enter a valid first name using letters."
+            },
+            "assign": "first_name",
+            "next": "prompt_manual_middle_name"
+        },
+        "prompt_manual_middle_name": {
+            "type": "input",
+            "prompt": "Please enter your Middle Name:",
+            "schema": {
+                "kind": "string"
+            },
+            "assign": "middle_name",
+            "next": "prompt_manual_surname"
+        },
+        "prompt_manual_surname": {
+            "type": "input",
+            "prompt": "Please enter your Surname:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[a-zA-Z\\s\\-']{2,50}$",
+                "invalid_message": "Please enter a valid surname using letters."
+            },
+            "assign": "surname",
+            "next": "prompt_manual_dob"
+        },
+        "prompt_manual_dob": {
+            "type": "input",
+            "prompt": "Please enter your Date of Birth (DD/MM/YYYY):",
+            "schema": {
+                "kind": "string",
+                "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[012])/(19|20)\\d{2}$",
+                "invalid_message": "Please enter a valid date of birth in DD/MM/YYYY format."
+            },
+            "assign": "dob",
+            "next": "prompt_manual_phone"
+        },
+        "prompt_manual_phone": {
+            "type": "input",
+            "prompt": "Please enter your UK contact Phone Number:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^(?:0|\\+?44)\\d{9,10}$",
+                "invalid_message": "Please enter a valid UK telephone number."
+            },
+            "assign": "phone",
+            "next": "prompt_manual_address_line_1"
+        },
+        "prompt_manual_address_line_1": {
+            "type": "input",
+            "prompt": "Please enter your Address Line 1 (Building number and street):",
+            "schema": {
+                "kind": "string",
+                "pattern": "^.{3,100}$",
+                "invalid_message": "Please enter a valid street address."
+            },
+            "assign": "address_line_1",
+            "next": "prompt_manual_address_line_2"
+        },
+        "prompt_manual_address_line_2": {
+            "type": "input",
+            "prompt": "Please enter Address Line 2:",
+            "schema": {
+                "kind": "string"
+            },
+            "assign": "address_line_2",
+            "next": "prompt_manual_town_or_city"
+        },
+        "prompt_manual_town_or_city": {
+            "type": "input",
+            "prompt": "Please enter your Town or City:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[a-zA-Z\\s\\-']{2,50}$",
+                "invalid_message": "Please enter a valid town or city name."
+            },
+            "assign": "town_or_city",
+            "next": "prompt_manual_postcode"
+        },
+        "prompt_manual_postcode": {
+            "type": "input",
+            "prompt": "Please enter your Postcode:",
+            "schema": {
+                "kind": "string",
+                "pattern": "^[A-Z]{1,2}[0-9][A-Z0-9]?\\s?[0-9][A-Z]{2}$",
+                "invalid_message": "Please enter a valid UK postcode."
+            },
+            "assign": "postcode",
+            "next": "confirm_manual_summary"
+        },
+        "confirm_manual_summary": {
+            "type": "input",
+            "prompt": "Please confirm your entered details:\n• Title: {{title}}\n• First Name: {{first_name}}\n• Middle Name: {{middle_name}}\n• Surname: {{surname}}\n• Date of Birth: {{dob}}\n• Phone Number: {{phone}}\n• Address Line 1: {{address_line_1}}\n• Address Line 2: {{address_line_2}}\n• Town/City: {{town_or_city}}\n• Postcode: {{postcode}}\n\nAre these details correct?",
+            "schema": {
+                "kind": "boolean"
+            },
+            "assign": "manual_summary_confirmed",
+            "next": "branch_manual_summary"
+        },
+        "branch_manual_summary": {
+            "type": "choice",
+            "rules": [
+                {
+                    "when": {
+                        "op": "is_true",
+                        "path": "manual_summary_confirmed"
+                    },
+                    "next": "end_identity_manual"
+                }
+            ],
+            "default": "prompt_manual_title"
+        },
+        "end_identity_success": {
+            "type": "end",
+            "status": "success",
+            "outcome": "identity_confirmed_via_dwp",
+            "return": {
+                "identity": {
+                    "nino": {
+                        "$": "nino"
+                    },
+                    "title": {
+                        "$": "lookup_res.title"
+                    },
+                    "first_name": {
+                        "$": "lookup_res.first_name"
+                    },
+                    "middle_name": {
+                        "$": "lookup_res.middle_name"
+                    },
+                    "surname": {
+                        "$": "lookup_res.surname"
+                    },
+                    "date_of_birth": {
+                        "$": "lookup_res.date_of_birth"
+                    },
+                    "phone": {
+                        "$": "lookup_res.phone"
+                    },
+                    "address": {
+                        "address_line_1": {
+                            "$": "lookup_res.address.address_line_1"
+                        },
+                        "address_line_2": {
+                            "$": "lookup_res.address.address_line_2"
+                        },
+                        "town_or_city": {
+                            "$": "lookup_res.address.town_or_city"
+                        },
+                        "postcode": {
+                            "$": "lookup_res.address.postcode"
+                        }
+                    }
+                }
+            }
+        },
+        "end_identity_manual": {
+            "type": "end",
+            "status": "success",
+            "outcome": "identity_entered_manually",
+            "return": {
+                "identity": {
+                    "nino": {
+                        "$": "nino"
+                    },
+                    "title": {
+                        "$": "title"
+                    },
+                    "first_name": {
+                        "$": "first_name"
+                    },
+                    "middle_name": {
+                        "$": "middle_name"
+                    },
+                    "surname": {
+                        "$": "surname"
+                    },
+                    "date_of_birth": {
+                        "$": "dob"
+                    },
+                    "phone": {
+                        "$": "phone"
+                    },
+                    "address": {
+                        "address_line_1": {
+                            "$": "address_line_1"
+                        },
+                        "address_line_2": {
+                            "$": "address_line_2"
+                        },
+                        "town_or_city": {
+                            "$": "town_or_city"
+                        },
+                        "postcode": {
+                            "$": "postcode"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
