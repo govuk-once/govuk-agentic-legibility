@@ -10,7 +10,6 @@
 	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
-	import { saveFormForReview } from '../review-store';
 	import { formHiddenStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
 
@@ -57,11 +56,10 @@
 		return true;
 	}
 
-	// Saves the form and goes on to owner review. The form has passed its check by now, and the review pages check
-	// it again when they load it. It is also held in the browser tab for the review pages, until they open the draft.
+	// Saves the form and goes on to owner review, which opens the same draft. The form has passed its check by now,
+	// and the review pages check it again when they open it.
 	async function sendToOwnerReview(): Promise<boolean> {
 		if (!(await keepDraft('Owner review'))) return false;
-		saveFormForReview(workingWorkflow);
 		await goto(resolve('/owner-review/form'));
 		return true;
 	}

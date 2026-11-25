@@ -4,7 +4,7 @@
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { apiCallSteps } from '$lib/form-editor/flex-connections';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveFormForReview } from '$lib/form-editor/review-store';
+	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { developerSteps, stepValuesSummary, withTechReviewChecked } from '$lib/form-editor/step-values/step-values';
 	import { techReviewProgress } from '$lib/form-editor/tech-review-progress.svelte';
 	import { describeWorkflowSettings } from '$lib/form-editor/tech-review-summary';
@@ -22,11 +22,11 @@
 	const ready = $derived(allConnected && allChecked);
 
 	/**
-	 * Writes the time of sending into every developer step, keeps the form in the browser tab and goes back to the
+	 * Writes the time of sending into every developer step, saves the draft at the owner review stage and goes back to the
 	 * owner review, which reads those times to show the technical review as complete so the owner can sign off.
 	 */
 	async function sendForOwnerReview() {
-		saveFormForReview(withTechReviewChecked(data.workflow, new Date().toISOString()));
+		await saveReviewedForm(data.draft, withTechReviewChecked(data.workflow, new Date().toISOString()), 'Owner review');
 		// The owner review opens the form again when it loads, so it picks up the times just written.
 		await goto(resolve('/owner-review/form/review'));
 	}

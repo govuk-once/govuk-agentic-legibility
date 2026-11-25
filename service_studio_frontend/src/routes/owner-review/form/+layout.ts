@@ -1,9 +1,9 @@
-import { openFormForReview } from '$lib/form-editor/review-store';
+import { openDraftForReview } from '$lib/form-editor/review-draft';
 import type { LayoutLoad } from './$types';
 
-// The form sent on from the editor is held in this browser tab, so the pages are built in the browser and never on
-// the server, where there is no tab to read it from.
+// The draft is kept in this browser, so the pages are built in the browser and never on the server, where there is no
+// browser storage to read it from.
 export const ssr = false;
 
 // Every step of the owner review works on the same form, so it is opened once here.
-export const load: LayoutLoad = () => ({ workflow: openFormForReview() });
+export const load: LayoutLoad = () => openDraftForReview();

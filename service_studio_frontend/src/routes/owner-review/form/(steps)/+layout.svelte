@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Progress from '$lib/components/Progress.svelte';
 	import ReviewPageTitle from '$lib/components/ReviewPageTitle.svelte';
 	import { stagesAt } from '$lib/components/progress-stages';
@@ -17,6 +18,11 @@
 <Progress {stages} />
 
 <main>
+	<!-- The owner can go back to the editor at any point, to change the form and send it on again. The editor opens
+		the same draft, because it is the one open in this browser tab. -->
+	<div class="owner-review__back">
+		<a class="govuk-back-link" href={resolve('/edit-form/draft')}>Back to the editor</a>
+	</div>
 	<ReviewPageTitle
 		caption={data.workflow.manifest.description}
 		heading="Owner review"
@@ -24,3 +30,15 @@
 	/>
 	{@render children()}
 </main>
+
+<style>
+	.owner-review__back {
+		padding-inline: 40px;
+	}
+
+	@media (max-width: 640px) {
+		.owner-review__back {
+			padding-inline: 15px;
+		}
+	}
+</style>

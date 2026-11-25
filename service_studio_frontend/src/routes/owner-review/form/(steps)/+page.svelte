@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveFormForReview } from '$lib/form-editor/review-store';
+	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import {
 		agentNotesLimit,
 		ownerDetailsOf,
@@ -48,7 +48,7 @@
 	};
 
 	/**
-	 * Checks the details and, when they pass, writes them into the form held in the browser tab and goes on to the
+	 * Checks the details and, when they pass, saves them into the draft and goes on to the
 	 * review. When they do not, the problems are listed at the top and the list is focused, as GOV.UK error summaries are.
 	 */
 	async function continueToReview(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
@@ -69,7 +69,7 @@
 			errorSummary?.focus();
 			return;
 		}
-		saveFormForReview({ ...data.workflow, manifest: withOwnerDetails(data.workflow.manifest, details) });
+		await saveReviewedForm(data.draft, { ...data.workflow, manifest: withOwnerDetails(data.workflow.manifest, details) }, 'Owner review');
 		// The layout opened the form before the details were added, so it is opened again to pick them up.
 		await goto(resolve('/owner-review/form/review'), { invalidateAll: true });
 	}

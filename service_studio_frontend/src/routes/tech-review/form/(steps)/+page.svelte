@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveFormForReview } from '$lib/form-editor/review-store';
+	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { describeDuration } from '$lib/process-graph/describe-value';
 	import { stateTitle } from '$lib/process-graph/process-to-graph';
 	import { durationFrom, durationInSeconds, timeUnits, type TimeUnit } from '$lib/schema/workflow/durations';
@@ -60,7 +60,7 @@
 	};
 
 	/**
-	 * Checks the settings and, when they pass, writes them into the form held in the browser tab and goes on to the
+	 * Checks the settings and, when they pass, saves them into the draft and goes on to the
 	 * Flex connections. When they do not, the problems are listed at the top and the list is focused.
 	 */
 	async function continueToFlex(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
@@ -80,7 +80,7 @@
 			errorSummary?.focus();
 			return;
 		}
-		saveFormForReview({ ...data.workflow, manifest: withWorkflowSettings(data.workflow.manifest, settings) });
+		await saveReviewedForm(data.draft, { ...data.workflow, manifest: withWorkflowSettings(data.workflow.manifest, settings) }, 'Tech review');
 		// The layout opened the form before the settings were changed, so it is opened again to pick them up.
 		await goto(resolve('/tech-review/form/flex'), { invalidateAll: true });
 	}

@@ -6,7 +6,7 @@
 	import AssignValues from '$lib/form-editor/components/AssignValues.svelte';
 	import WaitValues from '$lib/form-editor/components/WaitValues.svelte';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveFormForReview } from '$lib/form-editor/review-store';
+	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { stateLabels, stateTagColours } from '$lib/form-editor/state-labels';
 	import { developerSteps, stepValuesSummary, withEntryState } from '$lib/form-editor/step-values/step-values';
 	import { techReviewProgress } from '$lib/form-editor/tech-review-progress.svelte';
@@ -25,11 +25,11 @@
 	let openStep = $state<string>();
 
 	/**
-	 * Saves a step with its checked values into the form held in the browser tab, marks it as checked and closes its
+	 * Saves a step with its checked values into the draft, marks it as checked and closes its
 	 * panel.
 	 */
 	async function saveChecked(code: string, state: WorkingState) {
-		saveFormForReview(withEntryState(data.workflow, code, state));
+		await saveReviewedForm(data.draft, withEntryState(data.workflow, code, state), 'Tech review');
 		if (!isChecked(code)) techReviewProgress.checkedSteps.push(code);
 		openStep = undefined;
 		// The layout opened the form before the step was changed, so it is opened again to pick up the change.

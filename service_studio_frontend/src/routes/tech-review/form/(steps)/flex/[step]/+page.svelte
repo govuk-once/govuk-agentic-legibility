@@ -5,7 +5,7 @@
 	import { bodyForEndpoint, summariseBody, usesEndpoint, withEndpoint, type FlexEndpoint } from '$lib/form-editor/flex-connections';
 	import { placeholderEndpoints } from '$lib/form-editor/placeholder-endpoints';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveFormForReview } from '$lib/form-editor/review-store';
+	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -20,12 +20,12 @@
 	const bodySummary = $derived(body && summariseBody(body));
 
 	/**
-	 * Writes the chosen endpoint into the API call step, keeps the form in the browser tab and goes back to the list
+	 * Writes the chosen endpoint into the API call step, saves the draft and goes back to the list
 	 * of Flex connections, which then shows the call as connected.
 	 */
 	async function useEndpoint() {
 		if (!selected) return;
-		saveFormForReview(withEndpoint(data.workflow, data.call.code, selected));
+		await saveReviewedForm(data.draft, withEndpoint(data.workflow, data.call.code, selected), 'Tech review');
 		// The layout opened the form before the call was changed, so it is opened again to pick up the change.
 		await goto(resolve('/tech-review/form/flex'), { invalidateAll: true });
 	}
