@@ -8,7 +8,8 @@ import type { Workflow } from '$lib/schema/workflow/workflow';
 	storage lasts for the life of the tab and is never sent to a server, and it survives a reload of the editor.
 	It is only a hand over and not a place to save work: changes made in the editor are not written back.
 
-	Each editor keeps its drafts under its own storage key, so a service draft and a form draft never mix.
+	The service editor uses it under its own storage key. Forms are saved as drafts that can be opened again, in
+	drafts/draft-store.ts, so they do not use this hand over.
 */
 
 export type DraftLoad =

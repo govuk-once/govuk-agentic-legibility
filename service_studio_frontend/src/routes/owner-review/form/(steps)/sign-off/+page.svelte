@@ -4,6 +4,7 @@
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
+	import { deleteDraft } from '$lib/drafts/draft-store';
 	import { saveDraftAsItIs } from '$lib/form-editor/review-draft';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { isTechReviewFinished } from '$lib/form-editor/tech-review-summary';
@@ -25,6 +26,16 @@
 		{ label: 'I have read the citizen journey', done: data.draft.reviewProgress.journeyRead }
 	]);
 	const ready = $derived(checklist.every((item) => item.done));
+
+	/**
+	 * Publishes the form. Publishing does not send it anywhere yet, so for now it deletes the draft, because a published
+	 * form is no longer a draft, and passes what the next page shows about the form with the navigation to it.
+	 */
+	async function publish() {
+		const { description, version, contact } = data.workflow.manifest;
+		await deleteDraft(data.draft.id);
+		await goto(resolve('/owner-review/form/published'), { state: { published: { description, version, contact } } });
+	}
 </script>
 
 <svelte:head>
@@ -74,13 +85,8 @@
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/owner-review/form/review')}>Back</a>
 		<SaveDraftButton onSave={() => saveDraftAsItIs(data.draft, 'Owner review')} />
-		<!-- Publishing will send the form to the workflow server. For now it only shows what happens after. -->
-		<button
-			class="govuk-button govuk-!-margin-bottom-0"
-			type="button"
-			disabled={!ready}
-			onclick={() => goto(resolve('/owner-review/form/published'))}
-		>
+		<!-- Publishing will send the form to the workflow server. For now it deletes the draft and shows what happens after. -->
+		<button class="govuk-button govuk-!-margin-bottom-0" type="button" disabled={!ready} onclick={publish}>
 			Publish
 		</button>
 	{/snippet}
