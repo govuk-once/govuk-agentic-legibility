@@ -45,6 +45,8 @@
 
   let recording = $state(false);
   let voiceStatus: string | null = $state(null);
+  let speaking = $state(false);
+  let speakQueue: string[] = $state([]);
   let micError: string | null = $state(null);
   let activeRecorder: PcmRecording | null = null;
 
@@ -58,13 +60,17 @@
     stopWatching = watchRun(id, handleEvent);
   }
 
-  async function speak(text: string) {
+
+  async function speak() {
+    if (speaking === true) return;
     try {
       voiceStatus = 'Speaking…';
+      const text = speakQueue.pop();
       const blob = await synthesizeSpeech(text);
       const url = URL.createObjectURL(blob);
       try {
         const audio = new Audio(url);
+        speaking = true;
         await new Promise<void>((resolve) => {
           audio.onended = () => resolve();
           audio.onerror = () => resolve();
@@ -72,6 +78,10 @@
         });
       } finally {
         URL.revokeObjectURL(url);
+        speaking = false;
+        if (speakQueue.length > 0) {
+          void speak();
+        }
       }
     } catch {
       // Non-fatal: the assistant's reply is already shown in the transcript.
@@ -80,12 +90,15 @@
     }
   }
 
-  function handleEvent(event: RunEvent) {
+  function handleEvent(event: RunEvent, speakIt = false) {
     if (event.type === 'message' && event.text) {
       const role = event.role ?? 'assistant';
-      transcript = [...transcript, { role, text: event.text }];
-      if (role === 'assistant') {
-        void speak(event.text);
+      if (speakIt && role === 'assistant') {
+        speakQueue.push(event.text);
+        void speak();
+        //void speak(event.text);
+        // Only appends the spoken LLM response to the transcript
+        transcript = [...transcript, { role, text: event.text }];
       }
     } else if (event.type === 'trace') {
       if (
@@ -128,7 +141,7 @@
     error = null;
     voiceStatus = 'Thinking…';
     try {
-      await sendChatMessage(conversationId, text, handleEvent);
+      await sendChatMessage(conversationId, text, (event) => handleEvent(event, true));
     } catch (err) {
       error = err instanceof DurableApiError ? err.message : 'Failed to send message';
     } finally {
