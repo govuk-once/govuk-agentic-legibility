@@ -30,7 +30,7 @@ function fakeStorage() {
 
 const workflow = serviceExamples.find((candidate) => candidate.slug === 'change_of_address')!.workflow!;
 
-const firstDraft = { id: 'first', name: 'Change of address', stage: 'Edit' as const, workflow, positions: { start: { x: 10, y: 20 } } };
+const firstDraft = { id: 'first', name: 'Change of address', stage: 'Edit' as const, steps: 6, workflow, positions: { start: { x: 10, y: 20 } }, reviewProgress: { checkedSteps: ['call_api'], journeyRead: true } };
 
 let local: ReturnType<typeof fakeStorage>;
 let session: ReturnType<typeof fakeStorage>;
@@ -76,6 +76,16 @@ describe('saving and opening a draft', () => {
 		expect(await openDraft('first')).toEqual({ ok: false, reason: 'missing' });
 	});
 
+	it('reads a draft saved before review progress was kept as not reviewed yet', async () => {
+		await saveDraft(firstDraft);
+		const stored = JSON.parse(local.items.get('service-studio.draft.first')!);
+		delete stored.reviewProgress;
+		local.items.set('service-studio.draft.first', JSON.stringify(stored));
+
+		const opened = await openDraft('first');
+		expect(opened.ok && opened.draft.reviewProgress).toEqual({ checkedSteps: [], journeyRead: false });
+	});
+
 	it('says a draft is missing when nothing was saved with that id', async () => {
 		expect(await openDraft('nothing')).toEqual({ ok: false, reason: 'missing' });
 	});
@@ -107,8 +117,8 @@ describe('the list of drafts', () => {
 		await saveDraft({ ...firstDraft, id: 'second', name: 'Trainer information', stage: 'Tech review' });
 
 		expect(await listDrafts()).toEqual([
-			{ id: 'second', name: 'Trainer information', stage: 'Tech review', savedAt: '2026-11-24T11:00:00.000Z' },
-			{ id: 'first', name: 'Change of address', stage: 'Edit', savedAt: '2026-11-24T10:00:00.000Z' }
+			{ id: 'second', name: 'Trainer information', stage: 'Tech review', steps: 6, savedAt: '2026-11-24T11:00:00.000Z' },
+			{ id: 'first', name: 'Change of address', stage: 'Edit', steps: 6, savedAt: '2026-11-24T10:00:00.000Z' }
 		]);
 	});
 

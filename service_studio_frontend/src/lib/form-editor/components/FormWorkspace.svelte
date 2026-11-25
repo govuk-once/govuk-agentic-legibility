@@ -27,6 +27,7 @@
 	import DecisionEditCard from './DecisionEditCard.svelte';
 	import DeveloperStateCard from './DeveloperStateCard.svelte';
 	import ProblemsDrawer from './ProblemsDrawer.svelte';
+	import SaveDraftButton from './SaveDraftButton.svelte';
 	import StateEditCard from './StateEditCard.svelte';
 
 	interface Props {
@@ -52,8 +53,8 @@
 		// change to the context of one step. The page holds it for the same reason as the positions.
 		stepContext: Record<string, ContextItem[]>;
 		onChangeStepContext: (code: string, items: ContextItem[]) => void;
-		// Saves the form as a draft, so it can be opened again later. Says whether it was saved, because the browser
-		// may refuse to store it. The page holds the whole form, so it is the page that saves it.
+		// Saves the form as a draft, so it can be opened again later, and gives true once it is saved. The promise is
+		// rejected when the browser will not store it. The page holds the whole form, so it is the page that saves it.
 		onSaveDraft: () => Promise<boolean>;
 		// Called when the form has passed its check and goes on to owner review. Says whether it went, because the
 		// form is saved first and the browser may refuse to store it.
@@ -132,22 +133,11 @@
 	 */
 	async function sendToOwnerReview() {
 		sendRefused = errors.length > 0;
-		if (!sendRefused) saveFailed = !(await onSendToOwnerReview());
+		if (!sendRefused) sendFailed = !(await onSendToOwnerReview());
 	}
 
-	// The time the draft was last saved, shown by the buttons, and whether the last save was refused by the browser.
-	let savedAt = $state<Date>();
-	let saveFailed = $state(false);
-
-	/**
-	 * Saves the form as a draft. It can be saved with errors and warnings, because a draft is a way to stop part way
-	 * through or to ask for help before the form is finished.
-	 */
-	async function saveDraft() {
-		const saved = await onSaveDraft();
-		saveFailed = !saved;
-		if (saved) savedAt = new Date();
-	}
+	// Whether the form could not be sent because the browser would not store its draft.
+	let sendFailed = $state(false);
 
 	// The state highlighted on the graph and in the list, and whether its card is open in place of the list. They
 	// are held together so choosing a different state always closes a card that was left open.
@@ -309,14 +299,12 @@
 					{#if sendRefused && errors.length > 0}
 						<p class="govuk-error-message govuk-!-font-size-16 govuk-!-margin-bottom-0" role="alert">Fix the errors in problems before sending</p>
 					{/if}
-					{#if saveFailed}
-						<p class="govuk-error-message govuk-!-font-size-16 govuk-!-margin-bottom-0" role="alert">The draft could not be saved in this browser</p>
-					{:else if savedAt}
-						<p class="govuk-body-s govuk-!-margin-bottom-0" role="status">
-							Draft saved at {savedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-						</p>
+					{#if sendFailed}
+						<p class="govuk-error-message govuk-!-font-size-16 govuk-!-margin-bottom-0" role="alert">The draft could not be saved in this browser, so it was not sent</p>
 					{/if}
-					<button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" type="button" onclick={saveDraft}>Save draft</button>
+					<!-- A draft can be saved with errors and warnings, because it is a way to stop part way through or to ask for
+						help before the form is finished. -->
+					<SaveDraftButton onSave={onSaveDraft} />
 					<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendToOwnerReview}>Send to review</button>
 				{/snippet}
 			</ProblemsDrawer>

@@ -16,9 +16,11 @@
 		state: Extract<WorkingState, { state_type: 'api_call' }>;
 		// Saves the step with its checked values and marks it as checked.
 		onchecked: (state: WorkingState) => void;
+		// Closes the panel without saving.
+		oncancel: () => void;
 	}
 
-	let { code, title, state, onchecked }: Props = $props();
+	let { code, title, state, onchecked, oncancel }: Props = $props();
 
 	const values = $derived(apiCallValuesOf(state));
 	const captures = $derived(Object.entries(state.capture ?? {}));
@@ -43,7 +45,7 @@
 	}
 </script>
 
-<StepValuesForm {title} onmark={mark}>
+<StepValuesForm {title} onmark={mark} {oncancel}>
 	{#snippet children(problemFor)}
 		<div class="govuk-grid-row">
 			<div class="govuk-grid-column-one-half">

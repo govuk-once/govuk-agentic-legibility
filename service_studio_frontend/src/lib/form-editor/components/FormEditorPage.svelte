@@ -5,11 +5,12 @@
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
-	import { saveDraft, setOpenDraft, type DraftStage } from '$lib/drafts/draft-store';
+	import { noReviewProgress, saveDraft, setOpenDraft, type DraftStage, type SavedDraft } from '$lib/drafts/draft-store';
 	import { noDrafts, type DraftSet } from '$lib/process-graph/drafts';
 	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
+	import { formStepCount } from '../form-step-count';
 	import { formHiddenStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
 
@@ -17,20 +18,19 @@
 		// The form to edit. The page edits the process the manifest names as its entry. A form opened from a saved
 		// draft may be unfinished, so it is taken in its editing shape.
 		workflow: WorkingWorkflow;
-		// The id of the saved draft the form was opened from, and where its boxes were dragged to. A form opened from
-		// an example has neither, and is given an id the first time it is saved.
-		draftId?: string;
-		savedPositions?: NodePositions;
+		// The saved draft the form was opened from, for its id, where its boxes were dragged to and how far its reviews
+		// have got. A form opened from an example has none, and is given an id the first time it is saved.
+		draft?: SavedDraft;
 	}
 
-	let { workflow, draftId: openedDraftId, savedPositions }: Props = $props();
+	let { workflow, draft }: Props = $props();
 
 	// The form being edited. It starts as the one that was loaded and is replaced by a new copy with every change. It
 	// is not checked against the schema while it is being edited, because a journey is allowed to be unfinished then.
 	let workingWorkflow = $derived<WorkingWorkflow>(workflow);
 
 	// The id the form is saved under, once it has one.
-	let draftId = $derived(openedDraftId);
+	let draftId = $derived(draft?.id);
 
 	const processId = $derived(workflow.manifest.entry);
 	const process = $derived(workingWorkflow.processes[processId]);
@@ -42,31 +42,38 @@
 
 	/**
 	 * Saves the form and where its boxes were dragged to as a draft, at the stage it is going on to, and marks it as
-	 * the draft open in this browser tab so the next page opens it. Says whether it was saved, because the browser may
-	 * refuse to store it.
+	 * the draft open in this browser tab so the next page opens it. The promise is rejected when the browser will not
+	 * store it.
 	 */
-	async function keepDraft(stage: DraftStage): Promise<boolean> {
+	async function keepDraft(stage: DraftStage): Promise<void> {
 		draftId ??= crypto.randomUUID();
-		try {
-			await saveDraft({ id: draftId, name: workflow.manifest.description, stage, workflow: workingWorkflow, positions });
-		} catch {
-			return false;
-		}
+		await saveDraft({
+			id: draftId,
+			name: workflow.manifest.description,
+			stage,
+			steps: formStepCount(process),
+			workflow: workingWorkflow,
+			positions,
+			reviewProgress: draft?.reviewProgress ?? noReviewProgress
+		});
 		setOpenDraft(draftId);
-		return true;
 	}
 
 	// Saves the form and goes on to owner review, which opens the same draft. The form has passed its check by now,
 	// and the review pages check it again when they open it.
 	async function sendToOwnerReview(): Promise<boolean> {
-		if (!(await keepDraft('Owner review'))) return false;
+		try {
+			await keepDraft('Owner review');
+		} catch {
+			return false;
+		}
 		await goto(resolve('/owner-review/form'));
 		return true;
 	}
 
 	// Where the person has dragged boxes to. It is saved with a draft, beside the form and not inside it, because it
 	// is only how the graph is drawn.
-	let positions = $derived<NodePositions>(savedPositions ?? {});
+	let positions = $derived<NodePositions>(draft?.positions ?? {});
 
 	function moveNodes(moved: NodePositions) {
 		positions = { ...positions, ...moved };
@@ -165,7 +172,10 @@
 			onChangeProcess={changeProcess}
 			{stepContext}
 			onChangeStepContext={(code, items) => (stepContext = { ...stepContext, [code]: items })}
-			onSaveDraft={() => keepDraft('Edit')}
+			onSaveDraft={async () => {
+				await keepDraft('Edit');
+				return true;
+			}}
 			onSendToOwnerReview={sendToOwnerReview}
 		/>
 	{/key}

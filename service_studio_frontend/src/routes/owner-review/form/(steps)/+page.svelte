@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import {
 		agentNotesLimit,
@@ -36,6 +37,7 @@
 	const notesProblem = $derived(problemFor('agentNotes'));
 
 	let errorSummary = $state<HTMLDivElement>();
+	let detailsForm = $state<HTMLFormElement>();
 
 	// The id of each field, so the error summary can link to it.
 	const fieldIds: Record<OwnerDetailsField, string> = {
@@ -47,15 +49,11 @@
 		agentNotes: 'agent-notes'
 	};
 
-	/**
-	 * Checks the details and, when they pass, saves them into the draft and goes on to the
-	 * review. When they do not, the problems are listed at the top and the list is focused, as GOV.UK error summaries are.
-	 */
-	async function continueToReview(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
-		event.preventDefault();
-		const fields = new FormData(event.currentTarget);
+	// Reads what is typed in each field.
+	function readDetails(form: HTMLFormElement): OwnerDetails {
+		const fields = new FormData(form);
 		const read = (field: OwnerDetailsField) => String(fields.get(field) ?? '');
-		const details: OwnerDetails = {
+		return {
 			firstName: read('firstName'),
 			lastName: read('lastName'),
 			department: read('department'),
@@ -63,15 +61,38 @@
 			agentPage: read('agentPage'),
 			agentNotes: read('agentNotes')
 		};
+	}
+
+	/**
+	 * Checks what is typed and, when every field passes, saves it into the draft. When any field has a problem nothing
+	 * is saved, and the problems are listed at the top and the list is focused, as GOV.UK error summaries are. Says
+	 * whether the details were saved.
+	 */
+	async function saveDetails(form: HTMLFormElement): Promise<boolean> {
+		const details = readDetails(form);
 		problems = ownerDetailsProblems(details);
 		if (problems.length > 0) {
 			await tick();
 			errorSummary?.focus();
-			return;
+			return false;
 		}
-		await saveReviewedForm(data.draft, { ...data.workflow, manifest: withOwnerDetails(data.workflow.manifest, details) }, 'Owner review');
-		// The layout opened the form before the details were added, so it is opened again to pick them up.
-		await goto(resolve('/owner-review/form/review'), { invalidateAll: true });
+		await saveReviewedForm(data.draft, { stage: 'Owner review', workflow: { ...data.workflow, manifest: withOwnerDetails(data.workflow.manifest, details) } });
+		return true;
+	}
+
+	// Saves the details and goes on to the review. The layout opened the form before the details were added, so it is
+	// opened again to pick them up.
+	async function continueToReview(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
+		event.preventDefault();
+		if (await saveDetails(event.currentTarget)) await goto(resolve('/owner-review/form/review'), { invalidateAll: true });
+	}
+
+	// Saves the details and stays on the page, so the owner can come back to the review later. The form is opened again
+	// so the page holds what was just saved.
+	async function saveDetailsDraft(): Promise<boolean> {
+		if (!detailsForm || !(await saveDetails(detailsForm))) return false;
+		await invalidateAll();
+		return true;
 	}
 </script>
 
@@ -135,7 +156,7 @@
 		</div>
 	{/if}
 
-	<form id="owner-details" novalidate onsubmit={continueToReview}>
+	<form id="owner-details" novalidate onsubmit={continueToReview} bind:this={detailsForm}>
 		<h2 class="govuk-heading-m govuk-!-margin-bottom-2">Owner</h2>
 		<p class="govuk-hint govuk-!-margin-bottom-4">
 			The person accountable for this form once it is live. Only they can sign off, and they are told whenever it
@@ -201,8 +222,8 @@
 	</form>
 
 	{#snippet actions()}
+		<SaveDraftButton onSave={saveDetailsDraft} />
 		<button class="govuk-button govuk-!-margin-bottom-0" type="submit" form="owner-details">Continue to review</button>
-		<a class="govuk-link" role="link" aria-disabled="true">Save for later</a>
 	{/snippet}
 </ReviewStep>
 

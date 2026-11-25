@@ -3,21 +3,23 @@
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import ApiCallValues from '$lib/form-editor/components/ApiCallValues.svelte';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import AssignValues from '$lib/form-editor/components/AssignValues.svelte';
 	import WaitValues from '$lib/form-editor/components/WaitValues.svelte';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveReviewedForm } from '$lib/form-editor/review-draft';
+	import { saveDraftAsItIs, saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { stateLabels, stateTagColours } from '$lib/form-editor/state-labels';
 	import { developerSteps, stepValuesSummary, withEntryState } from '$lib/form-editor/step-values/step-values';
-	import { techReviewProgress } from '$lib/form-editor/tech-review-progress.svelte';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	// The developer steps in journey order, and how many have been marked as checked while the tab has been open.
+	// The developer steps in journey order, and how many have been marked as checked. Which are checked is saved with
+	// the draft, so a developer can stop part way through and carry on later.
 	const steps = $derived(developerSteps(data.workflow));
-	const isChecked = (code: string) => techReviewProgress.checkedSteps.includes(code);
+	const checkedSteps = $derived(data.draft.reviewProgress.checkedSteps);
+	const isChecked = (code: string) => checkedSteps.includes(code);
 	const checked = $derived(steps.filter((step) => isChecked(step.code)).length);
 	const allChecked = $derived(checked === steps.length);
 
@@ -29,10 +31,13 @@
 	 * panel.
 	 */
 	async function saveChecked(code: string, state: WorkingState) {
-		await saveReviewedForm(data.draft, withEntryState(data.workflow, code, state), 'Tech review');
-		if (!isChecked(code)) techReviewProgress.checkedSteps.push(code);
+		await saveReviewedForm(data.draft, {
+			stage: 'Tech review',
+			workflow: withEntryState(data.workflow, code, state),
+			reviewProgress: { ...data.draft.reviewProgress, checkedSteps: isChecked(code) ? checkedSteps : [...checkedSteps, code] }
+		});
 		openStep = undefined;
-		// The layout opened the form before the step was changed, so it is opened again to pick up the change.
+		// The layout opened the draft before the step was changed, so it is opened again to pick up the change.
 		await invalidateAll();
 	}
 </script>
@@ -102,11 +107,11 @@
 						<tr class="govuk-table__row" id="step-values-{step.code}">
 							<td class="govuk-table__cell step-values__panel" colspan="4">
 								{#if step.state.state_type === 'api_call'}
-									<ApiCallValues code={step.code} title={step.title} state={step.state} onchecked={(state) => saveChecked(step.code, state)} />
+									<ApiCallValues code={step.code} title={step.title} state={step.state} onchecked={(state) => saveChecked(step.code, state)} oncancel={() => (openStep = undefined)} />
 								{:else if step.state.state_type === 'assign'}
-									<AssignValues title={step.title} state={step.state} onchecked={(state) => saveChecked(step.code, state)} />
+									<AssignValues title={step.title} state={step.state} onchecked={(state) => saveChecked(step.code, state)} oncancel={() => (openStep = undefined)} />
 								{:else if step.state.state_type === 'wait'}
-									<WaitValues title={step.title} state={step.state} onchecked={(state) => saveChecked(step.code, state)} />
+									<WaitValues title={step.title} state={step.state} onchecked={(state) => saveChecked(step.code, state)} oncancel={() => (openStep = undefined)} />
 								{/if}
 							</td>
 						</tr>
@@ -118,6 +123,7 @@
 
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/tech-review/form/flex')}>Back</a>
+		<SaveDraftButton onSave={() => saveDraftAsItIs(data.draft, 'Tech review')} />
 		{#if allChecked}
 			<a class="govuk-button govuk-!-margin-bottom-0" href={resolve('/tech-review/form/review')}>Continue to review</a>
 		{:else}

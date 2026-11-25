@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { apiCallSteps } from '$lib/form-editor/flex-connections';
 	import { stateLabels, stateTagColours } from '$lib/form-editor/state-labels';
+	import { saveDraftAsItIs } from '$lib/form-editor/review-draft';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
 	import type { PageProps } from './$types';
 
@@ -105,6 +107,7 @@
 
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/tech-review/form')}>Back</a>
+		<SaveDraftButton onSave={() => saveDraftAsItIs(data.draft, 'Tech review')} />
 		{#if allConnected}
 			<a class="govuk-button govuk-!-margin-bottom-0" href={resolve('/tech-review/form/step-values')}>Continue to step values</a>
 		{:else}

@@ -1,30 +1,31 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { startStages } from '$lib/components/progress-stages';
+	import { draftStageTags, editedAgo } from '$lib/drafts/describe-draft';
+	import { setOpenDraft, type DraftStage, type DraftSummary } from '$lib/drafts/draft-store';
+	import type { PageProps } from './$types';
 
-	// Sample drafts that show how the list will look. They are text until opening a saved draft is built.
-	const drafts = [
-		{
-			name: 'Renew your driving licence',
-			detail: '6 steps, edited 2 hours ago',
-			status: 'In policy review',
-			statusColour: 'yellow'
-		},
-		{
-			name: 'Book your theory test',
-			detail: '5 steps, edited yesterday',
-			status: 'Live',
-			statusColour: 'green'
-		},
-		{
-			name: 'Apply for a provisional licence',
-			detail: '8 steps, edited last week',
-			status: 'Draft',
-			statusColour: 'grey'
-		}
-	];
+	let { data }: PageProps = $props();
+
+	// The first page of each stage, so a draft opens where it was left.
+	const stagePages = {
+		Edit: '/edit-form/draft',
+		'Owner review': '/owner-review/form',
+		'Tech review': '/tech-review/form'
+	} as const satisfies Record<DraftStage, string>;
+
+	/**
+	 * Opens a draft where it was left. The draft is marked as the one open in this browser tab first, because the
+	 * page it opens on reads the draft from there.
+	 */
+	function openSavedDraft(event: MouseEvent, draft: DraftSummary) {
+		event.preventDefault();
+		setOpenDraft(draft.id);
+		goto(resolve(stagePages[draft.stage]));
+	}
 </script>
 
 <svelte:head>
@@ -116,15 +117,25 @@
 			<section aria-labelledby="drafts-heading">
 				<h2 id="drafts-heading" class="govuk-heading-m govuk-!-margin-bottom-2">Your drafts</h2>
 
-				<div class="onboard-drafts">
-					{#each drafts as draft (draft.name)}
-						<div class="onboard-drafts__item">
-							<span class="govuk-link govuk-!-font-size-19 onboard-drafts__name">{draft.name}</span>
-							<span class="govuk-body govuk-!-margin-bottom-0 onboard-drafts__detail">{draft.detail}</span>
-							<strong class="govuk-tag govuk-tag--{draft.statusColour}">{draft.status}</strong>
-						</div>
-					{/each}
-				</div>
+				{#if data.drafts.length === 0}
+					<p class="govuk-body govuk-!-margin-bottom-0">You have no saved drafts. Choose Save draft in the editor to keep a form you are working on.</p>
+				{:else}
+					<div class="onboard-drafts">
+						{#each data.drafts as draft (draft.id)}
+							{@const tag = draftStageTags[draft.stage]}
+							<div class="onboard-drafts__item">
+								<a class="govuk-link govuk-!-font-size-19 onboard-drafts__name" href={resolve(stagePages[draft.stage])} onclick={(event) => openSavedDraft(event, draft)}>
+									{draft.name}
+								</a>
+								<span class="govuk-body govuk-!-margin-bottom-0 onboard-drafts__detail">
+									{draft.steps}
+									{draft.steps === 1 ? 'step' : 'steps'}, {editedAgo(draft.savedAt, data.listedAt)}
+								</span>
+								<strong class="govuk-tag govuk-tag--{tag.colour}">{tag.label}</strong>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</section>
 		</div>
 	</div>
@@ -183,8 +194,9 @@
 		flex: 1 1 auto;
 	}
 
+	/* The detail can get narrower and wrap on a narrow screen, so the tag after it stays inside the list. */
 	.onboard-drafts__detail {
-		flex: 0 0 260px;
+		flex: 0 1 260px;
 		text-align: right;
 	}
 

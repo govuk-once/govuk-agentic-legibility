@@ -2,7 +2,9 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
+	import { saveDraftAsItIs } from '$lib/form-editor/review-draft';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { isTechReviewFinished } from '$lib/form-editor/tech-review-summary';
 	import { ownerDetailsOf, ownerDetailsProblems } from '$lib/schema/workflow/owner-details';
@@ -20,7 +22,7 @@
 		{ label: 'Owner details added', done: hasOwner },
 		{ label: 'Technical review complete', done: isTechReviewFinished(data.workflow) },
 		{ label: 'Validation checks cleared', done: !ownerReviewProgress.showExampleProblems },
-		{ label: 'I have read the citizen journey', done: ownerReviewProgress.journeyRead }
+		{ label: 'I have read the citizen journey', done: data.draft.reviewProgress.journeyRead }
 	]);
 	const ready = $derived(checklist.every((item) => item.done));
 </script>
@@ -71,6 +73,7 @@
 
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/owner-review/form/review')}>Back</a>
+		<SaveDraftButton onSave={() => saveDraftAsItIs(data.draft, 'Owner review')} />
 		<!-- Publishing will send the form to the workflow server. For now it only shows what happens after. -->
 		<button
 			class="govuk-button govuk-!-margin-bottom-0"
@@ -80,7 +83,6 @@
 		>
 			Publish
 		</button>
-		<button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" type="button" disabled>Save for later</button>
 	{/snippet}
 </ReviewStep>
 

@@ -23,14 +23,30 @@ export interface DraftSummary {
 	id: string;
 	name: string;
 	stage: DraftStage;
+	// How many steps the form has, so the list can say without opening the form.
+	steps: number;
 	// When the draft was last saved, as an ISO date and time, set by saveDraft and not by the page.
 	savedAt: string;
 }
 
-// A whole saved draft: the form as the editor holds it and where its boxes were dragged to on the graph.
+// How far the reviews have got. It is kept beside the form and not inside it, because it is about the reviews and
+// not about the form, so a person can stop part way through a review and carry on later.
+export interface ReviewProgress {
+	// The developer steps marked as checked on the technical review's step values page.
+	checkedSteps: string[];
+	// Whether the owner has read the citizen journey, which they confirm by going on from the owner review to sign off.
+	journeyRead: boolean;
+}
+
+// The progress of a draft that has not been reviewed yet.
+export const noReviewProgress: ReviewProgress = { checkedSteps: [], journeyRead: false };
+
+// A whole saved draft: the form as the editor holds it, where its boxes were dragged to on the graph, and how far its
+// reviews have got.
 export interface SavedDraft extends DraftSummary {
 	workflow: WorkingWorkflow;
 	positions: NodePositions;
+	reviewProgress: ReviewProgress;
 }
 
 // What opening a draft gives back. The form inside a draft that opens is not checked against the schema here,
@@ -50,11 +66,14 @@ const storedDraftSchema = z.object({
 	id: z.string().min(1),
 	name: z.string(),
 	stage: z.enum(draftStages),
+	steps: z.int().nonnegative(),
 	savedAt: z.iso.datetime(),
 	workflow: z
 		.object({ manifest: z.looseObject({ entry: z.string() }), processes: z.record(z.string(), z.unknown()) })
 		.refine((workflow) => workflow.manifest.entry in workflow.processes, 'The entry process is not in the draft'),
-	positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() }))
+	positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() })),
+	// A draft saved before review progress was kept has none, and is read as not reviewed yet.
+	reviewProgress: z.object({ checkedSteps: z.array(z.string()), journeyRead: z.boolean() }).default(() => ({ checkedSteps: [], journeyRead: false }))
 });
 
 /**
@@ -110,7 +129,7 @@ export async function listDrafts(): Promise<DraftSummary[]> {
 	return keys
 		.flatMap((key) => {
 			const draft = key ? readStoredDraft(key) : undefined;
-			return draft ? [{ id: draft.id, name: draft.name, stage: draft.stage, savedAt: draft.savedAt }] : [];
+			return draft ? [{ id: draft.id, name: draft.name, stage: draft.stage, steps: draft.steps, savedAt: draft.savedAt }] : [];
 		})
 		.sort((first, second) => second.savedAt.localeCompare(first.savedAt));
 }

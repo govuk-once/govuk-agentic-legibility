@@ -2,9 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { flexConnections } from '$lib/form-editor/flex-connections';
 	import { exampleProblems, journeySteps, problemCount, type CheckResult } from '$lib/form-editor/owner-review-checks';
 	import { ownerReviewProgress } from '$lib/form-editor/owner-review-progress.svelte';
+	import { saveDraftAsItIs, saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import { stateLabels } from '$lib/form-editor/state-labels';
 	import { techReviewChecked } from '$lib/form-editor/step-values/step-values';
@@ -35,10 +37,11 @@
 	const checkedAt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 	// Goes on to sign off. Getting this far means the owner has read the journey and the checks, which the sign off
-	// checklist records.
-	function continueToSignOff() {
-		ownerReviewProgress.journeyRead = true;
-		goto(resolve('/owner-review/form/sign-off'));
+	// checklist records. It is saved with the draft, so it is still ticked when the owner comes back to sign off later.
+	async function continueToSignOff() {
+		await saveReviewedForm(data.draft, { stage: 'Owner review', reviewProgress: { ...data.draft.reviewProgress, journeyRead: true } });
+		// The sign off page shares this page's layout, which opened the draft before it was saved, so it is opened again.
+		await goto(resolve('/owner-review/form/sign-off'), { invalidateAll: true });
 	}
 
 	// The words and GOV.UK tag colour for each result.
@@ -223,6 +226,7 @@
 
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/owner-review/form')}>Back</a>
+		<SaveDraftButton onSave={() => saveDraftAsItIs(data.draft, 'Owner review')} />
 		<!-- Before the technical review the owner goes on to it, and after it they go on to sign off. -->
 		{#if !techReviewFinished}
 			<a class="govuk-button govuk-!-margin-bottom-0" href={resolve('/tech-review/form')}>Continue to technical review</a>
@@ -231,7 +235,6 @@
 				Continue to sign off
 			</button>
 		{/if}
-		<a class="govuk-link" role="link" aria-disabled="true">Save for later</a>
 		{#if techReviewFinished && !canSignOff}
 			<p class="govuk-body govuk-!-margin-bottom-0 review__muted">Fix the problems to continue</p>
 		{/if}

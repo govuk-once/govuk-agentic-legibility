@@ -25,7 +25,7 @@
 	 */
 	async function useEndpoint() {
 		if (!selected) return;
-		await saveReviewedForm(data.draft, withEndpoint(data.workflow, data.call.code, selected), 'Tech review');
+		await saveReviewedForm(data.draft, { stage: 'Tech review', workflow: withEndpoint(data.workflow, data.call.code, selected) });
 		// The layout opened the form before the call was changed, so it is opened again to pick up the change.
 		await goto(resolve('/tech-review/form/flex'), { invalidateAll: true });
 	}

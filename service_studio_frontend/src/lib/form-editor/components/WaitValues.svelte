@@ -13,9 +13,11 @@
 		state: Extract<WorkingState, { state_type: 'wait' }>;
 		// Saves the step with its checked duration and marks it as checked.
 		onchecked: (state: WorkingState) => void;
+		// Closes the panel without saving.
+		oncancel: () => void;
 	}
 
-	let { title, state, onchecked }: Props = $props();
+	let { title, state, onchecked, oncancel }: Props = $props();
 
 	// The duration as it is typed, so the line beside it can say in words how long that is.
 	let duration = $derived(waitDurationText(state));
@@ -31,7 +33,7 @@
 	}
 </script>
 
-<StepValuesForm {title} onmark={mark}>
+<StepValuesForm {title} onmark={mark} {oncancel}>
 	{#snippet children(problemFor)}
 		{@const problem = problemFor(waitDurationField)}
 		{@const inWords = typedDurationInWords(duration)}

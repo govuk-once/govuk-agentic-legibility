@@ -2,7 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import OnboardDraftPage from '$lib/components/OnboardDraftPage.svelte';
-	import { saveDraft, setOpenDraft } from '$lib/drafts/draft-store';
+	import { noReviewProgress, saveDraft, setOpenDraft } from '$lib/drafts/draft-store';
+	import { formStepCount } from '$lib/form-editor/form-step-count';
 	import { formDeveloperStateTypes } from '$lib/form-editor/schema/form-states';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { ActionData } from './$types';
@@ -32,7 +33,8 @@
 		const { workflow } = form;
 		const id = crypto.randomUUID();
 		try {
-			await saveDraft({ id, name: workflow.manifest.description, stage: 'Edit', workflow, positions: {} });
+			const steps = formStepCount(workflow.processes[workflow.manifest.entry]);
+			await saveDraft({ id, name: workflow.manifest.description, stage: 'Edit', steps, workflow, positions: {}, reviewProgress: noReviewProgress });
 		} catch {
 			return false;
 		}

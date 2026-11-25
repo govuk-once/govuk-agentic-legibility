@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { openDraft, readOpenDraft, saveDraft, type DraftStage, type SavedDraft } from '$lib/drafts/draft-store';
+import { openDraft, readOpenDraft, saveDraft, type DraftStage, type ReviewProgress, type SavedDraft } from '$lib/drafts/draft-store';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import { checkLoadedForm } from './schema/form-states';
@@ -33,10 +33,24 @@ export async function openDraftForReview(): Promise<{ draft: SavedDraft; workflo
 }
 
 /**
- * Saves a change made in a review into its draft, with the stage the draft is now at, so the draft opens there when
- * it is picked again. The name and where the boxes were dragged to are kept as they were. The promise is rejected
- * when the browser will not store the draft.
+ * Saves the draft from a review page, with the stage the draft is now at so it opens there when it is picked again,
+ * and with whatever the page changed: the form, how far the reviews have got, or neither. Everything else is kept as
+ * it was, because a review does not add or take away steps or move boxes. The promise is rejected when the browser
+ * will not store the draft.
  */
-export async function saveReviewedForm(draft: SavedDraft, workflow: Workflow, stage: DraftStage): Promise<void> {
-	await saveDraft({ id: draft.id, name: draft.name, stage, workflow, positions: draft.positions });
+export async function saveReviewedForm(
+	draft: SavedDraft,
+	changes: { stage: DraftStage; workflow?: Workflow; reviewProgress?: ReviewProgress }
+): Promise<void> {
+	await saveDraft({ ...draft, ...changes });
+}
+
+/**
+ * Saves the draft as it is from a review page where nothing waits to be saved, because the page saves each change as
+ * it is made or changes nothing, so the person can stop and come back to the review later. Gives true once it is
+ * saved, as the Save draft button expects.
+ */
+export async function saveDraftAsItIs(draft: SavedDraft, stage: DraftStage): Promise<boolean> {
+	await saveReviewedForm(draft, { stage });
+	return true;
 }

@@ -21,9 +21,11 @@
 		state: Extract<WorkingState, { state_type: 'assign' }>;
 		// Saves the step with its checked values and marks it as checked.
 		onchecked: (state: WorkingState) => void;
+		// Closes the panel without saving.
+		oncancel: () => void;
 	}
 
-	let { title, state, onchecked }: Props = $props();
+	let { title, state, onchecked, oncancel }: Props = $props();
 
 	const lines = $derived(assignLinesOf(state));
 
@@ -46,7 +48,7 @@
 	}
 </script>
 
-<StepValuesForm {title} onmark={mark}>
+<StepValuesForm {title} onmark={mark} {oncancel}>
 	{#snippet children(problemFor)}
 		{#each lines as line, index (index)}
 			<div class="govuk-form-group">

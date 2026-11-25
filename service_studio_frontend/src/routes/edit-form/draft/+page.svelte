@@ -8,8 +8,7 @@
 </script>
 
 {#if data.opened.ok}
-	{@const draft = data.opened.draft}
-	<FormEditorPage workflow={draft.workflow} draftId={draft.id} savedPositions={draft.positions} />
+	<FormEditorPage workflow={data.opened.draft.workflow} draft={data.opened.draft} />
 {:else}
 	<DraftProblemPage problem={data.opened} startHref={resolve('/onboard/form/method')} />
 {/if}

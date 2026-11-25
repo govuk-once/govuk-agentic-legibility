@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { apiCallSteps } from '$lib/form-editor/flex-connections';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
-	import { saveReviewedForm } from '$lib/form-editor/review-draft';
+	import { saveDraftAsItIs, saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { developerSteps, stepValuesSummary, withTechReviewChecked } from '$lib/form-editor/step-values/step-values';
-	import { techReviewProgress } from '$lib/form-editor/tech-review-progress.svelte';
 	import { describeWorkflowSettings } from '$lib/form-editor/tech-review-summary';
 	import type { PageProps } from './$types';
 
@@ -18,7 +18,7 @@
 
 	// The review can be sent once every API call is connected and every developer step has been marked as checked.
 	const allConnected = $derived(calls.every((call) => call.connected));
-	const allChecked = $derived(steps.every((step) => techReviewProgress.checkedSteps.includes(step.code)));
+	const allChecked = $derived(steps.every((step) => data.draft.reviewProgress.checkedSteps.includes(step.code)));
 	const ready = $derived(allConnected && allChecked);
 
 	/**
@@ -26,7 +26,7 @@
 	 * owner review, which reads those times to show the technical review as complete so the owner can sign off.
 	 */
 	async function sendForOwnerReview() {
-		await saveReviewedForm(data.draft, withTechReviewChecked(data.workflow, new Date().toISOString()), 'Owner review');
+		await saveReviewedForm(data.draft, { stage: 'Owner review', workflow: withTechReviewChecked(data.workflow, new Date().toISOString()) });
 		// The owner review opens the form again when it loads, so it picks up the times just written.
 		await goto(resolve('/owner-review/form/review'));
 	}
@@ -104,7 +104,7 @@
 							<li>
 								{step.title} ·
 								<span class="review-and-send__code">{stepValuesSummary(step.state)}</span>
-								{#if !techReviewProgress.checkedSteps.includes(step.code)}
+								{#if !data.draft.reviewProgress.checkedSteps.includes(step.code)}
 									· <strong class="review-and-send__to-do">To check</strong>
 								{/if}
 							</li>
@@ -117,6 +117,7 @@
 
 	{#snippet actions()}
 		<a class="govuk-link" href={resolve('/tech-review/form/step-values')}>Back</a>
+		<SaveDraftButton onSave={() => saveDraftAsItIs(data.draft, 'Tech review')} />
 		{#if ready}
 			<button class="govuk-button govuk-!-margin-bottom-0" type="button" onclick={sendForOwnerReview}>Send for sign off</button>
 		{:else}

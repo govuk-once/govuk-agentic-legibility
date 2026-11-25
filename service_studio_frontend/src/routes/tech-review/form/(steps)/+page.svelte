@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { saveReviewedForm } from '$lib/form-editor/review-draft';
 	import { describeDuration } from '$lib/process-graph/describe-value';
 	import { stateTitle } from '$lib/process-graph/process-to-graph';
@@ -49,6 +50,7 @@
 	const problemFor = (field: WorkflowSettingsField) => problems.find((problem) => problem.field === field)?.message;
 
 	let errorSummary = $state<HTMLDivElement>();
+	let settingsForm = $state<HTMLFormElement>();
 
 	// The id of each field, so the error summary can link to it.
 	const fieldIds: Record<WorkflowSettingsField, string> = {
@@ -59,30 +61,48 @@
 		pauseBetween: 'call-pause'
 	};
 
-	/**
-	 * Checks the settings and, when they pass, saves them into the draft and goes on to the
-	 * Flex connections. When they do not, the problems are listed at the top and the list is focused.
-	 */
-	async function continueToFlex(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
-		event.preventDefault();
-		const fields = new FormData(event.currentTarget);
+	// Reads what is typed in each field.
+	function readSettings(form: HTMLFormElement): WorkflowSettings {
+		const fields = new FormData(form);
 		const read = (field: WorkflowSettingsField) => String(fields.get(field) ?? '');
-		const settings: WorkflowSettings = {
+		return {
 			runTimeout: read('runTimeout'),
 			runTimeoutUnit: read('runTimeoutUnit') as TimeUnit,
 			callTimeout: read('callTimeout'),
 			attempts: read('attempts'),
 			pauseBetween: read('pauseBetween')
 		};
+	}
+
+	/**
+	 * Checks what is typed and, when every field passes, saves it into the draft. When any field has a problem nothing
+	 * is saved, and the problems are listed at the top and the list is focused. Says whether the settings were saved.
+	 */
+	async function saveSettings(form: HTMLFormElement): Promise<boolean> {
+		const settings = readSettings(form);
 		problems = workflowSettingsProblems(settings);
 		if (problems.length > 0) {
 			await tick();
 			errorSummary?.focus();
-			return;
+			return false;
 		}
-		await saveReviewedForm(data.draft, { ...data.workflow, manifest: withWorkflowSettings(data.workflow.manifest, settings) }, 'Tech review');
-		// The layout opened the form before the settings were changed, so it is opened again to pick them up.
-		await goto(resolve('/tech-review/form/flex'), { invalidateAll: true });
+		await saveReviewedForm(data.draft, { stage: 'Tech review', workflow: { ...data.workflow, manifest: withWorkflowSettings(data.workflow.manifest, settings) } });
+		return true;
+	}
+
+	// Saves the settings and goes on to the Flex connections. The layout opened the form before the settings were
+	// changed, so it is opened again to pick them up.
+	async function continueToFlex(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
+		event.preventDefault();
+		if (await saveSettings(event.currentTarget)) await goto(resolve('/tech-review/form/flex'), { invalidateAll: true });
+	}
+
+	// Saves the settings and stays on the page, so the developer can come back to the review later. The form is opened
+	// again so the page holds what was just saved.
+	async function saveSettingsDraft(): Promise<boolean> {
+		if (!settingsForm || !(await saveSettings(settingsForm))) return false;
+		await invalidateAll();
+		return true;
 	}
 </script>
 
@@ -141,7 +161,7 @@
 		</div>
 	{/if}
 
-	<form id="workflow-settings" novalidate onsubmit={continueToFlex}>
+	<form id="workflow-settings" novalidate onsubmit={continueToFlex} bind:this={settingsForm}>
 		<div class="govuk-grid-row">
 			<div class="govuk-grid-column-one-third">
 				<h2 class="govuk-heading-s govuk-!-margin-bottom-1">Run timeout</h2>
@@ -205,10 +225,11 @@
 	</form>
 
 	{#snippet actions()}
-		<!-- Back leaves the technical review for the owner review that comes before it. Nothing typed here is saved. -->
+		<!-- Back leaves the technical review for the owner review that comes before it. Nothing typed here is saved
+			unless Save draft is chosen first. -->
 		<a class="govuk-link" href={resolve('/owner-review/form/review')}>Back</a>
+		<SaveDraftButton onSave={saveSettingsDraft} />
 		<button class="govuk-button govuk-!-margin-bottom-0" type="submit" form="workflow-settings">Continue to Flex connections</button>
-		<a class="govuk-link" role="link" aria-disabled="true">Save draft</a>
 	{/snippet}
 </ReviewStep>
 
