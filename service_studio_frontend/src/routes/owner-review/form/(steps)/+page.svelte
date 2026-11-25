@@ -222,6 +222,9 @@
 	</form>
 
 	{#snippet actions()}
+		<!-- Back returns to the editor, which opens the same draft. Nothing typed here is saved unless Save draft is
+			chosen first. -->
+		<a class="govuk-link" href={resolve('/edit-form/draft')}>Back</a>
 		<SaveDraftButton onSave={saveDetailsDraft} />
 		<button class="govuk-button govuk-!-margin-bottom-0" type="submit" form="owner-details">Continue to review</button>
 	{/snippet}

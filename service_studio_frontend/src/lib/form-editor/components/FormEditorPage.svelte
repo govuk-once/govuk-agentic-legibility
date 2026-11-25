@@ -4,12 +4,13 @@
 	import type { ContextItem } from '$lib/components/context';
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
-	import { editStages } from '$lib/components/progress-stages';
+	import { stagesAt } from '$lib/components/progress-stages';
 	import { noReviewProgress, saveDraft, setOpenDraft, type DraftStage, type SavedDraft } from '$lib/drafts/draft-store';
 	import { noDrafts, type DraftSet } from '$lib/process-graph/drafts';
 	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
+	import { formStageLinks } from '../form-stage-links';
 	import { formStepCount } from '../form-step-count';
 	import { formHiddenStateTypes } from '../schema/form-states';
 	import FormWorkspace from './FormWorkspace.svelte';
@@ -123,7 +124,7 @@
 </svelte:head>
 
 <ServiceHeader>
-	<Progress stages={editStages} compact />
+	<Progress stages={stagesAt('Edit', formStageLinks)} compact />
 </ServiceHeader>
 
 <main class="form-editor-page">

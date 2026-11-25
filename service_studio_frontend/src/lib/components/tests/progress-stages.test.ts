@@ -12,6 +12,15 @@ describe('stagesAt', () => {
 			'upcoming'
 		]);
 	});
+
+	it('links only the complete stages that were given an address', () => {
+		const links = { Start: '/start', Edit: '/edit', 'Owner review': '/owner', 'Tech review': '/tech' };
+		expect(stagesAt('Owner review', links).map((stage) => stage.href)).toEqual(['/start', undefined, '/edit', undefined, undefined, undefined]);
+	});
+
+	it('links nothing when no addresses are given', () => {
+		expect(stagesAt('Sign off').every((stage) => stage.href === undefined)).toBe(true);
+	});
 });
 
 describe('publishedStages', () => {

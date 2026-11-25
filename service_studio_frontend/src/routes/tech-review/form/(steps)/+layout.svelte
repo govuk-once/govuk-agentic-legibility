@@ -1,14 +1,16 @@
 <script lang="ts">
 	import Progress from '$lib/components/Progress.svelte';
 	import ReviewPageTitle from '$lib/components/ReviewPageTitle.svelte';
-	import { techReviewStages } from '$lib/components/progress-stages';
+	import { stagesAt } from '$lib/components/progress-stages';
+	import { formStageLinks } from '$lib/form-editor/form-stage-links';
 	import type { LayoutProps } from './$types';
 
 	// The stages and the title are the same on every step of the technical review, so they are drawn once here.
 	let { data, children }: LayoutProps = $props();
 </script>
 
-<Progress stages={techReviewStages} />
+<!-- The banner links back to the stages before the technical review. -->
+<Progress stages={stagesAt('Tech review', formStageLinks)} />
 
 <main>
 	<ReviewPageTitle

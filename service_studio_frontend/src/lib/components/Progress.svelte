@@ -26,7 +26,13 @@
 			<!-- Dividers separate neighbouring stages without adding another item to the sequence. -->
 			<span class="progress__divider"></span>
 		{/if}
-		<div class="progress__stage" aria-current={stage.state === 'current' ? 'step' : undefined}>
+		<!-- A complete stage with an address is a link back to it, and every other stage is text. -->
+		<svelte:element
+			this={stage.href ? 'a' : 'div'}
+			href={stage.href}
+			class={['progress__stage', stage.href && 'govuk-link progress__stage--link']}
+			aria-current={stage.state === 'current' ? 'step' : undefined}
+		>
 			<span class="govuk-visually-hidden">
 				{visuallyHiddenStates[stage.state]}:
 			</span>
@@ -50,7 +56,7 @@
 			>
 				{stage.label}
 			</span>
-		</div>
+		</svelte:element>
 	{/each}
 </nav>
 
@@ -139,6 +145,12 @@
 
 	.progress--compact .progress__label {
 		white-space: nowrap;
+	}
+
+	/* A stage that links back shows its label in the link colour and underlined, as GOV.UK links are. */
+	.progress__stage--link .progress__label {
+		color: inherit;
+		text-decoration: underline;
 	}
 
 	.progress__label--current {
