@@ -1,0 +1,1591 @@
+{
+  "id": "0b0ced39-c94f-43b0-8abb-11607887833d",
+  "version": 1,
+  "state": "draft",
+  "name": "Apply for Maternity Allowance (online)",
+  "owner": "dwp",
+  "contact": "no-published-email@example.com",
+  "description": "The private beta online journey for Maternity Allowance, Inc 3.0 MVP, modelled from the DWP journey board MA Citizen Journey 3.0 + OL. Serves claimants in the beta postcode area who were employed during their Test Period and have not lived or worked outside the UK. Employment history and earnings are read from HMRC RTI and confirmed rather than transcribed. Converted to the canonical schema: onward routing uses transitions, so the forks in the journey are shown, but the conditions and outcome labels that decide each fork were not in the source and are not set here, so the graph shows where the journey branches without saying which branch is taken. The paper MA1 handover reached by eleven of the fourteen exits, the twenty minute session timeout, and the evidence upload mechanism still cannot be referenced.",
+  "descriptionPublic": "Apply online for Maternity Allowance if you are employed but cannot get Statutory Maternity Pay. You will need a GOV.UK One Login account and evidence of your pregnancy.",
+  "startStepId": "b211e55c-47b9-46f4-8663-b3f3ef1b2b15",
+  "steps": [
+    {
+      "id": "b211e55c-47b9-46f4-8663-b3f3ef1b2b15",
+      "type": {
+        "kind": "info",
+        "body": "Maternity Allowance are payments you can get when you take time off to have a baby. You could get it if you are employed but cannot get Statutory Maternity Pay, are self-employed, have recently stopped working, or take part in unpaid work for the business of your spouse or civil partner. You can get Maternity Allowance for up to 39 weeks and can claim after the 26th week of the pregnancy. If you claim later than 3 months after your entitlement starts, you may not get the full amount. Before you start you will need to upload evidence of your maternity certificate (MAT B1), an SMP1 form from each employer you had during the 15th week before the week your baby is due, your baby's birth certificate if applicable, and your baby's still birth or death certificate if applicable. You'll need a GOV.UK One Login account. Maternity Allowance may affect other benefits or entitlements you are getting, including Universal Credit. We will delete your answers if you do not do anything for 20 minutes and you will have to start again."
+      },
+      "name": "Apply for Maternity Allowance",
+      "description": "Entry point.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "37e9a775-acab-477a-8530-137132f30176"
+        }
+      ]
+    },
+    {
+      "id": "37e9a775-acab-477a-8530-137132f30176",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "What is your postcode?",
+      "description": "The private beta is limited to a set of postcode areas. The schema cannot express the set, so the constraint exists only in the exit's description.",
+      "fields": [
+        {
+          "id": "pc-1",
+          "name": "postcode",
+          "label": "What is your postcode?",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "6f035aee-49a4-4349-84b0-f147e4270a55"
+        },
+        {
+          "targetStepId": "d693177e-a7b1-4f31-8601-1ffe99f56347"
+        }
+      ]
+    },
+    {
+      "id": "6f035aee-49a4-4349-84b0-f147e4270a55",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is currently unavailable in your area right now. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "The service is unavailable in your area",
+      "description": "Exit 1 of 14.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "d693177e-a7b1-4f31-8601-1ffe99f56347",
+      "type": {
+        "kind": "info",
+        "body": "Your Test Period is the 66 weeks before the week your baby is due, not the actual date of birth. You can calculate your Test Period dates by using the online Test Period calculator, or by using the Test Period table."
+      },
+      "name": "Which type of employment did you have during your Test Period?",
+      "description": "Select all that apply. Only Employed continues.",
+      "fields": [
+        {
+          "id": "et-1",
+          "name": "employmentTypeTestPeriod",
+          "label": "Select all that apply",
+          "element": "checkbox",
+          "required": true,
+          "options": [
+            {
+              "value": "employed",
+              "label": "Employed, including agency, zero-hour contracts and directors of a limited company"
+            },
+            {
+              "value": "selfEmployed",
+              "label": "Self employed"
+            },
+            {
+              "value": "unpaidForPartner",
+              "label": "Unpaid work for partner's business"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "e26a8e11-6953-4e2f-8730-abd38f6abd0d"
+        },
+        {
+          "targetStepId": "2e3a7b0c-34b2-4889-83f9-01018699f511"
+        }
+      ]
+    },
+    {
+      "id": "e26a8e11-6953-4e2f-8730-abd38f6abd0d",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is currently unavailable for you right now because you are self-employed, have taken on unpaid work for your partner's business or have no employment during your Test Period. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "You cannot apply with your employment type",
+      "description": "Exit 2 of 14.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "2e3a7b0c-34b2-4889-83f9-01018699f511",
+      "type": {
+        "kind": "info",
+        "body": "When you claim Maternity Allowance, some of your other benefit payments may change. Select a benefit if you are considering, or are in the process of applying for it."
+      },
+      "name": "Are you or your partner getting any of the following benefits?",
+      "description": "",
+      "fields": [
+        {
+          "id": "ob-1",
+          "name": "otherBenefits",
+          "label": "Select all that apply",
+          "element": "checkbox",
+          "required": true,
+          "options": [
+            {
+              "value": "universalCredit",
+              "label": "Universal Credit"
+            },
+            {
+              "value": "bereavement",
+              "label": "Bereavement benefits"
+            },
+            {
+              "value": "carers",
+              "label": "Carer's Allowance"
+            },
+            {
+              "value": "carerSupport",
+              "label": "Carer Support Payment (Scotland only)"
+            },
+            {
+              "value": "esa",
+              "label": "Employment Support Allowance (ESA)"
+            },
+            {
+              "value": "incomeSupport",
+              "label": "Income Support"
+            },
+            {
+              "value": "jsa",
+              "label": "Jobseeker's Allowance"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "fc10854d-9d6e-4061-8710-c93012c68ecc"
+        },
+        {
+          "targetStepId": "af003a48-12a8-4159-85da-78b16fa490c6"
+        },
+        {
+          "targetStepId": "33ac0ae1-ffa9-41bf-8c42-48c28209fcff"
+        }
+      ]
+    },
+    {
+      "id": "fc10854d-9d6e-4061-8710-c93012c68ecc",
+      "type": {
+        "kind": "info",
+        "body": "Your Universal Credit payments will be reduced by an amount equal to your Maternity Allowance payments. You may get an extra amount of Universal Credit for your children whether you get Maternity Allowance or not. If you claim Maternity Allowance you get Class 1 National Insurance credits. If you claim Universal Credit only, you get Class 3 credits, which count towards State Pension only."
+      },
+      "name": "If you get Universal Credit",
+      "description": "Shown where Universal Credit is selected.",
+      "fields": [
+        {
+          "id": "uc-1",
+          "name": "universalCreditUnderstood",
+          "label": "Yes I confirm",
+          "element": "checkbox",
+          "hint": "Confirm you understand your Universal Credit may be affected if you claim Maternity Allowance.",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "9d2ea9a2-8ae3-45b2-8604-0e90a01b47cb"
+        },
+        {
+          "targetStepId": "33ac0ae1-ffa9-41bf-8c42-48c28209fcff"
+        }
+      ]
+    },
+    {
+      "id": "9d2ea9a2-8ae3-45b2-8604-0e90a01b47cb",
+      "type": {
+        "kind": "info",
+        "body": "If you no longer want to apply for Maternity Allowance, you can apply for other benefits. Find out more on GOV.UK."
+      },
+      "name": "Claiming another benefit",
+      "description": "Exit 2 of 14. Not a refusal: the claimant chose to stop. One of three exits that do not hand over to paper.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "33ac0ae1-ffa9-41bf-8c42-48c28209fcff",
+      "type": {
+        "kind": "info",
+        "body": "Your Test Period is the 66 weeks before the week your baby is due, not the actual date of birth. You can calculate your Test Period dates using the online Test Period calculator, or by using the Test Period table."
+      },
+      "name": "Have you lived or worked outside the UK in your Test Period?",
+      "description": "The Test Period calculator is a separate DWP service, linked out to in a new tab. The schema cannot reference it, so the dependency survives only as this description.",
+      "fields": [
+        {
+          "id": "ab2-1",
+          "name": "livedOrWorkedAbroad",
+          "label": "Have you lived or worked outside the UK in your Test Period?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "920bde3f-e822-4aa5-85a3-ce1af5f7c615"
+        },
+        {
+          "targetStepId": "8b4394ea-6b52-4e1c-8a41-5c7a1fe7063a"
+        }
+      ]
+    },
+    {
+      "id": "920bde3f-e822-4aa5-85a3-ce1af5f7c615",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is currently unavailable for you right now because you have lived or worked outside the UK in the last 12 months. Your answers have not been saved. In the meantime you can still apply through a paper form."
+      },
+      "name": "You have lived or worked outside of the UK",
+      "description": "Exit 3 of 14. Note the page says the last 12 months while the question asks about the 66-week Test Period.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "8b4394ea-6b52-4e1c-8a41-5c7a1fe7063a",
+      "type": {
+        "kind": "info",
+        "body": "You will need to sign in with your GOV.UK One Login. If you do not have one, you'll need to create one. To help keep your information safe, you may be asked to prove your identity. You'll need a valid photo ID, such as a passport or driving licence. If you haven't got photo ID, you can still prove your identity with your bank or building society account details and your National Insurance number."
+      },
+      "name": "Sign in with GOV.UK One Login",
+      "description": "Authentication and identity proving happen in One Login, which is a separate service. The schema has no way to reference it, so it appears here only as prose.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "af990a28-9657-44c9-8d52-9245edbc5bba"
+        },
+        {
+          "targetStepId": "41dff5e4-a754-4232-8b9b-93e62aad8124"
+        }
+      ]
+    },
+    {
+      "id": "af990a28-9657-44c9-8d52-9245edbc5bba",
+      "type": {
+        "kind": "info",
+        "body": "Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "We have been unable to confirm your identity",
+      "description": "Exit 5 of 14. Hands over to the paper service.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "41dff5e4-a754-4232-8b9b-93e62aad8124",
+      "type": {
+        "kind": "endpoint",
+        "method": "GET",
+        "url": "https://maternity-allowance.dwp.gov.uk/OLredirect",
+        "parameters": [],
+        "headers": [
+          {
+            "name": "Authorization",
+            "required": true,
+            "description": "Bearer token from GOV.UK One Login. Value injected at runtime, never published."
+          }
+        ],
+        "responses": [
+          {
+            "status": 200,
+            "description": "A valid token or user identity is present. The claimant is redirected to the start of the journey at /apply.",
+            "format": "text",
+            "contentType": "text/html",
+            "properties": [],
+            "nextStepId": "4e7197a4-8978-4498-81a6-56021a5f9c76"
+          },
+          {
+            "status": 401,
+            "description": "No token is present. The claimant is redirected to the offramp page.",
+            "format": "text",
+            "contentType": "text/html",
+            "properties": [],
+            "nextStepId": "b6ea9172-8339-430a-854b-76c0db084c3b"
+          }
+        ]
+      },
+      "name": "Return from GOV.UK One Login",
+      "description": "The redirect endpoint checks for a valid token or user identity and routes accordingly.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "b6ea9172-8339-430a-854b-76c0db084c3b"
+        },
+        {
+          "targetStepId": "4e7197a4-8978-4498-81a6-56021a5f9c76"
+        }
+      ]
+    },
+    {
+      "id": "b6ea9172-8339-430a-854b-76c0db084c3b",
+      "type": {
+        "kind": "info",
+        "body": "Shown when authentication fails and no token is present. Explains the issue and offers next steps, such as retrying the login or contacting support."
+      },
+      "name": "Offramp page",
+      "description": "Exit 4 of 14. One of three exits that do not hand over to the paper service.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "4e7197a4-8978-4498-81a6-56021a5f9c76",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "What is your name?",
+      "description": "",
+      "fields": [
+        {
+          "id": "nm-1",
+          "name": "firstName",
+          "label": "First name",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "nm-2",
+          "name": "lastName",
+          "label": "Last name",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "7b447477-6d21-4a82-83b4-0753ae9064ce"
+        }
+      ]
+    },
+    {
+      "id": "7b447477-6d21-4a82-83b4-0753ae9064ce",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "What is your address?",
+      "description": "",
+      "fields": [
+        {
+          "id": "ad-1",
+          "name": "adLine1",
+          "label": "Your address line 1",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "ad-2",
+          "name": "adLine2",
+          "label": "Your address line 2",
+          "element": "text"
+        },
+        {
+          "id": "ad-3",
+          "name": "adTown",
+          "label": "Your town or city",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "ad-4",
+          "name": "adCounty",
+          "label": "Your county",
+          "element": "text"
+        },
+        {
+          "id": "ad-5",
+          "name": "adPostcode",
+          "label": "Your postcode",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "48345849-acb4-465b-8056-884f80e0c215"
+        }
+      ]
+    },
+    {
+      "id": "48345849-acb4-465b-8056-884f80e0c215",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "Can we send letters about your Maternity Allowance to this address?",
+      "description": "The address shown comes from the One Login account. Two routes converge on the mobile number question.",
+      "fields": [
+        {
+          "id": "lh-1",
+          "name": "lettersToThisAddress",
+          "label": "Can we send letters about your Maternity Allowance to this address?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "16545d5c-522a-4d20-8f8d-b43ae1659a78"
+        },
+        {
+          "targetStepId": "217fad8c-6c5a-42dc-8f9e-81aafb3f9330"
+        }
+      ]
+    },
+    {
+      "id": "16545d5c-522a-4d20-8f8d-b43ae1659a78",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "Where can we send letters?",
+      "description": "Asked only where letters should not go to the address on the account.",
+      "fields": [
+        {
+          "id": "la-1",
+          "name": "laLine1",
+          "label": "Letters address line 1",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "la-2",
+          "name": "laLine2",
+          "label": "Letters address line 2",
+          "element": "text"
+        },
+        {
+          "id": "la-3",
+          "name": "laTown",
+          "label": "Letters town or city",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "la-4",
+          "name": "laCounty",
+          "label": "Letters county",
+          "element": "text"
+        },
+        {
+          "id": "la-5",
+          "name": "laPostcode",
+          "label": "Letters postcode",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "217fad8c-6c5a-42dc-8f9e-81aafb3f9330"
+        }
+      ]
+    },
+    {
+      "id": "217fad8c-6c5a-42dc-8f9e-81aafb3f9330",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "What is your mobile telephone number?",
+      "description": "Used to send an SMS confirming the application.",
+      "fields": [
+        {
+          "id": "mb-1",
+          "name": "mobileTelephoneNumber",
+          "label": "What is your mobile telephone number?",
+          "element": "text"
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "55ccf233-32f7-4c82-8771-38891e31adf2"
+        }
+      ]
+    },
+    {
+      "id": "55ccf233-32f7-4c82-8771-38891e31adf2",
+      "type": {
+        "kind": "info",
+        "body": "First name, last name, current address, whether letters can go there, and mobile number, each with a Change link."
+      },
+      "name": "Confirm claimant details",
+      "description": "Check answers for the claimant section.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "ec9e67ee-0444-4c2a-8963-c0ff41fedd2f"
+        }
+      ]
+    },
+    {
+      "id": "ec9e67ee-0444-4c2a-8963-c0ff41fedd2f",
+      "type": {
+        "kind": "info",
+        "body": "If your baby was still born or died there is a separate route."
+      },
+      "name": "Has your baby been born?",
+      "description": "",
+      "fields": [
+        {
+          "id": "bb-1",
+          "name": "babyBorn",
+          "label": "Has your baby been born?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            },
+            {
+              "value": "stillbornOrDied",
+              "label": "My baby was still born or died"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "9cab046c-5e01-4903-8f4c-dfe5e0f24824"
+        },
+        {
+          "targetStepId": "ccddea51-e8a3-441c-8577-fb406afd217c"
+        }
+      ]
+    },
+    {
+      "id": "9cab046c-5e01-4903-8f4c-dfe5e0f24824",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is currently unavailable to you right now because you have had a bereavement. Your answers have not been saved. In the meantime you can still apply through a paper form."
+      },
+      "name": "You have had a bereavement",
+      "description": "Exit 6 of 14. A capability limit, not an eligibility rule: Maternity Allowance is payable after a stillbirth from 24 completed weeks.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "ccddea51-e8a3-441c-8577-fb406afd217c",
+      "type": {
+        "kind": "info",
+        "body": "Use the due date on your maternity certificate (MAT B1) or other proof of pregnancy. You still need to provide the baby's due date if you had a still birth or neonatal death."
+      },
+      "name": "What is your baby's due date?",
+      "description": "The service checks this against an existing claim and against the 14th week before the due week.",
+      "fields": [
+        {
+          "id": "dd-1",
+          "name": "babyDueDate",
+          "label": "What is your baby's due date?",
+          "element": "date",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "a17ae6ee-a281-4077-8fbe-d617ddd3c568"
+        },
+        {
+          "targetStepId": "32b93e58-1671-4a27-8a1f-54b15e81b899"
+        },
+        {
+          "targetStepId": "6a36be7d-d629-4a1f-8b42-9f3626e170a5"
+        },
+        {
+          "targetStepId": "daf0d93f-e921-4871-8d9d-b45ab1805ac1"
+        }
+      ]
+    },
+    {
+      "id": "a17ae6ee-a281-4077-8fbe-d617ddd3c568",
+      "type": {
+        "kind": "info",
+        "body": "You are unable to claim for Maternity Allowance as you have already submitted a claim for this child. Your answers have not been saved. In the meantime you can still apply through a paper form."
+      },
+      "name": "You already have a claim for this child",
+      "description": "Exit 7 of 14. One of only two exits that follow from the rules rather than from a limit of this channel.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "32b93e58-1671-4a27-8a1f-54b15e81b899",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is currently unavailable for you because you have applied too early. You cannot apply until the 14th week before the week your baby is due."
+      },
+      "name": "You have applied too early",
+      "description": "Exit 8 of 14. The only exit that offers no alternative channel, correctly, because the same rule applies on paper. The schema cannot distinguish this from the eleven that do offer one.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "6a36be7d-d629-4a1f-8b42-9f3626e170a5",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "What was your baby's birth date?",
+      "description": "Asked only where the baby has been born.",
+      "fields": [
+        {
+          "id": "bd-1",
+          "name": "babyBirthDate",
+          "label": "What was your baby's birth date?",
+          "element": "date",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "daf0d93f-e921-4871-8d9d-b45ab1805ac1"
+        }
+      ]
+    },
+    {
+      "id": "daf0d93f-e921-4871-8d9d-b45ab1805ac1",
+      "type": {
+        "kind": "info",
+        "body": "You must provide proof of your pregnancy before you can get Maternity Allowance. You can do this later on."
+      },
+      "name": "What proof of pregnancy do you have?",
+      "description": "Choosing None is allowed: the requirement moves to the check answers page and then to post.",
+      "fields": [
+        {
+          "id": "pp-1",
+          "name": "proofOfPregnancy",
+          "label": "What proof of pregnancy do you have?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "matB1",
+              "label": "Maternity Certificate (MATB1)"
+            },
+            {
+              "value": "other",
+              "label": "Other proof of pregnancy"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "9c742ea7-f1de-4116-871c-9c276da597d9"
+        },
+        {
+          "targetStepId": "b3724cf9-4cc8-4a23-8454-58b6ba47e013"
+        }
+      ]
+    },
+    {
+      "id": "9c742ea7-f1de-4116-871c-9c276da597d9",
+      "type": {
+        "kind": "info",
+        "body": "Please upload both sides of your MATB1 form."
+      },
+      "name": "Upload your MAT B1 form",
+      "description": "Takes more than one file.",
+      "fields": [
+        {
+          "id": "um-1",
+          "name": "matB1Uploads",
+          "label": "Upload your MAT B1 form",
+          "element": "text",
+          "hint": "Both sides of the form. Accepted file types are jpg, pdf and png. This is an upload, not a text entry: the schema has no file element."
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "b3724cf9-4cc8-4a23-8454-58b6ba47e013"
+        }
+      ]
+    },
+    {
+      "id": "b3724cf9-4cc8-4a23-8454-58b6ba47e013",
+      "type": {
+        "kind": "info",
+        "body": "Ensure Part B of the MAT B1 is filled in by a health care provider if you use it as proof of birth."
+      },
+      "name": "What proof of birth do you have?",
+      "description": "Asked only where the baby has been born.",
+      "fields": [
+        {
+          "id": "pb-1",
+          "name": "proofOfBirth",
+          "label": "What proof of birth do you have?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "birthCertificate",
+              "label": "Birth certificate"
+            },
+            {
+              "value": "matB1",
+              "label": "Maternity Certificate (MATB1)"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "ccd326f1-9798-41e7-8cb1-c9aaff31d09f"
+        },
+        {
+          "targetStepId": "c14b3638-388a-4c83-8e49-390bf7065bd4"
+        }
+      ]
+    },
+    {
+      "id": "ccd326f1-9798-41e7-8cb1-c9aaff31d09f",
+      "type": {
+        "kind": "info",
+        "body": "This is a 9 digit number located at the bottom left corner of the certificate. If you can provide this you do not have to upload the certificate."
+      },
+      "name": "What is your baby's certificate system number?",
+      "description": "The cheapest path through the evidence requirement: the number removes the upload entirely.",
+      "fields": [
+        {
+          "id": "sn-1",
+          "name": "birthCertificateSystemNumber",
+          "label": "What is your baby's certificate system number?",
+          "element": "text",
+          "hint": "9 digits, bottom left corner of the certificate."
+        },
+        {
+          "id": "sn-2",
+          "name": "noSystemNumber",
+          "label": "I do not have a birth certificate system number",
+          "element": "checkbox"
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "b965fa07-d5cd-4946-8154-7d5f1f74a683"
+        },
+        {
+          "targetStepId": "c14b3638-388a-4c83-8e49-390bf7065bd4"
+        }
+      ]
+    },
+    {
+      "id": "b965fa07-d5cd-4946-8154-7d5f1f74a683",
+      "type": {
+        "kind": "info",
+        "body": "Upload a file or photo."
+      },
+      "name": "Upload your baby's birth certificate",
+      "description": "Reached where the claimant does not have the certificate system number.",
+      "fields": [
+        {
+          "id": "ubc-1",
+          "name": "birthCertificateUpload",
+          "label": "Upload your baby's birth certificate",
+          "element": "text",
+          "hint": " Accepted file types are jpg, pdf and png. This is an upload, not a text entry: the schema has no file element."
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "c14b3638-388a-4c83-8e49-390bf7065bd4"
+        }
+      ]
+    },
+    {
+      "id": "c14b3638-388a-4c83-8e49-390bf7065bd4",
+      "type": {
+        "kind": "info",
+        "body": "Baby born, due date, birth date, proof of birth, proof of birth evidence, proof of pregnancy and proof of pregnancy evidence, each with a Change link. Two versions exist depending on whether the baby is born."
+      },
+      "name": "Confirm your baby details",
+      "description": "Check answers for the baby section.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "c60a891f-1b0d-407c-8304-64b5b1fc0149"
+        }
+      ]
+    },
+    {
+      "id": "c60a891f-1b0d-407c-8304-64b5b1fc0149",
+      "type": {
+        "kind": "info",
+        "body": "This date is the 15th week before the week your baby is due. This is used to decide if you should be getting Statutory Maternity Pay. You can select more than one type of employment."
+      },
+      "name": "Which type of employment did you have on the 15th week before the week your baby is due?",
+      "description": "The service computes and names the date. Employed or None continue; self-employed or unpaid work exit.",
+      "fields": [
+        {
+          "id": "e15-1",
+          "name": "employmentTypeQualifyingWeek",
+          "label": "Which type of employment did you have on that date?",
+          "element": "checkbox",
+          "required": true,
+          "options": [
+            {
+              "value": "employed",
+              "label": "Employed, including agency, zero-hour contracts and directors of a limited company"
+            },
+            {
+              "value": "selfEmployed",
+              "label": "Self employed"
+            },
+            {
+              "value": "unpaidForPartner",
+              "label": "Unpaid work for partner's business"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "b788d01a-04ea-4b05-8b51-6f64e364d62d"
+        },
+        {
+          "targetStepId": "caa8d8ec-db66-48a8-8b38-e80882937bf7"
+        },
+        {
+          "targetStepId": "967cd8fe-8580-4dc1-880a-85f25aca8f5f"
+        }
+      ]
+    },
+    {
+      "id": "b788d01a-04ea-4b05-8b51-6f64e364d62d",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is unavailable for you right now because you are self-employed or have taken on unpaid work for your partner's business. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "You cannot apply with your employment type",
+      "description": "Exit 9 of 14. Note this wording omits 'no employment', which the Test Period version includes.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "caa8d8ec-db66-48a8-8b38-e80882937bf7",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is unavailable for you right now because we need more information about your employment history. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "We need more information about your employment history",
+      "description": "Exit 10 of 14. Reached when HMRC holds no RTI record for the Test Period.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "967cd8fe-8580-4dc1-880a-85f25aca8f5f",
+      "type": {
+        "kind": "info",
+        "body": "This is the employment information we have from HM Revenue & Customs for your Test Period. Your Test Period is the 66 weeks before the week your baby is due, not the actual date of birth. You may be able to get Maternity Allowance if you were employed for at least 26 weeks in your Test Period. These do not need to be 26 continuous weeks. You must provide your employment history for your Test Period before you can get Maternity Allowance."
+      },
+      "name": "Employment history",
+      "description": "Employers and dates read from HMRC RTI and shown back for confirmation.",
+      "fields": [
+        {
+          "id": "eh2-1",
+          "name": "employmentRecordAccepted",
+          "label": "Is this information correct?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Continue"
+            },
+            {
+              "value": "no",
+              "label": "This information is incorrect"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "e4d57b84-99d5-457a-8d42-3f24c5ae7ce0"
+        },
+        {
+          "targetStepId": "043caa15-73f7-472d-8db1-e4826e9ed91e"
+        }
+      ]
+    },
+    {
+      "id": "e4d57b84-99d5-457a-8d42-3f24c5ae7ce0",
+      "type": {
+        "kind": "info",
+        "body": "You have said the information we have on your employment history is incorrect. You cannot change this information right now on the online application. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "Your information is incorrect",
+      "description": "Exit 11 of 14. Hands over to the paper service.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "043caa15-73f7-472d-8db1-e4826e9ed91e",
+      "type": {
+        "kind": "info",
+        "body": "You must provide your SMP1 form before you can get Maternity Allowance. You can add this later. Records show that you were employed by this employer for the relevant period. You must upload the full form."
+      },
+      "name": "Upload your SMP1 form for each employer",
+      "description": "One upload per employer named in the HMRC record.",
+      "fields": [
+        {
+          "id": "us-1",
+          "name": "smp1Uploads",
+          "label": "Upload your SMP1 form",
+          "element": "text",
+          "hint": "One per employer in the HMRC record. Accepted file types are jpg, pdf and png. This is an upload, not a text entry: the schema has no file element."
+        },
+        {
+          "id": "us-2",
+          "name": "smp1NotHeld",
+          "label": "I do not have an SMP1 form",
+          "element": "checkbox"
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "f35b5341-a527-4bf1-8950-e1dc9600c0c6"
+        },
+        {
+          "targetStepId": "71ffe0a9-b363-451d-86f5-6f5c1e8588e5"
+        }
+      ]
+    },
+    {
+      "id": "f35b5341-a527-4bf1-8950-e1dc9600c0c6",
+      "type": {
+        "kind": "info",
+        "body": "You'll need an SMP1 form from your employer to get Maternity Allowance. If you have more than 1 employer, you must send us an SMP1 form from each employer. If your employer refuses to give you an SMP1 form, you can contact HM Revenue & Customs for help. You can still continue with your application without your SMP1 form. We'll contact you later and you'll need to send it to us through post."
+      },
+      "name": "You need an SMP1 form to get Maternity Allowance",
+      "description": "Not an exit. The claimant continues and the requirement moves to the postal channel.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "71ffe0a9-b363-451d-86f5-6f5c1e8588e5"
+        }
+      ]
+    },
+    {
+      "id": "71ffe0a9-b363-451d-86f5-6f5c1e8588e5",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "Have you stopped work to have your baby or for another reason?",
+      "description": "Four exclusive routes that all converge on Confirm employment details. The schema can list them in `next` but cannot say which one applies, and cannot converge them without duplication.",
+      "fields": [
+        {
+          "id": "sw-1",
+          "name": "howWorkStopped",
+          "label": "Have you stopped work to have your baby or for another reason?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "maternityLeave",
+              "label": "Maternity leave"
+            },
+            {
+              "value": "sickLeave",
+              "label": "Sick leave"
+            },
+            {
+              "value": "endedWork",
+              "label": "Ended work, for example quit or made redundant"
+            },
+            {
+              "value": "notStopped",
+              "label": "I have not stopped work yet"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "2164f79b-dba2-4111-858d-cba3ede7ea12"
+        },
+        {
+          "targetStepId": "971f4792-ba59-48c7-811b-c5377983adff"
+        },
+        {
+          "targetStepId": "65bfea94-c833-4280-8223-6213fa6d6754"
+        },
+        {
+          "targetStepId": "6d03ca01-b05f-4744-8c39-f1084a55b5dc"
+        }
+      ]
+    },
+    {
+      "id": "2164f79b-dba2-4111-858d-cba3ede7ea12",
+      "type": {
+        "kind": "info",
+        "body": "Your health care provider can confirm if your sickness is pregnancy-related."
+      },
+      "name": "Is your sickness pregnancy related?",
+      "description": "Asked where work stopped for sick leave.",
+      "fields": [
+        {
+          "id": "sp-1",
+          "name": "sicknessPregnancyRelated",
+          "label": "Is your sickness pregnancy related?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "4185fddb-6932-486d-83ed-5cb28f9a8935"
+        }
+      ]
+    },
+    {
+      "id": "4185fddb-6932-486d-83ed-5cb28f9a8935",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "When was your first whole day of absence due to sickness?",
+      "description": "Asked where work stopped for sick leave.",
+      "fields": [
+        {
+          "id": "ab-1",
+          "name": "firstDayOfAbsence",
+          "label": "When was your first whole day of absence due to sickness?",
+          "element": "date",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "65bfea94-c833-4280-8223-6213fa6d6754"
+        }
+      ]
+    },
+    {
+      "id": "65bfea94-c833-4280-8223-6213fa6d6754",
+      "type": {
+        "kind": "info",
+        "body": "Use the last day of any leave you took immediately before maternity leave, if relevant."
+      },
+      "name": "When was your last day of work?",
+      "description": "",
+      "fields": [
+        {
+          "id": "ld-1",
+          "name": "lastDayWorked",
+          "label": "When was your last day of work?",
+          "element": "date",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "0ae7eed7-8b13-467c-854f-c445b8212401"
+        }
+      ]
+    },
+    {
+      "id": "0ae7eed7-8b13-467c-854f-c445b8212401",
+      "type": {
+        "kind": "info",
+        "body": "Employment type, SMP1 forms per employer, how work stopped and the relevant dates, plus the employer table, each with a Change link. Four different versions of this page exist depending on how work stopped."
+      },
+      "name": "Confirm employment details",
+      "description": "Check answers for the employment section. The four variants converge here, which under a by-value `next` would require four copies of everything below.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "bc1dc7c6-6a25-475b-88cd-5e2c800187a2"
+        },
+        {
+          "targetStepId": "47fa8753-605b-4e41-8278-23c70c6a0d6e"
+        }
+      ]
+    },
+    {
+      "id": "bc1dc7c6-6a25-475b-88cd-5e2c800187a2",
+      "type": {
+        "kind": "info",
+        "body": "Based on your HMRC records, your earnings may result in you getting the full amount of Maternity Allowance. Your application will need to be reviewed before Maternity Allowance can be awarded. These payslips show the money you earned during your Test Period and come from HM Revenue & Customs. You need 13 weeks of payslips of your highest earning weeks. They do not need to be linked together."
+      },
+      "name": "Earnings history",
+      "description": "Payslip amounts per employer, shown in tabs, read from HMRC. The claimant confirms rather than transcribes.",
+      "fields": [
+        {
+          "id": "eh-1",
+          "name": "earningsRecordAccepted",
+          "label": "Is this information correct?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Continue"
+            },
+            {
+              "value": "no",
+              "label": "This information is incorrect"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "dcbd1bd0-0ff9-41f5-80a2-bbc2109d54bc"
+        },
+        {
+          "targetStepId": "144162df-3db0-4407-89e6-30dde6094ea7"
+        }
+      ]
+    },
+    {
+      "id": "dcbd1bd0-0ff9-41f5-80a2-bbc2109d54bc",
+      "type": {
+        "kind": "info",
+        "body": "You have said the information we have on your earnings history is incorrect. You cannot change this information right now on the online application. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "Your information is incorrect",
+      "description": "Exit 13 of 14. Hands over to the paper service, which this schema cannot reference.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "144162df-3db0-4407-89e6-30dde6094ea7",
+      "type": {
+        "kind": "info",
+        "body": "National Insurance payments abroad, and the earnings reviewed per employer, each with a Change link."
+      },
+      "name": "Confirm earning details",
+      "description": "Check answers for the earnings section.",
+      "fields": [
+        {
+          "id": "ce-1",
+          "name": "niPaymentsAbroad",
+          "label": "Did you make National Insurance payments abroad?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "deb58448-de0d-430d-8dcb-8b2da1bd7cbb"
+        }
+      ]
+    },
+    {
+      "id": "deb58448-de0d-430d-8dcb-8b2da1bd7cbb",
+      "type": {
+        "kind": "info",
+        "body": "The service determines whether a Flexible or a Non-Flexible Maternity Allowance Period applies, and from that the start and end date of the period the claimant may choose their payment start date from. This is worked out from the last day worked and the baby's due date."
+      },
+      "name": "We work out your Maternity Allowance Period",
+      "description": "A service-side determination with no user interface. Modelled as info because the schema has no step kind for a computation.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "7e9a2bf5-9a33-4261-8c39-35f193fb901e"
+        }
+      ]
+    },
+    {
+      "id": "7e9a2bf5-9a33-4261-8c39-35f193fb901e",
+      "type": {
+        "kind": "info",
+        "body": "We'll contact you to confirm your baby's birth date if you choose yes. If you choose no you can pick the date you want your Maternity Allowance to start."
+      },
+      "name": "Would you like your Maternity Allowance to start the day after your baby is born?",
+      "description": "Asked only where the baby has already been born.",
+      "fields": [
+        {
+          "id": "da-1",
+          "name": "startDayAfterBirth",
+          "label": "Would you like your Maternity Allowance to start the day after your baby is born?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "416c6794-84f5-42ed-860f-58bd123e7f6b"
+        }
+      ]
+    },
+    {
+      "id": "416c6794-84f5-42ed-860f-58bd123e7f6b",
+      "type": {
+        "kind": "info",
+        "body": "Your Maternity Allowance payments can start on any date inside the window worked out from your last day worked and your baby's due date. If you have not stopped work yet, you must choose a date after you plan to stop work."
+      },
+      "name": "When would you like Maternity Allowance to start?",
+      "description": "The window is computed by the service and shown in the page content.",
+      "fields": [
+        {
+          "id": "sd-1",
+          "name": "maternityAllowanceStartDate",
+          "label": "When would you like Maternity Allowance to start?",
+          "element": "date",
+          "hint": "Must fall inside the window the service worked out. The schema cannot express that constraint.",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "2594e418-6fb0-45a8-83de-edfbd4beeada"
+        }
+      ]
+    },
+    {
+      "id": "2594e418-6fb0-45a8-83de-edfbd4beeada",
+      "type": {
+        "kind": "info",
+        "body": "Maternity Allowance is paid in arrears."
+      },
+      "name": "How often would you like to get Maternity Allowance?",
+      "description": "",
+      "fields": [
+        {
+          "id": "pf-1",
+          "name": "paymentFrequency",
+          "label": "How often would you like to get Maternity Allowance?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "every2Weeks",
+              "label": "Every 2 weeks"
+            },
+            {
+              "value": "every4Weeks",
+              "label": "Every 4 weeks"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "e312bca2-5db9-4055-8f05-f9c19f8f5a53"
+        }
+      ]
+    },
+    {
+      "id": "e312bca2-5db9-4055-8f05-f9c19f8f5a53",
+      "type": {
+        "kind": "info",
+        "body": "If you can get Maternity Allowance, payments are sent to this account."
+      },
+      "name": "Bank or building society account details",
+      "description": "",
+      "fields": [
+        {
+          "id": "bk-1",
+          "name": "accountHolderName",
+          "label": "Name on the account",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "bk-2",
+          "name": "sortCode",
+          "label": "Sort code",
+          "element": "text",
+          "hint": "Must be 6 digits long.",
+          "required": true
+        },
+        {
+          "id": "bk-3",
+          "name": "accountNumber",
+          "label": "Account number",
+          "element": "text",
+          "hint": "Must be between 6 and 8 digits long.",
+          "required": true
+        },
+        {
+          "id": "bk-4",
+          "name": "buildingSocietyRollNumber",
+          "label": "Building society roll number, if you have one",
+          "element": "text",
+          "hint": "You can find it on your card, statement or passbook."
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "012049c0-5696-41bf-8bce-7018dff41840"
+        }
+      ]
+    },
+    {
+      "id": "012049c0-5696-41bf-8bce-7018dff41840",
+      "type": {
+        "kind": "info",
+        "body": "Maternity Allowance start date, payment frequency and bank details, each with a Change link."
+      },
+      "name": "Confirm payment details",
+      "description": "Check answers for the payments section.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "38fbc50c-0d3d-4528-863f-1dd8690bcd5f"
+        }
+      ]
+    },
+    {
+      "id": "38fbc50c-0d3d-4528-863f-1dd8690bcd5f",
+      "type": {
+        "kind": "info",
+        "body": "Your answers so far have been saved. You can check each section you have completed if you need to change anything. Before you can be awarded any Maternity Allowance you will need to submit the outstanding evidence. You can submit it now, or DWP will contact you and you will need to send it through the post. You can still submit your application without uploading your evidence."
+      },
+      "name": "Check your answers and submit application",
+      "description": "Lists the five completed sections, names any outstanding evidence, and carries the declaration.",
+      "fields": [
+        {
+          "id": "ca-1",
+          "name": "moreDetails",
+          "label": "Do you need to provide any more details?",
+          "element": "textarea",
+          "hint": "Up to 300 words. Do not include personal or financial information."
+        },
+        {
+          "id": "ca-2",
+          "name": "declarationAgreed",
+          "label": "I understand and agree",
+          "element": "checkbox",
+          "hint": "You agree the information is complete and correct, that you will tell DWP straight away if your circumstances change, and that you will pay back any Maternity Allowance you are overpaid.",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "e786aa22-1aed-4871-837e-9a2d6f888bba"
+        }
+      ]
+    },
+    {
+      "id": "e786aa22-1aed-4871-837e-9a2d6f888bba",
+      "type": {
+        "kind": "info",
+        "body": "If you have given a mobile number we have sent you an SMS to confirm your application. We will send you a letter when we have made a decision. We may call or write if we need more information. If we have everything we need you should get a decision within 20 working days."
+      },
+      "name": "Application complete",
+      "description": "Terminal success.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "e73fe7eb-6a2c-4de2-8221-4c5921ca2c32"
+        }
+      ]
+    },
+    {
+      "id": "e73fe7eb-6a2c-4de2-8221-4c5921ca2c32",
+      "type": {
+        "kind": "phone",
+        "number": "0800 169 0283",
+        "textphone": "0800 169 0286",
+        "callCharges": "Free from personal mobiles and landlines.",
+        "openingTimes": {
+          "periods": [],
+          "notes": "Not stated in the journey. Confirm with DWP before publishing."
+        }
+      },
+      "name": "Call us to report a change or if you need help",
+      "description": "From the application complete page. You must report going back to work early, using a Keeping in Touch day, starting another benefit, your partner starting Shared Parental Leave or Statutory Shared Parental Pay, and moving or intending to move outside the UK.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "47fa8753-605b-4e41-8278-23c70c6a0d6e",
+      "type": {
+        "kind": "info",
+        "body": "The Maternity Allowance online application is unavailable for you right now because we need more information about your earnings history. Your answers have not been saved. In the meantime, you can still apply through a paper form."
+      },
+      "name": "Sorry, the service is unavailable",
+      "description": "Exit 12 of 14. Reached when the HMRC record returns no earnings information. Indistinguishable in the schema from the success case: both are a 200 with a body, and EndpointResponse.nextStepId routes on status only.",
+      "fields": [],
+      "transitions": []
+    },
+    {
+      "id": "971f4792-ba59-48c7-811b-c5377983adff",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "When did your maternity leave start?",
+      "description": "Asked where work stopped for maternity leave.",
+      "fields": [
+        {
+          "id": "ml-1",
+          "name": "maternityLeaveStartDate",
+          "label": "When did your maternity leave start?",
+          "element": "date",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "65bfea94-c833-4280-8223-6213fa6d6754"
+        }
+      ]
+    },
+    {
+      "id": "6d03ca01-b05f-4744-8c39-f1084a55b5dc",
+      "type": {
+        "kind": "info",
+        "body": ""
+      },
+      "name": "Do you know your last day of work?",
+      "description": "Asked where the claimant has not stopped work yet.",
+      "fields": [
+        {
+          "id": "kl-1",
+          "name": "lastDayOfWorkKnown",
+          "label": "Do you know your last day of work?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "56adf0fe-536d-4578-8c92-b5ac90ed7344"
+        }
+      ]
+    },
+    {
+      "id": "56adf0fe-536d-4578-8c92-b5ac90ed7344",
+      "type": {
+        "kind": "info",
+        "body": "Used where the claimant has not stopped work yet."
+      },
+      "name": "What is your planned last day of work?",
+      "description": "",
+      "fields": [
+        {
+          "id": "pl-1",
+          "name": "plannedLastDayOfWork",
+          "label": "What is your planned last day of work?",
+          "element": "date",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "0ae7eed7-8b13-467c-854f-c445b8212401"
+        }
+      ]
+    },
+    {
+      "id": "af003a48-12a8-4159-85da-78b16fa490c6",
+      "type": {
+        "kind": "info",
+        "body": "The other benefits that can be affected are bereavement benefits, Carer's Allowance, Carer Support Payment in Scotland, Employment and Support Allowance, Income Support, and Jobseeker's Allowance, which will stop if you get Maternity Allowance. Most benefits are paid every 2 or 4 weeks and may fall on different days. If you are getting Statutory Sick Pay on or after the 4th week before the week the baby is due, this will stop."
+      },
+      "name": "Effects on other benefits",
+      "description": "Shown where a benefit other than Universal Credit is selected.",
+      "fields": [
+        {
+          "id": "ef-1",
+          "name": "effectsUnderstood",
+          "label": "Yes I confirm",
+          "element": "checkbox",
+          "hint": "Confirm you understand how your other benefits may be affected if you claim Maternity Allowance.",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "9d2ea9a2-8ae3-45b2-8604-0e90a01b47cb"
+        },
+        {
+          "targetStepId": "33ac0ae1-ffa9-41bf-8c42-48c28209fcff"
+        }
+      ]
+    }
+  ]
+}

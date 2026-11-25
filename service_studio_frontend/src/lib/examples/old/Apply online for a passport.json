@@ -1,0 +1,525 @@
+{
+  "id": "3f2b1a10-4e3d-4c1a-9f21-6a2b3c4d5e6f",
+  "version": 1,
+  "state": "draft",
+  "name": "Apply online for a passport",
+  "owner": "gds",
+  "contact": "passport-service@example.gov.uk",
+  "description": "Digital service allowing citizens to apply for a first adult passport, renew or replace an existing passport, or update personal details on a passport, and to pay the relevant fee online.",
+  "descriptionPublic": "Use this service to apply for, renew, replace or update your passport and pay for it online.",
+  "startStepId": "a1b2c3d4-e5f6-4789-8abc-1234567890ab",
+  "steps": [
+    {
+      "id": "a1b2c3d4-e5f6-4789-8abc-1234567890ab",
+      "type": {
+        "kind": "info",
+        "body": "Before you start: you'll need a debit or credit card to pay for your passport. Applying online is £13.50 cheaper than applying by post. If you need it urgently, check the Online Premium or 1 week Fast Track services separately. Do not book travel until you have a valid passport."
+      },
+      "name": "Before you start",
+      "description": "Introductory information step explaining what is needed before starting the online passport application.",
+      "fields": [],
+      "transitions": [
+        {
+          "targetStepId": "b2c3d4e5-f6a7-4890-9bcd-234567890abc"
+        }
+      ]
+    },
+    {
+      "id": "b2c3d4e5-f6a7-4890-9bcd-234567890abc",
+      "type": {
+        "kind": "info",
+        "body": "Select the type of passport application you want to make."
+      },
+      "name": "Choose application type",
+      "description": "Citizen selects whether they are applying for a first adult passport, renewing/replacing an existing one, or updating personal details on a current passport. This choice determines the rest of the journey.",
+      "fields": [
+        {
+          "id": "applicationType",
+          "name": "applicationType",
+          "label": "What would you like to do?",
+          "element": "radio",
+          "required": true,
+          "options": [
+            {
+              "value": "new",
+              "label": "Apply for a first adult passport"
+            },
+            {
+              "value": "renew",
+              "label": "Renew or replace an existing passport"
+            },
+            {
+              "value": "update",
+              "label": "Update personal details on my passport"
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "c3d4e5f6-a7b8-4901-8cde-34567890abcd",
+          "condition": {
+            "all": [
+              {
+                "field": "applicationType",
+                "operator": "equals",
+                "value": "new"
+              }
+            ]
+          },
+          "label": "First adult passport"
+        },
+        {
+          "targetStepId": "d4e5f6a7-b8c9-4012-9def-4567890abcde",
+          "condition": {
+            "all": [
+              {
+                "field": "applicationType",
+                "operator": "equals",
+                "value": "renew"
+              }
+            ]
+          },
+          "label": "Renew or replace passport"
+        },
+        {
+          "targetStepId": "e5f6a7b8-c9d0-4123-8ef0-567890abcdef",
+          "condition": {
+            "all": [
+              {
+                "field": "applicationType",
+                "operator": "equals",
+                "value": "update"
+              }
+            ]
+          },
+          "label": "Update passport details"
+        }
+      ]
+    },
+    {
+      "id": "c3d4e5f6-a7b8-4901-8cde-34567890abcd",
+      "type": {
+        "kind": "endpoint",
+        "method": "POST",
+        "url": "https://example.api.gov.uk/PLACEHOLDER/new-application",
+        "parameters": [],
+        "headers": [],
+        "request": {
+          "format": "json",
+          "contentType": "application/json",
+          "properties": [
+            {
+              "path": "fullName",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "dateOfBirth",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "placeOfBirth",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "address",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "nationality",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        "responses": [
+          {
+            "status": 200,
+            "description": "Application details accepted",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": [],
+            "nextStepId": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0"
+          }
+        ]
+      },
+      "name": "First adult passport application details",
+      "description": "Collects personal details for a citizen applying for their first adult passport. The real submission endpoint needs to be confirmed with HM Passport Office; a placeholder URL is used here.",
+      "fields": [
+        {
+          "id": "fullName",
+          "name": "fullName",
+          "label": "Full name",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "dateOfBirth",
+          "name": "dateOfBirth",
+          "label": "Date of birth",
+          "element": "date",
+          "required": true
+        },
+        {
+          "id": "placeOfBirth",
+          "name": "placeOfBirth",
+          "label": "Place of birth",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "address",
+          "name": "address",
+          "label": "Home address",
+          "element": "textarea",
+          "required": true
+        },
+        {
+          "id": "nationality",
+          "name": "nationality",
+          "label": "Nationality",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0"
+        }
+      ]
+    },
+    {
+      "id": "d4e5f6a7-b8c9-4012-9def-4567890abcde",
+      "type": {
+        "kind": "endpoint",
+        "method": "POST",
+        "url": "https://example.api.gov.uk/PLACEHOLDER/renew-application",
+        "parameters": [],
+        "headers": [],
+        "request": {
+          "format": "json",
+          "contentType": "application/json",
+          "properties": [
+            {
+              "path": "currentPassportNumber",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "currentPassportExpiry",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "fullName",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "dateOfBirth",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "address",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        "responses": [
+          {
+            "status": 200,
+            "description": "Renewal details accepted",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": [],
+            "nextStepId": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0"
+          }
+        ]
+      },
+      "name": "Renew or replace passport details",
+      "description": "Collects details of the citizen's current passport plus personal details for a renewal or replacement application. The real submission endpoint needs to be confirmed with HM Passport Office; a placeholder URL is used here.",
+      "fields": [
+        {
+          "id": "currentPassportNumber",
+          "name": "currentPassportNumber",
+          "label": "Current passport number",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "currentPassportExpiry",
+          "name": "currentPassportExpiry",
+          "label": "Current passport expiry date",
+          "element": "date",
+          "required": true
+        },
+        {
+          "id": "fullName",
+          "name": "fullName",
+          "label": "Full name",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "dateOfBirth",
+          "name": "dateOfBirth",
+          "label": "Date of birth",
+          "element": "date",
+          "required": true
+        },
+        {
+          "id": "address",
+          "name": "address",
+          "label": "Home address",
+          "element": "textarea",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0"
+        }
+      ]
+    },
+    {
+      "id": "e5f6a7b8-c9d0-4123-8ef0-567890abcdef",
+      "type": {
+        "kind": "endpoint",
+        "method": "POST",
+        "url": "https://example.api.gov.uk/PLACEHOLDER/update-application",
+        "parameters": [],
+        "headers": [],
+        "request": {
+          "format": "json",
+          "contentType": "application/json",
+          "properties": [
+            {
+              "path": "currentPassportNumber",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "updateType",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "newDetails",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        "responses": [
+          {
+            "status": 200,
+            "description": "Update details accepted",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": [],
+            "nextStepId": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0"
+          }
+        ]
+      },
+      "name": "Update passport details",
+      "description": "Collects the citizen's current passport number and the details they want updated, such as a name change. The real submission endpoint needs to be confirmed with HM Passport Office; a placeholder URL is used here.",
+      "fields": [
+        {
+          "id": "currentPassportNumber",
+          "name": "currentPassportNumber",
+          "label": "Current passport number",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "updateType",
+          "name": "updateType",
+          "label": "What do you need to update?",
+          "element": "select",
+          "required": true,
+          "options": [
+            {
+              "value": "name",
+              "label": "Change of name"
+            },
+            {
+              "value": "otherDetails",
+              "label": "Other personal details"
+            }
+          ]
+        },
+        {
+          "id": "newDetails",
+          "name": "newDetails",
+          "label": "New details",
+          "element": "textarea",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0"
+        }
+      ]
+    },
+    {
+      "id": "f6a7b8c9-d0e1-4234-9f01-67890abcdef0",
+      "type": {
+        "kind": "endpoint",
+        "method": "POST",
+        "url": "https://example.api.gov.uk/PLACEHOLDER/photo-upload",
+        "parameters": [],
+        "headers": [],
+        "request": {
+          "format": "multipart",
+          "contentType": "multipart/form-data",
+          "properties": [
+            {
+              "path": "photoReference",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        "responses": [
+          {
+            "status": 200,
+            "description": "Photo accepted",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": [],
+            "nextStepId": "07b8c9d0-e1f2-4345-a012-7890abcdef01"
+          }
+        ]
+      },
+      "name": "Upload passport photo",
+      "description": "Citizen uploads a digital passport photo that meets the official requirements. The real upload endpoint needs to be confirmed with HM Passport Office; a placeholder URL is used here.",
+      "fields": [
+        {
+          "id": "photoReference",
+          "name": "photoReference",
+          "label": "Uploaded photo reference",
+          "element": "text",
+          "hint": "Reference or filename of the photo you have uploaded",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "07b8c9d0-e1f2-4345-a012-7890abcdef01"
+        }
+      ]
+    },
+    {
+      "id": "07b8c9d0-e1f2-4345-a012-7890abcdef01",
+      "type": {
+        "kind": "endpoint",
+        "method": "POST",
+        "url": "https://example.api.gov.uk/PLACEHOLDER/payment",
+        "parameters": [],
+        "headers": [],
+        "request": {
+          "format": "json",
+          "contentType": "application/json",
+          "properties": [
+            {
+              "path": "cardholderName",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "cardNumber",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "expiryDate",
+              "type": "string",
+              "required": true
+            },
+            {
+              "path": "cvv",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        "responses": [
+          {
+            "status": 200,
+            "description": "Payment successful",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": []
+          },
+          {
+            "status": 402,
+            "description": "Payment failed",
+            "format": "json",
+            "contentType": "application/json",
+            "properties": []
+          }
+        ]
+      },
+      "name": "Pay passport fee",
+      "description": "Citizen pays the passport application fee by debit or credit card. The real payment gateway endpoint needs to be confirmed; a placeholder URL is used here.",
+      "fields": [
+        {
+          "id": "cardholderName",
+          "name": "cardholderName",
+          "label": "Name on card",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "cardNumber",
+          "name": "cardNumber",
+          "label": "Card number",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "expiryDate",
+          "name": "expiryDate",
+          "label": "Card expiry date",
+          "element": "text",
+          "required": true
+        },
+        {
+          "id": "cvv",
+          "name": "cvv",
+          "label": "Security code (CVV)",
+          "element": "text",
+          "required": true
+        }
+      ],
+      "transitions": [
+        {
+          "targetStepId": "18c9d0e1-f2a3-4456-b123-890abcdef012",
+          "label": "Payment successful"
+        },
+        {
+          "targetStepId": "07b8c9d0-e1f2-4345-a012-7890abcdef01",
+          "label": "Payment failed"
+        }
+      ]
+    },
+    {
+      "id": "18c9d0e1-f2a3-4456-b123-890abcdef012",
+      "type": {
+        "kind": "info",
+        "body": "Thank you. Your passport application has been submitted and payment received. You will receive confirmation and updates by email. Do not book travel until you have received your valid passport."
+      },
+      "name": "Application confirmation",
+      "description": "Final confirmation step shown to the citizen once their application and payment have been successfully submitted.",
+      "fields": [],
+      "transitions": []
+    }
+  ]
+}

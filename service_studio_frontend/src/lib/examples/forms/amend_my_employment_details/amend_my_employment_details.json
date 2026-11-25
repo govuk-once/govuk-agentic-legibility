@@ -1,0 +1,333 @@
+{
+  "process_id": "amend_my_employment_details",
+  "version": "0.1.0",
+  "metadata": {
+    "source": "govuk_forms"
+  },
+  "start": "step_1",
+  "vars": {
+    "answers": {}
+  },
+  "states": {
+    "step_1": {
+      "type": "input",
+      "name": "What is your full name",
+      "metadata": {
+        "forms_step_id": "HaCtt3R3",
+        "position": 1,
+        "page_heading": "How to complete this form",
+        "guidance_markdown": "## Part 1: Security questions\r\n\r\nYour answers must be the same as what you told us on your online claim. You will need the following information to hand:\r\n\r\n* claim reference number\r\n* National Insurance number\r\n\r\n## Part 2: Amendment section\r\n\r\nOnly answer a question if you need to change what you submitted in your online claim.\r\n\r\nLeave questions blank that you do not want to change.\r\n\r\nUse this section to give us the correct information for your:\r\n\r\n* gross weekly rate of pay\r\n* employment start and end date\r\n* the date your notice was given\r\n\r\nThese are the only details you can update, which we use to calculate your claim.\r\n\r\n## Start part 1",
+        "answer_type": "name",
+        "hint_text": "Use the same name you used on your claim",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "first_and_last_name",
+          "title_needed": false
+        }
+      },
+      "prompt": "What is your full name?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_1",
+      "next": "step_2"
+    },
+    "step_2": {
+      "type": "input",
+      "name": "What is your claim reference number",
+      "metadata": {
+        "forms_step_id": "tgRj2d1F",
+        "position": 2,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "text",
+        "hint_text": "For example LN12345678. This is found in our initial email to you.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your claim reference number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_2",
+      "next": "step_3"
+    },
+    "step_3": {
+      "type": "input",
+      "name": "What is your National Insurance number",
+      "metadata": {
+        "forms_step_id": "KzpxgiMz",
+        "position": 3,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "national_insurance_number",
+        "hint_text": "For example, QQ123456C. Use the same number you wrote in your claim.",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your National Insurance number?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_3",
+      "next": "step_4"
+    },
+    "step_4": {
+      "type": "input",
+      "name": "What is your email address",
+      "metadata": {
+        "forms_step_id": "wiimm6jw",
+        "position": 4,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "email",
+        "hint_text": "Use the email address you gave us when you created your claim",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": null
+      },
+      "prompt": "What is your email address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_4",
+      "next": "step_5"
+    },
+    "step_5": {
+      "type": "input",
+      "name": "What is your date of birth",
+      "metadata": {
+        "forms_step_id": "1CW4JUxe",
+        "position": 5,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "date",
+        "hint_text": "Use the same date you wrote in your claim",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "date_of_birth",
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your date of birth?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_5",
+      "next": "step_6"
+    },
+    "step_6": {
+      "type": "input",
+      "name": "What is your address",
+      "metadata": {
+        "forms_step_id": "c7xDP8Je",
+        "position": 6,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "address",
+        "hint_text": "Use the address you gave us in your claim",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": {
+            "uk_address": true,
+            "international_address": false
+          },
+          "title_needed": null
+        }
+      },
+      "prompt": "What is your address?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_6",
+      "next": "step_7"
+    },
+    "step_7": {
+      "type": "input",
+      "name": "What company were you made redundant from",
+      "metadata": {
+        "forms_step_id": "G5QeHzXC",
+        "position": 7,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "organisation_name",
+        "hint_text": "Use the name you gave us in your claim",
+        "optional": false,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What company were you made redundant from?",
+      "schema": {
+        "kind": "string",
+        "allow_skip": false
+      },
+      "assign": "answers.step_7",
+      "next": "step_8"
+    },
+    "step_8": {
+      "type": "input",
+      "name": "What was your gross weekly rate of pay",
+      "metadata": {
+        "forms_step_id": "MrYQ7XzJ",
+        "position": 8,
+        "page_heading": "Part 2: Amend your employment details",
+        "guidance_markdown": "Only answer a question if you need to change what you submitted in your online claim.\r\n\r\nLeave questions blank that you do not want to change.\r\n\r\nYou'll need the following information to hand:\r\n\r\n* your gross weekly rate of pay\r\n* employment start and end date\r\n* the date your notice was given\r\n\r\nThese are the only details you can update, which we use to calculate your claim.\r\n\r\n## Start part 2",
+        "answer_type": "number",
+        "hint_text": "Enter the correct amount (before tax and National Insurance deductions) or press continue to skip",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "single_line",
+          "title_needed": null
+        }
+      },
+      "prompt": "What was your gross weekly rate of pay?",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_8",
+      "next": "step_9"
+    },
+    "step_9": {
+      "type": "input",
+      "name": "When did your employment start?",
+      "metadata": {
+        "forms_step_id": "Gsm8ZdcG",
+        "position": 9,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "date",
+        "hint_text": "Enter the correct date here or press continue to skip",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "other_date",
+          "title_needed": null
+        }
+      },
+      "prompt": "When did your employment start? ",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_9",
+      "next": "step_10"
+    },
+    "step_10": {
+      "type": "input",
+      "name": "When did your employment end",
+      "metadata": {
+        "forms_step_id": "H5sTReyg",
+        "position": 10,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "date",
+        "hint_text": "Enter the correct date here or press continue to skip",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "other_date",
+          "title_needed": null
+        }
+      },
+      "prompt": "When did your employment end ?",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_10",
+      "next": "step_11"
+    },
+    "step_11": {
+      "type": "input",
+      "name": "When were you given notice of redundancy",
+      "metadata": {
+        "forms_step_id": "uySs91BA",
+        "position": 11,
+        "page_heading": null,
+        "guidance_markdown": null,
+        "answer_type": "date",
+        "hint_text": "Enter the correct date here or press continue to skip",
+        "optional": true,
+        "repeatable": false,
+        "answer_settings": {
+          "only_one_option": null,
+          "selection_options": [],
+          "none_of_the_above_question": null,
+          "input_type": "other_date",
+          "title_needed": null
+        }
+      },
+      "prompt": "When were you given notice of redundancy?",
+      "schema": {
+        "kind": "string",
+        "default": "",
+        "allow_skip": true
+      },
+      "assign": "answers.step_11",
+      "next": "what_happens_next"
+    },
+    "what_happens_next": {
+      "type": "output",
+      "name": "What Happens Next",
+      "metadata": {},
+      "channel": "transcript",
+      "message": "We will update your claim with the new information you provided. \r\n\r\nWe aim to do this within 10 working days. After we have updated your information, we will let you know if you are due a payment. \r\n\r\nYou do not need to send us any further evidence to complete your application.\r\n\r\nIf you have not had a response from us within 15 working days, contact us at: [redundancypaymentsonline@insolvency.gov.uk](mailto:redundancypaymentsonline@insolvency.gov.uk)\r\n\r\nMake sure you tell the insolvency practitioner handling your employer’s insolvency about any changes you make to your claim. They may need to update the information they provide to the Insolvency Service.\r\n\r\nTo make another amendment to your redundancy claim, complete the relevant form from the [redundancy claim amendment forms](https://www.gov.uk/guidance/amend-a-redundancy-claim) page.",
+      "on_error": "fail",
+      "next": "end_process"
+    },
+    "end_process": {
+      "type": "end",
+      "name": "Process Complete",
+      "metadata": {},
+      "status": "success",
+      "outcome": "form_answers_collected"
+    }
+  },
+  "source": []
+}

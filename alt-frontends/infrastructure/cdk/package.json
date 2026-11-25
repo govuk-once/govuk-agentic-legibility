@@ -1,0 +1,24 @@
+{
+  "name": "alternative-frontends-cdk",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all",
+    "deploy:repo": "cdk deploy AlternativeFrontendsRepositoryStack",
+    "deploy:service": "cdk deploy AlternativeFrontendsServiceStack",
+    "destroy": "cdk destroy --all"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "aws-cdk": "^2.1000.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.222.0",
+    "constructs": "^10.4.2",
+    "dotenv": "^18.0.10"
+  }
+}

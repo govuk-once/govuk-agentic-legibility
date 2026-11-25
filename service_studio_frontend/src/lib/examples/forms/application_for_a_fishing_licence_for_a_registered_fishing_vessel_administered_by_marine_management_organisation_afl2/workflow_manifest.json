@@ -1,0 +1,47 @@
+{
+  "workflow_id": 2510,
+  "schema": "Workflow/0.2",
+  "id": "govuk.forms.2510",
+  "version": "0.1.0",
+  "description": "Application for a fishing licence for a registered fishing vessel administered by Marine Management Organisation (AFL2)",
+  "state": "draft",
+  "metadata": {
+    "form_id": "2510",
+    "form_slug": "application-for-a-fishing-licence-for-a-registered-fishing-vessel-administered-by-marine-management-organisation-afl2",
+    "status": "live",
+    "language": "en",
+    "available_languages": [
+      "en"
+    ],
+    "submission_type": "email",
+    "submission_format": [],
+    "support_url": "https://www.gov.uk/contact-local-marine-management-organisation",
+    "support_email": null,
+    "support_phone": null,
+    "privacy_policy_url": "https://assets.publishing.service.gov.uk/media/62ecf81bd3bf7f75bb0e44b0/REVISED_Privacy-Notices-MMO_.pdf",
+    "payment_url": null,
+    "live_at": "2026-05-27T10:44:05.884057Z",
+    "created_at": "2024-03-02T09:04:00.970652Z",
+    "updated_at": "2026-05-27T10:44:05.884057Z",
+    "first_made_live_at": "2024-08-30T00:00:00.000000Z",
+    "creator_id": 973,
+    "copied_from_id": null,
+    "send_copy_of_answers": "disabled",
+    "send_daily_submission_batch": false,
+    "send_weekly_submission_batch": false
+  },
+  "entry": "application_for_a_fishing_licence_for_a_registered_fishing_vessel_administered_by_marine_management_organisation_afl2",
+  "executor": {
+    "workflow_id_template": "forms-2510-{{id}}",
+    "id_reuse_policy": "reject_duplicate",
+    "run_timeout": "P7D",
+    "search_attributes": {}
+  },
+  "defaults": {},
+  "processes": [
+    {
+      "process_id": "application_for_a_fishing_licence_for_a_registered_fishing_vessel_administered_by_marine_management_organisation_afl2",
+      "version": "0.1.0"
+    }
+  ]
+}

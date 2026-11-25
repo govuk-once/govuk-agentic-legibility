@@ -13,6 +13,24 @@ test-poc:
 api:
     uv run uvicorn agents.src.workflow_executor.api:create_app --factory --reload --port 8001
 
+durable-api:
+    cd durable_poc && uv run uvicorn agent.api.app:create_app --factory --reload --port 8010
+
+alt-frontends-install:
+    pnpm --prefix alt-frontends install
+
+alt-frontends-dev:
+    pnpm --prefix alt-frontends run dev
+
+alt-frontends-dev-mock:
+    pnpm --prefix alt-frontends run dev:mock
+
+alt-frontends-check:
+    pnpm --prefix alt-frontends run check
+
+alt-frontends-build:
+    pnpm --prefix alt-frontends run build
+
 format:
     uv run ruff format
 
