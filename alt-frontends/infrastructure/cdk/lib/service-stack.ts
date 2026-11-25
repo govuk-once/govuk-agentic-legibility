@@ -91,6 +91,8 @@ export class AlternativeFrontendsServiceStack
           'polly:StartSpeechSynthesisStream',
           'polly:DescribeVoices',
           'transcribe:StartStreamTranscription',
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream'
         ],
 
         resources: ['*'],
