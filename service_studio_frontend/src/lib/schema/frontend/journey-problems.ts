@@ -1,4 +1,4 @@
-import { placeholderMessage, placeholderQuestion } from './placeholders';
+import { placeholderMessage, placeholderQuestion } from	'$lib/schema/frontend/placeholders';
 
 /*
 	The words for each sort of problem a journey that is being edited can have. They are kept together here so they

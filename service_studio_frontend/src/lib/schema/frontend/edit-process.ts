@@ -1,5 +1,5 @@
-import type { WorkingProcess, WorkingState } from './working-process';
-import { routesOf, withRouteTarget, type Route } from './routes';
+import type { WorkingProcess, WorkingState } from '$lib/schema/frontend/working-process';
+import { routesOf, withRouteTarget, type Route } from '$lib/schema/frontend/routes';
 
 /*
 	The changes the editor makes to the routes of a whole process, written as plain functions that take a

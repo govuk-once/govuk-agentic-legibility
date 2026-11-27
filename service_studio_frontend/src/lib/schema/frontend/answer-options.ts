@@ -1,5 +1,5 @@
-import type { AnswerChoice } from './choice-answers';
-import type { WorkingState } from './working-process';
+import type { AnswerChoice } from '$lib/schema/frontend/choice-answers';
+import type { WorkingState } from '$lib/schema/frontend/working-process';
 
 /*
 	The options of an input where the person chooses one or several answers, as an editor changes them.

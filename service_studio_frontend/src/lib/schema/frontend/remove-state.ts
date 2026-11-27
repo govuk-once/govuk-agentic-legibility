@@ -1,7 +1,7 @@
-import { routesInto } from './edit-process';
-import type { EditResult } from './edit-journey';
-import { hasNext, replaceState, withoutNext } from './edit-state';
-import type { WorkingProcess, WorkingState } from './working-process';
+import { routesInto } from '$lib/schema/frontend/edit-process';
+import type { EditResult } from '$lib/schema/frontend/edit-journey';
+import { hasNext, replaceState, withoutNext } from '$lib/schema/frontend/edit-state';
+import type { WorkingProcess, WorkingState } from '$lib/schema/frontend/working-process';
 
 /*
 	Taking steps and lines out of the journey. Only what the person chose is taken out. Nothing is joined up or

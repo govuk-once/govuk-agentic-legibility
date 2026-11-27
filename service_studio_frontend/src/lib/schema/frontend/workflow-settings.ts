@@ -1,7 +1,7 @@
-import { durationAsAmount, durationFrom, durationInSeconds, type TimeUnit } from './durations';
-import { placeholderApiCallDefaults } from './placeholders';
-import type { Manifest } from './workflow';
-import type { WorkingProcess } from './working-process';
+import { durationAsAmount, durationFrom, durationInSeconds, type TimeUnit } from '$lib/schema/workflow/durations';
+import { placeholderApiCallDefaults } from '$lib/schema/frontend/placeholders';
+import type { Manifest } from '$lib/schema/workflow/workflow';
+import type { WorkingProcess } from '$lib/schema/frontend/working-process';
 
 /*
 	The settings for a whole workflow that the technical review sets: how long one run may last, and the time limit

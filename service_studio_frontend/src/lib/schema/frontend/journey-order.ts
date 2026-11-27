@@ -1,5 +1,5 @@
-import type { WorkingProcess } from './working-process';
-import { isErrorKind, routesOf, type Route } from './routes';
+import type { WorkingProcess } from '$lib/schema/frontend/working-process';
+import { isErrorKind, routesOf, type Route } from '$lib/schema/frontend/routes';
 
 /*
 	A process stores its states as a map, which has no meaningful order. The journey order is worked

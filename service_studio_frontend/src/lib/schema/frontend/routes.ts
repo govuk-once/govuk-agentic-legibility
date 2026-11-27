@@ -1,4 +1,4 @@
-import type { WorkingState } from './working-process';
+import type { WorkingState } from '$lib/schema/frontend/working-process';
 
 /*
 	Every state can send the journey on in more than one place: next, a choice rule, a default, an
