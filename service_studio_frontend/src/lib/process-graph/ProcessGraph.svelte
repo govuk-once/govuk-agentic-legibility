@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SvelteFlow, Background, Controls, MarkerType, MiniMap, type Edge, type Node } from '@xyflow/svelte';
+	import { SvelteFlow, Background, Controls, MarkerType, MiniMap, useSvelteFlow, type Edge, type Node } from '@xyflow/svelte';
 	import StepNode from '$lib/graph-kit/StepNode.svelte';
 	import ConditionNode from '$lib/graph-kit/ConditionNode.svelte';
 	import TerminalNode from '$lib/graph-kit/TerminalNode.svelte';
@@ -7,7 +7,6 @@
 	import { hintNodeType, hintNodes, type CanvasHint } from '$lib/hints/hint-nodes';
 	import ModuleBorderNode from '$lib/modules/ModuleBorderNode.svelte';
 	import { moduleBorderNodeType, moduleBorders } from '$lib/modules/module-borders';
-	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
 	import ProblemStrip from '$lib/process-graph/ProblemStrip.svelte';
 	import { nodeSize } from '$lib/graph-kit/layout';
 	import { arrangeProcessGraph, placeBesideNeighbours } from '$lib/process-graph/arrange';
@@ -177,8 +176,10 @@
 
 	const edges = $derived<Edge[]>([...shown.edges, ...draftEdges]);
 
-	// Where the canvas is on the screen, so a shape dropped from the palette lands where the pointer was.
-	let flowInstance: FlowInstance | undefined;
+	// The canvas's own helpers, which turn a point on the screen into a place on the canvas when a shape is dropped.
+	// This component draws the canvas and so is not inside it, which is why ProcessCanvas wraps it in a
+	// SvelteFlowProvider that makes them available here.
+	const flow = useSvelteFlow();
 
 	/**
 	 * Returns the data of a node, with the outline colour the editor chose for its kind of state when it is a box
@@ -250,10 +251,10 @@
 	 */
 	function handleDrop(event: DragEvent) {
 		const value = event.dataTransfer?.getData('application/x-journey-node');
-		if (!value || !flowInstance) return;
+		if (!value) return;
 
 		event.preventDefault();
-		onDropShape?.(value, flowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+		onDropShape?.(value, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
 	}
 
 	/**
@@ -355,9 +356,7 @@
 		}}
 		onpaneclick={() => (selectedStateId = null)}
 	>
-		<FlowPositionBridge onready={(instance) => (flowInstance = instance)} />
-		<!-- <Background /> -->
-		 <Background gap={25} size={1.5} patternColor="#646462" />
+		<Background gap={25} size={1.5} patternColor="#646462" />
 		<Controls showLock={false} />
 		<MiniMap pannable zoomable position="bottom-left" class="process-graph__minimap" />
 		{#if problemMarks && problemMarks.length > 0}

@@ -16,6 +16,7 @@
 		type DraftSet,
 		type Endpoint
 	} from '$lib/process-graph/drafts';
+	import { SvelteFlowProvider } from '@xyflow/svelte';
 	import ProcessGraph from '$lib/process-graph/ProcessGraph.svelte';
 	import type { CanvasHint } from '$lib/hints/hint-nodes';
 	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, StepOutlineColours } from '$lib/process-graph/process-graph-types';
@@ -217,25 +218,29 @@
 </script>
 
 <div class="process-canvas">
-	<ProcessGraph
-		{graph}
-		{showErrorRoutes}
-		{showDeveloperSteps}
-		{stepOutlineColours}
-		{positions}
-		{layoutRound}
-		{onMoveNodes}
-		{drafts}
-		bind:selectedStateId
-		{onOpenProcess}
-		canConnect={(source, target) => canDraw(process, drafts, source, target)}
-		onConnect={handleConnect}
-		onCreateConnectedStep={handleCreateConnectedStep}
-		onDropShape={handleDropShape}
-		onDeleteElements={handleDeleteElements}
-		{problemMarks}
-		{hints}
-	/>
+	<!-- The provider holds the canvas's state above the canvas itself, so the graph can ask it where a point on the
+		screen falls on the canvas when a shape is dropped from the palette. -->
+	<SvelteFlowProvider>
+		<ProcessGraph
+			{graph}
+			{showErrorRoutes}
+			{showDeveloperSteps}
+			{stepOutlineColours}
+			{positions}
+			{layoutRound}
+			{onMoveNodes}
+			{drafts}
+			bind:selectedStateId
+			{onOpenProcess}
+			canConnect={(source, target) => canDraw(process, drafts, source, target)}
+			onConnect={handleConnect}
+			onCreateConnectedStep={handleCreateConnectedStep}
+			onDropShape={handleDropShape}
+			onDeleteElements={handleDeleteElements}
+			{problemMarks}
+			{hints}
+		/>
+	</SvelteFlowProvider>
 
 	{#if messages.length > 0}
 		<div class="govuk-error-summary process-canvas__messages" role="alert">
