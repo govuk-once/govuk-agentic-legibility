@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { basicCategories, moduleCategories, moduleTileFor } from '../module-catalogue';
+import { basicCategories, moduleCategories, moduleTileFor } from '$lib/modules/module-catalogue';
 
 const modules = moduleCategories.flatMap((category) => category.modules);
 

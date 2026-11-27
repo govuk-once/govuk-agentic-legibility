@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editedAgo } from '../describe-draft';
+import { editedAgo } from '$lib/drafts/describe-draft';
 
 const now = new Date('2026-11-25T12:00:00Z');
 

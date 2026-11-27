@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { expressionSchema } from './expression';
-import { baseStateFields } from './states';
-import { durationSchema, dynamicRefSchema, stateRefSchema, variablePathSchema } from './primitives';
+import { expressionSchema } from '$lib/schema/workflow/expression';
+import { baseStateFields } from '$lib/schema/workflow/states';
+import { durationSchema, dynamicRefSchema, stateRefSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The api_call state from section 1.9 of the unified class structure document, with the timeouts (1.4),

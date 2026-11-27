@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
-import { createDraftStore } from '../draft-store';
+import { createDraftStore } from '$lib/draft-store';
 
 // A stand in for the browser's session storage, so the tests run without a browser. It can be made to refuse.
 function fakeStorage() {

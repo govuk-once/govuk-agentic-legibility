@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { moduleCategories } from '$lib/modules/module-catalogue';
 import { moduleDefinitions } from '$lib/modules/module-states';
-import { formPaletteTools } from '../palette-tools';
+import { formPaletteTools } from '$lib/form-editor/palette-tools';
 
 describe('formPaletteTools', () => {
 	it('lets the basic shapes be dragged: an input, a message, a decision, a start and an end', () => {

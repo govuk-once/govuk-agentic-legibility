@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { removeUnreachableStates, routesInto } from '../edit-process';
-import type { Process } from '../process';
-import { routesOf } from '../routes';
-import { deleteFromJourney } from '../remove-state';
+import { removeUnreachableStates, routesInto } from '$lib/schema/workflow/edit-process';
+import type { Process } from '$lib/schema/workflow/process';
+import { routesOf } from '$lib/schema/workflow/routes';
+import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 
 const finish = { state_type: 'end', status: 'success' };
 const wait = (next: string) => ({ state_type: 'wait', duration: 'PT1S', next });

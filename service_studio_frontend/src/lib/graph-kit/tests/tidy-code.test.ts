@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleProcessFiles } from '$lib/schema/workflow/tests/example-states';
-import { tidyCode } from '../tidy-code';
+import { tidyCode } from '$lib/graph-kit/tidy-code';
 
 describe('tidyCode', () => {
 	it.each([

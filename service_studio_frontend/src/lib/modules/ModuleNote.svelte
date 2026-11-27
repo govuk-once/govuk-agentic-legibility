@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
-	import { moduleTileFor } from './module-catalogue';
-	import ModuleIcon from './ModuleIcon.svelte';
+	import { moduleTileFor } from '$lib/modules/module-catalogue';
+	import ModuleIcon from '$lib/modules/ModuleIcon.svelte';
 
 	/*
 		A line on the card of a state saying which module it came from, beside the module's icon in the same grey square

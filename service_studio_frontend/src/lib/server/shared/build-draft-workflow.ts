@@ -2,8 +2,8 @@ import { placeholderExecutor, placeholderNamespace, placeholderOwner } from '$li
 import type { Duration } from '$lib/schema/workflow/primitives';
 import type { Process } from '$lib/schema/workflow/process';
 import { currentSchemaVersion, type Manifest, type Workflow } from '$lib/schema/workflow/workflow';
-import { isAllowedLink } from './allowed-link-domains';
-import { firstVersion, slugOf, type OnboardDetails } from './onboard-details';
+import { isAllowedLink } from '$lib/server/shared/allowed-link-domains';
+import { firstVersion, slugOf, type OnboardDetails } from '$lib/server/shared/onboard-details';
 
 /*
 	Wraps the process that the model generated into a whole workflow that an editor can open. The model is only

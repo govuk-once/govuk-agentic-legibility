@@ -2,9 +2,9 @@ import { answerFormats } from '$lib/modules/answer-formats';
 import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { descriptionKey, hintKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule } from '$lib/schema/workflow/placeholders';
-import { firstVersion } from '../shared/onboard-details';
-import { withProcessSchema } from '../shared/process-json-schema';
-import { describeDraftModule, draftFormModuleKeys } from './draft-modules';
+import { firstVersion } from '$lib/server/shared/onboard-details';
+import { withProcessSchema } from '$lib/server/shared/process-json-schema';
+import { describeDraftModule, draftFormModuleKeys } from '$lib/server/onboard-form/draft-modules';
 
 /* System prompt editable here */
 

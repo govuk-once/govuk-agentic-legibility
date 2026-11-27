@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayUrl, parseContextUrl } from '../context';
+import { displayUrl, parseContextUrl } from '$lib/components/context';
 
 describe('parseContextUrl', () => {
 	it('accepts an https address and trims the spaces around it', () => {

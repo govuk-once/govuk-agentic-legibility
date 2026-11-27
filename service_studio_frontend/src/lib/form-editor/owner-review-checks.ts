@@ -1,7 +1,7 @@
 import { processToGraph, visibleGraph } from '$lib/process-graph/process-to-graph';
 import { stateRows, type StateRow } from '$lib/process-graph/state-rows';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { formHiddenStateTypes } from './schema/form-states';
+import { formHiddenStateTypes } from '$lib/form-editor/schema/form-states';
 
 /*
 	What the owner review shows about the form's journey and its checks. The real checks come from the tech review,

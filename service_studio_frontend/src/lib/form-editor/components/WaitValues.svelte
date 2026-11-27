@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { placeholderWaitDuration } from '$lib/schema/workflow/placeholders';
 	import type { WorkingState, WorkingWait } from '$lib/schema/workflow/working-process';
-	import { typedDurationInWords, waitDurationField, waitDurationText, waitWithDuration } from '../step-values/wait-values';
-	import FieldError from './FieldError.svelte';
-	import StepValuesForm from './StepValuesForm.svelte';
+	import { typedDurationInWords, waitDurationField, waitDurationText, waitWithDuration } from '$lib/form-editor/step-values/wait-values';
+	import FieldError from '$lib/form-editor/components/FieldError.svelte';
+	import StepValuesForm from '$lib/form-editor/components/StepValuesForm.svelte';
 
 	/*
 		The panel of a wait step on the step values page. A wait has one value, how long it waits.

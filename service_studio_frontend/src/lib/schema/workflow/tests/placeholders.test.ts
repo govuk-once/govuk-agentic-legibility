@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exampleWorkflows } from './example-states';
+import { exampleWorkflows } from '$lib/schema/workflow/tests/example-states';
 import {
 	defaultEndStatus,
 	isUndecidedRule,
@@ -11,8 +11,8 @@ import {
 	placeholderQuestion,
 	undecidedRule,
 	unconnectedApiCallDetails
-} from '../placeholders';
-import { parseProcess, parseWorkflow } from '../validate';
+} from '$lib/schema/workflow/placeholders';
+import { parseProcess, parseWorkflow } from '$lib/schema/workflow/validate';
 
 describe('placeholders pass validation', () => {
 	// A process that uses every placeholder: an unconnected call, then a decision with the

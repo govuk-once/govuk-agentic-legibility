@@ -3,7 +3,7 @@ import type { ApiCallState } from '$lib/schema/workflow/api-call-state';
 import { isPlaceholderBodyValue, isUnconnectedApiCall, placeholderBodyValue } from '$lib/schema/workflow/placeholders';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { withEntryState } from './step-values/step-values';
+import { withEntryState } from '$lib/form-editor/step-values/step-values';
 
 /*
 	The Flex connections of a form. Every API call step has to be connected to a Flex endpoint before the form can be

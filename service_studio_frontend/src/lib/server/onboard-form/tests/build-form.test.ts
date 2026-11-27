@@ -3,7 +3,7 @@ import { formExamples } from '$lib/examples/forms';
 import { checkFormWorkflow } from '$lib/form-editor/schema/form-states';
 import type { Process } from '$lib/schema/workflow/process';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { buildForm, formRunTimeout, statesNotForForms, withAnswerTypes, withFormatChecks, withModuleGroupIds } from '../build-form';
+import { buildForm, formRunTimeout, statesNotForForms, withAnswerTypes, withFormatChecks, withModuleGroupIds } from '$lib/server/onboard-form/build-form';
 
 const details = { name: 'Register a trainer', description: 'Tell us who needs training.', links: ['https://www.gov.uk/a'] };
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { expressionSchema } from './expression';
-import { durationOrRefSchema, metadataSchema, stateRefSchema, variablePathSchema } from './primitives';
+import { expressionSchema } from '$lib/schema/workflow/expression';
+import { durationOrRefSchema, metadataSchema, stateRefSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The four simple states from sections 1.8, 1.11, 1.13 and 1.14 of the unified class structure

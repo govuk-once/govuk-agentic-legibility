@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { publishedStages, stagesAt } from '../progress-stages';
+import { publishedStages, stagesAt } from '$lib/components/progress-stages';
 
 describe('stagesAt', () => {
 	it('marks the stages before the current one complete and the ones after it upcoming', () => {

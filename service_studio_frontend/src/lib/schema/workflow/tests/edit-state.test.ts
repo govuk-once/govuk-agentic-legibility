@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exampleStatesOfType } from './example-states';
+import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
 import {
 	descriptionOf,
 	endsTheJourney,
@@ -16,9 +16,9 @@ import {
 	withNote,
 	withText,
 	withTitleAndDescription
-} from '../edit-state';
-import { stateSchema, type Process, type State } from '../process';
-import type { WorkingState } from '../working-process';
+} from '$lib/schema/workflow/edit-state';
+import { stateSchema, type Process, type State } from '$lib/schema/workflow/process';
+import type { WorkingState } from '$lib/schema/workflow/working-process';
 
 const state = (value: unknown) => value as State;
 const wait = state({ state_type: 'wait', duration: 'PT1S', next: 'done' });

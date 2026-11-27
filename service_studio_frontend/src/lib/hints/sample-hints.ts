@@ -1,4 +1,4 @@
-import type { CanvasHint } from './hint-nodes';
+import type { CanvasHint } from '$lib/hints/hint-nodes';
 
 /*
 	Sample best practice hints, shown when Show hints is ticked. They are not worked out from the form yet. They are

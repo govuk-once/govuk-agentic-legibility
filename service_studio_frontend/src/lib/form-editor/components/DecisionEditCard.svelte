@@ -6,7 +6,7 @@
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import { descriptionOf, nothingYet, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
 	import type { WorkingChoice, WorkingInput, WorkingState } from '$lib/schema/workflow/working-process';
-	import { decisionRowLabels, ruleRowLabels } from '../decision-rows';
+	import { decisionRowLabels, ruleRowLabels } from '$lib/form-editor/decision-rows';
 
 	// The input a decision follows, with the number and title it has on the graph.
 	type InputBefore = { input: WorkingInput; number: number; title: string };

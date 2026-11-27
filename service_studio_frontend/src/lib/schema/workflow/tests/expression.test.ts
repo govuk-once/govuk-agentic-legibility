@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { expressionSchema } from '../expression';
-import { assignStateSchema } from '../states';
+import { expressionSchema } from '$lib/schema/workflow/expression';
+import { assignStateSchema } from '$lib/schema/workflow/states';
 
 type Example = { states?: Record<string, { state_type: string; [key: string]: unknown }> };
 

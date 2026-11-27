@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
 import type { Condition } from '$lib/schema/workflow/condition';
 import type { Expression } from '$lib/schema/workflow/expression';
-import { describeCondition, describeDuration, describeExpression } from '../describe-value';
+import { describeCondition, describeDuration, describeExpression } from '$lib/process-graph/describe-value';
 
 describe('describeDuration', () => {
 	it.each([

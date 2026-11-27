@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { processSchema, type Process } from '../process';
-import type { WorkingProcess } from '../working-process';
+import { processSchema, type Process } from '$lib/schema/workflow/process';
+import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 
 // A process with a step that is not joined to anything. The cast is needed because it does not match the saved shape.
 const unfinished = {

@@ -1,7 +1,7 @@
-import type { Condition } from './condition';
-import { routesInto } from './edit-process';
-import type { InputState } from './input-state';
-import type { WorkingInput, WorkingProcess, WorkingState } from './working-process';
+import type { Condition } from '$lib/schema/workflow/condition';
+import { routesInto } from '$lib/schema/workflow/edit-process';
+import type { InputState } from '$lib/schema/workflow/input-state';
+import type { WorkingInput, WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 
 /*
 	How a decision is tied to the answers of the input before it. A decision sends the journey one way or

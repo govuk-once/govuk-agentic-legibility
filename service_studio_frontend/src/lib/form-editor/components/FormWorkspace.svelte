@@ -20,15 +20,15 @@
 	import { moduleCategories } from '$lib/modules/module-catalogue';
 	import { isInModule, statesOfSameModule } from '$lib/modules/module-group';
 	import { withRoutesForNewOptions } from '$lib/modules/option-routes';
-	import { formPaletteTools } from '../palette-tools';
-	import { formStepBlock } from '../step-blocks';
-	import { formDeveloperStateTypes, formHiddenStateTypes, isEditableInForm } from '../schema/form-states';
-	import { stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
-	import DecisionEditCard from './DecisionEditCard.svelte';
-	import DeveloperStateCard from './DeveloperStateCard.svelte';
-	import ProblemsDrawer from './ProblemsDrawer.svelte';
-	import SaveDraftButton from './SaveDraftButton.svelte';
-	import StateEditCard from './StateEditCard.svelte';
+	import { formPaletteTools } from '$lib/form-editor/palette-tools';
+	import { formStepBlock } from '$lib/form-editor/step-blocks';
+	import { formDeveloperStateTypes, formHiddenStateTypes, isEditableInForm } from '$lib/form-editor/schema/form-states';
+	import { stateLabels, stateOutlineColours, stateTagColours } from '$lib/form-editor/state-labels';
+	import DecisionEditCard from '$lib/form-editor/components/DecisionEditCard.svelte';
+	import DeveloperStateCard from '$lib/form-editor/components/DeveloperStateCard.svelte';
+	import ProblemsDrawer from '$lib/form-editor/components/ProblemsDrawer.svelte';
+	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
+	import StateEditCard from '$lib/form-editor/components/StateEditCard.svelte';
 
 	interface Props {
 		process: WorkingProcess;

@@ -21,7 +21,21 @@ export default defineConfig(
 			'no-undef': 'off',
 			// Taking keys out of an object with `const { key: _unused, ...rest } = object` names the keys only so they
 			// are left out of rest, so those names are not reported as unused.
-			'@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }]
+			'@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+			// Files in src/lib are imported through the $lib alias, so every import names a file the same way from
+			// wherever it is written, and a file can move without the imports inside it breaking. The one relative
+			// import allowed is ./$types, the types SvelteKit generates beside each route, which has no alias.
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							regex: '^\\.\\.?/(?!\\$types$)',
+							message: 'Import files in src/lib through $lib, such as $lib/schema/workflow/validate.'
+						}
+					]
+				}
+			]
 		}
 	},
 	{

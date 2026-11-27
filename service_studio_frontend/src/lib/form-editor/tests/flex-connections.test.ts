@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Workflow } from '$lib/schema/workflow/workflow';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 import { placeholderBodyValue } from '$lib/schema/workflow/placeholders';
-import { apiCallSteps, bodyForEndpoint, flexConnections, summariseBody, usesEndpoint, withEndpoint, type FlexEndpoint } from '../flex-connections';
+import { apiCallSteps, bodyForEndpoint, flexConnections, summariseBody, usesEndpoint, withEndpoint, type FlexEndpoint } from '$lib/form-editor/flex-connections';
 
 // A short journey with a connected call, a question and an unconnected call, drawn in that order.
 const process = {

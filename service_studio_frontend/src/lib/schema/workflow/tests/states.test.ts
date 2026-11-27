@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exampleStatesOfType } from './example-states';
-import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema } from '../states';
+import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
+import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema } from '$lib/schema/workflow/states';
 
 describe('simple states with the real examples', () => {
 	const schemas = {

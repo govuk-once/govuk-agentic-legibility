@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exampleProcessFiles } from './example-states';
-import { processSchema, stateSchema } from '../process';
+import { exampleProcessFiles } from '$lib/schema/workflow/tests/example-states';
+import { processSchema, stateSchema } from '$lib/schema/workflow/process';
 
 describe('processSchema with the real examples', () => {
 	it('accepts every process file in the example services', () => {

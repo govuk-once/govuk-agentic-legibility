@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { retryPolicySchema, timeoutsSchema } from './api-call-state';
-import { durationSchema, metadataSchema, processRefSchema, versionSchema } from './primitives';
-import { processSchema } from './process';
+import { retryPolicySchema, timeoutsSchema } from '$lib/schema/workflow/api-call-state';
+import { durationSchema, metadataSchema, processRefSchema, versionSchema } from '$lib/schema/workflow/primitives';
+import { processSchema } from '$lib/schema/workflow/process';
 
 /*
 	The workflow manifest from sections 1.1 to 1.3 of the unified class structure document, and the

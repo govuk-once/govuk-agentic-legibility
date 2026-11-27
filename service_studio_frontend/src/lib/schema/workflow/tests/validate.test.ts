@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exampleProcessFiles, exampleWorkflows } from './example-states';
+import { exampleProcessFiles, exampleWorkflows } from '$lib/schema/workflow/tests/example-states';
 import { formExamples } from '$lib/examples/forms';
 import {
 	placeholderInput,
@@ -8,9 +8,9 @@ import {
 	placeholderQuestion,
 	unconnectedApiCallDetails,
 	undecidedRule
-} from '../placeholders';
-import { checkBeforeProceeding, journeyErrors, journeyWarnings, parseProcess, parseWorkflow } from '../validate';
-import type { WorkingProcess, WorkingWorkflow } from '../working-process';
+} from '$lib/schema/workflow/placeholders';
+import { checkBeforeProceeding, journeyErrors, journeyWarnings, parseProcess, parseWorkflow } from '$lib/schema/workflow/validate';
+import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
 
 // A small valid process that each test copies and then breaks in one way.
 const process = {

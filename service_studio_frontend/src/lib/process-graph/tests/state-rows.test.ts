@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
 import type { Process } from '$lib/schema/workflow/process';
-import { processToGraph, stepCount } from '../process-to-graph';
-import { stateRows, targetOptions } from '../state-rows';
+import { processToGraph, stepCount } from '$lib/process-graph/process-to-graph';
+import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
 
 const build = (start: string, states: Record<string, unknown>) =>
 	({ process_id: 'p', version: '0.1.0', vars: {}, start, states }) as unknown as Process;

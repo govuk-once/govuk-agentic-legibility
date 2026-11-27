@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { withNext } from '$lib/schema/workflow/edit-state';
 import { journeyErrors } from '$lib/schema/workflow/validate';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { addModule } from '../add-module';
-import type { ModuleKey } from '../module-states';
+import { addModule } from '$lib/modules/add-module';
+import type { ModuleKey } from '$lib/modules/module-states';
 
 /*
 	Forms made only of modules, joined one after another as a person would join them on the canvas, pass the check

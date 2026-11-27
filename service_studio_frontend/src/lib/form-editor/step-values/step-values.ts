@@ -2,7 +2,7 @@ import { processToGraph, stateTitle } from '$lib/process-graph/process-to-graph'
 import { noteOf, replaceState, withNote } from '$lib/schema/workflow/edit-state';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { formDeveloperStateTypes } from '../schema/form-states';
+import { formDeveloperStateTypes } from '$lib/form-editor/schema/form-states';
 
 /*
 	The developer steps of a form, as the step values stage of the technical review lists them. Each one is opened in

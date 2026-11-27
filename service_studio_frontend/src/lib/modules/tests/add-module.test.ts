@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { addModule, isModuleKey } from '../add-module';
+import { addModule, isModuleKey } from '$lib/modules/add-module';
 
 // A journey with one message and nothing else, to add modules to.
 const journey: WorkingProcess = {

@@ -1,5 +1,5 @@
-import { serviceExampleFolders } from '../../../examples/services';
-import { assembleWorkflow } from '../../../examples/workflows';
+import { serviceExampleFolders } from '$lib/examples/services';
+import { assembleWorkflow } from '$lib/examples/workflows';
 
 /*
 	Test helper that reads the two example services so each state schema can be checked against

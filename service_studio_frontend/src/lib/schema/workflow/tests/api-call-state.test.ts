@@ -5,8 +5,8 @@ import {
 	catchClauseSchema,
 	retryPolicySchema,
 	timeoutsSchema
-} from '../api-call-state';
-import { exampleStatesOfType } from './example-states';
+} from '$lib/schema/workflow/api-call-state';
+import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
 
 type ExampleManifest = { defaults?: { api_call?: { timeouts?: unknown; retry?: unknown } } };
 

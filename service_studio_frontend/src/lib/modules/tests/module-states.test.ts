@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
 import { routesOf } from '$lib/schema/workflow/routes';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
-import { basicCategories, moduleCategories } from '../module-catalogue';
-import { moduleDefinitions, type ModuleKey } from '../module-states';
+import { basicCategories, moduleCategories } from '$lib/modules/module-catalogue';
+import { moduleDefinitions, type ModuleKey } from '$lib/modules/module-states';
 
 // Every module in the menu that is not a basic shape, so a module added to the menu without its states is noticed.
 const basicKeys = new Set<string>(basicCategories.flatMap((category) => category.modules.map((module) => module.key)));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Manifest, Workflow } from '$lib/schema/workflow/workflow';
-import { withTechReviewChecked } from '../step-values/step-values';
-import { describeWorkflowSettings, isTechReviewFinished } from '../tech-review-summary';
+import { withTechReviewChecked } from '$lib/form-editor/step-values/step-values';
+import { describeWorkflowSettings, isTechReviewFinished } from '$lib/form-editor/tech-review-summary';
 
 describe('describeWorkflowSettings', () => {
 	it('writes the run timeout and the API call defaults in words', () => {

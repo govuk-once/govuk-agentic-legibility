@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exampleWorkflows } from './example-states';
-import { currentSchemaVersion, manifestSchema, workflowSchema } from '../workflow';
+import { exampleWorkflows } from '$lib/schema/workflow/tests/example-states';
+import { currentSchemaVersion, manifestSchema, workflowSchema } from '$lib/schema/workflow/workflow';
 
 describe('workflowSchema with the real examples', () => {
 	const workflows = exampleWorkflows();

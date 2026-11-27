@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchLinkText } from './fetch-link';
+import { fetchLinkText } from '$lib/server/shared/fetch-link';
 
 describe('fetchLinkText', () => {
 	afterEach(() => {

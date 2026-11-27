@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { wordsFor, type JourneyProblemKind } from '$lib/schema/workflow/journey-problems';
-import { fixPictures } from '../fix-pictures';
+import { fixPictures } from '$lib/form-editor/fix-pictures';
 
 // Every sort of problem but the schema's, which has its own words and neither a picture nor a how to fix line.
 const kinds: Exclude<JourneyProblemKind, 'schema'>[] = [

@@ -2,7 +2,7 @@ import { AnthropicError } from '@anthropic-ai/sdk';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk';
 import { describe, expect, it } from 'vitest';
-import { generateJson, type CheckResult, type ModelClient } from '../generate-json';
+import { generateJson, type CheckResult, type ModelClient } from '$lib/server/shared/generate-json';
 
 // Fails to compile if the real Bedrock client no longer fits the small client type that the helper asks for.
 export const bedrockFits = (client: AnthropicBedrock): ModelClient => client;

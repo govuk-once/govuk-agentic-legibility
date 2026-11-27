@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readLinks } from '../read-links';
+import { readLinks } from '$lib/server/shared/read-links';
 
 // Stands in for the real fetch, so no test reaches the internet. Each address answers as the test says.
 const fetched = vi.hoisted(() => ({ asked: [] as string[] }));

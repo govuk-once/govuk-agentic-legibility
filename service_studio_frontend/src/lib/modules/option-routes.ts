@@ -2,9 +2,9 @@ import { editableOptions } from '$lib/schema/workflow/answer-options';
 import { conditionForAnswer } from '$lib/schema/workflow/choice-answers';
 import { replaceState } from '$lib/schema/workflow/edit-state';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { isModuleKey } from './add-module';
-import { isInModule, statesOfSameModule } from './module-group';
-import { moduleDefinitions } from './module-states';
+import { isModuleKey } from '$lib/modules/add-module';
+import { isInModule, statesOfSameModule } from '$lib/modules/module-group';
+import { moduleDefinitions } from '$lib/modules/module-states';
 
 /*
 	Adds a way out to the decision of a module when an option is added to its input, so every option has its own

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { developerSteps, stepValuesSummary, techReviewChecked, techReviewCheckedKey, withEntryState, withTechReviewChecked } from '../step-values';
+import { developerSteps, stepValuesSummary, techReviewChecked, techReviewCheckedKey, withEntryState, withTechReviewChecked } from '$lib/form-editor/step-values/step-values';
 
 // A short journey with a question, an assign, a wait and an API call, met in that order.
 const workflow = {

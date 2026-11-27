@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { agentNotesLimit, ownerDetailsOf, ownerDetailsProblems, withOwnerDetails, type OwnerDetails } from '../owner-details';
-import { placeholderOwner } from '../placeholders';
-import { manifestSchema, type Manifest } from '../workflow';
+import { agentNotesLimit, ownerDetailsOf, ownerDetailsProblems, withOwnerDetails, type OwnerDetails } from '$lib/schema/workflow/owner-details';
+import { placeholderOwner } from '$lib/schema/workflow/placeholders';
+import { manifestSchema, type Manifest } from '$lib/schema/workflow/workflow';
 
 // Only the keys the owner details read and write. The cast is needed because a test gives only the keys it uses.
 const manifestWith = (keys: Partial<Manifest>) => keys as Manifest;

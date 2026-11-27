@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WaitState } from '$lib/schema/workflow/states';
-import { typedDurationInWords, waitDurationText, waitWithDuration } from '../wait-values';
+import { typedDurationInWords, waitDurationText, waitWithDuration } from '$lib/form-editor/step-values/wait-values';
 
 const wait: WaitState = { state_type: 'wait', name: 'Wait', duration: 'PT30M', next: 'check' };
 

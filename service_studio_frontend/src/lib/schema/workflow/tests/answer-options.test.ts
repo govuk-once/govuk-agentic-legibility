@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { editableOptions, newOption, withOptions } from '../answer-options';
-import type { WorkingState } from '../working-process';
+import { editableOptions, newOption, withOptions } from '$lib/schema/workflow/answer-options';
+import type { WorkingState } from '$lib/schema/workflow/working-process';
 
 const chooseOne: WorkingState = {
 	state_type: 'input',

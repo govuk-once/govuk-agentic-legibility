@@ -1,4 +1,4 @@
-import { isWebAddress } from './onboard-details';
+import { isWebAddress } from '$lib/server/shared/onboard-details';
 
 /*
 	The sites whose pages the assistant may read. A person types links on the details page, and the server fetches the

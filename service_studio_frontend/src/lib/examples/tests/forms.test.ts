@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formExampleFolders, formExamples } from '../forms';
+import { formExampleFolders, formExamples } from '$lib/examples/forms';
 
 describe('formExampleFolders', () => {
 	it('has a folder for each of the 14 converted forms and the 4 demo forms, each holding a manifest and one process file', () => {

@@ -2,8 +2,8 @@ import { uniqueStateCode } from '$lib/schema/workflow/edit-process';
 import { placeholderApiCallDefaults, placeholderFailedEnd, placeholderRunTimeout } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { buildDraftWorkflow } from '../shared/build-draft-workflow';
-import type { OnboardDetails } from '../shared/onboard-details';
+import { buildDraftWorkflow } from '$lib/server/shared/build-draft-workflow';
+import type { OnboardDetails } from '$lib/server/shared/onboard-details';
 
 /*
 	What a service draft needs beyond the wrapping every draft gets: the routes taken when a call fails, and the

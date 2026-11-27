@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ApiCallState } from '$lib/schema/workflow/api-call-state';
 import { placeholderBodyValue } from '$lib/schema/workflow/placeholders';
-import { apiCallFields, apiCallValuesOf, apiCallWithValues, savedAnswerExample } from '../api-call-values';
+import { apiCallFields, apiCallValuesOf, apiCallWithValues, savedAnswerExample } from '$lib/form-editor/step-values/api-call-values';
 
 const call: ApiCallState = {
 	state_type: 'api_call',

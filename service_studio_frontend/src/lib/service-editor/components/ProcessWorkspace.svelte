@@ -15,7 +15,7 @@
 	import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 	import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 	import StateList from '$lib/process-graph/StateList.svelte';
-	import StateDetails from './StateDetails.svelte';
+	import StateDetails from '$lib/service-editor/components/StateDetails.svelte';
 	
 	interface Props {
 		process: WorkingProcess;

@@ -3,7 +3,7 @@ import { serviceExamples } from '$lib/examples/services';
 import { placeholderApiCallDefaults, placeholderRunTimeout } from '$lib/schema/workflow/placeholders';
 import type { Process } from '$lib/schema/workflow/process';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { buildWorkflow, withFailureRoutes } from '../build-workflow';
+import { buildWorkflow, withFailureRoutes } from '$lib/server/onboard-service/build-workflow';
 
 const details = { name: 'Change driving licence address', description: 'Change an address.', links: ['https://www.gov.uk/change-address'] };
 

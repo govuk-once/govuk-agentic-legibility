@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeModel } from '$lib/server/shared/tests/fake-model';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { generateService } from '../generate-service';
-import { SERVICE_SYSTEM_PROMPT } from '../system-prompt';
+import { generateService } from '$lib/server/onboard-service/generate-service';
+import { SERVICE_SYSTEM_PROMPT } from '$lib/server/onboard-service/system-prompt';
 
 // Stands in for the real fetch, so no test reaches the internet. Each address answers as the test says.
 const fetched = vi.hoisted(() => ({ answers: {} as Record<string, { text: string } | { error: string }> }));

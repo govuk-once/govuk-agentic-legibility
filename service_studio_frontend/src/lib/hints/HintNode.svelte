@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Node, NodeProps } from '@xyflow/svelte';
-	import { hintBracketWidth, hintLineLength, hintNoteWidth, type HintNodeData } from './hint-nodes';
+	import { hintBracketWidth, hintLineLength, hintNoteWidth, type HintNodeData } from '$lib/hints/hint-nodes';
 
 	let { data }: NodeProps<Node<HintNodeData>> = $props();
 </script>

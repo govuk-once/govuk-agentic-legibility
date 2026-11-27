@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { conditionSchema } from '../condition';
+import { conditionSchema } from '$lib/schema/workflow/condition';
 
 // Every workflow file in the two example services, loaded as parsed JSON.
 const exampleFiles = import.meta.glob('../../../examples/services/*/*.json', {

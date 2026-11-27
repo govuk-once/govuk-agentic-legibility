@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { StateDescription } from './describe-state';
+	import type { StateDescription } from '$lib/process-graph/describe-state';
 
 	interface Props {
 		// The title of the state, used to leave out a fact that only repeats it, as the question of an input does.

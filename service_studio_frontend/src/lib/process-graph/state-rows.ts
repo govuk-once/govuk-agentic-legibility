@@ -1,5 +1,5 @@
 import type { State } from '$lib/schema/workflow/process';
-import type { ProcessNode } from './process-graph-types';
+import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 
 /**
  * One line of the list of steps beside the graph. It carries the number and the title, which are the same as

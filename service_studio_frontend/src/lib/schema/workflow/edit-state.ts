@@ -1,4 +1,4 @@
-import type { WorkingProcess, WorkingState } from './working-process';
+import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 
 /*
 	The changes the editor makes to a state, written as plain functions that take a state and return a

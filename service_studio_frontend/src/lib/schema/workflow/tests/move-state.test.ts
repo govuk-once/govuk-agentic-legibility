@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { stepWithItsAssign } from '../edit-process';
-import { reachableInOrder } from '../journey-order';
-import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '../move-state';
-import { processSchema, type Process } from '../process';
+import { stepWithItsAssign } from '$lib/schema/workflow/edit-process';
+import { reachableInOrder } from '$lib/schema/workflow/journey-order';
+import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
+import { processSchema, type Process } from '$lib/schema/workflow/process';
 
 const finish = { state_type: 'end', status: 'success' };
 const wait = (next: string, extra: object = {}) => ({ state_type: 'wait', duration: 'PT1S', next, ...extra });

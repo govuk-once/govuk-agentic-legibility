@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import type { ModuleCategory, ModuleTile, PaletteTool } from './module-catalogue';
-	import ModuleIcon from './ModuleIcon.svelte';
+	import type { ModuleCategory, ModuleTile, PaletteTool } from '$lib/modules/module-catalogue';
+	import ModuleIcon from '$lib/modules/ModuleIcon.svelte';
 
 	/*
 		The menu of modules that runs across the top of an editor. Each category has its name over a row of tiles, with a

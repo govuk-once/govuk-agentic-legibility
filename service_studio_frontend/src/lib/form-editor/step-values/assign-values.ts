@@ -1,7 +1,7 @@
 import { expressionSchema, type Expression } from '$lib/schema/workflow/expression';
 import { variablePathSchema } from '$lib/schema/workflow/primitives';
 import type { WorkingAssign } from '$lib/schema/workflow/working-process';
-import type { StepValueProblem, StepValuesResult } from './step-values';
+import type { StepValueProblem, StepValuesResult } from '$lib/form-editor/step-values/step-values';
 
 /*
 	The values of an assign step. An assign sets one or more variables, and each is given a value of one kind: a fixed

@@ -1,4 +1,4 @@
-import type { AnswerDefinition } from './input-state';
+import type { AnswerDefinition } from '$lib/schema/workflow/input-state';
 
 /*
 	The answer type of a question in a form. The kind of answer in the schema says how an answer is given: typed,

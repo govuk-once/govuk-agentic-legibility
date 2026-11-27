@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
 import { answerDefinitionSchema } from '$lib/schema/workflow/input-state';
-import { answerKindLabels, stateLabels, stateOutlineColours, stateTagColours } from '../state-labels';
+import { answerKindLabels, stateLabels, stateOutlineColours, stateTagColours } from '$lib/form-editor/state-labels';
 
 // Every kind of state in the schema, read from the schema itself so a new kind is noticed here.
 const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);

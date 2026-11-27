@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { apiCallStateSchema } from './api-call-state';
-import { choiceStateSchema } from './choice-state';
-import { inputStateSchema } from './input-state';
-import { invokeStateSchema } from './invoke-state';
-import { metadataSchema, stateRefSchema, variablePathSchema, versionSchema } from './primitives';
-import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema } from './states';
+import { apiCallStateSchema } from '$lib/schema/workflow/api-call-state';
+import { choiceStateSchema } from '$lib/schema/workflow/choice-state';
+import { inputStateSchema } from '$lib/schema/workflow/input-state';
+import { invokeStateSchema } from '$lib/schema/workflow/invoke-state';
+import { metadataSchema, stateRefSchema, variablePathSchema, versionSchema } from '$lib/schema/workflow/primitives';
+import { assignStateSchema, endStateSchema, outputStateSchema, waitStateSchema } from '$lib/schema/workflow/states';
 
 /*
 	The process file from section 1.6 of the unified class structure document. Each process is saved

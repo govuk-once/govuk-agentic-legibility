@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { NOTE_MAX_LENGTH, displayUrl, parseContextUrl } from './context';
-	import type { ContextItem } from './context';
+	import { NOTE_MAX_LENGTH, displayUrl, parseContextUrl } from '$lib/components/context';
+	import type { ContextItem } from '$lib/components/context';
 
 	interface Props {
 		items: ContextItem[];

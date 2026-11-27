@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
-import { answerChoices, answerOfCondition, conditionForAnswer, noAnswer, inputBefore, yesAnswer } from '../choice-answers';
-import type { Condition } from '../condition';
-import type { InputState } from '../input-state';
-import type { Process } from '../process';
+import { answerChoices, answerOfCondition, conditionForAnswer, noAnswer, inputBefore, yesAnswer } from '$lib/schema/workflow/choice-answers';
+import type { Condition } from '$lib/schema/workflow/condition';
+import type { InputState } from '$lib/schema/workflow/input-state';
+import type { Process } from '$lib/schema/workflow/process';
 
 const finish = { state_type: 'end', status: 'success' };
 const rule = (next: string, when: unknown = { op: 'is_true', path: 'ok' }) => ({ when, next });

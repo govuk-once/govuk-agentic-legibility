@@ -1,4 +1,4 @@
-import type { ModuleIconName } from './ModuleIcon.svelte';
+import type { ModuleIconName } from '$lib/modules/ModuleIcon.svelte';
 
 /*
 	The modules a person can add to a journey, in the order and categories the module menu shows them. A module is a

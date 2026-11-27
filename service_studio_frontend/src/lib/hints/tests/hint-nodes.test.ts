@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { hintBracketWidth, hintGap, hintLineLength, hintNodes, hintNoteWidth } from '../hint-nodes';
+import { hintBracketWidth, hintGap, hintLineLength, hintNodes, hintNoteWidth } from '$lib/hints/hint-nodes';
 import { processToGraph } from '$lib/process-graph/process-to-graph';
 import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
 import { NODE_GAP, nodeSize, RANK_GAP } from '$lib/graph-kit/layout';
 import type { Process } from '$lib/schema/workflow/process';
-import { arrangeProcessGraph, placeBesideNeighbours } from '../arrange';
-import { processToGraph, separateEndDots, visibleGraph } from '../process-to-graph';
+import { arrangeProcessGraph, placeBesideNeighbours } from '$lib/process-graph/arrange';
+import { processToGraph, separateEndDots, visibleGraph } from '$lib/process-graph/process-to-graph';
 
 const processes = serviceExamples.flatMap((example) => Object.values(example.workflow?.processes ?? {}));
 

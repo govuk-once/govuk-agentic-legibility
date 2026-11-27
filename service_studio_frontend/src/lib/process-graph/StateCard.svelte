@@ -1,6 +1,6 @@
 <script lang="ts">
 	import RemoveStepConfirm from '$lib/components/RemoveStepConfirm.svelte';
-	import StateReorderButtons from './StateReorderButtons.svelte';
+	import StateReorderButtons from '$lib/process-graph/StateReorderButtons.svelte';
 
 	interface Props {
 		stateId: string;

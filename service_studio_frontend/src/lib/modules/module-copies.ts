@@ -1,7 +1,7 @@
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { isModuleKey } from './add-module';
-import { moduleTileFor } from './module-catalogue';
-import { moduleDefinitions, type ModuleKey } from './module-states';
+import { isModuleKey } from '$lib/modules/add-module';
+import { moduleTileFor } from '$lib/modules/module-catalogue';
+import { moduleDefinitions, type ModuleKey } from '$lib/modules/module-states';
 
 /*
 	Checks the copies of modules in a process against the modules themselves. A copy is every state that shares one

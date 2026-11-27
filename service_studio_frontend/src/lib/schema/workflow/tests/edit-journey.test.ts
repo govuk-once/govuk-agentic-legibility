@@ -9,11 +9,11 @@ import {
 	endJourneyAt,
 	isNewStepKind,
 	routeToTargets
-} from '../edit-journey';
-import { reachableInOrder } from '../journey-order';
-import { isUndecidedRule, placeholderMessage, placeholderQuestion } from '../placeholders';
-import { processSchema, type Process } from '../process';
-import { routesOf } from '../routes';
+} from '$lib/schema/workflow/edit-journey';
+import { reachableInOrder } from '$lib/schema/workflow/journey-order';
+import { isUndecidedRule, placeholderMessage, placeholderQuestion } from '$lib/schema/workflow/placeholders';
+import { processSchema, type Process } from '$lib/schema/workflow/process';
+import { routesOf } from '$lib/schema/workflow/routes';
 
 const finish = { state_type: 'end', status: 'success' };
 const wait = (next: string) => ({ state_type: 'wait', duration: 'PT1S', next });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeDraftModule, draftFormModuleKeys, isDraftFormModule } from '../draft-modules';
+import { describeDraftModule, draftFormModuleKeys, isDraftFormModule } from '$lib/server/onboard-form/draft-modules';
 
 describe('draftFormModuleKeys', () => {
 	it('offers the modules that add a format or a decision, made only of states a person edits in a form', () => {

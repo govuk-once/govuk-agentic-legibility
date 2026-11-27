@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { placeholderOwner } from './placeholders';
-import type { Manifest } from './workflow';
+import { placeholderOwner } from '$lib/schema/workflow/placeholders';
+import type { Manifest } from '$lib/schema/workflow/workflow';
 
 /*
 	The details an owner gives at the owner review, and where each is kept in the workflow manifest. The manifest

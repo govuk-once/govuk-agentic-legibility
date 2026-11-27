@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { exampleProcessFiles } from './example-states';
-import { processSchema, type State } from '../process';
-import { isErrorKind, routesOf, withRouteTarget } from '../routes';
+import { exampleProcessFiles } from '$lib/schema/workflow/tests/example-states';
+import { processSchema, type State } from '$lib/schema/workflow/process';
+import { isErrorKind, routesOf, withRouteTarget } from '$lib/schema/workflow/routes';
 
 // Builds a state for a test. The cast is needed because each test supplies only the keys it uses.
 const state = (value: unknown) => value as State;

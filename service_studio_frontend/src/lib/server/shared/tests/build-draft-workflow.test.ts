@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Process } from '$lib/schema/workflow/process';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { buildDraftWorkflow } from '../build-draft-workflow';
+import { buildDraftWorkflow } from '$lib/server/shared/build-draft-workflow';
 
 const details = { name: 'Tell us about a change', description: 'Report a change.', links: ['https://www.gov.uk/a', 'https://example.com/b'] };
 const settings = { defaults: {}, runTimeout: 'P3D' };

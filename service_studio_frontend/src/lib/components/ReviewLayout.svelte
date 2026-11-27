@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import ServiceHeader from './ServiceHeader.svelte';
+	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 
 	/*
 		The frame around every page of a review: the header, then the page. The frame fills at least the height of the

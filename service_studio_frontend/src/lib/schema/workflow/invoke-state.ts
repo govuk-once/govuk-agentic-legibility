@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { catchClauseSchema } from './api-call-state';
-import { expressionSchema } from './expression';
-import { baseStateFields } from './states';
-import { processRefSchema, stateRefSchema, variablePathSchema } from './primitives';
+import { catchClauseSchema } from '$lib/schema/workflow/api-call-state';
+import { expressionSchema } from '$lib/schema/workflow/expression';
+import { baseStateFields } from '$lib/schema/workflow/states';
+import { processRefSchema, stateRefSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The invoke state from section 1.12 of the unified class structure document. It runs another

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
 import { parseProcess } from '$lib/schema/workflow/validate';
-import { firstVersion } from '../../shared/onboard-details';
-import { schemaIntro } from '../../shared/process-json-schema';
-import { SERVICE_SYSTEM_PROMPT } from '../system-prompt';
+import { firstVersion } from '$lib/server/shared/onboard-details';
+import { schemaIntro } from '$lib/server/shared/process-json-schema';
+import { SERVICE_SYSTEM_PROMPT } from '$lib/server/onboard-service/system-prompt';
 
 // The instructions come first and the JSON Schema is added after the intro, so the two can be read separately.
 const [instructions, schemaText] = SERVICE_SYSTEM_PROMPT.split(schemaIntro);

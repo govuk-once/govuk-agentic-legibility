@@ -1,8 +1,8 @@
-import type { ApiCallState, RetryPolicy, Timeouts } from './api-call-state';
-import type { Condition } from './condition';
-import type { InputState } from './input-state';
-import type { Duration } from './primitives';
-import type { CompletionStatus, EndState, OutputState } from './states';
+import type { ApiCallState, RetryPolicy, Timeouts } from '$lib/schema/workflow/api-call-state';
+import type { Condition } from '$lib/schema/workflow/condition';
+import type { InputState } from '$lib/schema/workflow/input-state';
+import type { Duration } from '$lib/schema/workflow/primitives';
+import type { CompletionStatus, EndState, OutputState } from '$lib/schema/workflow/states';
 
 /*
 	Placeholder values for details that are filled in at a later review, not while the journey is

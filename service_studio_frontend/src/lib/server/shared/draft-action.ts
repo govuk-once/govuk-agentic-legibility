@@ -1,5 +1,5 @@
-import type { GenerateDependencies, GenerateWorkflowResult } from './generate-workflow';
-import type { OnboardDetails } from './onboard-details';
+import type { GenerateDependencies, GenerateWorkflowResult } from '$lib/server/shared/generate-workflow';
+import type { OnboardDetails } from '$lib/server/shared/onboard-details';
 
 // Turns the details a person typed into a draft. A service and a form each have one of these.
 type Generate = (details: OnboardDetails, dependencies: GenerateDependencies) => Promise<GenerateWorkflowResult>;

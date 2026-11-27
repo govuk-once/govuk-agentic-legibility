@@ -15,10 +15,10 @@
 		type DraftKind,
 		type DraftSet,
 		type Endpoint
-	} from './drafts';
-	import ProcessGraph from './ProcessGraph.svelte';
+	} from '$lib/process-graph/drafts';
+	import ProcessGraph from '$lib/process-graph/ProcessGraph.svelte';
 	import type { CanvasHint } from '$lib/hints/hint-nodes';
-	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, StepOutlineColours } from './process-graph-types';
+	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, StepOutlineColours } from '$lib/process-graph/process-graph-types';
 
 	/*
 		The graph and the message that explains a refused change, with everything the person can do on the canvas:

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stateUnionSchema } from '$lib/schema/workflow/process';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { checkFormWorkflow, checkLoadedForm, formDeveloperStateTypes, formHiddenStateTypes, formStateAccess, isEditableInForm } from '../schema/form-states';
+import { checkFormWorkflow, checkLoadedForm, formDeveloperStateTypes, formHiddenStateTypes, formStateAccess, isEditableInForm } from '$lib/form-editor/schema/form-states';
 
 const stateTypes = stateUnionSchema.options.map((option) => option.shape.state_type.value);
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { addModule } from '../add-module';
-import { moduleBorders } from '../module-borders';
+import { addModule } from '$lib/modules/add-module';
+import { moduleBorders } from '$lib/modules/module-borders';
 import { processToGraph } from '$lib/process-graph/process-to-graph';
 import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 

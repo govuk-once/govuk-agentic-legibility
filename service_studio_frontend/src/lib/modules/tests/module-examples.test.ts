@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { moduleCopyProblems } from '../module-copies';
+import { moduleCopyProblems } from '$lib/modules/module-copies';
 
 // The form examples made of modules, each with its one process.
 const moduleForms = formExamples

@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/svelte';
 import { nodeSize } from '$lib/graph-kit/layout';
-import { moduleTileFor } from './module-catalogue';
+import { moduleTileFor } from '$lib/modules/module-catalogue';
 import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 
 /*

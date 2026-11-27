@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formExamples } from '$lib/examples/forms';
 import { inputBefore } from '$lib/schema/workflow/choice-answers';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
-import { decisionRowLabels, ruleRowLabels, shortAnswerLabel } from '../decision-rows';
+import { decisionRowLabels, ruleRowLabels, shortAnswerLabel } from '$lib/form-editor/decision-rows';
 
 type Choice = Extract<WorkingState, { state_type: 'choice' }>;
 type Input = Extract<WorkingState, { state_type: 'input' }>;

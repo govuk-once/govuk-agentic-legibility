@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
 import type { Process } from '$lib/schema/workflow/process';
-import type { ProcessEdge } from '../process-graph-types';
+import type { ProcessEdge } from '$lib/process-graph/process-graph-types';
 import { routesOf } from '$lib/schema/workflow/routes';
-import { stateRows, targetOptions } from '../state-rows';
-import { isErrorRoute, processToGraph, separateEndDots, startNodeId, stepCount, visibleGraph } from '../process-to-graph';
+import { stateRows, targetOptions } from '$lib/process-graph/state-rows';
+import { isErrorRoute, processToGraph, separateEndDots, startNodeId, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 
 const finish = { state_type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };

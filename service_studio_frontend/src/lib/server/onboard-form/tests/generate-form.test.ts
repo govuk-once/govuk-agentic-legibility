@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fakeModel } from '$lib/server/shared/tests/fake-model';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
-import { generateForm } from '../generate-form';
-import { FORM_SYSTEM_PROMPT } from '../system-prompt';
+import { generateForm } from '$lib/server/onboard-form/generate-form';
+import { FORM_SYSTEM_PROMPT } from '$lib/server/onboard-form/system-prompt';
 
 // Stands in for the real fetch, so no test reaches the internet.
 vi.mock('$lib/server/shared/fetch-link', () => ({ fetchLinkText: async (url: string) => ({ url, text: 'Page words' }) }));

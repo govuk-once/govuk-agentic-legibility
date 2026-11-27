@@ -10,10 +10,10 @@
 	import type { NodePositions } from '$lib/process-graph/process-graph-types';
 	import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 	import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
-	import { formStageLinks } from '../form-stage-links';
-	import { formStepCount } from '../form-step-count';
-	import { formHiddenStateTypes } from '../schema/form-states';
-	import FormWorkspace from './FormWorkspace.svelte';
+	import { formStageLinks } from '$lib/form-editor/form-stage-links';
+	import { formStepCount } from '$lib/form-editor/form-step-count';
+	import { formHiddenStateTypes } from '$lib/form-editor/schema/form-states';
+	import FormWorkspace from '$lib/form-editor/components/FormWorkspace.svelte';
 
 	interface Props {
 		// The form to edit. The page edits the process the manifest names as its entry. A form opened from a saved

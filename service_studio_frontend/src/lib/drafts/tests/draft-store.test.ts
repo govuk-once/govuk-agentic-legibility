@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { serviceExamples } from '$lib/examples/services';
-import { deleteDraft, listDrafts, openDraft, readOpenDraft, saveDraft, setOpenDraft } from '../draft-store';
+import { deleteDraft, listDrafts, openDraft, readOpenDraft, saveDraft, setOpenDraft } from '$lib/drafts/draft-store';
 
 // A stand in for the browser's local and session storage, so the tests run without a browser. It can be made to
 // refuse to store anything.

@@ -1,12 +1,12 @@
 import type { z } from 'zod';
-import { hasNext } from './edit-state';
-import { isUndecidedRule, placeholderMessage, placeholderQuestion } from './placeholders';
-import { processSchema, type Process } from './process';
-import { journeyOrder, reachableInOrder } from './journey-order';
-import { schemaProblemTitle, wordsFor, type JourneyProblemKind } from './journey-problems';
-import { routesOf } from './routes';
-import type { WorkingProcess, WorkingWorkflow } from './working-process';
-import { workflowSchema, type Workflow } from './workflow';
+import { hasNext } from '$lib/schema/workflow/edit-state';
+import { isUndecidedRule, placeholderMessage, placeholderQuestion } from '$lib/schema/workflow/placeholders';
+import { processSchema, type Process } from '$lib/schema/workflow/process';
+import { journeyOrder, reachableInOrder } from '$lib/schema/workflow/journey-order';
+import { schemaProblemTitle, wordsFor, type JourneyProblemKind } from '$lib/schema/workflow/journey-problems';
+import { routesOf } from '$lib/schema/workflow/routes';
+import type { WorkingProcess, WorkingWorkflow } from '$lib/schema/workflow/working-process';
+import { workflowSchema, type Workflow } from '$lib/schema/workflow/workflow';
 
 /*
 	Validation for the unified workflow schema. The Zod schemas check the shape of each file. The

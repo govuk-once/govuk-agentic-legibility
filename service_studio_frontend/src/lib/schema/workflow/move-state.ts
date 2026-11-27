@@ -1,8 +1,8 @@
-import { routesInto } from './edit-process';
-import { hasNext, nothingYet, replaceState, withChoiceTargets, withoutNext } from './edit-state';
-import { journeyOrder } from './journey-order';
-import { routesOf, withRouteTarget } from './routes';
-import type { WorkingProcess, WorkingState } from './working-process';
+import { routesInto } from '$lib/schema/workflow/edit-process';
+import { hasNext, nothingYet, replaceState, withChoiceTargets, withoutNext } from '$lib/schema/workflow/edit-state';
+import { journeyOrder } from '$lib/schema/workflow/journey-order';
+import { routesOf, withRouteTarget } from '$lib/schema/workflow/routes';
+import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 
 /*
 	Moving a step up or down changes the journey itself. The steps are not kept in a list, so there is no

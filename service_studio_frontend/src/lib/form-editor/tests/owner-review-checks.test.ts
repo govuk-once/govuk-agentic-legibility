@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StateRow } from '$lib/process-graph/state-rows';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { exampleProblems, journeySteps, problemCount } from '../owner-review-checks';
+import { exampleProblems, journeySteps, problemCount } from '$lib/form-editor/owner-review-checks';
 
 // Numbered steps with only the keys the example problems read.
 const stepsOf = (count: number): StateRow[] =>

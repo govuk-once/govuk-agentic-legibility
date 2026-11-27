@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { variablePathSchema } from './primitives';
+import { variablePathSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The Condition from section 2.5 of the unified class structure document. A choice state uses one

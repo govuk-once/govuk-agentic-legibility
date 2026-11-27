@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { durationAsAmount, durationFrom, durationInSeconds } from '../durations';
+import { durationAsAmount, durationFrom, durationInSeconds } from '$lib/schema/workflow/durations';
 
 describe('durationInSeconds', () => {
 	it('counts weeks, days, hours, minutes and seconds', () => {

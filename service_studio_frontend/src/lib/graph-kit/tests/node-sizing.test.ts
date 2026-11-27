@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateStepNodeHeight, estimateStepNodeWidth } from '../node-sizing';
+import { estimateStepNodeHeight, estimateStepNodeWidth } from '$lib/graph-kit/node-sizing';
 
 describe('estimateStepNodeWidth', () => {
 	it('gives a short title the least width of a standard box', () => {

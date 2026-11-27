@@ -1,7 +1,7 @@
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule, unconnectedApiCallDetails } from '$lib/schema/workflow/placeholders';
-import { firstVersion } from '../shared/onboard-details';
-import { withProcessSchema } from '../shared/process-json-schema';
+import { firstVersion } from '$lib/server/shared/onboard-details';
+import { withProcessSchema } from '$lib/server/shared/process-json-schema';
 
 /* System prompt editable here */
 

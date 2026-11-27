@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { openDraft, readOpenDraft, saveDraft, type DraftStage, type ReviewProgress, type SavedDraft } from '$lib/drafts/draft-store';
 import { parseWorkflow } from '$lib/schema/workflow/validate';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { checkLoadedForm } from './schema/form-states';
+import { checkLoadedForm } from '$lib/form-editor/schema/form-states';
 
 /*
 	Opens and saves the draft that the owner review and the technical review work on. It is the draft open in this

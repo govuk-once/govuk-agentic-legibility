@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exampleStatesOfType } from './example-states';
-import { answerDefinitionSchema, inputStateSchema, inputTimeoutSchema } from '../input-state';
+import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
+import { answerDefinitionSchema, inputStateSchema, inputTimeoutSchema } from '$lib/schema/workflow/input-state';
 
 describe('inputStateSchema with the real examples', () => {
 	it('accepts every input state in the example files', () => {

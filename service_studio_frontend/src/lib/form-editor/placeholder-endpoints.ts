@@ -1,4 +1,4 @@
-import type { FlexEndpoint } from './flex-connections';
+import type { FlexEndpoint } from '$lib/form-editor/flex-connections';
 
 /*
 	A few made up endpoints for the "Find the endpoint" page to show until the real Flex list is ready. They match the

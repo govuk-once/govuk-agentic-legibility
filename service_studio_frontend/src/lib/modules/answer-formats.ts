@@ -2,8 +2,8 @@ import { answerTypeKey } from '$lib/schema/workflow/answer-types';
 import { withNote } from '$lib/schema/workflow/edit-state';
 import type { AnswerDefinition } from '$lib/schema/workflow/input-state';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
-import { isModuleKey } from './add-module';
-import { moduleDefinitions } from './module-states';
+import { isModuleKey } from '$lib/modules/add-module';
+import { moduleDefinitions } from '$lib/modules/module-states';
 
 /*
 	The formats a typed answer can be checked against, such as an email address or a National Insurance number.

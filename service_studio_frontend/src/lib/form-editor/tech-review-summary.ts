@@ -1,8 +1,8 @@
 import { describeDuration } from '$lib/process-graph/describe-value';
 import { placeholderApiCallDefaults } from '$lib/schema/workflow/placeholders';
 import type { Manifest, Workflow } from '$lib/schema/workflow/workflow';
-import { flexConnections } from './flex-connections';
-import { techReviewChecked } from './step-values/step-values';
+import { flexConnections } from '$lib/form-editor/flex-connections';
+import { techReviewChecked } from '$lib/form-editor/step-values/step-values';
 
 /*
 	The technical review written in words, for the summary on its Review and send page and for the owner review.

@@ -21,7 +21,7 @@
 		withTitleAndDescription
 	} from '$lib/schema/workflow/edit-state';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
-	import { answerKindLabels } from '../state-labels';
+	import { answerKindLabels } from '$lib/form-editor/state-labels';
 
 	interface Props {
 		// The input or message as it is now. The card starts from it and only changes a copy.

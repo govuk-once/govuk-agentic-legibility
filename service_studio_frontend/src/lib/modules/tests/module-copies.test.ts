@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { addModule } from '../add-module';
-import { moduleCopyProblems, shapesOfModule } from '../module-copies';
+import { addModule } from '$lib/modules/add-module';
+import { moduleCopyProblems, shapesOfModule } from '$lib/modules/module-copies';
 
 const journey: WorkingProcess = { process_id: 'test', version: '0.1.0', start: 'hello', vars: {}, states: { hello: { state_type: 'output', channel: 'transcript', message: 'Hello' } } };
 

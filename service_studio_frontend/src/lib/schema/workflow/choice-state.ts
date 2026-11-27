@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { conditionSchema } from './condition';
-import { baseStateFields } from './states';
-import { stateRefSchema } from './primitives';
+import { conditionSchema } from '$lib/schema/workflow/condition';
+import { baseStateFields } from '$lib/schema/workflow/states';
+import { stateRefSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The choice state from sections 1.10 and 2.4 of the unified class structure document. It is the

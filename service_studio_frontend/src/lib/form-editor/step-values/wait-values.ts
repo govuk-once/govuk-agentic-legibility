@@ -2,7 +2,7 @@ import { describeDuration } from '$lib/process-graph/describe-value';
 import type { WaitState } from '$lib/schema/workflow/states';
 import { durationSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
 import type { WorkingWait } from '$lib/schema/workflow/working-process';
-import type { StepValuesResult } from './step-values';
+import type { StepValuesResult } from '$lib/form-editor/step-values/step-values';
 
 /*
 	The one value of a wait step: how long it waits. It is written as a duration such as PT30M, or as the name of a

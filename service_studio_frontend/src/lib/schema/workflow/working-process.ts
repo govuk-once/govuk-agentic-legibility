@@ -1,5 +1,5 @@
-import type { Process, State } from './process';
-import type { Workflow } from './workflow';
+import type { Process, State } from '$lib/schema/workflow/process';
+import type { Workflow } from '$lib/schema/workflow/workflow';
 
 /*
 	The shapes the editor works with while a journey is being built. A saved process needs every state except an

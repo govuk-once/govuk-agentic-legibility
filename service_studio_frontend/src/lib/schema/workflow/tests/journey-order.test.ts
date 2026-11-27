@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { exampleProcessFiles } from './example-states';
-import { journeyOrder, reachableInOrder } from '../journey-order';
-import { processSchema, type Process } from '../process';
+import { exampleProcessFiles } from '$lib/schema/workflow/tests/example-states';
+import { journeyOrder, reachableInOrder } from '$lib/schema/workflow/journey-order';
+import { processSchema, type Process } from '$lib/schema/workflow/process';
 
 const finish = { state_type: 'end', status: 'success' };
 const isTrue = { op: 'is_true', path: 'a' };

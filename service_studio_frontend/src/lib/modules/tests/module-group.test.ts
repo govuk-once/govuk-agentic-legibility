@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { deleteFromJourney } from '$lib/schema/workflow/remove-state';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { addModule } from '../add-module';
-import { isInModule, statesOfSameModule } from '../module-group';
+import { addModule } from '$lib/modules/add-module';
+import { isInModule, statesOfSameModule } from '$lib/modules/module-group';
 
 const journey: WorkingProcess = { process_id: 'test', version: '0.1.0', start: 'hello', vars: {}, states: { hello: { state_type: 'output', channel: 'transcript', message: 'Hello' } } };
 

@@ -9,7 +9,7 @@ import {
 	stateRefSchema,
 	variablePathSchema,
 	versionSchema
-} from '../primitives';
+} from '$lib/schema/workflow/primitives';
 
 describe('variablePathSchema', () => {
 	// Paths copied from the change of address and maternity allowance examples.

@@ -1,4 +1,4 @@
-import { isAllowedLink } from './allowed-link-domains';
+import { isAllowedLink } from '$lib/server/shared/allowed-link-domains';
 
 const MAX_CHARACTERS_PER_LINK = 20000;
 const FETCH_TIMEOUT_MS = 10000;

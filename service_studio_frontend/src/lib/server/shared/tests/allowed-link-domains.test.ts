@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowedLinkDomains, isAllowedLink } from '../allowed-link-domains';
+import { allowedLinkDomains, isAllowedLink } from '$lib/server/shared/allowed-link-domains';
 
 describe('allowedLinkDomains', () => {
 	it('starts with gov.uk only', () => {

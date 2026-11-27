@@ -1,4 +1,4 @@
-import { fetchLinkText } from './fetch-link';
+import { fetchLinkText } from '$lib/server/shared/fetch-link';
 
 /**
  * Fetches every link the person gave and turns each page that could be read into a section of text for the

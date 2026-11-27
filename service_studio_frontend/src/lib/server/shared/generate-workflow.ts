@@ -1,9 +1,9 @@
 import { parseProcess, parseWorkflow } from '$lib/schema/workflow/validate';
 import type { Process } from '$lib/schema/workflow/process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { generateJson, type GenerationIssue, type ModelClient } from './generate-json';
-import type { OnboardDetails } from './onboard-details';
-import { readLinks } from './read-links';
+import { generateJson, type GenerationIssue, type ModelClient } from '$lib/server/shared/generate-json';
+import type { OnboardDetails } from '$lib/server/shared/onboard-details';
+import { readLinks } from '$lib/server/shared/read-links';
 
 /*
 	Turns the details a person typed into a draft workflow by asking the model for one process. A service and a

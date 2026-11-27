@@ -3,7 +3,7 @@
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import type { WorkingState } from '$lib/schema/workflow/working-process';
 	import StateFacts from '$lib/process-graph/StateFacts.svelte';
-	import StateEditor from './StateEditor.svelte';
+	import StateEditor from '$lib/service-editor/components/StateEditor.svelte';
 
 	interface Props {
 		title: string;

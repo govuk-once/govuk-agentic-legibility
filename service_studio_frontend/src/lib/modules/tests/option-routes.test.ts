@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { editableOptions, newOption, withOptions } from '$lib/schema/workflow/answer-options';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { addModule } from '../add-module';
-import { withRoutesForNewOptions } from '../option-routes';
+import { addModule } from '$lib/modules/add-module';
+import { withRoutesForNewOptions } from '$lib/modules/option-routes';
 
 const journey: WorkingProcess = { process_id: 'test', version: '0.1.0', start: 'hello', vars: {}, states: { hello: { state_type: 'output', channel: 'transcript', message: 'Hello' } } };
 

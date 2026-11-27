@@ -6,7 +6,7 @@ import {
 	type LayoutEdge,
 	type LayoutOptions
 } from '$lib/graph-kit/layout';
-import type { ProcessNode } from './process-graph-types';
+import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 
 /*
 	How the full editor arranges the graph of one process. The plain layout in graph-kit places every box

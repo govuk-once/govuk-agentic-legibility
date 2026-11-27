@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { ModelClient } from '../generate-json';
+import type { ModelClient } from '$lib/server/shared/generate-json';
 
 // One request as the fake model received it.
 export type FakeRequest = { model: string; system: string; messages: Anthropic.MessageParam[] };

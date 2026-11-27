@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { choiceStateSchema } from '../choice-state';
-import { exampleStatesOfType } from './example-states';
+import { choiceStateSchema } from '$lib/schema/workflow/choice-state';
+import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
 
 describe('choiceStateSchema with the real examples', () => {
 	it('accepts every choice state in the example files', () => {

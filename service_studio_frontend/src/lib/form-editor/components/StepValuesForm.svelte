@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { StepValueProblem } from '../step-values/step-values';
-	import ErrorSummary from './ErrorSummary.svelte';
+	import type { StepValueProblem } from '$lib/form-editor/step-values/step-values';
+	import ErrorSummary from '$lib/form-editor/components/ErrorSummary.svelte';
 
 	/*
 		The form inside the panel of one developer step on the step values page. It holds the step's fields, lists what

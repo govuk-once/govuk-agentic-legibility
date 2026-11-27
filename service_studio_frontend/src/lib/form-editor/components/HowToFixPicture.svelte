@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FixPicture, FixShape } from '../fix-pictures';
+	import type { FixPicture, FixShape } from '$lib/form-editor/fix-pictures';
 
 	/*
 		Draws one before and after picture from fix-pictures.ts as a small SVG: the two shapes of the journey as it is

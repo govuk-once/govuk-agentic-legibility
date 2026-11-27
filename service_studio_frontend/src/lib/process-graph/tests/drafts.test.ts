@@ -13,7 +13,7 @@ import {
 	type DraftKind,
 	type DraftSet,
 	type Endpoint
-} from '../drafts';
+} from '$lib/process-graph/drafts';
 
 const finish = { state_type: 'end', status: 'success' };
 const wait = (next: string) => ({ state_type: 'wait', duration: 'PT1S', next });

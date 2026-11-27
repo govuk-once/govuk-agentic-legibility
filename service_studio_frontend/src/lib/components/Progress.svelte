@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Stage } from './progress-stages';
+	import type { Stage } from '$lib/components/progress-stages';
 
 	interface Props {
 		stages: Stage[];

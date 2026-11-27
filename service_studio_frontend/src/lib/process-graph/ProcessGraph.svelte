@@ -8,12 +8,12 @@
 	import ModuleBorderNode from '$lib/modules/ModuleBorderNode.svelte';
 	import { moduleBorderNodeType, moduleBorders } from '$lib/modules/module-borders';
 	import FlowPositionBridge, { type FlowInstance } from '$lib/graph-kit/FlowPositionBridge.svelte';
-	import ProblemStrip from './ProblemStrip.svelte';
+	import ProblemStrip from '$lib/process-graph/ProblemStrip.svelte';
 	import { nodeSize } from '$lib/graph-kit/layout';
-	import { arrangeProcessGraph, placeBesideNeighbours } from './arrange';
-	import type { Draft, DraftSet, Endpoint } from './drafts';
-	import { separateEndDots, startNodeId, visibleGraph } from './process-to-graph';
-	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, ProcessNode, StepOutlineColours } from './process-graph-types';
+	import { arrangeProcessGraph, placeBesideNeighbours } from '$lib/process-graph/arrange';
+	import type { Draft, DraftSet, Endpoint } from '$lib/process-graph/drafts';
+	import { separateEndDots, startNodeId, visibleGraph } from '$lib/process-graph/process-to-graph';
+	import type { DeletedElements, NodePositions, ProblemMark, ProcessGraphElements, ProcessNode, StepOutlineColours } from '$lib/process-graph/process-graph-types';
 
 	interface Props {
 		// The nodes and edges of the process, built by the component that owns it so the list of states uses the same ones.

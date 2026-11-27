@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exampleStatesOfType } from './example-states';
-import { invokeStateSchema } from '../invoke-state';
+import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
+import { invokeStateSchema } from '$lib/schema/workflow/invoke-state';
 
 describe('invokeStateSchema with the real examples', () => {
 	it('accepts every invoke state in the example files', () => {

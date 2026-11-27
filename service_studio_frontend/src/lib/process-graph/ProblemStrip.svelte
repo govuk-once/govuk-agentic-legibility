@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { useNodes, useStore, useSvelteFlow, useViewport, type Node } from '@xyflow/svelte';
-	import type { ProblemMark } from './process-graph-types';
+	import type { ProblemMark } from '$lib/process-graph/process-graph-types';
 
 	/*
 		A thin strip down the right edge of the canvas that shows where the problems are in a long journey, and moves

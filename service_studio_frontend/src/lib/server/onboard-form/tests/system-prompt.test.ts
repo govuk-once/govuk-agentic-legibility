@@ -4,11 +4,11 @@ import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-ty
 import { descriptionKey, hintKey } from '$lib/schema/workflow/edit-state';
 import { undecidedRule } from '$lib/schema/workflow/placeholders';
 import { parseProcess } from '$lib/schema/workflow/validate';
-import { firstVersion } from '../../shared/onboard-details';
-import { schemaIntro } from '../../shared/process-json-schema';
-import { statesNotForForms } from '../build-form';
-import { describeDraftModule, draftFormModuleKeys } from '../draft-modules';
-import { FORM_SYSTEM_PROMPT } from '../system-prompt';
+import { firstVersion } from '$lib/server/shared/onboard-details';
+import { schemaIntro } from '$lib/server/shared/process-json-schema';
+import { statesNotForForms } from '$lib/server/onboard-form/build-form';
+import { describeDraftModule, draftFormModuleKeys } from '$lib/server/onboard-form/draft-modules';
+import { FORM_SYSTEM_PROMPT } from '$lib/server/onboard-form/system-prompt';
 
 // The instructions come first and the JSON Schema is added after the intro, so the two can be read separately.
 const [instructions, schemaText] = FORM_SYSTEM_PROMPT.split(schemaIntro);

@@ -1,5 +1,5 @@
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { moduleDefinitions, type ModuleKey } from './module-states';
+import { moduleDefinitions, type ModuleKey } from '$lib/modules/module-states';
 
 /*
 	Adds the states of a module to a journey when it is dropped onto the canvas.

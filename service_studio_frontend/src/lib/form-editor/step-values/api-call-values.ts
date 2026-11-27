@@ -2,7 +2,7 @@ import { apiCallStateSchema } from '$lib/schema/workflow/api-call-state';
 import { isPlaceholderBodyValue } from '$lib/schema/workflow/placeholders';
 import { variablePathSchema } from '$lib/schema/workflow/primitives';
 import type { WorkingApiCall } from '$lib/schema/workflow/working-process';
-import type { StepValueProblem, StepValuesResult } from './step-values';
+import type { StepValueProblem, StepValuesResult } from '$lib/form-editor/step-values/step-values';
 
 /*
 	The values of an API call step that are checked at the technical review: where it sends the request, what it

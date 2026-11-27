@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { assignBefore, redirectRoutes, routesInto } from '../edit-process';
-import type { Process } from '../process';
+import { assignBefore, redirectRoutes, routesInto } from '$lib/schema/workflow/edit-process';
+import type { Process } from '$lib/schema/workflow/process';
 
 const finish = { state_type: 'end', status: 'success' };
 

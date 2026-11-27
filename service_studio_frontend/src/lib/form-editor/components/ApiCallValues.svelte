@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { WorkingApiCall, WorkingState } from '$lib/schema/workflow/working-process';
-	import { apiCallFields, apiCallMethods, apiCallValuesOf, apiCallWithValues, savedAnswerExample, type ApiCallValues } from '../step-values/api-call-values';
-	import FieldError from './FieldError.svelte';
-	import StepValuesForm from './StepValuesForm.svelte';
-	import TechReviewButtons from './TechReviewButtons.svelte';
+	import { apiCallFields, apiCallMethods, apiCallValuesOf, apiCallWithValues, savedAnswerExample, type ApiCallValues } from '$lib/form-editor/step-values/api-call-values';
+	import FieldError from '$lib/form-editor/components/FieldError.svelte';
+	import StepValuesForm from '$lib/form-editor/components/StepValuesForm.svelte';
+	import TechReviewButtons from '$lib/form-editor/components/TechReviewButtons.svelte';
 
 	/*
 		The panel of an API call step on the step values page: where it sends the request, what it sends, and where it

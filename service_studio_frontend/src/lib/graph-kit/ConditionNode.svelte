@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Handle, Position, type Node, type NodeProps } from '@xyflow/svelte';
-	import type { DecisionNodeData } from './node-types';
+	import type { DecisionNodeData } from '$lib/graph-kit/node-types';
 
 	let { data, selected }: NodeProps<Node<DecisionNodeData, 'condition'>> = $props();
 </script>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AssignState } from '$lib/schema/workflow/states';
-import { assignKindOf, assignLinesOf, assignPartField, assignVariableField, assignWithLines } from '../assign-values';
+import { assignKindOf, assignLinesOf, assignPartField, assignVariableField, assignWithLines } from '$lib/form-editor/step-values/assign-values';
 
 const assign: AssignState = {
 	state_type: 'assign',

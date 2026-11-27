@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exampleStatesOfType } from '$lib/schema/workflow/tests/example-states';
-import { convertState, convertTargetTypes, isConvertTargetType, isConvertible, lostByConversion } from '../schema/convert-state';
+import { convertState, convertTargetTypes, isConvertTargetType, isConvertible, lostByConversion } from '$lib/service-editor/schema/convert-state';
 import { isUnconnectedApiCall, placeholderMessage, placeholderQuestion, placeholderWaitDuration } from '$lib/schema/workflow/placeholders';
 import { stateSchema, type State } from '$lib/schema/workflow/process';
 

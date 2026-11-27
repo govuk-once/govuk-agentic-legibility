@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Handle, Position, type Node, type NodeProps } from '@xyflow/svelte';
-	import type { StepNodeData } from './node-types';
+	import type { StepNodeData } from '$lib/graph-kit/node-types';
 
 	// selected is set by the graph that holds this node, so a click on the node and a choice in the list
 	// of states highlight it in the same way. What a click means is decided in one place, the graph's

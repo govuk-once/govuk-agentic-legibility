@@ -3,7 +3,7 @@ import { formExampleFolders, formExamples } from '$lib/examples/forms';
 import { isUnconnectedApiCall } from '$lib/schema/workflow/placeholders';
 import { checkBeforeProceeding } from '$lib/schema/workflow/validate';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { checkFormWorkflow, formStateAccess } from '../schema/form-states';
+import { checkFormWorkflow, formStateAccess } from '$lib/form-editor/schema/form-states';
 
 // The forms that loaded. A form that failed to load would already fail the tests of the examples themselves.
 const forms = formExamples.flatMap((example) => (example.workflow ? [{ slug: example.slug, workflow: example.workflow }] : []));

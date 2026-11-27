@@ -1,4 +1,4 @@
-import type { DraftStage } from './draft-store';
+import type { DraftStage } from '$lib/drafts/draft-store';
 
 /*
 	The words the list of drafts uses for each draft: how long ago it was edited, and a tag for the stage it was left at.

@@ -2,8 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import type { ProblemSeverity } from '$lib/schema/workflow/journey-problems';
 	import type { JourneyProblem } from '$lib/schema/workflow/validate';
-	import { fixPictures } from '../fix-pictures';
-	import HowToFixPicture from './HowToFixPicture.svelte';
+	import { fixPictures } from '$lib/form-editor/fix-pictures';
+	import HowToFixPicture from '$lib/form-editor/components/HowToFixPicture.svelte';
 
 	/*
 		The problems with the form, in a bar along the bottom of the editor that is always shown. Closed, the bar counts

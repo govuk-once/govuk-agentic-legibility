@@ -1,6 +1,6 @@
 import { isRedirect } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
-import { goToChosenMethod } from '../draft-methods';
+import { goToChosenMethod } from '$lib/components/draft-methods';
 
 // Runs the loader's step for an address and gives back where it sent the person, or nothing when it stayed.
 function destination(address: string): string | undefined {

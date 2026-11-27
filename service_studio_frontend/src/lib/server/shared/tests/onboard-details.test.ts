@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { versionSchema } from '$lib/schema/workflow/primitives';
-import { firstVersion, isWebAddress, slugOf } from '../onboard-details';
+import { firstVersion, isWebAddress, slugOf } from '$lib/server/shared/onboard-details';
 
 describe('slugOf', () => {
 	it('turns a name into lower case words joined by underscores', () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Process } from '$lib/schema/workflow/process';
-import { buildDraftWorkflow } from '../build-draft-workflow';
-import { generateWorkflow, type DraftKind } from '../generate-workflow';
-import { fakeModel } from './fake-model';
+import { buildDraftWorkflow } from '$lib/server/shared/build-draft-workflow';
+import { generateWorkflow, type DraftKind } from '$lib/server/shared/generate-workflow';
+import { fakeModel } from '$lib/server/shared/tests/fake-model';
 
 // Stands in for the real fetch, so no test reaches the internet.
 vi.mock('$lib/server/shared/fetch-link', () => ({ fetchLinkText: async (url: string) => ({ url, text: 'Page words' }) }));

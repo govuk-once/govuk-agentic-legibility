@@ -1,10 +1,10 @@
-import { generateWorkflow, type GenerateDependencies, type GenerateWorkflowResult } from '../shared/generate-workflow';
-import type { OnboardDetails } from '../shared/onboard-details';
+import { generateWorkflow, type GenerateDependencies, type GenerateWorkflowResult } from '$lib/server/shared/generate-workflow';
+import type { OnboardDetails } from '$lib/server/shared/onboard-details';
 import { moduleCopyProblems } from '$lib/modules/module-copies';
 import type { Process } from '$lib/schema/workflow/process';
-import { buildForm, statesNotForForms } from './build-form';
-import { isDraftFormModule } from './draft-modules';
-import { FORM_SYSTEM_PROMPT } from './system-prompt';
+import { buildForm, statesNotForForms } from '$lib/server/onboard-form/build-form';
+import { isDraftFormModule } from '$lib/server/onboard-form/draft-modules';
+import { FORM_SYSTEM_PROMPT } from '$lib/server/onboard-form/system-prompt';
 
 // Finds what in a drafted form must go back to the model: a state a form cannot have, and a module the model marked
 // that is not one a drafted form may use or does not have the states of that module.

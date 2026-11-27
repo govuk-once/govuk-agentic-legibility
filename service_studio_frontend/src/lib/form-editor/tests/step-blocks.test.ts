@@ -4,7 +4,7 @@ import { withChoiceTargets, withNext } from '$lib/schema/workflow/edit-state';
 import { reachableInOrder } from '$lib/schema/workflow/journey-order';
 import { canMoveEarlier, canMoveLater, moveEarlier, moveLater } from '$lib/schema/workflow/move-state';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { formStepBlock } from '../step-blocks';
+import { formStepBlock } from '$lib/form-editor/step-blocks';
 
 const message = (text: string): WorkingState => ({ state_type: 'output', channel: 'transcript', message: text });
 

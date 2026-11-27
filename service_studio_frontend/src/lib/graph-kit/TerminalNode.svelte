@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Handle, Position, type Node, type NodeProps } from '@xyflow/svelte';
-	import type { TerminalNodeData } from './node-types';
+	import type { TerminalNodeData } from '$lib/graph-kit/node-types';
 
 	let { data, selected }: NodeProps<Node<TerminalNodeData, 'terminal'>> = $props();
 </script>

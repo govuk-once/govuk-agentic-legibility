@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { serviceExampleFolders, serviceExamples } from '../services';
+import { serviceExampleFolders, serviceExamples } from '$lib/examples/services';
 
 describe('serviceExampleFolders', () => {
 	it('groups the files of each example under its folder name', () => {

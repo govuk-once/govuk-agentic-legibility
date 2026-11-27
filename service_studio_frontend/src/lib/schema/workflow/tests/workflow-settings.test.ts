@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { placeholderApiCallDefaults } from '../placeholders';
-import type { Manifest } from '../workflow';
-import type { WorkingProcess } from '../working-process';
+import { placeholderApiCallDefaults } from '$lib/schema/workflow/placeholders';
+import type { Manifest } from '$lib/schema/workflow/workflow';
+import type { WorkingProcess } from '$lib/schema/workflow/working-process';
 import {
 	longestWait,
 	withWorkflowSettings,
 	workflowSettingsOf,
 	workflowSettingsProblems,
 	type WorkflowSettings
-} from '../workflow-settings';
+} from '$lib/schema/workflow/workflow-settings';
 
 // Only the keys the settings read and write. The cast is needed because a test gives only the keys it uses.
 const manifestWith = (keys: Partial<Manifest>) =>

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { comparisonCondition, dateComparisonOperators } from './condition';
-import { dynamicRefSchema, variablePathSchema } from './primitives';
+import { comparisonCondition, dateComparisonOperators } from '$lib/schema/workflow/condition';
+import { dynamicRefSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The Expression from section 2.8 of the unified class structure document. An expression is the

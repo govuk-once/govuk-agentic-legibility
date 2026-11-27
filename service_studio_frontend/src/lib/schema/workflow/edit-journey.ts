@@ -1,8 +1,8 @@
-import { addState, removeUnreachableStates, setStart, uniqueStateCode } from './edit-process';
-import { hasNext, replaceState } from './edit-state';
-import { defaultEndStatus, placeholderInput, placeholderOutput, undecidedRule } from './placeholders';
-import type { WorkingChoice, WorkingProcess, WorkingState } from './working-process';
-import { routesOf } from './routes';
+import { addState, removeUnreachableStates, setStart, uniqueStateCode } from '$lib/schema/workflow/edit-process';
+import { hasNext, replaceState } from '$lib/schema/workflow/edit-state';
+import { defaultEndStatus, placeholderInput, placeholderOutput, undecidedRule } from '$lib/schema/workflow/placeholders';
+import type { WorkingChoice, WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
+import { routesOf } from '$lib/schema/workflow/routes';
 
 /*
 	The changes a person makes to the journey on the canvas: drawing a line, ending the journey at a step,

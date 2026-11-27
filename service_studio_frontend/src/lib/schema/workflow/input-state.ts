@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { baseStateFields } from './states';
-import { durationOrRefSchema, stateRefSchema, variablePathSchema } from './primitives';
+import { baseStateFields } from '$lib/schema/workflow/states';
+import { durationOrRefSchema, stateRefSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
 
 /*
 	The input state from section 1.7 of the unified class structure document, with its answer

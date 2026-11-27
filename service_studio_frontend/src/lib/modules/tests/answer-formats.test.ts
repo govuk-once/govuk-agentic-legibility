@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { answerTypeKey, answerTypesByKind } from '$lib/schema/workflow/answer-types';
 import { answerDefinitionSchema } from '$lib/schema/workflow/input-state';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { addModule } from '../add-module';
-import { answerFormatOf, answerFormats, formatsFor, withAnswerFormat, type AnswerFormatKey } from '../answer-formats';
+import { addModule } from '$lib/modules/add-module';
+import { answerFormatOf, answerFormats, formatsFor, withAnswerFormat, type AnswerFormatKey } from '$lib/modules/answer-formats';
 
 const journey: WorkingProcess = { process_id: 'test', version: '0.1.0', start: 'hello', vars: {}, states: { hello: { state_type: 'output', channel: 'transcript', message: 'Hello' } } };
 const typed: WorkingState = { state_type: 'input', prompt: 'Your email?', schema: { kind: 'string' }, assign: 'email' };

@@ -4,9 +4,9 @@ import { isEditableInForm } from '$lib/form-editor/schema/form-states';
 import { descriptionKey } from '$lib/schema/workflow/edit-state';
 import type { Process } from '$lib/schema/workflow/process';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { buildDraftWorkflow } from '../shared/build-draft-workflow';
-import type { GenerationIssue } from '../shared/generate-json';
-import type { OnboardDetails } from '../shared/onboard-details';
+import { buildDraftWorkflow } from '$lib/server/shared/build-draft-workflow';
+import type { GenerationIssue } from '$lib/server/shared/generate-json';
+import type { OnboardDetails } from '$lib/server/shared/onboard-details';
 
 /*
 	What a form draft needs beyond the wrapping every draft gets. A form has no calls, so it has no defaults for

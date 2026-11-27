@@ -1,6 +1,6 @@
 import { processToGraph, stepCount, visibleGraph } from '$lib/process-graph/process-to-graph';
 import type { WorkingProcess } from '$lib/schema/workflow/working-process';
-import { formHiddenStateTypes } from './schema/form-states';
+import { formHiddenStateTypes } from '$lib/form-editor/schema/form-states';
 
 /**
  * Counts the steps of a form as the editor first shows it, with the developer states and the error routes hidden, so

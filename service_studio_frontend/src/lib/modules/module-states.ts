@@ -8,8 +8,8 @@ import {
 	unconnectedApiCallDetails
 } from '$lib/schema/workflow/placeholders';
 import type { WorkingState } from '$lib/schema/workflow/working-process';
-import type { AnswerFormatKey } from './answer-formats';
-import type { ModuleIconName } from './ModuleIcon.svelte';
+import type { AnswerFormatKey } from '$lib/modules/answer-formats';
+import type { ModuleIconName } from '$lib/modules/ModuleIcon.svelte';
 
 /*
 	The states each module adds to a journey. The flows come from the executor team, and the words are placeholders

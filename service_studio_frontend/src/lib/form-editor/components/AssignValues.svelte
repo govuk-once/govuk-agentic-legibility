@@ -7,10 +7,10 @@
 		assignVariableField,
 		assignWithLines,
 		type AssignKind
-	} from '../step-values/assign-values';
-	import FieldError from './FieldError.svelte';
-	import StepValuesForm from './StepValuesForm.svelte';
-	import TechReviewButtons from './TechReviewButtons.svelte';
+	} from '$lib/form-editor/step-values/assign-values';
+	import FieldError from '$lib/form-editor/components/FieldError.svelte';
+	import StepValuesForm from '$lib/form-editor/components/StepValuesForm.svelte';
+	import TechReviewButtons from '$lib/form-editor/components/TechReviewButtons.svelte';
 
 	/*
 		The panel of an assign step on the step values page. Each variable the step sets has its own block: the kind of

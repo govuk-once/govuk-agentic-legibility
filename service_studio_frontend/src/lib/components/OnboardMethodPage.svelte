@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
-	import { draftMethodField, type DraftMethod } from './draft-methods';
+	import { draftMethodField, type DraftMethod } from '$lib/components/draft-methods';
 
 	/*
 		The first page of onboarding, where a person chooses how the draft is made. The route gives the words about

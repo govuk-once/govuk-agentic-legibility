@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Workflow } from '$lib/schema/workflow/workflow';
-import { draftFromRequest } from '../draft-action';
-import type { OnboardDetails } from '../onboard-details';
-import { fakeModel } from './fake-model';
+import { draftFromRequest } from '$lib/server/shared/draft-action';
+import type { OnboardDetails } from '$lib/server/shared/onboard-details';
+import { fakeModel } from '$lib/server/shared/tests/fake-model';
 
 const dependencies = { client: fakeModel([]).client, modelId: 'the-model' };
 const workflow = { manifest: {}, processes: {} } as unknown as Workflow;
