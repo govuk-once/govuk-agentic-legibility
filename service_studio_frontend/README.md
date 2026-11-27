@@ -1,8 +1,8 @@
 # Service Studio
 
-Service Studio is a prototype for drafting, editing and reviewing government services as visual journey graphs that also create a canonical schema in the background. A draft can be written by an LLM assistant from a short description and public links to GOV.UK information, or started from an existing GOV.UK form example. It is then edited on a visual canvas and checked before it goes on to the next review. The canonical schema is generated and updated when edited in the visual graph editor. In order to proceed to the review stages the schema must pass a validation check.
+Service Studio is a prototype for drafting, editing and reviewing government services as visual journey graphs that also create a canonical schema in the background. A draft can be written by an AI assistant from a short description and public links to GOV.UK information, or started from an existing GOV.UK form example. It is then edited on a visual canvas and checked before it goes on to the next review. The canonical schema is generated and updated when edited in the visual graph editor. In order to proceed to the review stages the schema must pass a validation check.
 
-The forms route is the minimum viable product (MVP) with a simp;ified set of states used in the canonical schema and is being user tested. The service routes included experimental additions and more comprehensive canonical schema states to account for more complex steps in a journey.
+The forms route is the minimum viable product (MVP) with a simplified set of states used in the canonical schema and is being user tested. The service routes include experimental additions and more comprehensive canonical schema states to account for more complex steps in a journey.
 
 The user testing of the MVP will inform design decisions in the more complex unified schema representation for service routes.
 
@@ -25,10 +25,16 @@ The main libraries, which `pnpm install` adds:
 pnpm install
 ```
 
-To generate drafts, copy `.env.example` to `.env` and fill in:
+Copy `.env.example` to `.env` before running the app:
 
-* `AWS_BEARER_TOKEN_BEDROCK`, the Bedrock key
-* `AWS_REGION`, the Bedrock region, `eu-west-2` by default
+```sh
+cp .env.example .env
+```
+
+Both variables are read when the app is built, so both must be in `.env` for the app to start, even when no draft is generated.
+
+* `AWS_BEARER_TOKEN_BEDROCK` is required to be present, but its value is optional. Leave it empty to use the examples and saved drafts only. Fill in the Bedrock key to generate drafts with the assistant.
+* `AWS_REGION` is required. It is the Bedrock region, and `.env.example` sets it to `eu-west-2`.
 
 ## Run
 
@@ -41,11 +47,14 @@ Open the local address shown in the terminal.
 ## Checks
 
 ```sh
+pnpm lint
 pnpm run check
 pnpm test
 ```
 
-`pnpm run check` runs the type and Svelte checks. `pnpm test` runs the unit tests with Vitest.
+* `pnpm lint` runs ESLint with the TypeScript and Svelte rules in `eslint.config.js`. It also stops relative imports: files in `src/lib` are imported through `$lib`, such as `$lib/schema/workflow/validate`. The only relative import allowed is `./$types` in a route file.
+* `pnpm run check` runs the type and Svelte checks.
+* `pnpm test` runs Vitest. The only test is `src/lib/tests/folder-boundaries.test.ts`, described under Shared parts below.
 
 ## Routes
 
@@ -54,7 +63,7 @@ pnpm test
 * `/` opens the start page, `/onboard`. Start a new form from here, or open a saved draft from Your drafts. Starting a new service is inactive for now. However, the routes can be reached by manually typing the local urls.
 * `/onboard/form/method` asks how to draft the form: with the assistant, or from an existing GOV.UK form. Starting with a blank graph is not available yet.
 * `/onboard/form/details` takes a name, a description and links, and generates a first draft.
-* `/onboard/form/draft` shows the draft, with how many steps and branches it has. It also displays any errors that occur at generation and suggest re-running if it fails validation. Edit opens it in the form editor.
+* `/onboard/form/draft` shows the draft, with how many steps and branches it has. It also shows any errors from generation, and suggests running it again if the draft fails validation. Edit opens it in the form editor.
 * `/edit-form` lists the example forms. Choose one to open it.
 * `/edit-form/[slug]` is the form editor for one example form.
 * `/edit-form/draft` is the form editor for the draft open in this browser tab.
@@ -63,7 +72,7 @@ After editing, a form goes through three stages: the owner review, the technical
 
 * `/owner-review/form` is the owner review, in three steps with an address each, so the back button works and a step can be linked to:
   * `/owner-review/form` takes the owner's name, department and email, and optional context for the agent. These are written into the workflow manifest.
-  * `/owner-review/form/review` shows the technical review, the validation checks and the citizen journey. Before the technical review it shows the review as not finished and continues to it. Afterwards the banner shows Sign off, and the page continues to sign off. The technical review counts as finished when every API call is connected and every developer step holds the time a technical review was sent. There are some demo validation checks with a "Show example problems" tick box switches to show what this might look like if forms could get out of the edit page without passing struct validation. to be discussed if this should eb allowed .
+  * `/owner-review/form/review` shows the technical review, the validation checks and the citizen journey. Before the technical review it shows the review as not finished and continues to it. Afterwards the banner shows Sign off, and the page continues to sign off. The technical review counts as finished when every API call is connected and every developer step holds the time a technical review was sent. The validation checks shown are examples. The "Show example problems" tick box shows what the page would look like if a form reached the reviews with problems. A form cannot do that yet, because Send to review needs the full check to pass, and whether it should be allowed is still to be decided.
   * `/owner-review/form/sign-off` lists what must be done before publishing. Each item turns green when its part of the review is done.
 * `/tech-review/form` is the technical review. A developer sets up the technical side of the form in four steps, each with its own address:
   * `/tech-review/form` sets the workflow settings: how long one run may last, and the time limit and tries every API call uses unless it sets its own. These are written into the workflow manifest.
@@ -85,7 +94,7 @@ The canvas is on the left and a panel of ordered steps is on the right.
 
 * **Adding shapes.** Drag a Question, Message, Decision, Start or End from the palette onto the canvas. A question or a message is added to the form straight away. A decision, start or end is drawn dotted until it is joined up, and then becomes part of the form.
 * **Drawing lines.** Drag from the dot on the edge of a shape to another shape. Letting go on empty canvas adds a new question there, already joined. A second line from a step puts a decision after it.
-* **Editing.** Selecting a node on the canvas or 'edit' in a numbered step in the panel, opens its card in the panel. A question or a message has its words, title, description and hint. A decision names each way out by the answer that leads to it, with where it goes. A developer state, such as the assign that saves a repeated answer, is shown but not editedable in this view (it would happen later in tech-review).
+* **Editing.** Selecting a node on the canvas or 'edit' in a numbered step in the panel, opens its card in the panel. A question or a message has its words, title, description and hint. A decision names each way out by the answer that leads to it, with where it goes. A developer state, such as the assign that saves a repeated answer, is shown but cannot be edited in this view. Its values are set in the technical review.
 * **Moving and removing.** The arrows on a card in the list move a step up or down the journey, and the graph is arranged again to match. Removing takes out only what was chosen. Nothing is joined up for you, so the pieces left over show what still needs joining.
 * **Where boxes sit.** The graph is arranged when it is opened, when developer states are shown or hidden, and after a move. Otherwise every box keeps its place, and a new shape stays where it was drawn.
 * **Problems.** The bar under the canvas counts the errors and warnings as the form changes. Show problems lists them, with a picture of how to fix each one, and Go to highlights its box on the canvas.
@@ -120,9 +129,9 @@ Shared by both:
 * `src/lib/process-graph/` and `src/lib/graph-kit/`, the canvas, the shapes and the layout
 * `src/lib/components/`, the page header, progress bar and onboarding pages
 * `src/lib/server/shared/`, reading links, asking the model and wrapping its reply into a workflow
-* `src/lib/drafts/`, the saved drafts
+* `src/lib/drafts/`, the saved drafts, and the result of opening a draft that both editors share
 * `src/lib/modules/` and `src/lib/hints/`, the question modules and the hints drawn on the canvas
-* `src/lib/draft-store.ts`, which hands a generated service draft to the service editor, and `src/lib/examples/`
+* `src/lib/examples/`, the example forms and services
 
 Forms only:
 
@@ -134,19 +143,21 @@ Services only:
 * `src/lib/service-editor/`, `src/lib/server/onboard-service/`
 * `src/routes/edit-service/`, `src/routes/onboard/service/`
 
+A generated service draft is handed to the service editor in the browser tab's session storage, by `src/lib/service-editor/draft-store.ts`. It is not a saved draft and cannot be opened again later. Moving the service editor onto the saved drafts waits for the service routes to get the forms design.
+
 A test, `src/lib/tests/folder-boundaries.test.ts`, keeps these apart. It fails if a form file imports from a service file, or the other way round, or if a shared file imports from either. So the services can be removed without breaking forms, and forms can be user tested while the services stay experimental.
 
 ## Validation
 
-Validation checks happen at set points, but not while a journey is being composed and edited in the graph editor. This allows more flexibility for a non-technical user to compose new flows without the friction of either auto routing mid composition or lots of validation errors whilst halfway through a composition. For a beginner user this is determined as a better approach but it may change once users become more familiar with the interface.
+The journey is checked all the time while it is edited, and the problems are listed in the problems bar under the canvas, but they never stop the editing itself. A person can leave steps unjoined and come back to them, and nothing is joined up automatically. The full check has to pass only when the form leaves the editor. This gives a person who is new to the tool room to build a journey without being stopped part way through. It may change once people are more familiar with the interface.
 
 * **The shape of a file.** The Zod schemas in `src/lib/schema/workflow/` describe every key of a workflow manifest, a process and each kind of state. `process.ts` and `workflow.ts` are the top of each.
 * **Checks across a whole file.** `src/lib/schema/workflow/validate.ts` checks what one state cannot see on its own: that every route leads to a state that exists, that the start exists, that a process has an end, and that the manifest and its processes agree. `parseProcess` and `parseWorkflow` run the schema and these checks together.
 * **Loading the examples.** `src/lib/examples/workflows.ts` checks every example as it is loaded. An example that fails is still listed, with its problems in place of the open button.
-* **A draft from the model.** `src/lib/server/shared/generate-workflow.ts` checks the reply as a process, then wraps it and checks the whole workflow. A form is also refused if it has a state a form cannot have, such as an API call or invoke state(`src/lib/server/onboard-form/build-form.ts`). Any problems are sent back to the model once to be corrected (`src/lib/server/shared/generate-json.ts`). As more user testing occurs more states may be allowed in the forms MVP validation process. However, currently it is limited to input, output, end and choice.An existing GOV.UK form example can also contain an assign state but it is not autogenerated for now.
+* **A draft from the model.** `src/lib/server/shared/generate-workflow.ts` checks the reply as a process, then wraps it and checks the whole workflow. A form is also refused if it has a state a form cannot have, such as an API call or invoke state (`src/lib/server/onboard-form/build-form.ts`). Any problems are sent back to the model once to be corrected (`src/lib/server/shared/generate-json.ts`). As more user testing occurs more states may be allowed in the forms MVP validation process. However, currently it is limited to input, output, end and choice. An existing GOV.UK form example can also contain an assign state but it is not autogenerated for now.
 * **Opening a saved draft.** `src/lib/drafts/draft-store.ts` checks only that a stored draft is shaped like a draft, because a draft can be saved while the journey is unfinished. The editor opens it as it is. The reviews check its form against the full schema when they open it (`src/lib/form-editor/review-draft.ts`), and the form editor's examples are checked to be a single process (`src/lib/form-editor/schema/form-states.ts`).
-* **While editing.** Nothing is checked. A step may have nothing after it, a decision may have a way out that leads nowhere, and pieces may be loose. The editor holds a journey in a looser shape for this, in `src/lib/schema/workflow/working-process.ts`.
-* **Before the reviews.** `journeyErrors` in `validate.ts` lists what must be fixed, in plain words, naming each step as the editor does. `journeyWarnings` lists placeholder text still to replace, which does not stop the form going on. Placeholders that a later review fills in, such as the owner and contact, are not listed. The form editor shows both lists in the problems bar, `src/lib/form-editor/components/ProblemsDrawer.svelte`, with the words for each problem in `src/lib/schema/workflow/journey-problems.ts`.
+* **While editing.** A step may have nothing after it, a decision may have a way out that leads nowhere, and pieces may be loose. The editor holds a journey in a looser shape for this, in `src/lib/schema/workflow/working-process.ts`. After every change, `journeyErrors` in `validate.ts` lists what must be fixed, in plain words, naming each step as the editor does, and `journeyWarnings` lists placeholder text still to replace. Placeholders that a later review fills in, such as the owner and contact, are not listed. The form editor shows both lists in the problems bar, `src/lib/form-editor/components/ProblemsDrawer.svelte`, with the words for each problem in `src/lib/schema/workflow/journey-problems.ts`.
+* **Before the reviews.** Send to review is refused while `journeyErrors` lists any errors. Warnings do not stop it. `checkBeforeProceeding` in `validate.ts` runs the same check across every process of a workflow and then the full schema check. Nothing calls it yet. It is kept for the Publish step and for the service editor, where a workflow has more than one process.
 * **At tech review.** Each step of the technical review checks what is typed before it is written into the form: the workflow settings in `src/lib/schema/workflow/workflow-settings.ts`, and the values of each developer step in `src/lib/form-editor/step-values/`. A body field still holding the placeholder a connected endpoint left for it stops the step being marked as checked.
 * **At owner review.** `ownerDetailsProblems` in `src/lib/schema/workflow/owner-details.ts` checks the owner's details before they are written into the manifest. The names, department and email are required, and the email must be a valid address.
 
@@ -155,7 +166,7 @@ Validation checks happen at set points, but not while a journey is being compose
 The details page posts a name, a description and links to the draft page's form action. On the server:
 
 1. The page behind each link is read, if it is on GOV.UK (`src/lib/server/shared/read-links.ts`, `src/lib/server/shared/fetch-link.ts`, `src/lib/server/shared/allowed-link-domains.ts`).
-2. The LLM is asked for one process, with the prompt for that route. The form prompt is `src/lib/server/onboard-form/system-prompt.ts` and the service prompt is `src/lib/server/onboard-service/system-prompt.ts`. Each ends with the JSON Schema of a process, made from the Zod schema, because Bedrock does not enforce the shape of the reply for this model. This will be updated to use Agent Core tool calls to improve this in a later version before deployment.
+2. The AI model is asked for one process, with the prompt for that route. The form prompt is `src/lib/server/onboard-form/system-prompt.ts` and the service prompt is `src/lib/server/onboard-service/system-prompt.ts`. Each ends with the JSON Schema of a process, made from the Zod schema, because Bedrock does not enforce the shape of the reply for this model. This will be updated to use Agent Core tool calls to improve this in a later version before deployment.
 3. The process is wrapped into a workflow with placeholders for what the model is not asked for, such as the owner, contact and executor settings (`src/lib/server/shared/build-draft-workflow.ts`). A form keeps its name as the manifest description, and the description typed on the details page in the manifest metadata.
 
 Choosing Edit saves the generated form as a new draft and opens it in the form editor.
@@ -166,38 +177,33 @@ Choosing Edit saves the generated form as a new draft and opens it in the form e
 src/
   lib/
     schema/workflow/   the schema, the checks, and the changes made to a journey
-    process-graph/     the shared canvas, drafts, layout and lists of steps
-    graph-kit/         the box, diamond and dot shapes, the palette and sizing
+    process-graph/     the shared canvas, unjoined shapes, layout and lists of steps
+    graph-kit/         the box, diamond and dot shapes, their sizes and the layout
     components/        shared page parts and onboarding pages
     form-editor/       the form editor, and the reviews' draft and save parts
-    drafts/            the saved drafts store and the words used to list them
-    modules/           the question modules and their borders on the canvas
+    drafts/            the saved drafts store, the words used to list them, and the result of opening a draft
+    modules/           the question modules, the palette above the canvas, and module borders
     hints/             the hints drawn beside steps on the canvas
     service-editor/    the service editor
     server/            onboarding on the server: shared, form and service
     examples/          the example forms and services, as JSON files
-    tests/             tests that cover the whole project
+    tests/             the folder boundaries test
   routes/              the pages, as listed above
 static/                gov.css and govuk-extras.css
+agent-resources/       briefs, notes and chat exports used while building, not needed to run the app
 ```
-
-Tests sit in a `tests` folder beside the code they test.
-
-Every folder ending in `-old` (`components-old`, `graph-old`, `schema-old`, `examples/old`, `server/onboard-old`, `routes/edit-old`, `routes/onboard-old`) will be deleted. They stay for now as a reference for the design of the old editor.
 
 ## Next steps
 
-* Give the owner review its real validation checks in place of the example problems.
-* Connect the Flex connections to the real Flex list, or to mock APIs, in `src/lib/flex/`, and make search and filters work.
+* Connect the Flex connections to mock APIs, in place of `src/lib/form-editor/placeholder-endpoints.ts`, and make search and filters work.
 * Check that every saved answer a step reads, such as a body value, is saved by some step in the form.
 * Make Publish save the form as its two files, the manifest and the process. This will later be replaced by sending it to the workflow server. It will only be allowed when the validation check passes.
-* Make "Open step in editor" and "View the published journey" work, or remove them. They are shown but inactive for now.
 * Move saved drafts to a server, with Amazon S3 behind it. Only the inside of the four actions in `src/lib/drafts/draft-store.ts` should need to change.
-* Decide whether a form with errors can go on to the reviews, with the full check moved to Publish, after feedback from the team.
 
 
+## Fetching links on the server
 
-**Fetching links on the server.** At onboarding auto generation, the server reads the page behind each link before it asks the model. It only does this from an approved list of URLs. However, code that fetches web pages on a server can be misused to reach places it should not, even with the list of allowed sites, the check on every redirect and the time limit in place. For now run Service Studio locally only. It will move to use an AWS Agent Core tool call or similar AWS feature, which are more secure and reduce these vunerabilities, before it is hosted anywhere.
+At onboarding, when a draft is generated, the server reads the page behind each link before it asks the model. It only does this from an approved list of URLs. However, code that fetches web pages on a server can be misused to reach places it should not, even with the list of allowed sites, the check on every redirect and the time limit in place. For now run Service Studio locally only. It will move to use an AWS Agent Core tool call or similar AWS feature, which are more secure and reduce these vulnerabilities, before it is hosted anywhere.
 
 The link reading is in these files:
 
@@ -205,4 +211,7 @@ The link reading is in these files:
 * `src/lib/server/shared/allowed-link-domains.ts` holds the list of allowed sites and `isAllowedLink`, which checks a link against it.
 * `src/lib/server/shared/read-links.ts` reads each link through `fetchLinkText` in `readLinks`, and gathers the text for the prompt.
 * `src/lib/server/shared/generate-workflow.ts` calls `readLinks` before it asks the model. Both form and service onboarding go through it, so this is where an agent call would plug in.
-* `src/lib/server/onboard-old/generate-service.ts`, in the old onboarding, also calls `fetchLinkText`. It is deleted along with the other `-old` folders.
+
+## Authors and Support
+
+This project was made by Alex and Jen at Considerate Digital. If you need support please [contact us](https://considerate.digital).
