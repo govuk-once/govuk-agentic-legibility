@@ -64,11 +64,14 @@
 	{#snippet status()}
 		<!-- A problem shows in red. A technical review still to come is expected at this point, so it is not shown as one. -->
 		<p
-			class="govuk-body govuk-!-font-weight-bold review__status {canSignOff
-				? 'status-text-done'
-				: problems.length > 0
-					? 'status-text-problem'
-					: 'status-text-to-do'}"
+			class={[
+				'govuk-body govuk-!-font-weight-bold review__status',
+				{
+					'status-text-done': canSignOff,
+					'status-text-problem': !canSignOff && problems.length > 0,
+					'status-text-to-do': !canSignOff && problems.length === 0
+				}
+			]}
 		>
 			{canSignOff ? 'All checks clear' : summary || 'Technical review not finished'}
 		</p>
@@ -105,17 +108,17 @@
 		{#if techReviewFinished}
 			<dl class="review__facts review__fact-columns">
 				<div>
-					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__fact-label">Workflow settings</dt>
+					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__muted">Workflow settings</dt>
 					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Set, run timeout {settings.runTimeout}</dd>
 				</div>
 				<div>
-					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__fact-label">Flex connections</dt>
+					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__muted">Flex connections</dt>
 					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">
 						{connections.connected} of {connections.total} connected
 					</dd>
 				</div>
 				<div>
-					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__fact-label">Step values</dt>
+					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__muted">Step values</dt>
 					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{checked.checked} of {checked.total} checked</dd>
 				</div>
 			</dl>
@@ -286,10 +289,6 @@
 
 	.review__facts dd {
 		margin: 0;
-	}
-
-	.review__fact-label {
-		color: #505a5f;
 	}
 
 	/* A panel that says where a whole section stands, marked by a coloured rule down its left side. */

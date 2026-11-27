@@ -127,6 +127,9 @@
 	// goes once the errors are fixed.
 	let sendRefused = $state(false);
 
+	// Whether the form could not be sent because the browser would not store its draft.
+	let sendFailed = $state(false);
+
 	/**
 	 * Sends the form to owner review when it has no errors. Warnings do not stop it. With errors, a message by the
 	 * button points to the problems bar instead.
@@ -135,9 +138,6 @@
 		sendRefused = errors.length > 0;
 		if (!sendRefused) sendFailed = !(await onSendToOwnerReview());
 	}
-
-	// Whether the form could not be sent because the browser would not store its draft.
-	let sendFailed = $state(false);
 
 	// The state highlighted on the graph and in the list, and whether its card is open in place of the list. They
 	// are held together so choosing a different state always closes a card that was left open.
@@ -180,11 +180,13 @@
 		selection = { code, open: code !== null && hasCard(process.states[code]) };
 	}
 
-	// The state whose card is open, with the row it has in the list when it is a numbered step.
+	// The state whose card is open.
 	const openState = $derived(selection.open && selection.code ? process.states[selection.code] : undefined);
-	const openRowIndex = $derived(rows.findIndex((row) => row.stateId === selection.code));
-	// The row of the highlighted state, for the line under the heading of the list. A decision or an end has no row.
-	const selectedRow = $derived(rows[openRowIndex]);
+	// Where the highlighted state is in the list, whether or not its card is open. It is -1 for a decision or an end,
+	// which are not numbered steps and have no row.
+	const selectedRowIndex = $derived(rows.findIndex((row) => row.stateId === selection.code));
+	// The row of the highlighted state, for the line under the heading of the list and the step's edit card.
+	const selectedRow = $derived(rows[selectedRowIndex]);
 
 	// Why the last change could not be made, in words, shown over the canvas until it is dismissed. It is empty when
 	// there is nothing to say. The canvas shows it and can add to it, so the two share it.
@@ -311,9 +313,9 @@
 		</div>
 
 		<aside class="form-workspace__panel" aria-label="Steps">
-			{#if openState && selection.code && (openState.state_type === 'input' || openState.state_type === 'output') && openRowIndex >= 0}
+			{#if openState && selection.code && (openState.state_type === 'input' || openState.state_type === 'output') && selectedRowIndex >= 0}
 				{@const code = selection.code}
-				{@const row = rows[openRowIndex]}
+				{@const row = rows[selectedRowIndex]}
 				<!-- Shown afresh for each step, so what was typed for one step never carries over to another. -->
 				{#key code}
 					<StateEditCard
