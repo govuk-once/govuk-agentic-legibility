@@ -3,7 +3,7 @@ import type { State } from '$lib/schema/workflow/process';
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
 import { isErrorKind, routesOf } from '$lib/schema/workflow/routes';
 import { estimateStepNodeHeight, estimateStepNodeWidth } from '$lib/graph-kit/node-sizing';
-import type { ModuleGroup, ProcessEdge, ProcessEdgeData, ProcessGraphElements, ProcessNode } from './process-graph-types';
+import type { ModuleGroup, ProcessEdge, ProcessGraphElements, ProcessNode } from './process-graph-types';
 import { tidyCode } from '$lib/graph-kit/tidy-code';
 
 // A placeholder coordinate every node is created with. The layout replaces it, so this value is only

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { startStages } from '$lib/components/progress-stages';
@@ -33,7 +34,7 @@
 </svelte:head>
 
 <!-- One way to start something new. A start that cannot be used yet has no link, and its button is switched off. -->
-{#snippet startOption(id: string, heading: string, intro: string, next: string, href?: string)}
+{#snippet startOption(id: string, heading: string, intro: string, next: string, href?: ResolvedPathname)}
 	<section class="onboard-start" aria-labelledby="{id}-heading">
 		<div class="govuk-!-padding-5">
 			<h2 id="{id}-heading" class="govuk-heading-m govuk-!-margin-bottom-2">{heading}</h2>

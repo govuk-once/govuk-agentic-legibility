@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import Progress from '$lib/components/Progress.svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
 	import { editStages } from '$lib/components/progress-stages';
@@ -13,7 +14,7 @@
 		examples: WorkflowExample[];
 		// The address that opens the chosen example. The page that uses this one works it out, because each editor
 		// has its own route to open.
-		openHref: (slug: string) => string;
+		openHref: (slug: string) => ResolvedPathname;
 	}
 
 	let { subject, heading, intro, examples, openHref }: Props = $props();

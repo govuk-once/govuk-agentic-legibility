@@ -131,6 +131,9 @@
 								{item.purpose || displayUrl(item.url)}
 							</p>
 							<p class="govuk-body-s govuk-!-margin-bottom-0 state-context__link">
+								<!-- The address is a page on another site, such as GOV.UK, so it is not a route of this app that resolve()
+									could build. -->
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 								<a class="govuk-link" href={item.url} target="_blank" rel="noopener noreferrer">
 									{displayUrl(item.url)}<span class="govuk-visually-hidden"> (opens in a new tab)</span>
 								</a>

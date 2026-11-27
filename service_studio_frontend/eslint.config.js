@@ -18,7 +18,10 @@ export default defineConfig(
 		languageOptions: { globals: { ...globals.browser, ...globals.node } },
 		rules: {
 			// TypeScript already reports names that are not defined, and does it more accurately for types.
-			'no-undef': 'off'
+			'no-undef': 'off',
+			// Taking keys out of an object with `const { key: _unused, ...rest } = object` names the keys only so they
+			// are left out of rest, so those names are not reported as unused.
+			'@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }]
 		}
 	},
 	{
