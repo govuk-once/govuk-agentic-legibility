@@ -27,7 +27,7 @@
 		class:journey-terminal-node__circle--draft={data.draft}
 		class:journey-terminal-node__circle--selected={selected}
 	></div>
-	<span class="journey-terminal-node__label">{data.label}</span>
+	<span class="journey-terminal-node__label secondary-text">{data.label}</span>
 </div>
 
 <style>
@@ -77,7 +77,6 @@
 		font-family: 'GDS Transport', arial, sans-serif;
 		font-size: 0.875rem;
 		font-weight: 400;
-		color: #505a5f;
 		white-space: nowrap;
 	}
 </style>

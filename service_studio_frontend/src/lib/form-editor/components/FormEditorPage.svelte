@@ -212,14 +212,14 @@
 		justify-content: space-between;
 		flex-wrap: wrap;
 		gap: 20px;
-		padding: 12px 40px;
+		padding: 10px 40px;
 		border-bottom: 1px solid #b1b4b6;
 	}
 
 	.form-editor-page__toolbar-summary {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 10px;
 		min-width: 0;
 	}
 
@@ -236,7 +236,7 @@
 	}
 
 	.form-editor-page__stat {
-		padding: 6px 14px;
+		padding: 5px 15px;
 		background-color: #f3f2f1;
 	}
 

@@ -12,7 +12,7 @@
 
 <div class="state-list__header">
 	<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
-	<p class="govuk-body govuk-!-margin-bottom-0 state-list__hint">
+	<p class="govuk-body govuk-!-margin-bottom-0 secondary-text">
 		{rows.length}
 		{rows.length === 1 ? 'step' : 'steps'}
 	</p>
@@ -30,7 +30,7 @@
 				title={row.title}
 				onclick={() => (selectedStateId = row.stateId === selectedStateId ? null : row.stateId)}
 			>
-				<span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-list__number" aria-hidden="true">
+				<span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-list__number secondary-text" aria-hidden="true">
 					{row.number}
 				</span>
 				<span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-list__title">{row.title}</span>
@@ -46,11 +46,6 @@
 		gap: 5px;
 		padding: 15px;
 		border-bottom: 1px solid #b1b4b6;
-	}
-
-	.state-list__hint,
-	.state-list__number {
-		color: #505a5f;
 	}
 
 	.state-list__items {

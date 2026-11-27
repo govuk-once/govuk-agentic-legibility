@@ -362,7 +362,7 @@
 				<div class="form-workspace__list">
 					<div class="form-workspace__list-header">
 						<h2 class="govuk-heading-s govuk-!-margin-bottom-0">Steps</h2>
-						<p class="govuk-body-s govuk-!-margin-bottom-0 form-workspace__list-hint">
+						<p class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">
 							{rows.length}
 							{rows.length === 1 ? 'step' : 'steps'} · {selectedRow ? `step ${selectedRow.number} selected` : 'nothing selected'}
 						</p>
@@ -439,13 +439,9 @@
 	.form-workspace__list-header {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
-		padding: 18px 16px 14px;
+		gap: 5px;
+		padding: 20px 15px 15px;
 		border-bottom: 1px solid #b1b4b6;
-	}
-
-	.form-workspace__list-hint {
-		color: #505a5f;
 	}
 
 	@media (max-width: 900px) {

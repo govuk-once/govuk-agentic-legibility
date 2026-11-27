@@ -65,11 +65,11 @@
 			<dl class="picker-page__stats">
 				<div class="picker-page__stat">
 					<dt class="govuk-heading-l govuk-!-margin-bottom-0">{processCount}</dt>
-					<dd class="govuk-body govuk-!-margin-bottom-0">{processCount === 1 ? 'process' : 'processes'}</dd>
+					<dd class="govuk-body govuk-!-margin-bottom-0 secondary-text">{processCount === 1 ? 'process' : 'processes'}</dd>
 				</div>
 				<div class="picker-page__stat">
 					<dt class="govuk-heading-l govuk-!-margin-bottom-0">{stateCount}</dt>
-					<dd class="govuk-body govuk-!-margin-bottom-0">{stateCount === 1 ? 'state' : 'states'}</dd>
+					<dd class="govuk-body govuk-!-margin-bottom-0 secondary-text">{stateCount === 1 ? 'state' : 'states'}</dd>
 				</div>
 			</dl>
 
@@ -144,7 +144,6 @@
 
 	.picker-page__stat dd {
 		margin: 0;
-		color: #505a5f;
 	}
 
 	.picker-page__open {

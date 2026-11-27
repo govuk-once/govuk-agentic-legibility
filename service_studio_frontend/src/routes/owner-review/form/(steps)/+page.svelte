@@ -197,7 +197,7 @@
 					value={saved.agentNotes}
 					oninput={(event) => (notesLength = event.currentTarget.value.length)}
 				></textarea>
-				<p id="agent-notes-count" class="govuk-body-s govuk-!-margin-bottom-0 owner-details__count" aria-live="polite">
+				<p id="agent-notes-count" class="govuk-body-s govuk-!-margin-bottom-0 secondary-text" aria-live="polite">
 					{notesLength.toLocaleString('en-GB')} of {agentNotesLimit.toLocaleString('en-GB')} characters
 				</p>
 			</div>
@@ -220,7 +220,4 @@
 		background-color: #f3f2f1;
 	}
 
-	.owner-details__count {
-		color: #505a5f;
-	}
 </style>

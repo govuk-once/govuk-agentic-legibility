@@ -55,7 +55,7 @@
 	<ul class="govuk-list">
 		{#each description.routes as route, index (index)}
 			<li>
-				<span class="state-facts__route-label">{route.label}</span>
+				<span class="state-facts__route-label secondary-text">{route.label}</span>
 				<button type="button" class="govuk-link state-facts__link" onclick={() => onSelectState(route.targetId)}>
 					{route.targetTitle}
 				</button>
@@ -103,7 +103,6 @@
 
 	.state-facts__route-label {
 		display: block;
-		color: #505a5f;
 	}
 
 	/* A button that looks like a link. It is a button because it acts on the page and does not go to a new one. */

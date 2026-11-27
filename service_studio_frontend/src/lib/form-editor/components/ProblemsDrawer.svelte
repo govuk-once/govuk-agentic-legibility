@@ -94,11 +94,11 @@
 					</colgroup>
 					<thead class="govuk-table__head">
 						<tr class="govuk-table__row">
-							<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Number</span></th>
-							<th scope="col" class="govuk-table__header problems-drawer__column-heading">Step</th>
-							<th scope="col" class="govuk-table__header problems-drawer__column-heading">Problem</th>
-							<th scope="col" class="govuk-table__header problems-drawer__column-heading">How to fix it</th>
-							<th scope="col" class="govuk-table__header problems-drawer__column-heading"><span class="govuk-visually-hidden">Link to the step</span></th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading secondary-text"><span class="govuk-visually-hidden">Number</span></th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading secondary-text">Step</th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading secondary-text">Problem</th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading secondary-text">How to fix it</th>
+							<th scope="col" class="govuk-table__header problems-drawer__column-heading secondary-text"><span class="govuk-visually-hidden">Link to the step</span></th>
 						</tr>
 					</thead>
 					<tbody class="govuk-table__body">
@@ -113,9 +113,9 @@
 								<td class="govuk-table__cell govuk-!-font-weight-bold problems-drawer__text-cell">{place?.label ?? ''}</td>
 								<td class="govuk-table__cell problems-drawer__text-cell">
 									<span class="govuk-!-font-weight-bold">{problem.title}</span>
-									<span class="problems-drawer__fix">{problem.fix}</span>
+									<span class="problems-drawer__fix secondary-text">{problem.fix}</span>
 								</td>
-								<td class="govuk-table__cell problems-drawer__text-cell problems-drawer__how-to-fix">
+								<td class="govuk-table__cell problems-drawer__text-cell secondary-text">
 									{#if picture}
 										<HowToFixPicture {picture} />
 									{:else}
@@ -281,17 +281,11 @@
 		top: 0;
 		z-index: 1;
 		font-weight: 400;
-		color: #505a5f;
 		background-color: #ffffff;
 	}
 
 	.problems-drawer__fix {
 		display: block;
-		color: #505a5f;
-	}
-
-	.problems-drawer__how-to-fix {
-		color: #505a5f;
 	}
 
 	.problems-drawer__go-to {

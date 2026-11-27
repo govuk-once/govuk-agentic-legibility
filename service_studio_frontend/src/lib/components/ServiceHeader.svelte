@@ -71,7 +71,7 @@
 		line-height: 1.25;
 		color: #ffffff;
 		background-color: #1d70b8;
-		padding: 4px 10px;
+		padding: 5px 10px;
 	}
 
 	@media (max-width: 640px) {

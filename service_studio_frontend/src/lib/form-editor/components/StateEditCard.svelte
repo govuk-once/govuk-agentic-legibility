@@ -110,7 +110,7 @@
 		The title is not repeated here, because the title field below shows it. -->
 	<div class="state-edit-card__header">
 		<ModuleNote {currentState} />
-		<p class="govuk-body-s govuk-!-margin-bottom-0 state-edit-card__status">Editing · step {number} of {totalSteps}</p>
+		<p class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">Editing · step {number} of {totalSteps}</p>
 	</div>
 
 	<form
@@ -237,7 +237,7 @@
 
 		{#if currentState.state_type === 'input'}
 			<!-- The kind of answer is shown for reference. It is not changed here. -->
-			<p class="govuk-body-s govuk-!-margin-bottom-0 state-edit-card__answer-type">
+			<p class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">
 				Answer type: {answerKindLabels[currentState.schema.kind]}
 			</p>
 		{/if}
@@ -295,11 +295,6 @@
 		border-bottom: 1px solid #b1b4b6;
 	}
 
-	.state-edit-card__status,
-	.state-edit-card__answer-type {
-		color: #505a5f;
-	}
-
 	.state-edit-card__form {
 		flex: 1 1 auto;
 		min-width: 0;
@@ -307,7 +302,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 15px;
-		padding: 16px;
+		padding: 15px;
 	}
 
 	.state-edit-card__form-group {

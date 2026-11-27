@@ -94,7 +94,7 @@
 								{step.title}
 							</button>
 						</td>
-						<td class="govuk-table__cell schema-value step-values__summary">{stepValuesSummary(step.state)}</td>
+						<td class="govuk-table__cell schema-value secondary-text">{stepValuesSummary(step.state)}</td>
 						<td class="govuk-table__cell step-values__status-cell govuk-!-font-weight-bold">
 							{#if isChecked(step.code)}
 								<span class="status-text-done">Checked</span>
@@ -153,10 +153,6 @@
 
 	.step-values__status-cell {
 		width: 110px;
-	}
-
-	.step-values__summary {
-		color: #505a5f;
 	}
 
 	/* The step's title opens its panel. It is a button so it is read out as one, drawn as a link. */

@@ -67,7 +67,7 @@
 	/* Each option looks like a button with a black outline, and the picked one is filled black. */
 	.tech-review-buttons__option {
 		position: relative;
-		padding: 8px 12px;
+		padding: 10px;
 		font-family: 'GDS Transport', arial, sans-serif;
 		font-size: 1rem;
 		line-height: 1.25;

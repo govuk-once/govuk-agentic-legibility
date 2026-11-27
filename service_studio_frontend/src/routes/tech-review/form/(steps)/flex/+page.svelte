@@ -74,7 +74,7 @@
 						<td class="govuk-table__cell">
 							<span class="govuk-!-display-block">{step.title}</span>
 							{#if step.connected}
-								<span class="schema-value flex-connections__address">{step.method} {step.url}</span>
+								<span class="schema-value secondary-text">{step.method} {step.url}</span>
 							{:else}
 								<span class="govuk-hint govuk-!-margin-bottom-0">No endpoint chosen yet</span>
 							{/if}
@@ -148,10 +148,6 @@
 	/* A call that still needs connecting is shaded, so the rows that need work stand out. */
 	.flex-connections__row--unconnected {
 		background-color: #f3f8fc;
-	}
-
-	.flex-connections__address {
-		color: #505a5f;
 	}
 
 	/* The Step column only holds the tag for the kind of step, so it is kept as narrow as the tag. */

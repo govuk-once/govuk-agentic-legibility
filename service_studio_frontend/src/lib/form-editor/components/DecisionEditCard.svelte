@@ -70,7 +70,7 @@
 		title is not repeated here, because the title field below shows it. -->
 	<div class="decision-edit-card__header">
 		<ModuleNote {currentState} />
-		<p class="govuk-body-s govuk-!-margin-bottom-0 decision-edit-card__status">
+		<p class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">
 			{#if before}
 				Decides on the answer to step {before.number}: {before.title}
 			{:else if afterDeveloperStep}
@@ -145,10 +145,6 @@
 		border-bottom: 1px solid #b1b4b6;
 	}
 
-	.decision-edit-card__status {
-		color: #505a5f;
-	}
-
 	.decision-edit-card__form {
 		flex: 1 1 auto;
 		min-width: 0;
@@ -156,7 +152,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 15px;
-		padding: 16px;
+		padding: 15px;
 	}
 
 	.decision-edit-card__form-group {

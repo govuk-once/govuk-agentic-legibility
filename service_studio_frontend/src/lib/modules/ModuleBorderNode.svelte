@@ -30,7 +30,7 @@
 				<path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3" />
 			</svg>
 		</span>
-		<span class="govuk-body-s govuk-!-margin-bottom-0 module-border-node__label">{data.label}</span>
+		<span class="govuk-body-s govuk-!-margin-bottom-0 module-border-node__label secondary-text">{data.label}</span>
 	</span>
 </div>
 
@@ -58,7 +58,6 @@
 	}
 
 	.module-border-node__label {
-		color: #505a5f;
 		white-space: nowrap;
 	}
 

@@ -65,7 +65,7 @@
 			<span class="module-menu__divider" aria-hidden="true"></span>
 		{/if}
 		<div class="module-menu__category">
-			<p class="module-menu__category-label" id="module-menu-category-{index}">{category.label}</p>
+			<p class="module-menu__category-label secondary-text" id="module-menu-category-{index}">{category.label}</p>
 			<ul class="module-menu__tiles" aria-labelledby="module-menu-category-{index}">
 				{#each category.modules as module (module.key)}
 					{@const tool = toolFor(module.key)}
@@ -144,7 +144,6 @@
 		margin: 0;
 		font-size: 1rem;
 		line-height: 1.25;
-		color: #505a5f;
 	}
 
 	.module-menu__tiles {

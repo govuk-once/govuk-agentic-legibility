@@ -57,7 +57,7 @@
 		onMoveUp={() => onMoveUp?.(stateId)}
 		onMoveDown={() => onMoveDown?.(stateId)}
 	/>
-	<span class="govuk-body-s govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-card__number" aria-hidden="true"
+	<span class="govuk-body-s govuk-!-font-weight-bold govuk-!-margin-bottom-0 state-card__number secondary-text" aria-hidden="true"
 		>{number}</span
 	>
 	<!-- A plain container, not a button, so the title stays a real heading rather than being nested inside
@@ -68,7 +68,7 @@
 		<div class="state-card__summary">
 			<h3 class="govuk-heading-s govuk-!-margin-bottom-0">{title}</h3>
 			{#if description}
-				<p class="govuk-body-s govuk-!-margin-bottom-0 state-card__description">{description}</p>
+				<p class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">{description}</p>
 			{/if}
 			<!-- Status uses the supplied GOV.UK colour modifier rather than local tag styling. -->
 			<strong class="govuk-tag govuk-tag--{tagColour} state-card__tag">{tagLabel}</strong>
@@ -113,7 +113,7 @@
 		display: flex;
 		align-items: flex-start;
 		gap: 10px;
-		padding: 14px 16px;
+		padding: 15px;
 		background-color: #ffffff;
 		border-bottom: 1px solid #b1b4b6;
 		font-family: 'GDS Transport', arial, sans-serif;
@@ -126,7 +126,6 @@
 	.state-card__number {
 		flex-shrink: 0;
 		padding-top: 2px;
-		color: #505a5f;
 	}
 
 	.state-card__select {
@@ -149,22 +148,18 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 4px;
-	}
-
-	.state-card__description {
-		color: #505a5f;
+		gap: 5px;
 	}
 
 	.state-card__tag {
-		margin: 4px 0 0;
+		margin: 5px 0 0;
 	}
 
 	.state-card__actions {
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 10px;
 	}
 
 	.state-card__remove {

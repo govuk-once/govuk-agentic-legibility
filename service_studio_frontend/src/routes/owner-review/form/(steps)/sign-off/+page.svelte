@@ -56,8 +56,8 @@
 	<div class="sign-off__owner">
 		{#if hasOwner}
 			<h2 class="govuk-heading-s govuk-!-margin-bottom-1">{owner.firstName} {owner.lastName}</h2>
-			<p class="govuk-body govuk-!-margin-bottom-1 sign-off__muted">{owner.department}</p>
-			<p class="govuk-body govuk-!-margin-bottom-0 sign-off__muted">{owner.email}</p>
+			<p class="govuk-body govuk-!-margin-bottom-1 secondary-text">{owner.department}</p>
+			<p class="govuk-body govuk-!-margin-bottom-0 secondary-text">{owner.email}</p>
 		{:else}
 			<p class="govuk-body govuk-!-margin-bottom-0">
 				No owner has been added yet. <a class="govuk-link" href={resolve('/owner-review/form')}>Add the owner details</a>
@@ -96,10 +96,6 @@
 	.sign-off__owner {
 		padding-top: 15px;
 		border-top: 2px solid #0b0c0c;
-	}
-
-	.sign-off__muted {
-		color: #505a5f;
 	}
 
 	.sign-off__item {

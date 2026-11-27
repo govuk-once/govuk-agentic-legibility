@@ -154,7 +154,7 @@
 		justify-content: space-between;
 		flex-wrap: wrap;
 		gap: 20px;
-		padding: 12px 40px;
+		padding: 10px 40px;
 		border-bottom: 1px solid #b1b4b6;
 	}
 

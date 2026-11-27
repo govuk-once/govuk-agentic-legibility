@@ -108,17 +108,17 @@
 		{#if techReviewFinished}
 			<dl class="review__facts review__fact-columns">
 				<div>
-					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__muted">Workflow settings</dt>
+					<dt class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">Workflow settings</dt>
 					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Set, run timeout {settings.runTimeout}</dd>
 				</div>
 				<div>
-					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__muted">Flex connections</dt>
+					<dt class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">Flex connections</dt>
 					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">
 						{connections.connected} of {connections.total} connected
 					</dd>
 				</div>
 				<div>
-					<dt class="govuk-body-s govuk-!-margin-bottom-0 review__muted">Step values</dt>
+					<dt class="govuk-body-s govuk-!-margin-bottom-0 secondary-text">Step values</dt>
 					<dd class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">{checked.checked} of {checked.total} checked</dd>
 				</div>
 			</dl>
@@ -146,7 +146,7 @@
 			<div class="review__panel review__panel--clear">
 				<div>
 					<p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">No errors or warnings</p>
-					<p class="govuk-body govuk-!-margin-bottom-0 review__muted">All {steps.length} steps checked today at {checkedAt}.</p>
+					<p class="govuk-body govuk-!-margin-bottom-0 secondary-text">All {steps.length} steps checked today at {checkedAt}.</p>
 				</div>
 			</div>
 		{:else}
@@ -168,7 +168,7 @@
 							<td class="govuk-table__cell">{problem.message}</td>
 							<td class="govuk-table__cell review__action-cell">
 								{#if problem.result === 'pending'}
-									<span class="review__muted">Running</span>
+									<span class="secondary-text">Running</span>
 								{:else}
 									<a class="govuk-link" role="link" aria-disabled="true">Open step in editor</a>
 								{/if}
@@ -185,10 +185,10 @@
 	<section aria-labelledby="citizen-journey">
 		<div class="review__section-heading">
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="citizen-journey">Citizen journey</h2>
-			<span class="govuk-body govuk-!-margin-bottom-0 review__muted">
+			<span class="govuk-body govuk-!-margin-bottom-0 secondary-text">
 				Read only · {steps.length} steps{#if problems.length === 0}&nbsp;· <span class="review__status status-text-done">All clear</span>{/if}
 			</span>
-			<span class="govuk-body-s govuk-!-margin-bottom-0 review__muted review__heading-link">Scroll for the rest</span>
+			<span class="govuk-body-s govuk-!-margin-bottom-0 secondary-text review__heading-link">Scroll for the rest</span>
 		</div>
 
 		<!-- A long journey scrolls inside its own box, so the checks above stay close to the buttons below. -->
@@ -207,9 +207,9 @@
 					{#each steps as step (step.stateId)}
 						{@const result = problemsByState.get(step.stateId)}
 						<tr class="govuk-table__row review__step" class:review__step--error={result === 'error'} class:review__step--warning={result === 'warning'} class:review__step--pending={result === 'pending'}>
-							<td class="govuk-table__cell review__step-number">{step.number}</td>
+							<td class="govuk-table__cell review__step-number secondary-text">{step.number}</td>
 							<td class="govuk-table__cell" class:govuk-!-font-weight-bold={result}>{step.title}</td>
-							<td class="govuk-table__cell review__step-kind review__muted">{stateLabels[step.stateType]}</td>
+							<td class="govuk-table__cell review__step-kind secondary-text">{stateLabels[step.stateType]}</td>
 							<td class="govuk-table__cell review__step-check">
 								{#if result}
 									<span class="review__check review__check--{result}">
@@ -239,7 +239,7 @@
 			</button>
 		{/if}
 		{#if techReviewFinished && !canSignOff}
-			<p class="govuk-body govuk-!-margin-bottom-0 review__muted">Fix the problems to continue</p>
+			<p class="govuk-body govuk-!-margin-bottom-0 secondary-text">Fix the problems to continue</p>
 		{/if}
 	{/snippet}
 </ReviewStep>
@@ -262,10 +262,6 @@
 		font-family: 'GDS Transport', arial, sans-serif;
 		font-size: 1rem;
 		font-weight: 700;
-	}
-
-	.review__muted {
-		color: #505a5f;
 	}
 
 	.review__facts {
@@ -346,7 +342,6 @@
 	.review__step-number {
 		width: 30px;
 		font-weight: 700;
-		color: #505a5f;
 	}
 
 	.review__step-kind {

@@ -63,7 +63,7 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 10px;
-		padding: 18px 16px 14px;
+		padding: 20px 15px 15px;
 		border-bottom: 1px solid #b1b4b6;
 	}
 
@@ -81,7 +81,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 15px;
-		padding: 16px;
+		padding: 15px;
 	}
 
 	.developer-state-card__facts {

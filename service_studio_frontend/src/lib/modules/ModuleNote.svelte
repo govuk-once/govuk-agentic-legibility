@@ -18,7 +18,7 @@
 </script>
 
 {#if tile}
-	<p class="govuk-body govuk-!-margin-bottom-0 module-note">
+	<p class="govuk-body govuk-!-margin-bottom-0 module-note secondary-text">
 		<span class="module-note__icon"><ModuleIcon name={tile.key} /></span>
 		<span>This state belongs to the {tile.label} module. Deleting it removes the whole module.</span>
 	</p>
@@ -30,7 +30,6 @@
 		display: flex;
 		align-items: center;
 		gap: 15px;
-		color: #505a5f;
 	}
 
 	/* The same grey square as a tile in the module menu, so the module is recognised from the menu. */
