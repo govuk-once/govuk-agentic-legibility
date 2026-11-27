@@ -1,4 +1,4 @@
-import type { DraftLoad } from '$lib/draft-store';
+import type { DraftLoad } from '$lib/drafts/draft-load';
 import { openDraft, readOpenDraft, type SavedDraft } from '$lib/drafts/draft-store';
 import type { PageLoad } from './$types';
 

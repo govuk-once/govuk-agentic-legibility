@@ -1,4 +1,4 @@
-import type { DraftLoad } from '$lib/draft-store';
+import type { DraftLoad } from '$lib/drafts/draft-load';
 import type { State } from '$lib/schema/workflow/process';
 import type { WorkflowIssue } from '$lib/schema/workflow/validate';
 import type { WorkingState } from '$lib/schema/workflow/working-process';

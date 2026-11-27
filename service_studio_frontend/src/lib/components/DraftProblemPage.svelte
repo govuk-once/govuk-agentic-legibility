@@ -2,7 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 	import ServiceHeader from '$lib/components/ServiceHeader.svelte';
-	import type { DraftLoad } from '$lib/draft-store';
+	import type { DraftLoad } from '$lib/drafts/draft-load';
 
 	/*
 		The page an editor shows in place of a draft it could not open: there was no draft in the browser tab, or the
