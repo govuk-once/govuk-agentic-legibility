@@ -183,7 +183,7 @@
 					</div>
 				</div>
 				{#if wait}
-					<p class="govuk-body-s govuk-!-margin-bottom-0 workflow-settings__wait" class:workflow-settings__wait--short={!wait.enough}>
+					<p class="govuk-body-s govuk-!-margin-bottom-0 {wait.enough ? 'status-text-done' : 'status-text-problem'}">
 						{wait.enough ? 'Long enough for' : 'Too short for'}
 						{wait.subject}, which waits {wait.length}.
 					</p>
@@ -235,13 +235,5 @@
 	.workflow-settings__unit {
 		width: auto;
 		min-width: 120px;
-	}
-
-	.workflow-settings__wait {
-		color: #00703c;
-	}
-
-	.workflow-settings__wait--short {
-		color: #d4351c;
 	}
 </style>

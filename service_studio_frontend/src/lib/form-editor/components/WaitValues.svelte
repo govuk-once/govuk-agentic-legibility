@@ -42,7 +42,7 @@
 			<FieldError field={waitDurationField} message={problem} />
 			<div class="wait-values__field">
 				<input
-					class="govuk-input govuk-input--width-10 wait-values__code"
+					class="govuk-input govuk-input--width-10 schema-value"
 					class:govuk-input--error={problem}
 					id={waitDurationField}
 					name="duration"
@@ -63,12 +63,6 @@
 </StepValuesForm>
 
 <style>
-	/* The duration is written as it is in the schema, so it is set in a fixed width font. */
-	.wait-values__code {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
-	}
-
 	/* The field and the line that says how long it is sit side by side, and wrap on a narrow screen. */
 	.wait-values__field {
 		display: flex;

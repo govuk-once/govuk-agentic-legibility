@@ -86,9 +86,9 @@
 			{#each placeholderEndpoints as endpoint (`${endpoint.method} ${endpoint.url}`)}
 				{@const isSelected = selected === endpoint}
 				<tr class="govuk-table__row" class:find-endpoint__row--selected={isSelected} class:find-endpoint__row--deprecated={endpoint.deprecated}>
-					<td class="govuk-table__cell find-endpoint__code govuk-!-font-weight-bold">{endpoint.method}</td>
+					<td class="govuk-table__cell schema-value govuk-!-font-weight-bold">{endpoint.method}</td>
 					<td class="govuk-table__cell">
-						<span class="find-endpoint__code">{endpoint.url}</span>
+						<span class="schema-value">{endpoint.url}</span>
 						{#if endpoint.deprecated}
 							<strong class="govuk-tag govuk-tag--grey">Deprecated</strong>
 						{/if}
@@ -119,20 +119,20 @@
 			<dl class="find-endpoint__values">
 				<div>
 					<dt class="govuk-hint govuk-!-margin-bottom-0">Method</dt>
-					<dd class="find-endpoint__code">{selected.method}</dd>
+					<dd class="schema-value">{selected.method}</dd>
 				</div>
 				<div>
 					<dt class="govuk-hint govuk-!-margin-bottom-0">Service</dt>
-					<dd class="find-endpoint__code">{selected.service}</dd>
+					<dd class="schema-value">{selected.service}</dd>
 				</div>
 				<div>
 					<dt class="govuk-hint govuk-!-margin-bottom-0">Url</dt>
-					<dd class="find-endpoint__code">{selected.url}</dd>
+					<dd class="schema-value">{selected.url}</dd>
 				</div>
 				{#if bodySummary}
 					<div>
 						<dt class="govuk-hint govuk-!-margin-bottom-0">Body</dt>
-						<dd class="find-endpoint__code">
+						<dd class="schema-value">
 							{bodySummary.fields} {bodySummary.fields === 1 ? 'field' : 'fields'}{bodySummary.toFillIn > 0 ? `, ${bodySummary.toFillIn} to fill in` : ''}
 						</dd>
 					</div>
@@ -177,13 +177,6 @@
 
 	.find-endpoint__results td {
 		vertical-align: middle;
-	}
-
-	/* Methods, urls and service names are written as they are in the schema, so they are set in a fixed width font. */
-	.find-endpoint__code {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
-		overflow-wrap: anywhere;
 	}
 
 	.find-endpoint__row--selected {

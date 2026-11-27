@@ -53,7 +53,7 @@
 					<label class="govuk-label govuk-label--s" for={apiCallFields.url}>Url</label>
 					<FieldError field={apiCallFields.url} message={problemFor(apiCallFields.url)} />
 					<input
-						class="govuk-input api-call-values__code"
+						class="govuk-input schema-value"
 						class:govuk-input--error={problemFor(apiCallFields.url)}
 						id={apiCallFields.url}
 						name="url"
@@ -81,7 +81,7 @@
 					<label class="govuk-label govuk-label--s" for={apiCallFields.service}>Service</label>
 					<FieldError field={apiCallFields.service} message={problemFor(apiCallFields.service)} />
 					<input
-						class="govuk-input govuk-input--width-20 api-call-values__code"
+						class="govuk-input govuk-input--width-20 schema-value"
 						class:govuk-input--error={problemFor(apiCallFields.service)}
 						id={apiCallFields.service}
 						name="service"
@@ -98,7 +98,7 @@
 							<label class="govuk-label govuk-label--s" for={apiCallFields.assign}>Save reply as (assign)</label>
 							<FieldError field={apiCallFields.assign} message={problemFor(apiCallFields.assign)} />
 							<input
-								class="govuk-input govuk-input--width-10 api-call-values__code"
+								class="govuk-input govuk-input--width-10 schema-value"
 								class:govuk-input--error={problemFor(apiCallFields.assign)}
 								id={apiCallFields.assign}
 								name="assign"
@@ -113,7 +113,7 @@
 							{#if captures.length > 0}
 								<ul class="govuk-list govuk-!-margin-bottom-0">
 									{#each captures as [variable, from] (variable)}
-										<li class="api-call-values__code">{variable} from {typeof from === 'string' ? from : from.from}</li>
+										<li class="schema-value">{variable} from {typeof from === 'string' ? from : from.from}</li>
 									{/each}
 								</ul>
 							{:else}
@@ -132,7 +132,7 @@
 					<label class="govuk-label govuk-label--s" for={apiCallFields.body}>Body</label>
 					<FieldError field={apiCallFields.body} message={problemFor(apiCallFields.body)} />
 					<textarea
-						class="govuk-textarea api-call-values__code govuk-!-margin-bottom-2"
+						class="govuk-textarea schema-value govuk-!-margin-bottom-2"
 						class:govuk-textarea--error={problemFor(apiCallFields.body)}
 						id={apiCallFields.body}
 						name="body"
@@ -156,13 +156,6 @@
 </StepValuesForm>
 
 <style>
-	/* Urls, service names, variable names and the body are written as they are in the schema, so they are set in a
-		fixed width font. */
-	.api-call-values__code {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
-	}
-
 	/* Where the reply is saved and what is captured from it sit side by side, as they work together. */
 	.api-call-values__reply {
 		display: flex;

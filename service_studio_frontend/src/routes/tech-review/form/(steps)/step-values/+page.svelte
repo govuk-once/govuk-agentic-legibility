@@ -54,7 +54,7 @@
 		: 'Only the steps a developer sets up are listed. Open each one to check its values.'}
 >
 	{#snippet status()}
-		<p class="govuk-body govuk-!-font-weight-bold" class:step-values__checked={steps.length > 0 && allChecked}>
+		<p class="govuk-body govuk-!-font-weight-bold" class:status-text-done={steps.length > 0 && allChecked}>
 			{steps.length === 0 ? 'Nothing to check' : `${checked} of ${steps.length} checked`}
 		</p>
 	{/snippet}
@@ -94,12 +94,12 @@
 								{step.title}
 							</button>
 						</td>
-						<td class="govuk-table__cell step-values__summary">{stepValuesSummary(step.state)}</td>
+						<td class="govuk-table__cell schema-value step-values__summary">{stepValuesSummary(step.state)}</td>
 						<td class="govuk-table__cell step-values__status-cell govuk-!-font-weight-bold">
 							{#if isChecked(step.code)}
-								<span class="step-values__checked">Checked</span>
+								<span class="status-text-done">Checked</span>
 							{:else}
-								<span class="step-values__to-check">To check</span>
+								<span class="status-text-to-do">To check</span>
 							{/if}
 						</td>
 					</tr>
@@ -136,14 +136,6 @@
 </ReviewStep>
 
 <style>
-	.step-values__checked {
-		color: #00703c;
-	}
-
-	.step-values__to-check {
-		color: #7a3c1c;
-	}
-
 	/* A heavier rule under the headings, as in the design, marks where the rows start. */
 	.step-values__table th {
 		border-bottom: 2px solid #0b0c0c;
@@ -163,12 +155,8 @@
 		width: 110px;
 	}
 
-	/* The values are written as they are in the schema, so they are set in a fixed width font. */
 	.step-values__summary {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
 		color: #505a5f;
-		overflow-wrap: anywhere;
 	}
 
 	/* The step's title opens its panel. It is a button so it is read out as one, drawn as a link. */

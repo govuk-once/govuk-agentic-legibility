@@ -78,7 +78,7 @@
 		<label class="govuk-label govuk-label--s" for={id}>{label}</label>
 		<FieldError field={id} message={problem} />
 		<input
-			class="govuk-input assign-values__code"
+			class="govuk-input schema-value"
 			class:govuk-input--error={problem}
 			{id}
 			name={id}
@@ -96,11 +96,5 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 		gap: 20px;
-	}
-
-	/* Variable names and values are written as they are in the schema, so they are set in a fixed width font. */
-	.assign-values__code {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
 	}
 </style>

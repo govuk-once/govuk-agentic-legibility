@@ -44,7 +44,7 @@
 		: 'Some of the technical review is not finished. Use the Change links to finish it, then send the form for review.'}
 >
 	{#snippet status()}
-		<p class="govuk-body govuk-!-font-weight-bold" class:review-and-send__ready={ready}>{ready ? 'Ready to send' : 'Not ready to send'}</p>
+		<p class="govuk-body govuk-!-font-weight-bold" class:status-text-done={ready}>{ready ? 'Ready to send' : 'Not ready to send'}</p>
 	{/snippet}
 
 	<dl class="govuk-summary-list review-and-send">
@@ -77,9 +77,9 @@
 							<li>
 								{call.title} ·
 								{#if call.connected}
-									<span class="review-and-send__code">{call.method} {call.url}</span>
+									<span class="schema-value">{call.method} {call.url}</span>
 								{:else}
-									<strong class="review-and-send__to-do">Needs connecting</strong>
+									<strong class="status-text-to-do">Needs connecting</strong>
 								{/if}
 							</li>
 						{/each}
@@ -103,9 +103,9 @@
 						{#each steps as step (step.code)}
 							<li>
 								{step.title} ·
-								<span class="review-and-send__code">{stepValuesSummary(step.state)}</span>
+								<span class="schema-value">{stepValuesSummary(step.state)}</span>
 								{#if !data.draft.reviewProgress.checkedSteps.includes(step.code)}
-									· <strong class="review-and-send__to-do">To check</strong>
+									· <strong class="status-text-to-do">To check</strong>
 								{/if}
 							</li>
 						{/each}
@@ -130,23 +130,8 @@
 </ReviewStep>
 
 <style>
-	.review-and-send__ready {
-		color: #00703c;
-	}
-
-	.review-and-send__to-do {
-		color: #7a3c1c;
-	}
-
 	/* A heavier rule above the list, as in the design, marks where the summary starts. */
 	.review-and-send {
 		border-top: 2px solid #0b0c0c;
-	}
-
-	/* Methods, urls and step values are written as they are in the schema, so they are set in a fixed width font. */
-	.review-and-send__code {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
-		overflow-wrap: anywhere;
 	}
 </style>

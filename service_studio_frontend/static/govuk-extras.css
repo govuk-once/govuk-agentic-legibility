@@ -132,3 +132,27 @@ button.govuk-link:active {
 	flex-direction: column;
 	min-height: 100vh;
 }
+
+/* 5. Values written as they are in the schema ---------------------------------
+   Methods, urls, variable names, durations and request bodies are shown and
+   typed exactly as the schema holds them, so they are set in a fixed width
+   font. Long values such as urls wrap anywhere rather than widening the page. */
+.schema-value {
+	font-family: ui-monospace, Menlo, Consolas, monospace;
+	font-size: 1rem;
+	overflow-wrap: anywhere;
+}
+
+/* 6. Status text ----------------------------------------------------------------
+   The colour of a short status, such as Checked, To check or Not ready to send,
+   on the review pages. Green is done, brown is still to do and red is a
+   problem. These are the GOV.UK green, orange tag text and red colours. */
+.status-text-done {
+	color: #00703c;
+}
+.status-text-to-do {
+	color: #7a3c1c;
+}
+.status-text-problem {
+	color: #d4351c;
+}

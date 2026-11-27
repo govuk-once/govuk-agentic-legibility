@@ -33,7 +33,7 @@
 		{#if steps.length === 0}
 			<p class="govuk-body govuk-!-font-weight-bold">Nothing to connect</p>
 		{:else if allConnected}
-			<p class="govuk-body govuk-!-font-weight-bold flex-connections__connected">All connected</p>
+			<p class="govuk-body govuk-!-font-weight-bold status-text-done">All connected</p>
 		{:else}
 			<p class="govuk-body govuk-!-font-weight-bold">{connected} of {steps.length} connected</p>
 		{/if}
@@ -48,7 +48,7 @@
 	{:else}
 		{#if allConnected}
 			<div class="flex-connections__panel flex-connections__panel--connected govuk-!-margin-bottom-6">
-				<h3 class="govuk-heading-s govuk-!-margin-bottom-2 flex-connections__connected">
+				<h3 class="govuk-heading-s govuk-!-margin-bottom-2 status-text-done">
 					{steps.length === 1 ? 'The API call is connected' : `All ${steps.length} API calls are connected`}
 				</h3>
 				<p class="govuk-body govuk-!-margin-bottom-0">Check the values for each in the next stage.</p>
@@ -74,13 +74,13 @@
 						<td class="govuk-table__cell">
 							<span class="govuk-!-display-block">{step.title}</span>
 							{#if step.connected}
-								<span class="flex-connections__address">{step.method} {step.url}</span>
+								<span class="schema-value flex-connections__address">{step.method} {step.url}</span>
 							{:else}
 								<span class="govuk-hint govuk-!-margin-bottom-0">No endpoint chosen yet</span>
 							{/if}
 						</td>
 						<td class="govuk-table__cell flex-connections__status-cell">
-							<span class="govuk-!-font-weight-bold" class:flex-connections__connected={step.connected} class:flex-connections__unconnected={!step.connected}>
+							<span class="govuk-!-font-weight-bold" class:status-text-done={step.connected} class:status-text-to-do={!step.connected}>
 								{step.connected ? 'Connected' : 'Needs connecting'}
 							</span>
 						</td>
@@ -120,14 +120,6 @@
 </ReviewStep>
 
 <style>
-	.flex-connections__connected {
-		color: #00703c;
-	}
-
-	.flex-connections__unconnected {
-		color: #7a3c1c;
-	}
-
 	/* A panel that says where the whole list stands, marked by a coloured rule down its left side. */
 	.flex-connections__panel {
 		padding: 20px 25px;
@@ -158,12 +150,8 @@
 		background-color: #f3f8fc;
 	}
 
-	/* The method and url are written as they are in the schema, so they are set in a fixed width font. */
 	.flex-connections__address {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 1rem;
 		color: #505a5f;
-		overflow-wrap: anywhere;
 	}
 
 	/* The Step column only holds the tag for the kind of step, so it is kept as narrow as the tag. */

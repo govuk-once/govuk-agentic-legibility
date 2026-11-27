@@ -48,7 +48,7 @@
 	hint="Confirm everything is in place. Publishing makes this form live and tells the department that you accept it."
 >
 	{#snippet status()}
-		<p class="govuk-body govuk-!-font-weight-bold sign-off__status" class:sign-off__status--ready={ready}>
+		<p class="govuk-body govuk-!-font-weight-bold {ready ? 'status-text-done' : 'status-text-problem'}">
 			{ready ? 'Ready to sign off' : 'Not ready to sign off'}
 		</p>
 	{/snippet}
@@ -93,14 +93,6 @@
 </ReviewStep>
 
 <style>
-	.sign-off__status {
-		color: #d4351c;
-	}
-
-	.sign-off__status--ready {
-		color: #00703c;
-	}
-
 	.sign-off__owner {
 		padding-top: 15px;
 		border-top: 2px solid #0b0c0c;

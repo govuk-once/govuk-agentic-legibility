@@ -64,11 +64,11 @@
 	{#snippet status()}
 		<!-- A problem shows in red. A technical review still to come is expected at this point, so it is not shown as one. -->
 		<p
-			class="govuk-body govuk-!-font-weight-bold review__status review__status--{canSignOff
-				? 'clear'
+			class="govuk-body govuk-!-font-weight-bold review__status {canSignOff
+				? 'status-text-done'
 				: problems.length > 0
-					? 'problem'
-					: 'unfinished'}"
+					? 'status-text-problem'
+					: 'status-text-to-do'}"
 		>
 			{canSignOff ? 'All checks clear' : summary || 'Technical review not finished'}
 		</p>
@@ -94,7 +94,7 @@
 	<section aria-labelledby="technical-review">
 		<div class="review__section-heading" class:review__fact-columns={techReviewFinished}>
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="technical-review">Technical review</h2>
-			<span class="review__status review__status--{techReviewFinished ? 'clear' : 'unfinished'}">
+			<span class="review__status {techReviewFinished ? 'status-text-done' : 'status-text-to-do'}">
 				{techReviewFinished ? 'Complete' : 'Not finished'}
 			</span>
 			{#if techReviewFinished}
@@ -136,7 +136,7 @@
 	<section aria-labelledby="validation-checks">
 		<div class="review__section-heading">
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="validation-checks">Validation checks</h2>
-			<span class="review__status review__status--{problems.length === 0 ? 'clear' : 'problem'}">{problems.length === 0 ? 'Clear' : summary}</span>
+			<span class="review__status {problems.length === 0 ? 'status-text-done' : 'status-text-problem'}">{problems.length === 0 ? 'Clear' : summary}</span>
 		</div>
 
 		{#if problems.length === 0}
@@ -183,7 +183,7 @@
 		<div class="review__section-heading">
 			<h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="citizen-journey">Citizen journey</h2>
 			<span class="govuk-body govuk-!-margin-bottom-0 review__muted">
-				Read only · {steps.length} steps{#if problems.length === 0}&nbsp;· <span class="review__status review__status--clear">All clear</span>{/if}
+				Read only · {steps.length} steps{#if problems.length === 0}&nbsp;· <span class="review__status status-text-done">All clear</span>{/if}
 			</span>
 			<span class="govuk-body-s govuk-!-margin-bottom-0 review__muted review__heading-link">Scroll for the rest</span>
 		</div>
@@ -259,18 +259,6 @@
 		font-family: 'GDS Transport', arial, sans-serif;
 		font-size: 1rem;
 		font-weight: 700;
-	}
-
-	.review__status--clear {
-		color: #00703c;
-	}
-
-	.review__status--problem {
-		color: #d4351c;
-	}
-
-	.review__status--unfinished {
-		color: #7a3c1c;
 	}
 
 	.review__muted {
