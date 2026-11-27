@@ -1,5 +1,5 @@
 import type { WorkingProcess, WorkingState } from '$lib/schema/workflow/working-process';
-import { routesOf, withRouteTarget, type Route } from '$lib/schema/workflow/routes';
+import { routesOf, type Route } from '$lib/schema/workflow/routes';
 
 /*
 	The changes the editor makes to the routes of a whole process, written as plain functions that take a
@@ -43,25 +43,6 @@ export function stepWithItsAssign(process: WorkingProcess, code: string): string
 	if (state?.state_type === 'assign' && state.next !== undefined && assignBefore(process, state.next) === code) return [code, state.next];
 	const assign = assignBefore(process, code);
 	return assign ? [assign, code] : [code];
-}
-
-/**
- * Returns a copy of the process in which everything that led to one state leads to another instead. That
- * covers every kind of route and the start of the process, so a state can be taken out of the journey
- * without leaving anything pointing at it.
- */
-export function redirectRoutes(process: WorkingProcess, from: string, to: string): WorkingProcess {
-	const states = Object.fromEntries(
-		Object.entries(process.states).map(([code, state]) => {
-			// Each route into the old state is pointed at the new one. A state with no such route comes out unchanged.
-			const redirected = routesOf(state)
-				.filter((route) => route.target === from)
-				.reduce((current, route) => withRouteTarget(current, route.path, to), state);
-			return [code, redirected];
-		})
-	);
-
-	return { ...process, start: process.start === from ? to : process.start, states };
 }
 
 /**

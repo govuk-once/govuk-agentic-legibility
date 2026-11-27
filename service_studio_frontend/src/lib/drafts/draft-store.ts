@@ -14,7 +14,7 @@ import type { WorkingWorkflow } from '$lib/schema/workflow/working-process';
 */
 
 // The stages a draft can be left at, named as they are in the progress banner, so a draft opens where it was left.
-export const draftStages = ['Edit', 'Owner review', 'Tech review'] as const;
+const draftStages = ['Edit', 'Owner review', 'Tech review'] as const;
 
 export type DraftStage = (typeof draftStages)[number];
 

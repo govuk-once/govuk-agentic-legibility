@@ -17,7 +17,7 @@ import type { ProcessNode } from '$lib/process-graph/process-graph-types';
 // The settings used for the process graph. The tight tree ranker keeps each box close to the box it
 // follows, which measured about 17 percent less sideways drift on the real example processes than
 // dagre's default and made no graph wider.
-export const processLayoutOptions: LayoutOptions = { ranker: 'tight-tree' };
+const processLayoutOptions: LayoutOptions = { ranker: 'tight-tree' };
 
 /**
  * Places every box of a process graph. Dagre decides the rows and the order of the boxes in each row so

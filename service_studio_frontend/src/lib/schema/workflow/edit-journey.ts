@@ -33,7 +33,7 @@ const newDecisionCode = 'new_decision';
  * but the last, which is the way taken when no rule matches. The result carries the name of the state to
  * continue to.
  */
-export function routeToTargets(process: WorkingProcess, targets: string[]): { process: WorkingProcess; entry: string } {
+function routeToTargets(process: WorkingProcess, targets: string[]): { process: WorkingProcess; entry: string } {
 	if (targets.length === 1) return { process, entry: targets[0] };
 
 	const decision: WorkingState = {

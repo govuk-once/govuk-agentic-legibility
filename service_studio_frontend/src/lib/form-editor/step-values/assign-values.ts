@@ -30,7 +30,7 @@ export const assignKindLabels: Record<AssignKind, string> = {
  * Tells which kind of value an expression is. A reference is a copy, an operation is named by its op, and anything
  * else is a fixed value.
  */
-export function assignKindOf(expression: Expression): AssignKind {
+function assignKindOf(expression: Expression): AssignKind {
 	if (expression === null || typeof expression !== 'object' || Array.isArray(expression)) return 'literal';
 	if ('$' in expression) return 'copy';
 	if (!('op' in expression)) return 'literal';

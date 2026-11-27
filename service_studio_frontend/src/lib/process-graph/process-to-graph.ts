@@ -19,7 +19,7 @@ export const startNodeId = '__start__';
  * often lead to the same few end states and the lines cross the main journey, so the journey is
  * easier to read without them.
  */
-export function isErrorRoute(edge: ProcessEdge): boolean {
+function isErrorRoute(edge: ProcessEdge): boolean {
 	return edge.data !== undefined && isErrorKind(edge.data.kind);
 }
 

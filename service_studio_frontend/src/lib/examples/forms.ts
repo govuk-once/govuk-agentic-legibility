@@ -4,8 +4,8 @@ import { groupByFolder, loadExamples } from '$lib/examples/workflows';
 // server round trip. The pattern only reaches one folder down, which is one folder per form.
 const modules = import.meta.glob('$lib/examples/forms/*/*.json', { eager: true, import: 'default' });
 
-// Every form example file grouped by its folder. Exported so tests can build a broken copy of a real example.
-export const formExampleFolders = groupByFolder(modules);
+// Every form example file grouped by its folder.
+const formExampleFolders = groupByFolder(modules);
 
 // The form examples, each checked against the schema as it is loaded.
 export const formExamples = loadExamples(formExampleFolders);

@@ -19,7 +19,7 @@ import type { OnboardDetails } from '$lib/server/shared/onboard-details';
 
 // How long a whole run of a form may last before the executor stops it. Seven days is the limit the existing
 // forms use. A real limit is set at the technical review.
-export const formRunTimeout = 'P7D';
+const formRunTimeout = 'P7D';
 
 /**
  * Lists the states of a process that a form cannot have, which is every state a person cannot edit in the form
@@ -37,7 +37,7 @@ export function statesNotForForms(process: Process): GenerationIssue[] {
  * in the list for that kind. One that is missing, or is not in the list, becomes the first of the list, which is
  * the most general. A process whose questions all have one is returned as it is.
  */
-export function withAnswerTypes(process: Process): Process {
+function withAnswerTypes(process: Process): Process {
 	const typeFor = (state: Process['states'][string]) => {
 		if (state.state_type !== 'input') return undefined;
 		const allowed = answerTypesByKind[state.schema.kind];
@@ -59,7 +59,7 @@ export function withAnswerTypes(process: Process): Process {
  * Gives every typed question whose answer type has a format, such as email, the pattern, message and tidying of
  * that format, so a drafted question is checked in the same way as one given the format in the editor.
  */
-export function withFormatChecks(process: Process): Process {
+function withFormatChecks(process: Process): Process {
 	const states = Object.fromEntries(
 		Object.entries(process.states).map(([code, state]) => {
 			const format = answerFormatOf(state);
@@ -75,7 +75,7 @@ export function withFormatChecks(process: Process): Process {
  * dropping a module does. Every state that shared a label shares the code, so the module still moves and is removed
  * as one, and two drafts never share one.
  */
-export function withModuleGroupIds(process: Process): Process {
+function withModuleGroupIds(process: Process): Process {
 	const codes = new Map<string, string>();
 	const states = Object.fromEntries(
 		Object.entries(process.states).map(([code, state]) => {

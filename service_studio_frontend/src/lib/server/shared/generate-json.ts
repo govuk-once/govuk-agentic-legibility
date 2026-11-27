@@ -13,7 +13,7 @@ export type GenerationIssue = { path: string; message: string };
 // The result of checking what the model replied: the value that was built from it, or every problem found.
 export type CheckResult<T> = { ok: true; value: T } | { ok: false; issues: GenerationIssue[] };
 
-// The part of the model client that is used. The Bedrock client fits it, and a test can supply a small fake.
+// The part of the model client that is used, which the Bedrock client fits.
 export type ModelClient = {
 	messages: {
 		stream: (params: { model: string; max_tokens: number; system: string; messages: Anthropic.MessageParam[] }) => {

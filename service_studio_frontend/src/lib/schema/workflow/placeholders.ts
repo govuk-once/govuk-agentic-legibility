@@ -89,7 +89,7 @@ export const placeholderMessage = 'Message to be confirmed';
  * The answer type given to an input before a person has chosen one. Text is the most general answer, so
  * the step is valid straight away and the person picks the right type later.
  */
-export const placeholderAnswerKind = 'string';
+const placeholderAnswerKind = 'string';
 
 /**
  * How long a wait made from another kind of step lasts until a person sets it. One minute is a guess and

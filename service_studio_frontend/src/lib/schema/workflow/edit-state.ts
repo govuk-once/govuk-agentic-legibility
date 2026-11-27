@@ -110,7 +110,7 @@ export function hasNext(state: WorkingState): state is Exclude<WorkingState, { s
  * returned as it is, so a form can call this for every state without checking the type first. The old next
  * state is not touched, so it is left with nothing leading to it if this was its only route.
  */
-export function withNext(state: WorkingState, target: string): WorkingState {
+function withNext(state: WorkingState, target: string): WorkingState {
 	return hasNext(state) ? { ...state, next: target } : state;
 }
 

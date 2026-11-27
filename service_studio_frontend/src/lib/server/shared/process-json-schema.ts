@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { processSchema } from '$lib/schema/workflow/process';
 
-// The words that come between the instructions and the schema. Exported so a test can split a prompt at them.
-export const schemaIntro = 'The JSON you reply with must validate against this JSON Schema:';
+// The words that come between the instructions and the schema.
+const schemaIntro = 'The JSON you reply with must validate against this JSON Schema:';
 
 // Read from the schema itself, rather than described a second time by hand, so this never drifts out of step with
 // processSchema. Bedrock does not support output_config for Claude Sonnet 5 on either of its endpoints, so this is

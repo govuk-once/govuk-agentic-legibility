@@ -8,19 +8,18 @@ import { isWebAddress } from '$lib/server/shared/onboard-details';
 */
 
 // A domain on the list allows itself and every subdomain of it, so gov.uk allows www.gov.uk as well.
-export const allowedLinkDomains: readonly string[] = ['gov.uk'];
+const allowedLinkDomains: readonly string[] = ['gov.uk'];
 
 /**
  * Tells whether a link is on the list. It must be a web address that uses http or https, with no user name or
  * password in it and no unusual port, and its host must be a listed domain or a subdomain of one. The host is
- * compared as a whole, so evilgov.uk and gov.uk.example.com do not match gov.uk. The domains are passed in so a
- * test can use a list of its own.
+ * compared as a whole, so evilgov.uk and gov.uk.example.com do not match gov.uk.
  */
-export function isAllowedLink(link: string, domains: readonly string[] = allowedLinkDomains): boolean {
+export function isAllowedLink(link: string): boolean {
 	if (!isWebAddress(link)) return false;
 
 	const { hostname, username, password, port } = new URL(link);
 	if (username || password || port) return false;
 
-	return domains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+	return allowedLinkDomains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
 }

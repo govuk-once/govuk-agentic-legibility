@@ -14,8 +14,7 @@ const manifestFileName = 'workflow_manifest.json';
 
 /**
  * Groups example files by the workflow folder they sit in: the folder name, then the file name, then the
- * parsed JSON. The keys of the modules are paths ending in the folder name and the file name. Exported so tests
- * can build a deliberately broken copy of a real example.
+ * parsed JSON. The keys of the modules are paths ending in the folder name and the file name.
  */
 export function groupByFolder(modules: Record<string, unknown>): Record<string, Record<string, unknown>> {
 	const folders: Record<string, Record<string, unknown>> = {};
@@ -32,7 +31,7 @@ export function groupByFolder(modules: Record<string, unknown>): Record<string, 
  * name without the .json ending. Keying by file name means a file saved under the wrong name is
  * caught by the key and process_id check, rather than hidden.
  */
-export function assembleWorkflow(files: Record<string, unknown>): {
+function assembleWorkflow(files: Record<string, unknown>): {
 	manifest: unknown;
 	processes: Record<string, unknown>;
 } {

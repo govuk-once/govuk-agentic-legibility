@@ -18,7 +18,7 @@ export type FormStateAccess = 'editable' | 'read only';
 
 // The record is keyed by every kind of state, so adding a kind to the schema without saying how a form treats it
 // fails to compile.
-export const formStateAccess: Record<State['state_type'], FormStateAccess> = {
+const formStateAccess: Record<State['state_type'], FormStateAccess> = {
 	input: 'editable',
 	output: 'editable',
 	choice: 'editable',

@@ -26,7 +26,7 @@ const answerLabelLength = 40;
  * such as "No - the first owner receives the licence", is cut to the short answer. Any other long option is cut to
  * a fixed length, with dots to show that there was more.
  */
-export function shortAnswerLabel(label: string): string {
+function shortAnswerLabel(label: string): string {
 	const beforeDash = label.split(' - ')[0].trim();
 	const words = beforeDash.length > 0 && beforeDash.length < label.length ? beforeDash : label.trim();
 	return words.length > answerLabelLength ? `${words.slice(0, answerLabelLength).trimEnd()}...` : words;

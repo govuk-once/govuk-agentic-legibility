@@ -76,7 +76,7 @@ export type StepValuesResult<State> = { ok: true; state: State } | { ok: false; 
 
 // The key in a developer step's notes that holds when the technical review that checked it was sent, so the owner
 // review can tell the step has been checked.
-export const techReviewCheckedKey = 'tech_review_checked_at';
+const techReviewCheckedKey = 'tech_review_checked_at';
 
 /**
  * Writes the time the technical review was sent into the notes of every developer step, as an ISO 8601 date and time.

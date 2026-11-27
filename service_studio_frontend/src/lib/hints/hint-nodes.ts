@@ -20,7 +20,7 @@ export const hintNodeType = 'hint';
 
 // The space between the shapes and the bracket, the width of the bracket and the dotted line, and the width of the
 // note. The hint node is wide enough for all of them.
-export const hintGap = 15;
+const hintGap = 15;
 export const hintBracketWidth = 8;
 export const hintLineLength = 15;
 export const hintNoteWidth = 260;

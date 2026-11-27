@@ -63,7 +63,7 @@ export const processRefSchema = z.string().min(1, 'Give the name of a process');
 
 // The notes that Service Studio reads and shows as words, so each must be text, or null when it has not been given.
 // Every other note is only carried through and is never read here.
-export const textNoteKeys = [
+const textNoteKeys = [
 	'description',
 	'hint_text',
 	'page_heading',

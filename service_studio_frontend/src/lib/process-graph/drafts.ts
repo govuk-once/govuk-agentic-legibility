@@ -53,7 +53,7 @@ export function newDraftId(): string {
 /**
  * Tells whether two ends of a line are the same thing.
  */
-export function sameEndpoint(a: Endpoint, b: Endpoint): boolean {
+function sameEndpoint(a: Endpoint, b: Endpoint): boolean {
 	if (a.kind !== b.kind) return false;
 	if (a.kind === 'state' && b.kind === 'state') return a.code === b.code;
 	if (a.kind === 'draft' && b.kind === 'draft') return a.id === b.id;

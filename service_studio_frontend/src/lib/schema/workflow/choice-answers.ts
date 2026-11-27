@@ -20,8 +20,8 @@ import type { WorkingInput, WorkingProcess, WorkingState } from '$lib/schema/wor
 export type AnswerChoice = { value: string; label: string };
 
 // The two answers to a yes or no input. The values are only used to tell the two apart in a list of choices.
-export const yesAnswer = 'yes';
-export const noAnswer = 'no';
+const yesAnswer = 'yes';
+const noAnswer = 'no';
 const yesOrNoChoices: AnswerChoice[] = [
 	{ value: yesAnswer, label: 'Yes' },
 	{ value: noAnswer, label: 'No' }

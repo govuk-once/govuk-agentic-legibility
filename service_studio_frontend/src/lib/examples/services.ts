@@ -4,8 +4,8 @@ import { groupByFolder, loadExamples } from '$lib/examples/workflows';
 // server round trip. The pattern only reaches one folder down, which is one folder per service.
 const modules = import.meta.glob('$lib/examples/services/*/*.json', { eager: true, import: 'default' });
 
-// Every service example file grouped by its folder. Exported so tests can build a broken copy of a real example.
-export const serviceExampleFolders = groupByFolder(modules);
+// Every service example file grouped by its folder.
+const serviceExampleFolders = groupByFolder(modules);
 
 // The service examples, each checked against the schema as it is loaded.
 export const serviceExamples = loadExamples(serviceExampleFolders);

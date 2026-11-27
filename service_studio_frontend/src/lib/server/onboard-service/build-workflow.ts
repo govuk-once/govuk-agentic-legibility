@@ -16,7 +16,7 @@ import type { OnboardDetails } from '$lib/server/shared/onboard-details';
  * already says where its errors go is left alone, and a process with no such call is returned as it is. The error
  * route is added here and not by the model, because where an error should lead depends on the real service.
  */
-export function withFailureRoutes(process: Process): Process {
+function withFailureRoutes(process: Process): Process {
 	const needsRoute = (state: Process['states'][string]) => state.state_type === 'api_call' && !state.catch?.length;
 	if (!Object.values(process.states).some(needsRoute)) return process;
 
