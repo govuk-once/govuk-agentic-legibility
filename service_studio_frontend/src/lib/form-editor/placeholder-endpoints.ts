@@ -3,8 +3,8 @@ import type { FlexEndpoint } from '$lib/form-editor/flex-connections';
 /*
 	A few made up endpoints for the "Find the endpoint" page to show until the real Flex list is ready. They match the
 	demo form that submits its answers, so the page can be tried from start to finish. The first expects the same body
-	fields the demo form sends, so connecting it keeps every answer. The real list, and the search
-	over it, will live in src/lib/flex, and the page will read from there instead.
+	fields the demo form sends, so connecting it keeps every answer. This file is replaced once the real Flex list, and
+	a search over it, is available.
 */
 export const placeholderEndpoints: FlexEndpoint[] = [
 	{

@@ -1,12 +1,11 @@
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk';
 import { AWS_BEARER_TOKEN_BEDROCK, AWS_REGION } from '$env/static/private';
 
-// Deliberately the legacy AnthropicBedrock client (bedrock-runtime), not AnthropicBedrockMantle
-// (the newer bedrock-mantle endpoint): bedrock-mantle for Claude Sonnet 5 is not offered in
-// eu-west-2 at all, only in a handful of other regions. Neither endpoint accepts output_config
-// for this model, so the response shape comes from the system prompt alone, not a server side
-// constraint, see generate-service.ts.
-//update this to not use the legacy AnthropicBedrock client once AWS Agent Core is implemented which can handle structured outputs
+// Uses the older AnthropicBedrock client (bedrock-runtime) and not AnthropicBedrockMantle (the newer bedrock-mantle
+// endpoint), because bedrock-mantle for Claude Sonnet 5 is not offered in eu-west-2. Neither endpoint accepts
+// output_config for this model, so the shape of the reply comes from the JSON Schema at the end of the system prompt
+// alone, which process-json-schema.ts adds. This client can be replaced once AWS Agent Core is in place, because it
+// supports structured outputs.
 export const bedrockClient = new AnthropicBedrock({
 	apiKey: AWS_BEARER_TOKEN_BEDROCK,
 	awsRegion: AWS_REGION

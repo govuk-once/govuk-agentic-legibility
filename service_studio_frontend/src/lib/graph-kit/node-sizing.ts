@@ -24,8 +24,8 @@ const MAX_WRAPPED_LINES = 2;
  * Estimates how many lines the title will wrap onto at the given width, so a node's box can be sized to
  * fit its own title rather than every node sharing one fixed height. Capped at MAX_WRAPPED_LINES because
  * the node itself line clamps at that many lines, so any additional estimated lines would not change the
- * rendered height.
- * todo: needs updating to be more scalable beyond this initial prototype
+ * rendered height. The estimate uses one average character width, which suits the prototype, and would need
+ * measuring the real text to size titles in other fonts or languages accurately.
  */
 function estimateWrappedLineCount(text: string, availableWidth: number): number {
 	if (!text) return 0;

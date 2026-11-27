@@ -1,1 +1,1 @@
-<!-- This route remains empty because its load function redirects existing entry links to the editor. -->
+<!-- This route stays empty because its load function sends the person on to the start page at /onboard. -->
