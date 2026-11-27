@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
+	import ErrorSummary from '$lib/form-editor/components/ErrorSummary.svelte';
 	import { techReviewSteps } from '$lib/form-editor/review-steps';
 	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { saveReviewedForm } from '$lib/form-editor/review-draft';
@@ -49,7 +49,6 @@
 	let problems = $state<WorkflowSettingsProblem[]>([]);
 	const problemFor = (field: WorkflowSettingsField) => problems.find((problem) => problem.field === field)?.message;
 
-	let errorSummary = $state<HTMLDivElement>();
 	let settingsForm = $state<HTMLFormElement>();
 
 	// The id of each field, so the error summary can link to it.
@@ -76,16 +75,12 @@
 
 	/**
 	 * Checks what is typed and, when every field passes, saves it into the draft. When any field has a problem nothing
-	 * is saved, and the problems are listed at the top and the list is focused. Says whether the settings were saved.
+	 * is saved, and the problems are listed at the top. Says whether the settings were saved.
 	 */
 	async function saveSettings(form: HTMLFormElement): Promise<boolean> {
 		const settings = readSettings(form);
 		problems = workflowSettingsProblems(settings);
-		if (problems.length > 0) {
-			await tick();
-			errorSummary?.focus();
-			return false;
-		}
+		if (problems.length > 0) return false;
 		await saveReviewedForm(data.draft, { stage: 'Tech review', workflow: { ...data.workflow, manifest: withWorkflowSettings(data.workflow.manifest, settings) } });
 		return true;
 	}
@@ -148,18 +143,7 @@
 	heading="Workflow settings"
 	hint="These apply to the whole journey. Individual steps can override the API call defaults later."
 >
-	{#if problems.length > 0}
-		<div class="govuk-error-summary" bind:this={errorSummary} tabindex="-1" role="alert">
-			<h2 class="govuk-error-summary__title">There is a problem</h2>
-			<div class="govuk-error-summary__body">
-				<ul class="govuk-list govuk-error-summary__list">
-					{#each problems as problem (problem.field)}
-						<li><a href="#{fieldIds[problem.field]}">{problem.message}</a></li>
-					{/each}
-				</ul>
-			</div>
-		</div>
-	{/if}
+	<ErrorSummary problems={problems.map((problem) => ({ fieldId: fieldIds[problem.field], message: problem.message }))} />
 
 	<form id="workflow-settings" novalidate onsubmit={continueToFlex} bind:this={settingsForm}>
 		<div class="govuk-grid-row">

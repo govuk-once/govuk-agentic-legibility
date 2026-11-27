@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
 	import ReviewStep from '$lib/components/ReviewStep.svelte';
+	import ErrorSummary from '$lib/form-editor/components/ErrorSummary.svelte';
 	import { ownerReviewSteps } from '$lib/form-editor/review-steps';
 	import SaveDraftButton from '$lib/form-editor/components/SaveDraftButton.svelte';
 	import { saveReviewedForm } from '$lib/form-editor/review-draft';
@@ -36,7 +36,6 @@
 	const problemFor = (field: OwnerDetailsField) => problems.find((problem) => problem.field === field)?.message;
 	const notesProblem = $derived(problemFor('agentNotes'));
 
-	let errorSummary = $state<HTMLDivElement>();
 	let detailsForm = $state<HTMLFormElement>();
 
 	// The id of each field, so the error summary can link to it.
@@ -65,17 +64,12 @@
 
 	/**
 	 * Checks what is typed and, when every field passes, saves it into the draft. When any field has a problem nothing
-	 * is saved, and the problems are listed at the top and the list is focused, as GOV.UK error summaries are. Says
-	 * whether the details were saved.
+	 * is saved, and the problems are listed at the top. Says whether the details were saved.
 	 */
 	async function saveDetails(form: HTMLFormElement): Promise<boolean> {
 		const details = readDetails(form);
 		problems = ownerDetailsProblems(details);
-		if (problems.length > 0) {
-			await tick();
-			errorSummary?.focus();
-			return false;
-		}
+		if (problems.length > 0) return false;
 		await saveReviewedForm(data.draft, { stage: 'Owner review', workflow: { ...data.workflow, manifest: withOwnerDetails(data.workflow.manifest, details) } });
 		return true;
 	}
@@ -143,18 +137,7 @@
 		<p class="govuk-body govuk-!-font-weight-bold">{hasOwner ? 'Saved' : 'Not saved yet'}</p>
 	{/snippet}
 
-	{#if problems.length > 0}
-		<div class="govuk-error-summary" bind:this={errorSummary} tabindex="-1" role="alert">
-			<h2 class="govuk-error-summary__title">There is a problem</h2>
-			<div class="govuk-error-summary__body">
-				<ul class="govuk-list govuk-error-summary__list">
-					{#each problems as problem (problem.field)}
-						<li><a href="#{fieldIds[problem.field]}">{problem.message}</a></li>
-					{/each}
-				</ul>
-			</div>
-		</div>
-	{/if}
+	<ErrorSummary problems={problems.map((problem) => ({ fieldId: fieldIds[problem.field], message: problem.message }))} />
 
 	<form id="owner-details" novalidate onsubmit={continueToReview} bind:this={detailsForm}>
 		<h2 class="govuk-heading-m govuk-!-margin-bottom-2">Owner</h2>

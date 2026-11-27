@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { tick } from 'svelte';
 	import type { StepValueProblem } from '../step-values/step-values';
+	import ErrorSummary from './ErrorSummary.svelte';
 
 	/*
 		The form inside the panel of one developer step on the step values page. It holds the step's fields, lists what
@@ -24,32 +24,17 @@
 
 	// The problems found when the button was last pressed, shown only after that.
 	let problems = $state<StepValueProblem[]>([]);
-	let errorSummary = $state<HTMLDivElement>();
 
 	const problemFor = (field: string) => problems.find((problem) => problem.field === field)?.message;
 
-	async function mark(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
+	function mark(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
 		event.preventDefault();
 		problems = onmark(new FormData(event.currentTarget));
-		if (problems.length > 0) {
-			await tick();
-			errorSummary?.focus();
-		}
 	}
 </script>
 
-{#if problems.length > 0}
-	<div class="govuk-error-summary" bind:this={errorSummary} tabindex="-1" role="alert">
-		<h3 class="govuk-error-summary__title">There is a problem</h3>
-		<div class="govuk-error-summary__body">
-			<ul class="govuk-list govuk-error-summary__list">
-				{#each problems as problem (problem.field)}
-					<li><a href="#{problem.field}">{problem.message}</a></li>
-				{/each}
-			</ul>
-		</div>
-	</div>
-{/if}
+<!-- The fields of each step use the field's name as their id. -->
+<ErrorSummary problems={problems.map((problem) => ({ fieldId: problem.field, message: problem.message }))} headingLevel={3} />
 
 <form novalidate onsubmit={mark}>
 	{@render children(problemFor)}
