@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import type { ModuleCategory, ModuleTile, PaletteTool } from '$lib/modules/module-catalogue';
 	import ModuleIcon from '$lib/modules/ModuleIcon.svelte';
 
@@ -22,26 +22,17 @@
 	// The gap kept between the tooltip and its tile, and between the tooltip and the edge of the window.
 	const gap = 10;
 
-	// The module whose tooltip is showing and where it is drawn. Only one tooltip shows at a time, so there is one
-	// tooltip element, moved to whichever tile is pointed at or has the focus. It is hidden until it has been placed.
-	// It is always replaced whole, so it is kept raw and its module stays the same object as the tile's.
-	let shown = $state.raw<{ module: ModuleTile; top: number; left: number; pointAt: number; placed: boolean }>();
-	let tooltip = $state<HTMLElement>();
+	// The module whose tooltip is showing, and the tile it belongs to. Only one tooltip shows at a time, so there is one
+	// tooltip element, moved to whichever tile is pointed at or has the focus. It is always replaced whole, so it is
+	// kept raw and its module stays the same object as the tile's.
+	let shown = $state.raw<{ module: ModuleTile; tile: HTMLElement }>();
 
-	/**
-	 * Shows the tooltip of a tile below it. The tooltip is fixed to the window and moved back inside it when the tile
-	 * is near an edge, so it can always be read. Its small point stays on the tile.
-	 */
-	async function showTooltip(module: ModuleTile, tile: HTMLElement) {
-		shown = { module, top: 0, left: 0, pointAt: 0, placed: false };
-		// The tooltip is measured once it holds the module's words, because its size depends on them.
-		await tick();
-		if (!tooltip || shown?.module !== module) return;
-		const tileBox = tile.getBoundingClientRect();
-		const { width } = tooltip.getBoundingClientRect();
-		const centre = tileBox.left + tileBox.width / 2;
-		const left = Math.min(Math.max(centre - width / 2, gap), window.innerWidth - width - gap);
-		shown = { module, top: tileBox.bottom + gap, left, pointAt: centre - left, placed: true };
+	// Where the tooltip is drawn, and the tile it was placed for. The tooltip stays hidden until it has been placed for
+	// the tile that is showing now, so it never appears for a moment where the last tile's tooltip was.
+	let placement = $state.raw<{ tile: HTMLElement; top: number; left: number; pointAt: number }>();
+
+	function showTooltip(module: ModuleTile, tile: HTMLElement) {
+		shown = { module, tile };
 	}
 
 	function hideTooltip() {
@@ -56,6 +47,21 @@
 		hideTooltip();
 		event.dataTransfer?.setData('application/x-journey-node', tool.value);
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+	}
+
+	/**
+	 * Places the tooltip below a tile. It runs once the tooltip holds the module's words, because its size depends on
+	 * them, and again whenever it moves to another tile. The tooltip is fixed to the window and moved back inside it
+	 * when the tile is near an edge, so it can always be read. Its small point stays on the tile.
+	 */
+	function placeBelow(tile: HTMLElement): Attachment<HTMLElement> {
+		return (tooltip) => {
+			const tileBox = tile.getBoundingClientRect();
+			const { width } = tooltip.getBoundingClientRect();
+			const centre = tileBox.left + tileBox.width / 2;
+			const left = Math.min(Math.max(centre - width / 2, gap), window.innerWidth - width - gap);
+			placement = { tile, top: tileBox.bottom + gap, left, pointAt: centre - left };
+		};
 	}
 </script>
 
@@ -99,14 +105,14 @@
 
 {#if shown}
 	<div
-		bind:this={tooltip}
+		{@attach placeBelow(shown.tile)}
 		class="module-menu__tooltip"
 		id="module-menu-tooltip"
 		role="tooltip"
-		style:top="{shown.top}px"
-		style:left="{shown.left}px"
-		style:--point-at="{shown.pointAt}px"
-		style:visibility={shown.placed ? 'visible' : 'hidden'}
+		style:top="{placement?.top ?? 0}px"
+		style:left="{placement?.left ?? 0}px"
+		style:--point-at="{placement?.pointAt ?? 0}px"
+		style:visibility={placement?.tile === shown.tile ? 'visible' : 'hidden'}
 	>
 		<span class="module-menu__tooltip-name">{shown.module.label}</span>
 		<span class="module-menu__tooltip-description">{shown.module.description}</span>
