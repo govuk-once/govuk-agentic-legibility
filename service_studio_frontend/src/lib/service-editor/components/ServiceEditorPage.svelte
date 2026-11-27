@@ -101,11 +101,13 @@
 		</div>
 
 		<div class="editor-page__toolbar-controls">
-			<label class="govuk-body govuk-!-margin-bottom-0 editor-page__toggle">
-				<!-- Showing or hiding the error routes arranges the graph again, so boxes dragged before are put back. -->
-				<input type="checkbox" bind:checked={showErrorRoutes} onchange={tidyUp} />
-				Show error routes
-			</label>
+			<div class="govuk-checkboxes govuk-checkboxes--small">
+				<div class="govuk-checkboxes__item">
+					<!-- Showing or hiding the error routes arranges the graph again, so boxes dragged before are put back. -->
+					<input class="govuk-checkboxes__input" id="show-error-routes" type="checkbox" bind:checked={showErrorRoutes} onchange={tidyUp} />
+					<label class="govuk-label govuk-checkboxes__label" for="show-error-routes">Show error routes</label>
+				</div>
+			</div>
 			{#if Object.keys(positions).length > 0}
 				<button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" onclick={tidyUp}>
 					Tidy up
@@ -193,15 +195,9 @@
 		gap: 20px;
 	}
 
-	.editor-page__toggle {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-
-	.editor-page__toggle input {
-		width: 20px;
-		height: 20px;
-		accent-color: #0b0c0c;
+	/* GOV.UK limits a checkbox label to the width of its group less the box, and a group in a row of controls is only
+		as wide as its words, so the label would wrap onto two lines. Each label is kept on one line instead. */
+	.editor-page__toolbar-controls :global(.govuk-checkboxes__label) {
+		white-space: nowrap;
 	}
 </style>

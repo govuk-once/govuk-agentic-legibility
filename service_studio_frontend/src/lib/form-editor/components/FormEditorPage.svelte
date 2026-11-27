@@ -144,15 +144,25 @@
 		</div>
 
 		<div class="form-editor-page__toolbar-controls">
-			<label class="govuk-body-s govuk-!-margin-bottom-0 form-editor-page__toggle">
-				<input type="checkbox" bind:checked={showHints} />
-				Show hints
-			</label>
-			<label class="govuk-body-s govuk-!-margin-bottom-0 form-editor-page__toggle">
-				<!-- Showing or hiding the developer states arranges the graph again, so boxes dragged before are put back. -->
-				<input type="checkbox" bind:checked={showDeveloperStates} onchange={() => (positions = {})} />
-				Show developer states
-			</label>
+			<div class="govuk-checkboxes govuk-checkboxes--small">
+				<div class="govuk-checkboxes__item">
+					<input class="govuk-checkboxes__input" id="show-hints" type="checkbox" bind:checked={showHints} />
+					<label class="govuk-label govuk-checkboxes__label" for="show-hints">Show hints</label>
+				</div>
+			</div>
+			<div class="govuk-checkboxes govuk-checkboxes--small">
+				<div class="govuk-checkboxes__item">
+					<!-- Showing or hiding the developer states arranges the graph again, so boxes dragged before are put back. -->
+					<input
+						class="govuk-checkboxes__input"
+						id="show-developer-states"
+						type="checkbox"
+						bind:checked={showDeveloperStates}
+						onchange={() => (positions = {})}
+					/>
+					<label class="govuk-label govuk-checkboxes__label" for="show-developer-states">Show developer states</label>
+				</div>
+			</div>
 			<a class="govuk-link govuk-body-s govuk-!-margin-bottom-0" href={resolve('/edit-form')}>Choose a different form</a>
 		</div>
 	</div>
@@ -242,15 +252,9 @@
 		gap: 15px;
 	}
 
-	.form-editor-page__toggle {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.form-editor-page__toggle input {
-		width: 16px;
-		height: 16px;
-		accent-color: #0b0c0c;
+	/* GOV.UK limits a checkbox label to the width of its group less the box, and a group in a row of controls is only
+		as wide as its words, so the label would wrap onto two lines. Each label is kept on one line instead. */
+	.form-editor-page__toolbar-controls :global(.govuk-checkboxes__label) {
+		white-space: nowrap;
 	}
 </style>
