@@ -1,15 +1,13 @@
 import { apiCallStateSchema } from '$lib/schema/workflow/api-call-state';
 import { isPlaceholderBodyValue } from '$lib/schema/workflow/placeholders';
 import { variablePathSchema } from '$lib/schema/workflow/primitives';
-import type { WorkingState } from '$lib/schema/workflow/working-process';
+import type { WorkingApiCall } from '$lib/schema/workflow/working-process';
 import type { StepValueProblem, StepValuesResult } from './step-values';
 
 /*
 	The values of an API call step that are checked at the technical review: where it sends the request, what it
 	sends, and where it saves the reply. The body is typed as JSON, as it is written in the schema.
 */
-
-type WorkingApiCall = Extract<WorkingState, { state_type: 'api_call' }>;
 
 // The methods a call can use, read from the schema so the buttons always match it.
 export const apiCallMethods = apiCallStateSchema.shape.method.options;

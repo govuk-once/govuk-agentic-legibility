@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { placeholderWaitDuration } from '$lib/schema/workflow/placeholders';
-	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import type { WorkingState, WorkingWait } from '$lib/schema/workflow/working-process';
 	import { typedDurationInWords, waitDurationField, waitDurationText, waitWithDuration } from '../step-values/wait-values';
 	import FieldError from './FieldError.svelte';
 	import StepValuesForm from './StepValuesForm.svelte';
@@ -10,7 +10,7 @@
 	*/
 	interface Props {
 		title: string;
-		state: Extract<WorkingState, { state_type: 'wait' }>;
+		state: WorkingWait;
 		// Saves the step with its checked duration and marks it as checked.
 		onchecked: (state: WorkingState) => void;
 		// Closes the panel without saving.

@@ -1,15 +1,13 @@
 import { describeDuration } from '$lib/process-graph/describe-value';
 import type { WaitState } from '$lib/schema/workflow/states';
 import { durationSchema, variablePathSchema } from '$lib/schema/workflow/primitives';
-import type { WorkingState } from '$lib/schema/workflow/working-process';
+import type { WorkingWait } from '$lib/schema/workflow/working-process';
 import type { StepValuesResult } from './step-values';
 
 /*
 	The one value of a wait step: how long it waits. It is written as a duration such as PT30M, or as the name of a
 	saved value that holds the duration, such as wait_time.
 */
-
-type WorkingWait = Extract<WorkingState, { state_type: 'wait' }>;
 
 // The id of the duration field, which a problem names so the error summary can link to it.
 export const waitDurationField = 'wait-duration';

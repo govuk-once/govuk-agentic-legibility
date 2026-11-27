@@ -1,6 +1,6 @@
 import { expressionSchema, type Expression } from '$lib/schema/workflow/expression';
 import { variablePathSchema } from '$lib/schema/workflow/primitives';
-import type { WorkingState } from '$lib/schema/workflow/working-process';
+import type { WorkingAssign } from '$lib/schema/workflow/working-process';
 import type { StepValueProblem, StepValuesResult } from './step-values';
 
 /*
@@ -10,8 +10,6 @@ import type { StepValueProblem, StepValuesResult } from './step-values';
 	into it, cannot be changed anywhere in Service Studio, so a new kind could break the journey with no way to put it
 	right. Only the parts of the value can be changed.
 */
-
-type WorkingAssign = Extract<WorkingState, { state_type: 'assign' }>;
 
 // The kinds of value an assign can set. Two pairs of operations are one kind each, because they take the same parts.
 export type AssignKind = 'literal' | 'copy' | 'add' | 'date_offset' | 'now_plus' | 'append' | 'date_compare';

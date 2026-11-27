@@ -5,15 +5,15 @@
 	import { isInModule } from '$lib/modules/module-group';
 	import type { TargetOption } from '$lib/process-graph/state-rows';
 	import { descriptionOf, nothingYet, withChoiceTargets, withTitleAndDescription } from '$lib/schema/workflow/edit-state';
-	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import type { WorkingChoice, WorkingInput, WorkingState } from '$lib/schema/workflow/working-process';
 	import { decisionRowLabels, ruleRowLabels } from '../decision-rows';
 
 	// The input a decision follows, with the number and title it has on the graph.
-	type InputBefore = { input: Extract<WorkingState, { state_type: 'input' }>; number: number; title: string };
+	type InputBefore = { input: WorkingInput; number: number; title: string };
 
 	interface Props {
 		// The decision as it is now. The card starts from it and only changes a copy.
-		currentState: Extract<WorkingState, { state_type: 'choice' }>;
+		currentState: WorkingChoice;
 		// The title the decision has in the lists of choices. It is only read out to a screen reader, because the title
 		// field on the card already shows it.
 		title: string;

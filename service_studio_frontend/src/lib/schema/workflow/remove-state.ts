@@ -1,7 +1,7 @@
 import { routesInto } from './edit-process';
 import type { EditResult } from './edit-journey';
 import { hasNext, replaceState, withoutNext } from './edit-state';
-import type { WorkingProcess, WorkingState } from './working-process';
+import type { WorkingChoice, WorkingProcess, WorkingState } from './working-process';
 
 /*
 	Taking steps and lines out of the journey. Only what the person chose is taken out. Nothing is joined up or
@@ -64,7 +64,7 @@ function withoutOptionalRoute(state: WorkingState, path: (string | number)[]): W
  * Returns a copy of a decision in which one way out leads nowhere. The way out is named by where it sits, a rule
  * or the default. A rule keeps its test and its place, so the decision still knows which answer the way out is for.
  */
-function withoutWayOut(choice: Extract<WorkingState, { state_type: 'choice' }>, path: (string | number)[]): WorkingState {
+function withoutWayOut(choice: WorkingChoice, path: (string | number)[]): WorkingState {
 	if (path[0] === 'default') {
 		const { default: _taken, ...rest } = choice;
 		return rest;

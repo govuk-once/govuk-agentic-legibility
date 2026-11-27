@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import type { WorkingApiCall, WorkingState } from '$lib/schema/workflow/working-process';
 	import { apiCallFields, apiCallMethods, apiCallValuesOf, apiCallWithValues, savedAnswerExample, type ApiCallValues } from '../step-values/api-call-values';
 	import FieldError from './FieldError.svelte';
 	import StepValuesForm from './StepValuesForm.svelte';
@@ -13,7 +13,7 @@
 	interface Props {
 		code: string;
 		title: string;
-		state: Extract<WorkingState, { state_type: 'api_call' }>;
+		state: WorkingApiCall;
 		// Saves the step with its checked values and marks it as checked.
 		onchecked: (state: WorkingState) => void;
 		// Closes the panel without saving.

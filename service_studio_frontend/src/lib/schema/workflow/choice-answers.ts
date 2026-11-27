@@ -1,7 +1,7 @@
 import type { Condition } from './condition';
 import { routesInto } from './edit-process';
 import type { InputState } from './input-state';
-import type { WorkingProcess, WorkingState } from './working-process';
+import type { WorkingInput, WorkingProcess, WorkingState } from './working-process';
 
 /*
 	How a decision is tied to the answers of the input before it. A decision sends the journey one way or
@@ -26,9 +26,6 @@ const yesOrNoChoices: AnswerChoice[] = [
 	{ value: yesAnswer, label: 'Yes' },
 	{ value: noAnswer, label: 'No' }
 ];
-
-// An input as the editor holds it, which may not continue anywhere yet.
-type WorkingInput = Extract<WorkingState, { state_type: 'input' }>;
 
 /**
  * Finds the state a decision follows, with its code. There is none when the decision is not reached by exactly one

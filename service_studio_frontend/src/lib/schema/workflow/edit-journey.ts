@@ -1,7 +1,7 @@
 import { addState, removeUnreachableStates, setStart, uniqueStateCode } from './edit-process';
 import { hasNext, replaceState } from './edit-state';
 import { defaultEndStatus, placeholderInput, placeholderOutput, undecidedRule } from './placeholders';
-import type { WorkingProcess, WorkingState } from './working-process';
+import type { WorkingChoice, WorkingProcess, WorkingState } from './working-process';
 import { routesOf } from './routes';
 
 /*
@@ -44,9 +44,6 @@ export function routeToTargets(process: WorkingProcess, targets: string[]): { pr
 	const added = addState(process, newDecisionCode, decision);
 	return { process: added.process, entry: added.code };
 }
-
-// A decision as the editor holds it, where a way out may lead nowhere yet.
-type WorkingChoice = Extract<WorkingState, { state_type: 'choice' }>;
 
 /**
  * Returns a copy of a decision with one more state to lead to. A way out that leads nowhere yet is used first,

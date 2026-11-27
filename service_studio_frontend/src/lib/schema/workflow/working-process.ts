@@ -25,6 +25,14 @@ type WithOptionalWaysOut<Each> = Each extends { rules: Array<infer Rule>; defaul
 // Any one of the eight states, as the editor holds it.
 export type WorkingState = WithOptionalWaysOut<WithOptionalNext<State>>;
 
+// The kinds of state the editors work on one at a time, as the editor holds them. Each is named once here so every
+// file that edits one kind uses the same name.
+export type WorkingInput = Extract<WorkingState, { state_type: 'input' }>;
+export type WorkingChoice = Extract<WorkingState, { state_type: 'choice' }>;
+export type WorkingApiCall = Extract<WorkingState, { state_type: 'api_call' }>;
+export type WorkingAssign = Extract<WorkingState, { state_type: 'assign' }>;
+export type WorkingWait = Extract<WorkingState, { state_type: 'wait' }>;
+
 // A process as the editor holds it, where a state may not say where it continues to yet. The start may be missing
 // too, which is how the process is held after the state it started at is taken out and before a new one is chosen.
 export type WorkingProcess = Omit<Process, 'states' | 'start'> & { start?: string; states: Record<string, WorkingState> };

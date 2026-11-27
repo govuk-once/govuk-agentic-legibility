@@ -1,6 +1,6 @@
 import { describeCondition } from '$lib/process-graph/describe-value';
 import { answerChoices, answerOfCondition } from '$lib/schema/workflow/choice-answers';
-import type { WorkingState } from '$lib/schema/workflow/working-process';
+import type { WorkingChoice, WorkingInput } from '$lib/schema/workflow/working-process';
 
 /*
 	The words shown beside each way out of a decision on its card. A decision has one way out for each of its rules
@@ -17,9 +17,6 @@ import type { WorkingState } from '$lib/schema/workflow/working-process';
 	5. A decision with one rule, that a typed answer is not empty, decides on whether the person answered or left
 	   the question blank, so its ways out are named that way.
 */
-
-type WorkingChoice = Extract<WorkingState, { state_type: 'choice' }>;
-type WorkingInput = Extract<WorkingState, { state_type: 'input' }>;
 
 // The most characters of an answer that are shown, so a long option does not fill the card.
 const answerLabelLength = 40;

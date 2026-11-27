@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { WorkingState } from '$lib/schema/workflow/working-process';
+	import type { WorkingAssign, WorkingState } from '$lib/schema/workflow/working-process';
 	import {
 		assignKindLabels,
 		assignLinesOf,
@@ -18,7 +18,7 @@
 	*/
 	interface Props {
 		title: string;
-		state: Extract<WorkingState, { state_type: 'assign' }>;
+		state: WorkingAssign;
 		// Saves the step with its checked values and marks it as checked.
 		onchecked: (state: WorkingState) => void;
 		// Closes the panel without saving.
