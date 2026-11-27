@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 	chrome and the example loader.
 */
 
-type Area = 'shared' | 'service' | 'form' | 'old';
+type Area = 'shared' | 'service' | 'form';
 
 // The first matching prefix decides the area. The order matters only where one prefix sits inside another.
 const areaPrefixes: [string, Area][] = [
@@ -22,14 +22,7 @@ const areaPrefixes: [string, Area][] = [
 	['src/lib/server/onboard-form/', 'form'],
 	['src/routes/onboard/form/', 'form'],
 	['src/routes/tech-review/form/', 'form'],
-	['src/routes/owner-review/form/', 'form'],
-	['src/lib/components-old/', 'old'],
-	['src/lib/graph-old/', 'old'],
-	['src/lib/schema-old/', 'old'],
-	['src/lib/examples/old/', 'old'],
-	['src/lib/server/onboard-old/', 'old'],
-	['src/routes/edit-old/', 'old'],
-	['src/routes/onboard-old/', 'old']
+	['src/routes/owner-review/form/', 'form']
 ];
 
 // What each area may import from. The shared area depends on nothing but itself, and no editor depends
@@ -37,8 +30,7 @@ const areaPrefixes: [string, Area][] = [
 const mayImport: Record<Area, Area[]> = {
 	shared: ['shared'],
 	service: ['shared', 'service'],
-	form: ['shared', 'form'],
-	old: ['shared', 'old']
+	form: ['shared', 'form']
 };
 
 const root = process.cwd();
@@ -84,7 +76,7 @@ describe('folder boundaries', () => {
 
 	it('finds the files of each area', () => {
 		const areas = new Set(files.map(areaOf));
-		expect([...areas].sort()).toEqual(expect.arrayContaining(['old', 'service', 'shared']));
+		expect([...areas].sort()).toEqual(['form', 'service', 'shared']);
 	});
 
 	it('lets no file import from an area it may not use', () => {
